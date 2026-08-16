@@ -1,0 +1,2057 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>TracciaN — test n-back</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1C2430">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TracciaN">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --ink:#1C2430;
+    --paper:#F6F4EF;
+    --paper-dim:#EAE6DC;
+    --focus:#212C39;
+    --focus-2:#2B3A4A;
+    --signal:#4C7A6B;
+    --signal-soft:#DCE8E3;
+    --alert:#B5544A;
+    --alert-soft:#F2DEDB;
+    --accent:#D9A441;
+    --line:#D8D2C4;
+    --ink-soft:#5B6472;
+    --white:#FFFFFF;
+    --radius:14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; height:100%; background:var(--paper); color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif; overscroll-behavior:none; user-select:none;}
+  #app{min-height:100vh; display:flex; flex-direction:column;}
+
+  .brand{display:flex; align-items:baseline; gap:10px; padding:22px 28px 6px;}
+  .brand .mark{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; letter-spacing:-0.02em;}
+  .brand .mark span{color:var(--accent);}
+  .brand .sub{font-size:12.5px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace;}
+
+  .screen{flex:1; display:flex; flex-direction:column; padding:0 28px 28px;}
+  .card{background:var(--white); border:1px solid var(--line); border-radius:var(--radius); padding:22px;}
+
+  h2{font-family:'Space Grotesk',sans-serif; font-size:19px; margin:0 0 4px; letter-spacing:-0.01em;}
+  .hint{font-size:12.5px; color:var(--ink-soft); margin:0 0 16px; line-height:1.5;}
+
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media (max-width:720px){.grid{grid-template-columns:1fr;}}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--ink-soft); margin-bottom:8px;}
+  .seg{display:flex; flex-wrap:wrap; gap:8px;}
+  .seg button{border:1.5px solid var(--line); background:var(--paper); color:var(--ink); font-family:'Inter';
+    font-size:13.5px; font-weight:600; padding:10px 14px; border-radius:10px; cursor:pointer; transition:.15s;}
+  .seg button.on{background:var(--focus); border-color:var(--focus); color:var(--white);}
+  .seg button:active{transform:scale(.96);}
+
+  .stepper{display:flex; align-items:center; gap:14px;}
+  .stepper button{width:38px; height:38px; border-radius:10px; border:1.5px solid var(--line); background:var(--paper);
+    font-size:18px; font-weight:700; cursor:pointer; color:var(--ink);}
+  .stepper .val{font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:700; min-width:74px; text-align:center;}
+
+  .seqpreview{font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700; background:var(--paper-dim);
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px;}
+
+    font-family:'Inter'; font-size:14px; background:var(--paper); color:var(--ink);}
+  input:focus{outline:2px solid var(--accent); outline-offset:1px;}
+
+  .primary{background:var(--focus); color:var(--white); border:none; border-radius:12px; padding:16px 22px;
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16px; cursor:pointer; width:100%;}
+  .primary:active{transform:scale(.985);}
+  .ghost{background:transparent; color:var(--ink); border:1.5px solid var(--line); border-radius:12px; padding:13px 18px;
+    font-family:'Inter'; font-weight:600; font-size:14px; cursor:pointer;}
+  .rowbtns{display:flex; gap:12px; margin-top:6px;}
+
+  .topbar{display:flex; align-items:center; justify-content:space-between; padding:14px 22px; background:var(--focus); color:var(--white);}
+  .topbar .info{font-family:'JetBrains Mono',monospace; font-size:12.5px; opacity:.85;}
+  .topbar button{background:rgba(255,255,255,.12); color:var(--white); border:1px solid rgba(255,255,255,.25);
+    border-radius:8px; padding:8px 12px; font-size:12.5px; cursor:pointer;}
+
+  .stage{flex:1; background:var(--focus); background:linear-gradient(180deg,var(--focus),var(--focus-2));
+    display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; min-height:60vh;}
+  .stimulus{font-family:'Space Grotesk',sans-serif; font-weight:700; color:var(--white); font-size:min(22vw,180px);
+    line-height:1; letter-spacing:-0.01em;}
+  .stimulus.symbolwrap{font-size:min(18vw,150px);}
+  .stimulus.word{font-size:min(11vw,64px);}
+  .colorcircle{width:min(45vw,220px); height:min(45vw,220px); border-radius:50%; box-shadow:0 8px 30px rgba(0,0,0,.35);}
+  .neglect-board{flex:1; position:relative; background:var(--paper); min-height:60vh;}
+  .neglect-item{position:absolute; width:9%; aspect-ratio:1; max-width:64px; transform:translate(-50%,-50%);
+    display:flex; align-items:center; justify-content:center; border-radius:10px; background:var(--white);
+    border:1.5px solid var(--line); font-family:'Space Grotesk',sans-serif; font-weight:700;
+    font-size:clamp(14px,3vw,22px); color:var(--ink); cursor:pointer; user-select:none; touch-action:manipulation;}
+  .neglect-item.found{background:var(--signal-soft); border-color:var(--signal); opacity:.45;}
+  .neglect-item.falsetap{background:var(--alert-soft); border-color:var(--alert); opacity:.6;}
+  .blank{color:rgba(255,255,255,.18); font-size:min(14vw,110px); font-family:'Space Grotesk',sans-serif;}
+
+  .audio-pulse{width:120px; height:120px; border-radius:50%; border:3px solid var(--accent);
+    display:flex; align-items:center; justify-content:center; font-size:44px;}
+  .audio-pulse.active{animation:pulse .5s ease-out;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(217,164,65,.55);}100%{box-shadow:0 0 0 26px rgba(217,164,65,0);}}
+
+  .trail{display:flex; gap:6px; position:absolute; bottom:22px; left:0; right:0; justify-content:center; flex-wrap:wrap; padding:0 12px;}
+  .trail .chip{width:26px; height:26px; border-radius:7px; background:rgba(255,255,255,.12); border:2px solid transparent;}
+  .trail .chip.hit{border-color:var(--signal); background:rgba(76,122,107,.5);}
+  .trail .chip.err{border-color:var(--alert); background:rgba(181,84,74,.5);}
+  .trail .chip.pend{border-color:rgba(255,255,255,.3);}
+
+  .respond{padding:18px 22px 26px; background:var(--focus-2); display:flex; gap:14px;}
+  button{touch-action:manipulation; cursor:pointer;}
+  @media (hover:hover){
+    .seg button:hover{border-color:var(--ink-soft);}
+    .primary:hover{filter:brightness(1.1);}
+    .ghost:hover{background:var(--paper-dim);}
+    .tapbtn:hover{filter:brightness(1.08);}
+    .topbar button:hover{background:rgba(255,255,255,.2);}
+    .stepper button:hover{background:var(--paper-dim);}
+    .navlinks .link:hover, .navlinks a:hover{color:var(--ink);}
+    .histrow > div:first-child:hover{opacity:.75;}
+  }
+  /* Su schermi larghi (desktop) centra i contenuti invece di stenderli
+     a piena larghezza — l'app resta comunque a piena larghezza su tablet. */
+  @media (min-width:820px){
+    .brand, .screen{max-width:960px; margin-left:auto; margin-right:auto; width:100%;}
+    .respond{max-width:960px; margin-left:auto; margin-right:auto;}
+    .grid{grid-template-columns:repeat(auto-fit, minmax(240px,1fr));}
+  }
+  .tapbtn{flex:1; padding:22px; border-radius:16px; border:none; font-family:'Space Grotesk',sans-serif;
+    font-weight:700; font-size:18px; cursor:pointer; letter-spacing:.01em; transition:transform .08s, filter .08s;}
+  .tapbtn.match{background:var(--accent); color:var(--ink);}
+  .tapbtn.nomatch{background:rgba(255,255,255,.1); color:var(--white); border:1.5px solid rgba(255,255,255,.25);}
+  .tapbtn.full{flex:1 1 100%;}
+  .tapbtn:active, .tapbtn.tapped{transform:scale(.96); filter:brightness(1.18);}
+  .stopcue-full{width:min(70vw,320px); height:min(70vw,320px); border-radius:50%; background:var(--alert);
+    display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk',sans-serif;
+    font-weight:700; font-size:min(12vw,56px); letter-spacing:.06em; animation:stoppulse .22s ease-out;}
+  @keyframes stoppulse{0%{transform:scale(.7); opacity:.4;}100%{transform:scale(1); opacity:1;}}
+
+  .flash{position:fixed; inset:0; pointer-events:none; opacity:0; transition:opacity .25s;}
+  .flash.on{opacity:1;}
+
+  table{width:100%; border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:13.5px;}
+  td,th{padding:9px 6px; border-bottom:1px solid var(--line); text-align:left;}
+  th{color:var(--ink-soft); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em;}
+  .metricgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin:14px 0 20px;}
+  .metric{background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:14px;}
+  .metric .n{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:24px;}
+  .metric .l{font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; margin-top:2px;}
+
+  .histrow{display:flex; justify-content:space-between; align-items:center; padding:12px 4px; border-bottom:1px solid var(--line); font-size:13.5px;}
+  .histrow .l{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-soft);}
+  .empty{color:var(--ink-soft); font-size:13.5px; padding:20px 4px; text-align:center;}
+  .navlinks{display:flex; gap:10px; margin-top:16px;}
+  .navlinks a, .navlinks .link{color:var(--ink-soft); font-size:12.5px; text-decoration:underline; cursor:pointer; background:none; border:none; font-family:'Inter';}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- data pools ---------- */
+  const POOLS = {
+    lettere: ['B','C','D','F','G','H','L','M','N','P','R','S','T','V'],
+    numeri:  ['1','2','3','4','5','6','7','8','9'],
+    simboli: ['●','■','▲','◆','★','✚','⬟','⬤'],
+    parole:  ['CASA','LIBRO','SOLE','MARE','TAVOLO','FIORE','GATTO','PORTA','STRADA','NUVOLA','PANE','FUOCO','ALBERO','CHIAVE','SEDIA','LUNA'],
+    suoni:   [
+      {f:220,type:'sine',icon:'A'},{f:294,type:'square',icon:'B'},{f:349,type:'sine',icon:'C'},
+      {f:392,type:'triangle',icon:'D'},{f:466,type:'square',icon:'E'},{f:523,type:'triangle',icon:'F'}
+    ],
+    colori: [
+      {hex:'#D64545', icon:'Rosso'}, {hex:'#3B72D6', icon:'Blu'}, {hex:'#3FA34D', icon:'Verde'},
+      {hex:'#E0B12D', icon:'Giallo'}, {hex:'#8E4EC6', icon:'Viola'}, {hex:'#E07B2D', icon:'Arancione'},
+      {hex:'#2DB6C7', icon:'Ciano'}, {hex:'#D6469B', icon:'Magenta'}
+    ]
+  };
+  const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori'};
+  const STOP_TONE = {f:140, type:'square'}; // segnale di stop uditivo, sempre lo stesso, distinto dagli stimoli
+  const EXERCISES = {
+    nback:      {label:'N-back classico',        usesStimType:true,  usesTargetSeq:false, family:'signal',
+      instructions:c=> 'Vedrai una serie di '+STIM_LABELS[c.stimType].toLowerCase()+', uno alla volta. Tocca il pulsante dorato ogni volta che lo stimolo è uguale a quello di '+c.nLevel+' posizioni prima. Se non è uguale, non toccare nulla.'},
+    sequenza:   {label:'Sequenza bersaglio',      usesStimType:true,  usesTargetSeq:true,  family:'signal',
+      instructions:c=> 'Vedrai una serie di stimoli. Tocca il pulsante dorato solo appena si è appena conclusa la sequenza '+c.targetSeq.map(seqLabel).join(' poi ')+'. Per tutti gli altri stimoli non toccare nulla.'},
+    gonogo:     {label:'Go/No-Go',                usesStimType:true,  usesTargetSeq:true,  family:'signal',
+      instructions:c=> 'Tocca il pulsante ogni volta che appare uno stimolo, tranne quando appare '+seqLabel(c.targetSeq[0])+': in quel caso non toccare nulla.'},
+    stopsignal: {label:'Stop-Signal',             usesStimType:true,  usesTargetSeq:false, family:'signal',
+      instructions:c=> 'Tocca il pulsante il più velocemente possibile ogni volta che appare uno stimolo. A volte, subito dopo, comparirà la scritta STOP: in quel caso cerca di non toccare, anche se avevi già iniziato.'},
+    ant:        {label:'Attenzione (tipo ANT)',   usesStimType:false, usesTargetSeq:false, family:'choice',
+      instructions:()=> 'Vedrai una freccia al centro dello schermo, a volte circondata da altre frecce. Indica la direzione della freccia centrale, il più velocemente possibile, toccando il pulsante sinistra o destra.'},
+    switching:  {label:'Task-switching',          usesStimType:false, usesTargetSeq:false, family:'choice',
+      instructions:c=>{ const rs=SWITCH_RULESETS[c.switchMaterial]; return 'Vedrai '+(c.switchMaterial==='numeri'?'un numero':c.switchMaterial==='lettere'?'una lettera':'un colore')+', con sopra un\'indicazione che cambia: a volte devi classificarlo come "'+rs.ruleA.label+'", altre volte come "'+rs.ruleB.label+'". Segui l\'indicazione mostrata in quel momento.'; }},
+    dualtask:   {label:'Doppio compito',          usesStimType:false, usesTargetSeq:false, family:'dual',
+      instructions:c=> 'Presta attenzione sia a ciò che vedi sia a ciò che senti. Tocca "target visivo" quando lo stimolo visivo si ripete rispetto a quello precedente, e "target uditivo" quando il suono si ripete.'},
+    neglect:    {label:'Cancellazione (neglect)',  usesStimType:true,  usesTargetSeq:true,  family:'spatial',
+      instructions:c=> 'Sullo schermo compariranno molti '+STIM_LABELS[c.stimType].toLowerCase()+'. Tocca SOLO quelli uguali a: '+c.targetSeq.map(seqLabel).join(', ')+'. Ignora tutti gli altri. Vai avanti finché non li hai trovati tutti, poi passa alla tavola successiva.'}
+  };
+
+  /* ---------- state ---------- */
+  let cfg = {
+    stimType:'lettere', nLevel:2, isi:2200, stimDuration:600, trials:24,
+    targetRate:0.32, respMode:'paziente', voice:false, patientCode:'', notes:'',
+    taskMode:'nback', targetSeq: POOLS.lettere.slice(0,3),
+    ssd:250, ssdStep:50, // solo per Stop-Signal
+    adaptive:false, // solo per N-back: titolazione automatica del livello
+    switchMaterial:'numeri', // solo per Task-switching
+    dualVisual:'lettere', // solo per Doppio compito (canale visivo; l'uditivo è sempre "suoni")
+    neglectDistribution:'simmetrica', neglectTimeLimit:60, neglectBoardSize:40 // solo per Cancellazione
+  };
+  function defaultTargetSeq(stimType, len){
+    len = len || (cfg.targetSeq ? cfg.targetSeq.length : 3);
+    const pool = POOLS[stimType];
+    const out = [];
+    for(let i=0;i<len;i++) out.push(pool[i % pool.length]);
+    return out;
+  }
+
+  /* ---------- training presets (saved settings, local device) ---------- */
+  // Salva solo i parametri del protocollo, non dati di sessione (codice
+  // paziente/note) — un preset è "come allenare", non "chi" o "quando".
+  function presetCfgOf(c){
+    return {
+      stimType:c.stimType, taskMode:c.taskMode, nLevel:c.nLevel,
+      targetSeq: (EXERCISES[c.taskMode].usesTargetSeq) ? c.targetSeq.map(seqLabel) : null,
+      trials:c.trials, isi:c.isi, stimDuration:c.stimDuration, targetRate:c.targetRate,
+      respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, adaptive:c.adaptive,
+      switchMaterial:c.switchMaterial, dualVisual:c.dualVisual,
+      neglectDistribution:c.neglectDistribution, neglectTimeLimit:c.neglectTimeLimit, neglectBoardSize:c.neglectBoardSize
+    };
+  }
+  function listPresets(){
+    const out = [];
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i);
+        if(k && k.indexOf('traccian:preset:')===0){
+          try{ out.push(JSON.parse(localStorage.getItem(k))); }catch(e){}
+        }
+      }
+    }catch(e){}
+    out.sort((a,b)=> b.savedAt - a.savedAt);
+    return out;
+  }
+  function savePreset(name){
+    const id = Date.now()+'-'+Math.random().toString(36).slice(2,7);
+    const rec = {id, name, savedAt: Date.now(), cfg: presetCfgOf(cfg)};
+    try{ localStorage.setItem('traccian:preset:'+id, JSON.stringify(rec)); }catch(e){}
+  }
+  function deletePreset(id){ try{ localStorage.removeItem('traccian:preset:'+id); }catch(e){} }
+  function loadPreset(p){
+    const pc = p.cfg;
+    cfg.stimType = pc.stimType; cfg.taskMode = pc.taskMode; cfg.nLevel = pc.nLevel;
+    cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
+    cfg.targetRate = pc.targetRate; cfg.respMode = pc.respMode; cfg.voice = pc.voice;
+    cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.adaptive = !!pc.adaptive;
+    cfg.switchMaterial = pc.switchMaterial || 'numeri'; cfg.dualVisual = pc.dualVisual || 'lettere';
+    cfg.neglectDistribution = pc.neglectDistribution || 'simmetrica'; cfg.neglectTimeLimit = pc.neglectTimeLimit!=null?pc.neglectTimeLimit:60; cfg.neglectBoardSize = pc.neglectBoardSize || 40;
+    cfg.targetSeq = (EXERCISES[pc.taskMode] && EXERCISES[pc.taskMode].usesTargetSeq && pc.targetSeq && pc.targetSeq.length)
+      ? pc.targetSeq.map(v=> POOLS[pc.stimType].find(item=> seqLabel(item)===v) || v)
+      : defaultTargetSeq(pc.stimType, pc.taskMode==='gonogo' ? 1 : 3);
+    render();
+  }
+  function presetSection(){
+    const wrap = el('div',{class:'field'});
+    wrap.appendChild(el('label',{},['Preset di allenamento salvati']));
+    const list = listPresets();
+    if(!list.length){
+      wrap.appendChild(el('p',{class:'hint'},['Nessun preset salvato. Imposta i parametri qui sotto e salva la combinazione che usi più spesso, per richiamarla in un tocco la prossima volta.']));
+    } else {
+      list.forEach(p=>{
+        const exl = EXERCISES[p.cfg.taskMode] ? EXERCISES[p.cfg.taskMode].label : p.cfg.taskMode;
+        const stimPart = (EXERCISES[p.cfg.taskMode] && EXERCISES[p.cfg.taskMode].usesStimType) ? STIM_LABELS[p.cfg.stimType]+' · ' : '';
+        const desc = stimPart+exl+(p.cfg.taskMode==='nback' ? ' n='+p.cfg.nLevel : '')+' · '+p.cfg.trials+' prove';
+        const row = el('div',{class:'histrow'},[
+          el('div',{style:'cursor:pointer; flex:1;', onclick:()=>loadPreset(p)},[
+            el('div',{},[p.name]),
+            el('div',{class:'l'},[desc])
+          ]),
+          el('button',{class:'ghost', onclick:()=>{ if(confirm('Eliminare il preset "'+p.name+'"?')){ deletePreset(p.id); render(); } }},['× elimina'])
+        ]);
+        wrap.appendChild(row);
+      });
+    }
+    wrap.appendChild(el('button',{class:'ghost', onclick:()=>{
+      const suggested = (EXERCISES[cfg.taskMode].usesStimType?STIM_LABELS[cfg.stimType]+' — ':'')+EXERCISES[cfg.taskMode].label+(cfg.taskMode==='nback'?' n='+cfg.nLevel:'');
+      const name = prompt('Nome per questo preset:', suggested);
+      if(name && name.trim()){ savePreset(name.trim()); render(); }
+    }},['+ Salva impostazioni attuali come preset']));
+    return wrap;
+  }
+
+  let view = 'setup';
+  let session = null; // active run state
+  let lastResult = null;
+  let historyCache = null;
+
+  // ---- cloud sync (optional, Supabase) ----
+  let cloudCfg = { url: localStorage.getItem('traccian:cloud:url')||'', key: localStorage.getItem('traccian:cloud:key')||'' };
+  let sb = null;
+  let cloudUser = null;
+  let cloudBusy = false;
+  let patientProfile = null; // riga di "pazienti" se l'utente loggato è un paziente, altrimenti null (operatore)
+  let cloudLoginMode = 'operatore'; // 'operatore' | 'paziente' — quale form di accesso mostrare
+  let editingPatient = null; // riga paziente correntemente aperta in "Gestisci programma"
+
+  const root = document.getElementById('app');
+  let taskDom = null; // persistent DOM refs while view==='task', so buttons never get torn down mid-tap
+  function render(){
+    if(view==='task'){
+      const isNeglect = cfg.taskMode==='neglect';
+      if(!taskDom){ root.innerHTML=''; taskDom = isNeglect ? mountNeglectScreen(root) : mountTaskScreen(root); }
+      isNeglect ? updateNeglectScreen() : updateTaskScreen();
+      return;
+    }
+    taskDom = null;
+    root.innerHTML=''; SCREENS[view](root);
+  }
+
+  /* ---------- helpers ---------- */
+  function el(tag, attrs, children){
+    const e = document.createElement(tag);
+    if(attrs) for(const k in attrs){
+      if(k==='class') e.className = attrs[k];
+      else if(k==='html') e.innerHTML = attrs[k];
+      else if(k.startsWith('on')) e.addEventListener(k.slice(2), attrs[k]);
+      else if(k==='disabled'){ if(attrs[k]) e.setAttribute('disabled','disabled'); }
+      else e.setAttribute(k, attrs[k]);
+    }
+    (children||[]).forEach(c=> e.appendChild(typeof c==='string'? document.createTextNode(c): c));
+    return e;
+  }
+  function fmtTime(ms){ const s = Math.round(ms/1000); const m=Math.floor(s/60); return (m>0? m+'m ':'')+(s%60)+'s'; }
+  function homeView(){ return patientProfile ? 'patientHome' : 'setup'; }
+  function fmtPct(x){ return isFinite(x) ? Math.round(x*100)+'%' : '—'; }
+  function todayStr(){ const d=new Date(); return d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}); }
+
+  /* ---------- audio ---------- */
+  let actx = null;
+  function getCtx(){ if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)(); return actx; }
+  function playTone(tone, dur){
+    try{
+      const ctx = getCtx(); const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = tone.type; o.frequency.value = tone.f;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+dur/1000);
+      o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur/1000+0.02);
+    }catch(e){}
+  }
+  function speak(text){
+    try{
+      if(!window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'it-IT'; u.rate = 0.95;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  /* ---------- sequence generation ---------- */
+  function buildSequence(){
+    switch(cfg.taskMode){
+      case 'sequenza': return buildSequenceTarget();
+      case 'gonogo': return buildGoNoGo();
+      case 'stopsignal': return buildStopSignal();
+      case 'ant': return buildANT();
+      case 'switching': return buildSwitching();
+      case 'dualtask': return buildDualTask();
+      default: return buildSequenceNback();
+    }
+  }
+  function buildSequenceNback(){
+    const pool = POOLS[cfg.stimType];
+    const seq = [];
+    function runLen(i, val){ // quante ripetizioni consecutive di val terminerebbero in i
+      let run = 1;
+      for(let k=i-1;k>=0;k--){ if(seq[k].val===val) run++; else break; }
+      return run;
+    }
+    for(let i=0;i<cfg.trials;i++){
+      let makeTarget = i>=cfg.nLevel && Math.random() < cfg.targetRate;
+      let val;
+      if(makeTarget){
+        const cand = seq[i-cfg.nLevel].val;
+        if(pool.length>1 && runLen(i,cand) > 3){ makeTarget = false; } // il vincolo anti-ripetizione ha priorità
+        else val = cand;
+      }
+      if(!makeTarget){
+        do{ val = pool[Math.floor(Math.random()*pool.length)]; }
+        while(pool.length>1 && ((i>=cfg.nLevel && val===seq[i-cfg.nLevel].val) || runLen(i,val)>3));
+      }
+      seq.push({val, isTarget: i>=cfg.nLevel ? makeTarget : false, valid:i>=cfg.nLevel});
+    }
+    return seq;
+  }
+  // Target-sequence mode: respond only when the trailing stimuli exactly
+  // match a fixed, custom-built sequence (e.g. 1 → 2 → 3). Everything else
+  // is a non-target, regardless of how "close" it looks.
+  function buildSequenceTarget(){
+    const pool = POOLS[cfg.stimType];
+    const target = cfg.targetSeq;
+    const len = target.length;
+    const raw = [];
+    for(let i=0;i<cfg.trials;i++) raw.push(pool[Math.floor(Math.random()*pool.length)]);
+    for(let i=len-1;i<cfg.trials;i++){
+      if(Math.random() < cfg.targetRate){
+        for(let j=0;j<len;j++) raw[i-len+1+j] = target[j];
+      }
+    }
+    return raw.map((val,i)=>{
+      let isTarget = false;
+      if(i>=len-1){
+        isTarget = true;
+        for(let j=0;j<len;j++){ if(raw[i-len+1+j] !== target[j]){ isTarget=false; break; } }
+      }
+      return {val, isTarget, valid:i>=len-1};
+    });
+  }
+  // Go/No-Go: isTarget qui significa "va data risposta" (stimolo go).
+  // Lo stimolo no-go è il singolo elemento scelto in cfg.targetSeq[0].
+  function buildGoNoGo(){
+    const pool = POOLS[cfg.stimType];
+    const nogo = cfg.targetSeq[0];
+    const seq = [];
+    for(let i=0;i<cfg.trials;i++){
+      let val;
+      if(Math.random() < cfg.targetRate){ val = nogo; }
+      else { do{ val = pool[Math.floor(Math.random()*pool.length)]; } while(val===nogo && pool.length>1); }
+      seq.push({val, isTarget: val!==nogo, valid:true});
+    }
+    return seq;
+  }
+  // Stop-Signal: le prove "go" sono target (va sempre data risposta); una
+  // quota è designata come trial di stop (non-target, va inibita la
+  // risposta), gestiti dinamicamente in sessione tramite lo staircase su
+  // session.currentSSD.
+  function buildStopSignal(){
+    const pool = POOLS[cfg.stimType];
+    const seq = [];
+    for(let i=0;i<cfg.trials;i++){
+      const val = pool[Math.floor(Math.random()*pool.length)];
+      const isStopTrial = Math.random() < cfg.targetRate;
+      seq.push({val, isTarget: !isStopTrial, isStopTrial, valid:true});
+    }
+    return seq;
+  }
+  // ANT semplificato: fattori allerta (cue presente/assente), orienting
+  // (cue spaziale valido 80% / non valido 20%), conflitto (flanker
+  // congruenti/incongruenti/neutri). Risposta = direzione della freccia
+  // centrale, non "match" — non produce hit/FA in senso classico.
+  function buildANT(){
+    const seq = [];
+    const cueTypes = ['none','center','spatial'];
+    const congruencies = ['congruent','incongruent','neutral'];
+    for(let i=0;i<cfg.trials;i++){
+      const cueType = cueTypes[Math.floor(Math.random()*cueTypes.length)];
+      const congruency = congruencies[Math.floor(Math.random()*congruencies.length)];
+      const targetDir = Math.random()<0.5 ? 'left' : 'right';
+      let side = Math.random()<0.5 ? 'left' : 'right';
+      if(cueType==='spatial'){
+        // cue valido nell'80% dei casi (indica il lato corretto)
+        side = Math.random()<0.8 ? targetDir : (targetDir==='left'?'right':'left');
+      } else {
+        side = 'center';
+      }
+      seq.push({val:targetDir, cueType, congruency, side, targetDir, correctAnswer:targetDir, valid:true});
+    }
+    return seq;
+  }
+  // Task-switching: regola "parity" (pari/dispari) o "magnitude" (>5 / <5)
+  // su numeri 1-9 esclus 5; cambia con probabilità cfg.targetRate.
+  // Due regole binarie per ciascun materiale disponibile per il task-switching.
+  // classify(item) -> true = risposta "a", false = risposta "b".
+  const SWITCH_RULESETS = {
+    numeri: {
+      ruleA:{label:'Pari / Dispari', labelA:'Pari', labelB:'Dispari', classify:v=> parseInt(v,10)%2===0},
+      ruleB:{label:'Alto (>5) / Basso (<5)', labelA:'Alto (>5)', labelB:'Basso (<5)', classify:v=> parseInt(v,10)>5}
+    },
+    lettere: {
+      ruleA:{label:'Vocale / Consonante', labelA:'Vocale', labelB:'Consonante', classify:v=> 'AEIOU'.includes(v)},
+      ruleB:{label:'A–M / N–Z', labelA:'A–M', labelB:'N–Z', classify:v=> v<='M'}
+    },
+    colori: {
+      ruleA:{label:'Caldo / Freddo', labelA:'Caldo', labelB:'Freddo', classify:v=> ['Rosso','Giallo','Arancione','Magenta'].includes(v.icon)},
+      ruleB:{label:'Primario / Non primario', labelA:'Primario', labelB:'Non primario', classify:v=> ['Rosso','Blu','Giallo'].includes(v.icon)}
+    }
+  };
+  function buildSwitching(){
+    const material = cfg.switchMaterial;
+    const rs = SWITCH_RULESETS[material];
+    const pool = material==='numeri' ? POOLS.numeri.filter(n=> n!=='5') : POOLS[material];
+    const seq = [];
+    let activeRule = Math.random()<0.5 ? 'A' : 'B';
+    for(let i=0;i<cfg.trials;i++){
+      const isSwitch = i>0 && Math.random() < cfg.targetRate;
+      if(isSwitch) activeRule = activeRule==='A' ? 'B' : 'A';
+      const item = pool[Math.floor(Math.random()*pool.length)];
+      const ruleDef = activeRule==='A' ? rs.ruleA : rs.ruleB;
+      const correctAnswer = ruleDef.classify(item) ? 'a' : 'b';
+      seq.push({val:item, rule:activeRule, ruleDef, correctAnswer, isSwitch: i===0?false:isSwitch, valid:true});
+    }
+    return seq;
+  }
+  // Doppio compito: canale visivo (lettere) + uditivo (toni), ciascuno con
+  // regola 1-back indipendente, presentati simultaneamente.
+  function buildDualTask(){
+    const visPool = POOLS[cfg.dualVisual], audPool = POOLS.suoni;
+    const seq = [];
+    let prevVis=null, prevAud=null;
+    for(let i=0;i<cfg.trials;i++){
+      let vVal = visPool[Math.floor(Math.random()*visPool.length)];
+      let aVal = audPool[Math.floor(Math.random()*audPool.length)];
+      let vTarget = i>0 && Math.random()<cfg.targetRate;
+      let aTarget = i>0 && Math.random()<cfg.targetRate;
+      if(vTarget) vVal = prevVis;
+      if(aTarget) aVal = prevAud;
+      seq.push({val:vVal, visualVal:vVal, audioVal:aVal, visualIsTarget: i>0?vTarget:false, audioIsTarget: i>0?aTarget:false, valid:i>0});
+      prevVis = vVal; prevAud = aVal;
+    }
+    return seq;
+  }
+  function seqLabel(v){ return (v && typeof v==='object') ? v.icon : v; }
+  function describeTargetSeq(){ return cfg.targetSeq.map(seqLabel).join(' → '); }
+
+  /* ---------- scoring ---------- */
+  function scoreFromCounts(c){
+    const hitRate = c.targets>0 ? c.hits/c.targets : 0;
+    const faRate = c.nonTargets>0 ? c.falseAlarms/c.nonTargets : 0;
+    // log-linear correction for extreme rates (Hautus, 1995)
+    const hr = (c.hits+0.5)/(c.targets+1);
+    const fr = (c.falseAlarms+0.5)/(c.nonTargets+1);
+    const z = p => -Math.sqrt(2)*erfinv(1-2*p);
+    const dprime = c.targets>0 && c.nonTargets>0 ? (z(hr)-z(fr)) : null;
+    const acc = (c.hits+c.correctRejections)/(c.targets+c.nonTargets || 1);
+    return {hitRate, faRate, dprime, acc};
+  }
+  function erfinv(x){
+    const a = 0.147;
+    const ln = Math.log(1-x*x);
+    const t1 = 2/(Math.PI*a)+ln/2;
+    return Math.sign(x)*Math.sqrt(Math.sqrt(t1*t1-ln/a)-t1);
+  }
+
+  /* ---------- storage ---------- */
+  // Storage: plain browser localStorage — works fully offline, no account,
+  // no server. Data stays on this device/browser only.
+  async function saveSession(rec){
+    const key = 'traccian:sessione:'+rec.id;
+    try{ localStorage.setItem(key, JSON.stringify(rec)); }
+    catch(e){ console.error(e); alert('Impossibile salvare: memoria del browser piena o non disponibile.'); }
+    historyCache = null;
+    pushSession(rec); // fire-and-forget: la sessione è già al sicuro in locale comunque
+  }
+  async function loadHistory(){
+    let local;
+    try{
+      local = [];
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i);
+        if(k && k.indexOf('traccian:sessione:')===0){
+          try{ local.push(JSON.parse(localStorage.getItem(k))); }catch(e){}
+        }
+      }
+    }catch(e){ local = []; }
+
+    if(sb && cloudUser){
+      const remote = await pullRemote();
+      const map = {};
+      local.forEach(r=> map[r.id]=r);
+      remote.forEach(r=>{
+        map[r.id]=r;
+        try{ localStorage.setItem('traccian:sessione:'+r.id, JSON.stringify(r)); }catch(e){}
+      });
+      const merged = Object.values(map).sort((a,b)=> b.ts-a.ts);
+      historyCache = merged;
+      return merged;
+    }
+    if(historyCache) return historyCache;
+    local.sort((a,b)=> b.ts - a.ts);
+    historyCache = local;
+    return local;
+  }
+  function exportCSV(items){
+    const head = ['data','codice_paziente','stimolo','esercizio','n_back','sequenza_bersaglio','prove','isi_ms','durata_stim_ms','modalita',
+      'hit','miss','falsi_allarmi','rifiuti_corretti','accuratezza','dprime','rt_medio_ms','ssrt_ms',
+      'acc_uditiva','dprime_uditivo','risposte_corrette','risposte_omesse','indice_allerta','indice_orienting','indice_conflitto','switch_cost',
+      'neglect_pct_sinistra','neglect_pct_destra','neglect_omessi_sin','neglect_omessi_des','neglect_asimmetria','neglect_falsi_allarmi','note'];
+    const rows = items.map(r=>{
+      const family = r.family || 'signal'; // record salvati prima di questa versione
+      const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
+      return [
+        r.dateLabel, r.patientCode||'', STIM_LABELS[r.stimType]||'', exLabel,
+        r.taskMode==='nback'?r.nLevel:'', (r.targetSeq||[]).join('-'),
+        r.trials, r.isi, r.stimDuration, r.respMode,
+        family==='signal'||family==='dual' ? r.counts.hits : '',
+        family==='signal'||family==='dual' ? r.counts.misses : '',
+        family==='signal'||family==='dual' ? r.counts.falseAlarms : '',
+        family==='signal'||family==='dual' ? r.counts.correctRejections : '',
+        (family==='signal'||family==='dual') && r.metrics.acc!=null ? (r.metrics.acc*100).toFixed(1)+'%':'',
+        (family==='signal'||family==='dual') && r.metrics.dprime!=null ? r.metrics.dprime.toFixed(2):'',
+        family==='signal' && r.avgRT!=null ? Math.round(r.avgRT):'',
+        family==='signal' && r.ssrt!=null ? Math.round(r.ssrt):'',
+        family==='dual' && r.metricsAud.acc!=null ? (r.metricsAud.acc*100).toFixed(1)+'%':'',
+        family==='dual' && r.metricsAud.dprime!=null ? r.metricsAud.dprime.toFixed(2):'',
+        family==='choice' ? r.choice.correct+'/'+r.choice.total : '',
+        family==='choice' ? r.choice.omitted : '',
+        family==='choice' && r.choice.alerting!=null ? r.choice.alerting : '',
+        family==='choice' && r.choice.orienting!=null ? r.choice.orienting : '',
+        family==='choice' && r.choice.conflict!=null ? r.choice.conflict : '',
+        family==='choice' && r.choice.switchCost!=null ? r.choice.switchCost : '',
+        family==='spatial' && r.neglect.pctLeft!=null ? (r.neglect.pctLeft*100).toFixed(1)+'%':'',
+        family==='spatial' && r.neglect.pctRight!=null ? (r.neglect.pctRight*100).toFixed(1)+'%':'',
+        family==='spatial' ? r.neglect.omittedLeft : '',
+        family==='spatial' ? r.neglect.omittedRight : '',
+        family==='spatial' && r.neglect.asymmetry!=null ? r.neglect.asymmetry : '',
+        family==='spatial' ? r.neglect.falseAlarms : '',
+        (r.notes||'').replace(/[\n,]/g,' ')
+      ];
+    });
+    const csv = [head.join(';')].concat(rows.map(r=>r.join(';'))).join('\n');
+    const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'traccian_sessioni.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /* ---------- cloud sync (Supabase, opzionale) ---------- */
+  // Tutto qui è opt-in: se cloudCfg è vuoto o la libreria non è disponibile,
+  // l'app funziona esattamente come prima, solo con localStorage.
+  function initSupabase(){
+    if(cloudCfg.url && cloudCfg.key && window.supabase && window.supabase.createClient){
+      try{ sb = window.supabase.createClient(cloudCfg.url, cloudCfg.key); }
+      catch(e){ sb = null; }
+    } else { sb = null; }
+  }
+  async function restoreCloudSession(){
+    if(!sb) return;
+    try{
+      const { data } = await sb.auth.getSession();
+      cloudUser = data && data.session ? data.session.user : null;
+    }catch(e){ cloudUser = null; }
+    await checkRole();
+  }
+  // Un account è "paziente" se esiste una riga in pazienti con id = auth.uid().
+  async function checkRole(){
+    patientProfile = null;
+    if(!sb || !cloudUser) return;
+    try{
+      const { data } = await sb.from('pazienti').select('*').eq('id', cloudUser.id).maybeSingle();
+      patientProfile = data || null;
+    }catch(e){ patientProfile = null; }
+  }
+  function cloudStatusLabel(){
+    if(!cloudCfg.url || !cloudCfg.key) return 'non configurata';
+    if(!sb) return 'configurazione non valida';
+    if(!cloudUser) return 'configurata, accesso non effettuato';
+    return 'connessa · '+cloudUser.email;
+  }
+  async function cloudSaveConfig(url, key){
+    cloudCfg = {url:url.trim().replace(/\/$/,''), key:key.trim()};
+    localStorage.setItem('traccian:cloud:url', cloudCfg.url);
+    localStorage.setItem('traccian:cloud:key', cloudCfg.key);
+    initSupabase();
+    await restoreCloudSession();
+    historyCache = null; render();
+  }
+  async function cloudSignUp(email, pw){
+    if(!sb) return;
+    cloudBusy=true; render();
+    const { data, error } = await sb.auth.signUp({ email, password: pw });
+    cloudBusy=false;
+    if(error){ alert('Errore registrazione: '+error.message); render(); return; }
+    if(data.user && !data.session){ alert('Controlla la casella email per confermare l\'account, poi accedi.'); cloudUser=null; }
+    else { cloudUser = data.user; await checkRole(); historyCache=null; }
+    render();
+  }
+  async function cloudSignIn(email, pw){
+    if(!sb) return;
+    cloudBusy=true; render();
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+    cloudBusy=false;
+    if(error){ alert('Errore accesso: '+error.message); render(); return; }
+    cloudUser = data.user; await checkRole(); historyCache=null;
+    view = patientProfile ? 'patientHome' : 'setup';
+    render();
+  }
+  // Login paziente: un solo campo (codice di accesso) — internamente si
+  // traduce nell'email sintetica creata dalla funzione di creazione account.
+  function patientCodeToEmail(code){ return code.trim().toLowerCase()+'@paz.traccian.local'; }
+  async function cloudPatientSignIn(code){
+    if(!sb) return;
+    const normalized = code.trim().toUpperCase();
+    cloudBusy=true; render();
+    const { data, error } = await sb.auth.signInWithPassword({ email: patientCodeToEmail(normalized), password: normalized });
+    cloudBusy=false;
+    if(error){ alert('Codice non riconosciuto: '+error.message); render(); return; }
+    cloudUser = data.user; await checkRole(); historyCache=null;
+    if(!patientProfile){ alert('Questo account non risulta un account paziente valido.'); await cloudSignOut(); return; }
+    view='patientHome'; render();
+  }
+  async function cloudSignOut(){
+    if(sb) try{ await sb.auth.signOut(); }catch(e){}
+    cloudUser = null; patientProfile = null; historyCache = null;
+    view='setup'; render();
+  }
+  // Crea un nuovo account paziente tramite la Edge Function (unico punto che
+  // può creare account, perché richiede la service_role key lato server —
+  // mai esposta al browser). Restituisce {codiceAccesso, pazienteId} o null.
+  async function createPatientAccount(codicePaziente){
+    if(!sb || !cloudUser || patientProfile) return null; // solo operatori
+    try{
+      const { data: sessionData } = await sb.auth.getSession();
+      const token = sessionData && sessionData.session ? sessionData.session.access_token : null;
+      if(!token){ alert('Sessione non valida, riaccedi.'); return null; }
+      const fnUrl = cloudCfg.url.replace('.supabase.co', '.functions.supabase.co') + '/create-patient';
+      const resp = await fetch(fnUrl, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
+        body: JSON.stringify({codicePaziente})
+      });
+      const json = await resp.json();
+      if(!resp.ok){ alert('Errore creazione paziente: '+(json.error||'sconosciuto')); return null; }
+      return json;
+    }catch(e){ alert('Errore di rete nella creazione del paziente: '+e.message); return null; }
+  }
+  async function listMyPatients(){
+    if(!sb || !cloudUser || patientProfile) return [];
+    try{
+      const { data, error } = await sb.from('pazienti').select('*').eq('operatore_id', cloudUser.id).order('creato_il',{ascending:false});
+      if(error) throw error;
+      return data||[];
+    }catch(e){ console.error(e); return []; }
+  }
+  async function assignProgramToPatient(pazienteId, program){
+    if(!sb || !cloudUser) return false;
+    try{
+      const { error } = await sb.from('pazienti').update({programma_assegnato:program}).eq('id', pazienteId).eq('operatore_id', cloudUser.id);
+      if(error) throw error;
+      return true;
+    }catch(e){ alert('Errore assegnazione: '+e.message); return false; }
+  }
+  // Normalizza il programma di un paziente in un array {nome, cfg}[], sia per
+  // i pazienti nuovi (programma_assegnato) sia per quelli assegnati prima
+  // che esistesse il multi-esercizio (preset_assegnato singolo).
+  function patientProgram(p){
+    if(!p) return [];
+    if(p.programma_assegnato && p.programma_assegnato.length) return p.programma_assegnato;
+    if(p.preset_assegnato){
+      const c = p.preset_assegnato;
+      const nome = EXERCISES[c.taskMode] ? EXERCISES[c.taskMode].label : c.taskMode;
+      return [{nome, cfg:c}];
+    }
+    return [];
+  }
+  function recToRow(rec){
+    const isPatientSaving = !!patientProfile;
+    return {
+      id: rec.id,
+      user_id: cloudUser.id, // retro-compatibilità con record vecchi
+      operatore_id: isPatientSaving ? patientProfile.operatore_id : cloudUser.id,
+      paziente_id: isPatientSaving ? cloudUser.id : (rec.pazienteId || null),
+      ts: rec.ts, date_label: rec.dateLabel,
+      stim_type: rec.stimType, n_level: rec.nLevel, trials: rec.trials, isi: rec.isi,
+      stim_duration: rec.stimDuration, resp_mode: rec.respMode, patient_code: rec.patientCode,
+      notes: rec.notes, task_mode: rec.taskMode, target_seq: rec.targetSeq,
+      counts: rec.counts, metrics: rec.metrics, avg_rt: rec.avgRT, duration_ms: rec.durationMs,
+      family: rec.family || null, counts_aud: rec.countsAud || null, metrics_aud: rec.metricsAud || null,
+      choice: rec.choice || null, ssrt: rec.ssrt!=null?rec.ssrt:null, mean_ssd: rec.meanSSD!=null?rec.meanSSD:null,
+      neglect: rec.neglect || null
+    };
+  }
+  function rowToRec(row){
+    return {
+      id: row.id, ts: row.ts, dateLabel: row.date_label, stimType: row.stim_type, nLevel: row.n_level,
+      trials: row.trials, isi: row.isi, stimDuration: row.stim_duration, respMode: row.resp_mode,
+      patientCode: row.patient_code, notes: row.notes, taskMode: row.task_mode, targetSeq: row.target_seq,
+      counts: row.counts, metrics: row.metrics, avgRT: row.avg_rt, durationMs: row.duration_ms,
+      family: row.family || 'signal', countsAud: row.counts_aud, metricsAud: row.metrics_aud,
+      choice: row.choice, ssrt: row.ssrt, meanSSD: row.mean_ssd, neglect: row.neglect,
+      pazienteId: row.paziente_id || null
+    };
+  }
+  async function pushSession(rec){
+    if(!sb || !cloudUser) return;
+    try{ await sb.from('sessioni').upsert(recToRow(rec)); }
+    catch(e){ console.error('sync push fallita', e); }
+  }
+  async function pullRemote(){
+    if(!sb || !cloudUser) return [];
+    try{
+      const { data, error } = await sb.from('sessioni').select('*')
+        .or('operatore_id.eq.'+cloudUser.id+',paziente_id.eq.'+cloudUser.id)
+        .order('ts',{ascending:false});
+      if(error) throw error;
+      return (data||[]).map(rowToRec);
+    }catch(e){ console.error('sync pull fallita', e); return []; }
+  }
+
+  /* ---------- SETUP SCREEN ---------- */
+  function ScreenSetup(root){
+    root.appendChild(el('div',{class:'brand'},[
+      el('div',{class:'mark'},['Traccia',el('span',{},['N'])]),
+      el('div',{class:'sub'},['CT MRI'])
+    ]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['Imposta la sessione']));
+    card.appendChild(el('p',{class:'hint'},['Scegli il tipo di stimolo, il livello n-back e i parametri temporali. I valori restano impostati per la prossima sessione.']));
+
+    card.appendChild(presetSection());
+
+    const grid = el('div',{class:'grid'});
+    const ex = EXERCISES[cfg.taskMode];
+
+    // exercise selector (comes first: it determines which other fields apply)
+    grid.appendChild(field('Esercizio', segButtons(Object.keys(EXERCISES), cfg.taskMode, v=>{
+      cfg.taskMode=v;
+      const nv = EXERCISES[v];
+      if(nv.usesTargetSeq){
+        if(v==='neglect'){ if(!cfg.targetSeq) cfg.targetSeq=[]; if(cfg.targetSeq.length>4) cfg.targetSeq=cfg.targetSeq.slice(0,2); }
+        else {
+          const len = v==='gonogo' ? 1 : 3;
+          if(!cfg.targetSeq || !cfg.targetSeq.length || cfg.targetSeq.length!==len) cfg.targetSeq = defaultTargetSeq(cfg.stimType, len);
+        }
+      }
+      if(v==='ant' && cfg.trials<60) cfg.trials = 72;
+      if(v==='neglect' && cfg.trials>10) cfg.trials = 3;
+      if(v!=='neglect' && v!=='ant' && cfg.trials<10) cfg.trials = 24;
+      render();
+    }, Object.fromEntries(Object.entries(EXERCISES).map(([k,v])=>[k,v.label])))));
+
+    // stimulus type — solo per gli esercizi che ne hanno uno configurabile
+    if(ex.usesStimType){
+      grid.appendChild(field('Tipo di stimolo', segButtons(Object.keys(STIM_LABELS).filter(k=> !(cfg.taskMode==='stopsignal' && k==='suoni')), cfg.stimType, v=>{
+        cfg.stimType=v;
+        if(ex.usesTargetSeq) cfg.targetSeq = cfg.taskMode==='neglect' ? [] : defaultTargetSeq(v, cfg.taskMode==='gonogo' ? 1 : 3);
+        render();
+      }, STIM_LABELS)));
+    }
+
+    if(cfg.taskMode==='nback'){
+      grid.appendChild(field('Livello n-back', stepper(cfg.nLevel,1,5,v=>{cfg.nLevel=v; render();})));
+      grid.appendChild(field('Difficoltà adattiva', segButtons(['no','si'], cfg.adaptive?'si':'no', v=>{ cfg.adaptive = v==='si'; render(); }, {no:'Fissa (manuale)', si:'Adattiva automatica'})));
+    }
+    const isNeglect = cfg.taskMode==='neglect';
+    // trials (per il neglect: numero di tavole)
+    if(!isNeglect){
+      grid.appendChild(field('Numero di prove', stepper(cfg.trials,10,100,v=>{cfg.trials=v; updateDurEst();},4)));
+      // ISI
+      grid.appendChild(field('Intervallo tra stimoli (ISI)', stepper(cfg.isi,1000,4000,v=>{cfg.isi=v; updateDurEst();},200,ms=>(ms/1000).toFixed(1)+' s')));
+      // stim duration
+      grid.appendChild(field('Durata di presentazione', stepper(cfg.stimDuration,200,Math.min(2000,cfg.isi),v=>{cfg.stimDuration=Math.min(v,cfg.isi-100);},100,ms=>ms+' ms')));
+    } else {
+      grid.appendChild(field('Numero di tavole', stepper(cfg.trials,1,10,v=>{cfg.trials=v;},1)));
+      grid.appendChild(field('Elementi per tavola', stepper(cfg.neglectBoardSize,15,80,v=>{cfg.neglectBoardSize=v;},5)));
+      grid.appendChild(field('Distribuzione bersagli', segButtons(['simmetrica','sbilanciata-sinistra','sbilanciata-destra'], cfg.neglectDistribution, v=>{cfg.neglectDistribution=v; render();}, {simmetrica:'Simmetrica', 'sbilanciata-sinistra':'Più a sinistra', 'sbilanciata-destra':'Più a destra'})));
+      grid.appendChild(field('Tempo limite per tavola', stepper(cfg.neglectTimeLimit,0,180,v=>{cfg.neglectTimeLimit=v;},15,s=> s===0?'nessuno':s+' s')));
+    }
+
+    // target rate — riusato con etichetta diversa per ciascun esercizio
+    const rateLabels = {
+      nback:'Frequenza target', sequenza:'Frequenza target', gonogo:'Frequenza no-go',
+      stopsignal:'Frequenza trial di stop', switching:'Frequenza cambio regola'
+    };
+    if(rateLabels[cfg.taskMode]){
+      grid.appendChild(field(rateLabels[cfg.taskMode], stepper(Math.round(cfg.targetRate*100),15,45,v=>{cfg.targetRate=v/100; render();},5,v=>v+'%')));
+    }
+
+    // Stop-Signal: parametri dello staircase SSD
+    if(cfg.taskMode==='stopsignal'){
+      grid.appendChild(field('Ritardo iniziale segnale di stop (SSD)', stepper(cfg.ssd,0,cfg.isi-100,v=>{cfg.ssd=v; render();},50,ms=>ms+' ms')));
+      grid.appendChild(field('Passo di adattamento SSD', stepper(cfg.ssdStep,10,150,v=>{cfg.ssdStep=v; render();},10,ms=>ms+' ms')));
+    }
+
+    card.appendChild(grid);
+
+    if(ex.usesTargetSeq){
+      card.appendChild(sequenceEditor());
+    }
+    if(isNeglect){
+      card.appendChild(el('p',{class:'hint'},['Compaiono molti elementi contemporaneamente sulla tavola: quelli scelti sopra sono i bersagli da toccare, tutti gli altri sono distrattori. La distribuzione sinistra/destra permette di caricare deliberatamente un lato, utile per il training del neglect.']));
+    }
+    if(cfg.taskMode==='ant'){
+      card.appendChild(el('p',{class:'hint'},['Versione semplificata dell\'Attention Network Test: allerta (cue presente/assente), orienting (cue spaziale valido/invalido), conflitto (flanker congruenti/incongruenti/neutri). Il paziente indica la direzione della freccia centrale.']));
+      if(cfg.trials<60){
+        card.appendChild(el('p',{class:'hint', style:'color:var(--alert);'},['⚠ Gli indici si calcolano su 9 combinazioni cue×congruenza: con meno di 60 prove, ciascuna media poggia su troppo pochi trial per essere affidabile. Consigliate almeno 60–90 prove per questo esercizio.']));
+      }
+    }
+    if(cfg.taskMode==='switching'){
+      card.appendChild(field('Materiale', segButtons(Object.keys(SWITCH_RULESETS), cfg.switchMaterial, v=>{ cfg.switchMaterial=v; render(); }, {numeri:'Numeri', lettere:'Lettere', colori:'Colori'})));
+      const rs = SWITCH_RULESETS[cfg.switchMaterial];
+      card.appendChild(el('p',{class:'hint'},['Regole di questa sessione: "'+rs.ruleA.label+'" ↔ "'+rs.ruleB.label+'". Un\'etichetta prima di ogni stimolo indica quale regola è attiva in quel momento.']));
+    }
+    if(cfg.taskMode==='dualtask'){
+      card.appendChild(field('Materiale canale visivo', segButtons(['lettere','numeri','simboli','colori'], cfg.dualVisual, v=>{ cfg.dualVisual=v; render(); }, STIM_LABELS)));
+      card.appendChild(el('p',{class:'hint'},['Canale visivo ('+STIM_LABELS[cfg.dualVisual].toLowerCase()+') e canale uditivo (toni) simultanei, ciascuno con regola 1-back propria — il paziente ha due pulsanti indipendenti, uno per canale.']));
+    }
+    if(cfg.taskMode==='nback' && cfg.adaptive){
+      card.appendChild(el('p',{class:'hint'},['Il livello sale di 1 se l\'accuratezza supera l\'85% negli ultimi 8 trial validi, scende sotto il 70% (fascia 70–85% invariata) — livello minimo 1, massimo 5. Durante la sessione puoi comunque forzare il livello manualmente con i pulsanti +/– nella barra in alto: l\'automatismo riprende dal valore che imposti.']));
+    }
+
+    // response mode
+    const respWrap = el('div',{class:'field'});
+    respWrap.appendChild(el('label',{},['Modalità di raccolta risposte']));
+    respWrap.appendChild(segButtons(['paziente','operatore','manuale'], cfg.respMode, v=>{cfg.respMode=v; render();}, {
+      paziente:'Touch — risponde il paziente', operatore:'Touch — segna l\'operatore', manuale:'Inserimento manuale a fine sessione'
+    }));
+    card.appendChild(respWrap);
+
+    // voice toggle for verbal stimuli
+    if(ex.usesStimType && ['lettere','numeri','parole'].includes(cfg.stimType)){
+      const vWrap = el('div',{class:'field'});
+      vWrap.appendChild(el('label',{},['Presentazione']));
+      vWrap.appendChild(segButtons(['no','si'], cfg.voice?'si':'no', v=>{cfg.voice = v==='si'; render();}, {no:'Visiva', si:'Visiva + uditiva (sintesi vocale)'}));
+      card.appendChild(vWrap);
+    }
+
+    // patient code
+    const pc = el('div',{class:'field'});
+    pc.appendChild(el('label',{},['Codice paziente (facoltativo, non usare il nominativo)']));
+    const inp = el('input',{type:'text', placeholder:'es. PT-014', value:cfg.patientCode});
+    inp.addEventListener('input', e=>{ cfg.patientCode = e.target.value; });
+    pc.appendChild(inp);
+    card.appendChild(pc);
+
+    const durEstP = el('p',{class:'hint'},['Durata stimata della sessione: '+fmtTime(cfg.isi*cfg.trials)+'.']);
+    function updateDurEst(){ durEstP.textContent = 'Durata stimata della sessione: '+fmtTime(cfg.isi*cfg.trials)+'.'; }
+    card.appendChild(durEstP);
+
+    card.appendChild(el('button',{class:'primary', onclick:()=>{
+      if(cfg.taskMode==='sequenza' && cfg.targetSeq.length<2){ alert('Costruisci prima la sequenza bersaglio (almeno 2 elementi).'); return; }
+      if(cfg.taskMode==='gonogo' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima l\'elemento no-go.'); return; }
+      if(cfg.taskMode==='neglect' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima almeno un elemento bersaglio da cancellare.'); return; }
+      view='instructions'; render();
+    }},['Avvia sessione']));
+
+    const nav = el('div',{class:'navlinks'});
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='history'; render(); }},['Storico sessioni →']));
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='cloud'; render(); }},['Sincronizzazione cloud ('+cloudStatusLabel()+') →']));
+    card.appendChild(nav);
+
+    s.appendChild(card);
+    root.appendChild(s);
+  }
+
+  function field(label, control){
+    const f = el('div',{class:'field'});
+    f.appendChild(el('label',{},[label]));
+    f.appendChild(control);
+    return f;
+  }
+  function segButtons(values, current, onPick, labels){
+    const wrap = el('div',{class:'seg'});
+    values.forEach(v=>{
+      const b = el('button',{class: v===current?'on':'', onclick:()=>onPick(v)},[(labels&&labels[v])||v]);
+      wrap.appendChild(b);
+    });
+    return wrap;
+  }
+  function stepper(val,min,max,onChange,step,fmt){
+    step = step||1;
+    let cur = val;
+    const wrap = el('div',{class:'stepper'});
+    const valNode = el('div',{class:'val'},[fmt? fmt(cur) : String(cur)]);
+    function set(nv){
+      cur = Math.max(min,Math.min(max,nv));
+      valNode.textContent = fmt? fmt(cur) : String(cur);
+      onChange(cur);
+    }
+    wrap.appendChild(el('button',{onclick:()=>set(cur-step)},['–']));
+    wrap.appendChild(valNode);
+    wrap.appendChild(el('button',{onclick:()=>set(cur+step)},['+']));
+    return wrap;
+  }
+  function sequenceEditor(){
+    const isGoNoGo = cfg.taskMode==='gonogo';
+    const isNeglect = cfg.taskMode==='neglect';
+    const wrap = el('div',{class:'field'});
+    const label = isGoNoGo ? 'Elemento no-go (tocca quello su cui NON si deve rispondere)'
+      : isNeglect ? 'Elementi bersaglio da cancellare (1–4, l\'ordine non conta)'
+      : 'Sequenza bersaglio (tocca gli elementi nell\'ordine desiderato, 2–6 elementi)';
+    wrap.appendChild(el('label',{},[label]));
+
+    const preview = el('div',{class:'seqpreview'},[
+      cfg.targetSeq.length ? cfg.targetSeq.map(seqLabel).join(isNeglect ? ', ' : ' → ') : (isGoNoGo||isNeglect ? '(nessuno selezionato)' : '(sequenza vuota)')
+    ]);
+    wrap.appendChild(preview);
+
+    const pool = POOLS[cfg.stimType];
+    const chips = el('div',{class:'seg'});
+    pool.forEach(item=>{
+      const itemLabel = seqLabel(item);
+      const attrs = {onclick:()=>{
+        if(cfg.stimType==='suoni') playTone(item, 350);
+        if(isGoNoGo){ cfg.targetSeq = [item]; render(); }
+        else if(isNeglect){
+          if(cfg.targetSeq.some(t=>seqLabel(t)===itemLabel)) return; // già presente
+          if(cfg.targetSeq.length < 4){ cfg.targetSeq = cfg.targetSeq.concat([item]); render(); }
+        }
+        else if(cfg.targetSeq.length < 6){ cfg.targetSeq = cfg.targetSeq.concat([item]); render(); }
+      }};
+      if(cfg.stimType==='colori') attrs.style = 'background:'+item.hex+'; color:#fff; border-color:'+item.hex+';';
+      chips.appendChild(el('button',attrs,[itemLabel]));
+    });
+    wrap.appendChild(chips);
+
+    if(!isGoNoGo){
+      const ctrl = el('div',{class:'rowbtns'});
+      ctrl.appendChild(el('button',{class:'ghost', onclick:()=>{ cfg.targetSeq = cfg.targetSeq.slice(0,-1); render(); }},['← Rimuovi ultimo']));
+      ctrl.appendChild(el('button',{class:'ghost', onclick:()=>{ cfg.targetSeq = isNeglect ? [] : defaultTargetSeq(cfg.stimType,3); render(); }},['Reimposta']));
+      wrap.appendChild(ctrl);
+      if(!isNeglect && cfg.targetSeq.length < 2){
+        wrap.appendChild(el('p',{class:'hint'},['Servono almeno 2 elementi in sequenza.']));
+      }
+      if(isNeglect && cfg.targetSeq.length < 1){
+        wrap.appendChild(el('p',{class:'hint'},['Seleziona almeno 1 elemento bersaglio.']));
+      }
+    }
+    return wrap;
+  }
+
+
+  /* ---------- COUNTDOWN ---------- */
+  /* ---------- ISTRUZIONI ---------- */
+  function ScreenInstructions(root){
+    root.appendChild(el('div',{class:'brand'},[
+      el('div',{class:'mark'},['Traccia',el('span',{},['N'])]),
+      el('div',{class:'sub'},[EXERCISES[cfg.taskMode].label])
+    ]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['Prima di iniziare']));
+    const text = EXERCISES[cfg.taskMode].instructions(cfg);
+    const textBox = el('p',{style:'font-size:16px; line-height:1.6; background:var(--paper-dim); border-radius:12px; padding:16px 18px; margin:0 0 18px;'},[text]);
+    card.appendChild(textBox);
+
+    const rowbtns = el('div',{class:'rowbtns'});
+    const listenBtn = el('button',{class:'ghost', onclick:()=>{ speak(text); }},['🔊 Ascolta le istruzioni']);
+    rowbtns.appendChild(listenBtn);
+    card.appendChild(rowbtns);
+
+    card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ view='countdown'; render(); }},['Ho capito, inizia']));
+    const nav = el('div',{class:'navlinks'});
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){} view=homeView(); render(); }},['← Torna al setup']));
+    card.appendChild(nav);
+
+    s.appendChild(card); root.appendChild(s);
+  }
+
+  function ScreenCountdown(root){
+    const s = el('div',{class:'stage'});
+    let n = 3;
+    const num = el('div',{class:'stimulus'},[String(n)]);
+    s.appendChild(num);
+    root.appendChild(el('div',{class:'topbar'},[
+      el('div',{class:'info'},['preparazione']),
+      el('button',{onclick:()=>{view=homeView(); render();}},['Annulla'])
+    ]));
+    root.appendChild(s);
+    const iv = setInterval(()=>{
+      n--;
+      if(n<=0){ clearInterval(iv); startSession(); return; }
+      num.textContent = String(n);
+    },800);
+  }
+
+  /* ---------- TASK ENGINE ---------- */
+  function startSession(){
+    if(cfg.taskMode==='neglect'){ startNeglectSession(); return; }
+    session = {
+      // n-back genera le prove una alla volta (serve per poter cambiare
+      // livello a metà sessione, manualmente o in automatico); tutti gli
+      // altri esercizi restano pre-generati come prima.
+      seq: cfg.taskMode==='nback' ? [] : buildSequence(),
+      idx:-1, timer:null, timerInfo:null, phase:'idle',
+      counts:{hits:0, misses:0, falseAlarms:0, correctRejections:0, targets:0, nonTargets:0},
+      countsAud:{hits:0, misses:0, falseAlarms:0, correctRejections:0, targets:0, nonTargets:0},
+      choiceLog:[], // {correct:bool, rt, isSwitch, cueType, congruency}
+      trail:[], responses:new Set(), respTime:null, trialStart:0,
+      rts:[], startedAt: Date.now(), paused:false, pausedAt:null,
+      currentSSD: cfg.ssd, ssdHistory:[], showStopCue:false, stopCueTimer:null,
+      liveNLevel: cfg.nLevel, adaptBlock:[], levelChanges:[]
+    };
+    view='task'; render();
+    nextTrial();
+  }
+  /* ---- Motore Cancellazione/Neglect: tavole con molti elementi simultanei,
+     tocco diretto sui bersagli, non un ciclo di prove sequenziali. ---- */
+  function shuffleArr(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+  function buildNeglectBoard(){
+    const pool = POOLS[cfg.stimType];
+    const targets = cfg.targetSeq;
+    const n = cfg.neglectBoardSize;
+    const targetCount = Math.max(4, Math.round(n*0.25));
+    let leftRatio = 0.5;
+    if(cfg.neglectDistribution==='sbilanciata-sinistra') leftRatio = 0.75;
+    if(cfg.neglectDistribution==='sbilanciata-destra') leftRatio = 0.25;
+    let targetsLeft = Math.round(targetCount*leftRatio), targetsRight = targetCount-targetsLeft;
+    const cols=8, rows=Math.ceil(n/cols);
+    const cellW=100/cols, cellH=100/rows;
+    let positions=[];
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) positions.push({r,c});
+    positions = shuffleArr(positions).slice(0,n);
+    let li=0, ri=0;
+    const items = positions.map((p,i)=>{
+      const side = p.c < cols/2 ? 'left':'right';
+      const x = p.c*cellW + cellW*(0.2+Math.random()*0.6);
+      const y = p.r*cellH + cellH*(0.2+Math.random()*0.6);
+      let isTarget=false;
+      if(side==='left' && li<targetsLeft){ isTarget=true; li++; }
+      else if(side==='right' && ri<targetsRight){ isTarget=true; ri++; }
+      let val;
+      if(isTarget){ val = targets[Math.floor(Math.random()*targets.length)]; }
+      else {
+        let tries=0;
+        do{ val = pool[Math.floor(Math.random()*pool.length)]; tries++; }
+        while(targets.some(t=>seqLabel(t)===seqLabel(val)) && tries<20 && pool.length>targets.length);
+      }
+      return {x, y, val, isTarget, side, found:false, falseTap:false};
+    });
+    return items;
+  }
+  function startNeglectSession(){
+    session = {
+      boardIdx:0, totalBoards:cfg.trials, board:[], boardStartTime:0, startedAt:Date.now(),
+      timer:null, timerInfo:null, paused:false, pausedAt:null,
+      results:[] // {targetsLeft,targetsRight,foundLeft,foundRight,falseAlarms,timeMs,reason}
+    };
+    view='task'; render();
+    nextBoard();
+  }
+  function nextBoard(){
+    if(session.boardIdx >= session.totalBoards){ finishNeglectSession(); return; }
+    session.board = buildNeglectBoard();
+    session.boardStartTime = performance.now();
+    render();
+    if(cfg.neglectTimeLimit>0){
+      scheduleStep(()=> finishBoard('tempo scaduto'), cfg.neglectTimeLimit*1000);
+    }
+  }
+  function tapNeglectItem(item){
+    if(!session || session.paused || item.found || item.falseTap) return;
+    if(cfg.respMode==='manuale') return;
+    if(item.isTarget) item.found = true; else item.falseTap = true;
+    updateNeglectScreen();
+    if(session.board.filter(b=>b.isTarget).every(b=>b.found)) finishBoard('completata');
+  }
+  function finishBoard(reason){
+    if(session.timer){ clearTimeout(session.timer); session.timer=null; session.timerInfo=null; }
+    const timeMs = performance.now()-session.boardStartTime;
+    const tL = session.board.filter(b=>b.side==='left'&&b.isTarget);
+    const tR = session.board.filter(b=>b.side==='right'&&b.isTarget);
+    session.results.push({
+      targetsLeft:tL.length, targetsRight:tR.length,
+      foundLeft:tL.filter(b=>b.found).length, foundRight:tR.filter(b=>b.found).length,
+      falseAlarms:session.board.filter(b=>b.falseTap).length, timeMs, reason
+    });
+    session.boardIdx++;
+    nextBoard();
+  }
+
+  // (session.liveNLevel), che può cambiare durante la sessione stessa.
+  function genNbackTrial(){
+    const pool = POOLS[cfg.stimType];
+    const i = session.seq.length;
+    const n = session.liveNLevel;
+    function runLen(val){ let run=1; for(let k=i-1;k>=0;k--){ if(session.seq[k].val===val) run++; else break; } return run; }
+    let makeTarget = i>=n && Math.random() < cfg.targetRate;
+    let val;
+    if(makeTarget){
+      const cand = session.seq[i-n].val;
+      if(pool.length>1 && runLen(cand) > 3){ makeTarget=false; } else { val = cand; }
+    }
+    if(!makeTarget){
+      do{ val = pool[Math.floor(Math.random()*pool.length)]; }
+      while(pool.length>1 && ((i>=n && val===session.seq[i-n].val) || runLen(val)>3));
+    }
+    const trial = {val, isTarget: i>=n ? makeTarget : false, valid:i>=n, nAtGeneration:n};
+    session.seq.push(trial);
+    return trial;
+  }
+  // Titolazione automatica: valuta un blocco di 8 prove valide alla volta.
+  function maybeAdapt(){
+    if(!cfg.adaptive || cfg.taskMode!=='nback') return;
+    const BLOCK = 8;
+    if(session.adaptBlock.length < BLOCK) return;
+    const acc = session.adaptBlock.filter(Boolean).length / session.adaptBlock.length;
+    if(acc > 0.85 && session.liveNLevel < 5){
+      session.liveNLevel++;
+      session.levelChanges.push({trialIdx:session.idx, level:session.liveNLevel, how:'auto'});
+    } else if(acc < 0.70 && session.liveNLevel > 1){
+      session.liveNLevel--;
+      session.levelChanges.push({trialIdx:session.idx, level:session.liveNLevel, how:'auto'});
+    }
+    session.adaptBlock = [];
+  }
+  function bumpLevel(delta){
+    if(!session || cfg.taskMode!=='nback') return;
+    const nv = Math.max(1, Math.min(5, session.liveNLevel+delta));
+    if(nv===session.liveNLevel) return;
+    session.liveNLevel = nv;
+    session.adaptBlock = []; // il blocco automatico riparte da qui
+    session.levelChanges.push({trialIdx:session.idx, level:session.liveNLevel, how:'manuale'});
+    updateTaskScreen();
+  }
+  // Wraps setTimeout so a pause can compute and preserve the remaining delay.
+  function scheduleStep(fn, delay){
+    const startedAt = performance.now();
+    session.timerInfo = {fn, delay, startedAt};
+    session.timer = setTimeout(()=>{ session.timerInfo=null; fn(); }, delay);
+  }
+  function pauseTask(){
+    if(!session || session.paused) return;
+    if(session.timer) clearTimeout(session.timer);
+    if(session.stopCueTimer) clearTimeout(session.stopCueTimer);
+    if(session.timerInfo){
+      const elapsed = performance.now() - session.timerInfo.startedAt;
+      session.timerInfo.remaining = Math.max(50, session.timerInfo.delay - elapsed);
+    }
+    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+    session.paused = true;
+    session.pausedAt = performance.now();
+    render();
+  }
+  function resumeTask(){
+    if(!session || !session.paused) return;
+    const pausedDuration = performance.now() - session.pausedAt;
+    if(session.trialStart!=null) session.trialStart += pausedDuration; // keep reaction times measured on active time only
+    if(session.boardStartTime!=null) session.boardStartTime += pausedDuration;
+    session.paused = false;
+    if(session.timerInfo){
+      const {fn, remaining} = session.timerInfo;
+      session.timer = setTimeout(()=>{ session.timerInfo=null; fn(); }, remaining);
+    }
+    render();
+  }
+  function nextTrial(){
+    session.idx++;
+    if(session.idx >= cfg.trials){ finishSession(); return; }
+    const trial = cfg.taskMode==='nback' ? genNbackTrial() : session.seq[session.idx];
+    session.phase='show'; session.responses=new Set(); session.respTime=null; session.showStopCue=false;
+    if(session.stopCueTimer){ clearTimeout(session.stopCueTimer); session.stopCueTimer=null; }
+    session.trialStart = performance.now();
+    render();
+    presentStimulus(trial);
+    if(cfg.taskMode==='stopsignal' && trial.isStopTrial){
+      session.stopCueTimer = setTimeout(()=>{
+        session.showStopCue=true;
+        playTone(STOP_TONE, 220); // segnale uditivo, disaccoppiato dalla modalità dello stimolo go — come nel paradigma originale
+        updateTaskScreen();
+      }, session.currentSSD);
+    }
+    scheduleStep(()=>{
+      session.phase='wait'; render();
+      scheduleStep(()=> resolveTrial(), Math.max(50,cfg.isi-cfg.stimDuration));
+    }, cfg.stimDuration);
+  }
+  function presentStimulus(trial){
+    if(cfg.taskMode==='dualtask'){
+      playTone(trial.audioVal, cfg.stimDuration);
+      return;
+    }
+    if(cfg.taskMode==='ant' || cfg.taskMode==='switching') return; // solo visivi
+    if(cfg.stimType==='suoni'){
+      playTone(trial.val, cfg.stimDuration);
+    } else if(cfg.voice && ['lettere','numeri','parole'].includes(cfg.stimType)){
+      speak(String(trial.val));
+    }
+  }
+  // action: identificatore generico del pulsante toccato ('match'/'nomatch',
+  // 'go', 'left'/'right', 'a'/'b', 'vis'/'aud'...). Gli esercizi a singola
+  // risposta ignorano tocchi ulteriori dopo il primo; il doppio compito
+  // accetta un tocco indipendente per canale.
+  function registerTap(action){
+    if(!session || session.paused || session.idx<0 || session.idx>=session.seq.length) return;
+    if(cfg.respMode==='manuale') return;
+    if(session.responses.has(action)) return;
+    if(cfg.taskMode!=='dualtask' && session.responses.size>0) return;
+    session.responses.add(action);
+    if(session.respTime===null) session.respTime = performance.now()-session.trialStart;
+  }
+  function resolveTrial(){
+    const trial = session.seq[session.idx];
+    let outcome = null;
+    switch(cfg.taskMode){
+      case 'gonogo': case 'stopsignal': outcome = resolveSignal(trial); break;
+      case 'ant': case 'switching': outcome = resolveChoice(trial); break;
+      case 'dualtask': outcome = resolveDualTask(trial); break;
+      default: outcome = resolveSignal(trial); // nback / sequenza
+    }
+    if(outcome) session.trail.push({outcome, target: !!trial.isTarget});
+    nextTrial();
+  }
+  // nback, sequenza, gonogo, stopsignal: tutti sono "rispondi sì/no" con un
+  // ground truth trial.isTarget — riusano lo stesso schema hit/miss/FA/CR.
+  function resolveSignal(trial){
+    if(!trial.valid) return null;
+    if(trial.isTarget) session.counts.targets++; else session.counts.nonTargets++;
+    if(cfg.respMode==='manuale') return 'pend';
+    const tapped = session.responses.size>0;
+    let outcome, correct;
+    if(trial.isTarget && tapped){ session.counts.hits++; outcome='hit'; correct=true; if(session.respTime) session.rts.push(session.respTime); }
+    else if(trial.isTarget && !tapped){ session.counts.misses++; outcome='err'; correct=false; }
+    else if(!trial.isTarget && tapped){ session.counts.falseAlarms++; outcome='err'; correct=false; }
+    else { session.counts.correctRejections++; outcome='hit'; correct=true; }
+    if(cfg.taskMode==='nback'){
+      session.adaptBlock.push(correct);
+      maybeAdapt();
+    }
+    if(cfg.taskMode==='stopsignal' && trial.isStopTrial){
+      // staircase: fermarsi con successo → SSD più lungo (più difficile);
+      // fallire lo stop → SSD più corto (più facile)
+      session.currentSSD = tapped
+        ? Math.max(0, session.currentSSD - cfg.ssdStep)
+        : Math.min(cfg.isi-100, session.currentSSD + cfg.ssdStep);
+      session.ssdHistory.push(session.currentSSD);
+    }
+    return outcome;
+  }
+  // ANT / switching: scelta 2AFC, non ha senso hit/FA — traccia solo
+  // corretto/scorretto + RT, per poi scomporre per condizione a fine sessione.
+  function resolveChoice(trial){
+    if(cfg.respMode==='manuale') return 'pend';
+    const given = [...session.responses][0] || null;
+    const correct = given===trial.correctAnswer;
+    session.choiceLog.push({
+      correct, rt: correct ? session.respTime : null, omitted: given===null,
+      isSwitch: !!trial.isSwitch, cueType: trial.cueType, congruency: trial.congruency
+    });
+    return correct ? 'hit' : 'err';
+  }
+  // Doppio compito: due canali indipendenti, ciascuno con proprio target.
+  function resolveDualTask(trial){
+    if(!trial.valid) return null;
+    if(cfg.respMode==='manuale') return 'pend';
+    if(trial.visualIsTarget) session.counts.targets++; else session.counts.nonTargets++;
+    if(trial.audioIsTarget) session.countsAud.targets++; else session.countsAud.nonTargets++;
+    const tapV = session.responses.has('vis'), tapA = session.responses.has('aud');
+    let ok = true;
+    if(trial.visualIsTarget && tapV) session.counts.hits++;
+    else if(trial.visualIsTarget && !tapV){ session.counts.misses++; ok=false; }
+    else if(!trial.visualIsTarget && tapV){ session.counts.falseAlarms++; ok=false; }
+    else session.counts.correctRejections++;
+    if(trial.audioIsTarget && tapA) session.countsAud.hits++;
+    else if(trial.audioIsTarget && !tapA){ session.countsAud.misses++; ok=false; }
+    else if(!trial.audioIsTarget && tapA){ session.countsAud.falseAlarms++; ok=false; }
+    else session.countsAud.correctRejections++;
+    return ok ? 'hit' : 'err';
+  }
+
+  // Restituisce la specifica dei pulsanti di risposta per l'esercizio
+  // corrente. null per gli esercizi con etichette che dipendono dal trial
+  // (switching), gestiti a parte in updateTaskScreen.
+  /* ---- rendering Cancellazione/Neglect ---- */
+  function mountNeglectScreen(root){
+    const infoSpan = el('div',{class:'info'},['']);
+    const pauseBtn = el('button',{onclick:()=>{ session.paused ? resumeTask() : pauseTask(); }},['❚❚ Pausa']);
+    root.appendChild(el('div',{class:'topbar'},[
+      infoSpan,
+      el('div',{style:'display:flex; gap:8px;'},[
+        pauseBtn,
+        el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); view=homeView(); render(); } }},['Interrompi'])
+      ])
+    ]));
+    const board = el('div',{class:'neglect-board'},[]);
+    root.appendChild(board);
+    const resp = el('div',{class:'respond'},[]);
+    let doneBtn = null, manualNote = null;
+    if(cfg.respMode!=='manuale'){
+      doneBtn = el('button',{class:'tapbtn nomatch full', onclick:()=>{ if(session.timer) clearTimeout(session.timer); finishBoard('interrotta dall\'operatore'); }},['Fatto con questa tavola']);
+      resp.appendChild(doneBtn);
+    } else {
+      manualNote = el('div',{style:'color:#fff; font-size:13px; opacity:.8; align-self:center;'},['Modalità manuale: conta a voce/carta i bersagli trovati per lato, poi registra il risultato.']);
+      const regBtn = el('button',{class:'tapbtn match full', onclick:()=> manualRegisterBoard()},['Registra risultato tavola']);
+      resp.appendChild(manualNote); resp.appendChild(regBtn);
+    }
+    root.appendChild(resp);
+    return {infoSpan, pauseBtn, board};
+  }
+  function manualRegisterBoard(){
+    const tL = session.board.filter(b=>b.side==='left'&&b.isTarget).length;
+    const tR = session.board.filter(b=>b.side==='right'&&b.isTarget).length;
+    const foundLeft = parseInt(prompt('Bersagli trovati a SINISTRA (su '+tL+'):','0'),10) || 0;
+    const foundRight = parseInt(prompt('Bersagli trovati a DESTRA (su '+tR+'):','0'),10) || 0;
+    const falseAlarms = parseInt(prompt('Falsi allarmi (elementi sbagliati toccati/segnalati):','0'),10) || 0;
+    session.results.push({
+      targetsLeft:tL, targetsRight:tR,
+      foundLeft:Math.min(foundLeft,tL), foundRight:Math.min(foundRight,tR),
+      falseAlarms, timeMs:performance.now()-session.boardStartTime, reason:'manuale'
+    });
+    session.boardIdx++;
+    nextBoard();
+  }
+  function updateNeglectScreen(){
+    const d = taskDom;
+    d.infoSpan.textContent = 'tavola '+(Math.min(session.boardIdx+1,session.totalBoards))+' / '+session.totalBoards+' · '+
+      STIM_LABELS[cfg.stimType]+' · bersagli: '+cfg.targetSeq.map(seqLabel).join(', ');
+    d.pauseBtn.textContent = session.paused ? '▶ Riprendi' : '❚❚ Pausa';
+    d.board.innerHTML='';
+    if(session.paused){
+      d.board.appendChild(el('div',{class:'blank'},['❚❚ in pausa']));
+      return;
+    }
+    session.board.forEach(item=>{
+      const cls = 'neglect-item'+(item.found?' found':'')+(item.falseTap?' falsetap':'');
+      const style = 'left:'+item.x+'%; top:'+item.y+'%;'+(cfg.stimType==='colori' ? ' background:'+item.val.hex+';' : '');
+      const content = cfg.stimType==='colori' ? [] : [seqLabel(item.val)];
+      const btn = el('div',{class:cls, style, onclick:()=> tapNeglectItem(item)}, content);
+      d.board.appendChild(btn);
+    });
+  }
+  /* ---- rendering esercizi sequenziali (n-back, sequenza, gonogo, stopsignal, ant, switching, dualtask) ---- */
+  function respondSpec(){
+    switch(cfg.taskMode){
+      case 'gonogo':
+        return [{action:'go', label: cfg.respMode==='operatore' ? 'Il paziente risponde' : 'GO — rispondi', cls:'match', full:true}];
+      case 'stopsignal':
+        return [{action:'go', label: cfg.respMode==='operatore' ? 'Il paziente risponde' : 'GO — il più veloce possibile', cls:'match', full:true}];
+      case 'ant':
+        return [{action:'left', label:'◀ Sinistra', cls:'match'}, {action:'right', label:'Destra ▶', cls:'nomatch'}];
+      case 'switching':
+        return [{action:'a', label:'—', cls:'match'}, {action:'b', label:'—', cls:'nomatch'}];
+      case 'dualtask':
+        return [{action:'vis', label:'Target visivo', cls:'match'}, {action:'aud', label:'Target uditivo', cls:'nomatch'}];
+      default: { // nback, sequenza — un solo pulsante: l'assenza di tocco
+        // è già di per sé la risposta "nessuna corrispondenza" (rifiuto
+        // corretto), come nel CPT/n-back standard. Un secondo pulsante
+        // "nessuna corrispondenza" non verrebbe distinto dal primo nello
+        // scoring (qualunque tocco = "ha risposto") e quindi un tocco
+        // esplicito di "no" finirebbe per essere contato come un "sì".
+        const isSeq = cfg.taskMode==='sequenza';
+        const matchLabel = isSeq
+          ? (cfg.respMode==='operatore' ? "Il paziente segnala: sequenza appena avvenuta" : "È appena avvenuta la sequenza")
+          : (cfg.respMode==='operatore' ? 'Il paziente indica corrispondenza' : 'Corrispondenza (n='+cfg.nLevel+')');
+        return [{action:'match', label:matchLabel, cls:'match', full:true}];
+      }
+    }
+  }
+  function mountTaskScreen(root){
+    const infoSpan = el('div',{class:'info'},['']);
+    const pauseBtn = el('button',{onclick:()=>{ session.paused ? resumeTask() : pauseTask(); }},['Pausa']);
+    const topRight = [pauseBtn];
+    if(cfg.taskMode==='nback'){
+      topRight.unshift(
+        el('button',{onclick:()=>bumpLevel(-1), style:'padding:8px 11px;'},['–']),
+        el('button',{onclick:()=>bumpLevel(1), style:'padding:8px 11px;'},['+'])
+      );
+    }
+    root.appendChild(el('div',{class:'topbar'},[
+      infoSpan,
+      el('div',{style:'display:flex; gap:8px;'},[
+        ...topRight,
+        el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); if(session.stopCueTimer) clearTimeout(session.stopCueTimer); view=homeView(); render(); } }},['Interrompi'])
+      ])
+    ]));
+    const stage = el('div',{class:'stage'});
+    const stimSlot = el('div',{},[]);
+    const trail = el('div',{class:'trail'});
+    stage.appendChild(stimSlot);
+    stage.appendChild(trail);
+    root.appendChild(stage);
+
+    const btns = [];
+    if(cfg.respMode!=='manuale'){
+      const resp = el('div',{class:'respond'});
+      respondSpec().forEach(spec=>{
+        const b = el('button',{class:'tapbtn '+spec.cls+(spec.full?' full':''), onclick:()=>{ registerTap(spec.action); flashTap(b); }},[spec.label]);
+        b.dataset.action = spec.action;
+        resp.appendChild(b);
+        btns.push(b);
+      });
+      root.appendChild(resp);
+    } else {
+      const resp = el('div',{class:'respond'});
+      resp.appendChild(el('div',{style:'color:#fff; font-size:13px; opacity:.8; align-self:center;'},['Modalità manuale: la sequenza scorre automaticamente. I risultati si inseriscono al termine.']));
+      root.appendChild(resp);
+    }
+    return {infoSpan, pauseBtn, stimSlot, trail, btns};
+  }
+  function flashTap(btn){
+    if(!btn) return;
+    btn.classList.add('tapped');
+    setTimeout(()=> btn.classList.remove('tapped'), 180);
+  }
+  function updateTaskScreen(){
+    const d = taskDom;
+    const trial = session.idx>=0 && session.idx<session.seq.length ? session.seq[session.idx] : null;
+    const modeLabel = cfg.taskMode==='sequenza' ? 'sequenza '+describeTargetSeq()
+      : cfg.taskMode==='nback' ? 'n='+session.liveNLevel+(cfg.adaptive?' (adattivo)':'')
+      : cfg.taskMode==='gonogo' ? 'no-go: '+seqLabel(cfg.targetSeq[0])
+      : cfg.taskMode==='stopsignal' ? 'SSD '+Math.round(session.currentSSD)+'ms'
+      : EXERCISES[cfg.taskMode].label;
+    d.infoSpan.textContent = 'prova '+(Math.min(session.idx+1,session.seq.length))+' / '+session.seq.length+' · '+modeLabel+
+      (EXERCISES[cfg.taskMode].usesStimType ? ' · '+STIM_LABELS[cfg.stimType] : '');
+    d.pauseBtn.textContent = session.paused ? '▶ Riprendi' : '❚❚ Pausa';
+
+    // switching: le etichette dei pulsanti dipendono dalla regola del trial corrente
+    if(cfg.taskMode==='switching' && trial && d.btns.length===2){
+      d.btns[0].textContent = trial.ruleDef.labelA;
+      d.btns[1].textContent = trial.ruleDef.labelB;
+    }
+    if(cfg.taskMode==='nback' && d.btns.length===1 && cfg.respMode!=='operatore'){
+      d.btns[0].textContent = 'Corrispondenza (n='+session.liveNLevel+')';
+    }
+
+    d.stimSlot.innerHTML='';
+    if(session.paused){
+      d.stimSlot.appendChild(el('div',{class:'blank'},['❚❚ in pausa']));
+    } else if(session.showStopCue){
+      d.stimSlot.appendChild(el('div',{class:'stopcue-full'},['STOP']));
+    } else if(trial && session.phase==='show'){
+      d.stimSlot.appendChild(renderStimulusNode(trial));
+    } else {
+      d.stimSlot.appendChild(el('div',{class:'blank'},['· · ·']));
+    }
+
+    d.trail.innerHTML='';
+    session.trail.slice(-16).forEach(t=> d.trail.appendChild(el('div',{class:'chip '+t.outcome})));
+
+    const canRespond = cfg.respMode!=='manuale' && !session.paused &&
+      (cfg.taskMode==='dualtask' ? true : session.responses.size===0);
+    d.btns.forEach(b=>{
+      const already = cfg.taskMode==='dualtask' ? session.responses.has(b.dataset.action) : false;
+      b.style.opacity = (canRespond && !already) ? '1' : '.55';
+      b.style.pointerEvents = session.paused ? 'none' : 'auto';
+    });
+  }
+  function renderStimulusNode(trial){
+    if(cfg.taskMode==='ant'){
+      const arrow = d=> d==='left' ? '◀' : '▶';
+      let flankers;
+      if(trial.congruency==='congruent') flankers = arrow(trial.targetDir);
+      else if(trial.congruency==='incongruent') flankers = arrow(trial.targetDir==='left'?'right':'left');
+      else flankers = '–';
+      const row = flankers+flankers+arrow(trial.targetDir)+flankers+flankers;
+      const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; gap:18px;'});
+      if(trial.cueType!=='none') wrap.appendChild(el('div',{style:'color:'+ (trial.cueType==='spatial'? 'var(--accent)':'rgba(255,255,255,.6)') +'; font-size:28px;'},[trial.cueType==='spatial' ? (trial.side==='left'?'◀':'▶') : '✦']));
+      wrap.appendChild(el('div',{class:'stimulus symbolwrap', style: trial.cueType==='spatial' ? ('align-self:'+(trial.side==='left'?'flex-start':'flex-end')) : ''},[row]));
+      return wrap;
+    }
+    if(cfg.taskMode==='switching'){
+      const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; gap:14px;'});
+      wrap.appendChild(el('div',{style:'color:var(--accent); font-size:16px; letter-spacing:.08em; font-weight:700;'},[trial.ruleDef.label.toUpperCase()+'?']));
+      if(cfg.switchMaterial==='colori'){
+        wrap.appendChild(el('div',{class:'colorcircle', style:'width:140px; height:140px; background:'+trial.val.hex+';'},[]));
+      } else {
+        wrap.appendChild(el('div',{class:'stimulus'},[seqLabel(trial.val)]));
+      }
+      return wrap;
+    }
+    if(cfg.taskMode==='dualtask'){
+      const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; gap:10px;'});
+      if(cfg.dualVisual==='colori'){
+        wrap.appendChild(el('div',{class:'colorcircle', style:'width:120px; height:120px; background:'+trial.visualVal.hex+';'},[]));
+      } else {
+        wrap.appendChild(el('div',{class:'stimulus'},[seqLabel(trial.visualVal)]));
+      }
+      wrap.appendChild(el('div',{class:'audio-pulse active', style:'width:64px;height:64px;font-size:24px;'},['♪']));
+      return wrap;
+    }
+    if(cfg.stimType==='simboli'){
+      return el('div',{class:'stimulus symbolwrap'},[trial.val]);
+    }
+    if(cfg.stimType==='parole'){
+      return el('div',{class:'stimulus word'},[trial.val]);
+    }
+    if(cfg.stimType==='suoni'){
+      return el('div',{class:'audio-pulse active'},['♪']);
+    }
+    if(cfg.stimType==='colori'){
+      return el('div',{class:'colorcircle', style:'background:'+trial.val.hex+';'},[]);
+    }
+    return el('div',{class:'stimulus'},[trial.val]);
+  }
+
+  /* ---------- FINISH / RESULTS ---------- */
+  function finishSession(){
+    const durationMs = Date.now()-session.startedAt;
+    if(cfg.respMode==='manuale'){
+      view='manualEntry'; render(); return;
+    }
+    completeAndSave(durationMs);
+  }
+  function finishNeglectSession(){
+    completeAndSave(Date.now()-session.startedAt);
+  }
+  function rtMeanOf(items){
+    const v = items.filter(x=>x!=null);
+    return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null;
+  }
+  async function completeAndSave(durationMs){
+    const family = EXERCISES[cfg.taskMode].family;
+    const rec = {
+      id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
+      ts: Date.now(), dateLabel: todayStr(),
+      stimType: cfg.stimType, nLevel: cfg.nLevel, trials: cfg.trials, isi: cfg.isi, stimDuration: cfg.stimDuration,
+      respMode: cfg.respMode, patientCode: cfg.patientCode, notes: cfg.notes,
+      taskMode: cfg.taskMode, targetSeq: EXERCISES[cfg.taskMode].usesTargetSeq ? cfg.targetSeq.map(seqLabel) : null,
+      durationMs, family
+    };
+    if(family==='signal'){
+      const avgRT = rtMeanOf(session.rts);
+      rec.counts = session.counts; rec.metrics = scoreFromCounts(session.counts); rec.avgRT = avgRT;
+      if(cfg.taskMode==='stopsignal' && session.ssdHistory.length){
+        const meanSSD = rtMeanOf(session.ssdHistory);
+        rec.meanSSD = meanSSD;
+        rec.ssrt = (avgRT!=null && meanSSD!=null) ? Math.max(0, avgRT-meanSSD) : null;
+      }
+      if(cfg.taskMode==='nback'){
+        rec.finalNLevel = session.liveNLevel;
+        rec.adaptive = cfg.adaptive;
+        rec.levelChanges = session.levelChanges.length ? session.levelChanges : null;
+      }
+    } else if(family==='choice'){
+      const log = session.choiceLog;
+      const total = log.length, correct = log.filter(x=>x.correct).length, omitted = log.filter(x=>x.omitted).length;
+      rec.choice = { total, correct, omitted, accuracy: total? correct/total : null, meanRT: rtMeanOf(log.map(x=>x.rt)) };
+      if(cfg.taskMode==='ant'){
+        const rtBy = (key,val)=> rtMeanOf(log.filter(x=>x[key]===val && x.correct).map(x=>x.rt));
+        const noneRT=rtBy('cueType','none'), centerRT=rtBy('cueType','center'), spatialRT=rtBy('cueType','spatial');
+        const congRT=rtBy('congruency','congruent'), incongRT=rtBy('congruency','incongruent');
+        rec.choice.alerting = (noneRT!=null && centerRT!=null) ? Math.round(noneRT-centerRT) : null;
+        rec.choice.orienting = (centerRT!=null && spatialRT!=null) ? Math.round(centerRT-spatialRT) : null;
+        rec.choice.conflict = (congRT!=null && incongRT!=null) ? Math.round(incongRT-congRT) : null;
+      }
+      if(cfg.taskMode==='switching'){
+        const swRT = rtMeanOf(log.filter(x=>x.isSwitch && x.correct).map(x=>x.rt));
+        const repRT = rtMeanOf(log.filter(x=>!x.isSwitch && x.correct).map(x=>x.rt));
+        rec.choice.switchCost = (swRT!=null && repRT!=null) ? Math.round(swRT-repRT) : null;
+      }
+    } else if(family==='dual'){
+      rec.counts = session.counts; rec.metrics = scoreFromCounts(session.counts);
+      rec.countsAud = session.countsAud; rec.metricsAud = scoreFromCounts(session.countsAud);
+    } else if(family==='spatial'){
+      const r = session.results;
+      const sum = k=> r.reduce((a,b)=>a+b[k],0);
+      const tL=sum('targetsLeft'), tR=sum('targetsRight'), fL=sum('foundLeft'), fR=sum('foundRight'), fa=sum('falseAlarms');
+      rec.neglect = {
+        boards:r.length, targetsLeft:tL, targetsRight:tR, foundLeft:fL, foundRight:fR,
+        omittedLeft:tL-fL, omittedRight:tR-fR,
+        pctLeft: tL? fL/tL : null, pctRight: tR? fR/tR : null,
+        falseAlarms:fa, meanTimeMs: rtMeanOf(r.map(x=>x.timeMs)),
+        asymmetry: (tL && tR) ? Math.round(((fL/tL)-(fR/tR))*100) : null // negativo = più omissioni a sinistra
+      };
+    }
+    lastResult = rec;
+    await saveSession(rec);
+    view='results'; render();
+  }
+
+  function ScreenManualEntry(root){
+    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['Inserimento manuale dei risultati']));
+    card.appendChild(el('p',{class:'hint'},['La sequenza è stata presentata senza raccolta automatica delle risposte. Inserisci i conteggi osservati durante la sessione.']));
+
+    const family = EXERCISES[cfg.taskMode].family;
+    const noteWrap = el('div',{class:'field'});
+    noteWrap.appendChild(el('label',{},['Note cliniche (facoltativo)']));
+    const noteInp = el('input',{type:'text', placeholder:'osservazioni sulla prestazione'});
+    noteInp.addEventListener('input', e=> cfg.notes = e.target.value);
+    noteWrap.appendChild(noteInp);
+
+    if(family==='signal'){
+      const totalValid = session.seq.filter(t=>t.valid).length;
+      const targets = session.seq.filter(t=>t.valid && t.isTarget).length;
+      card.appendChild(el('p',{class:'hint'},['Prove valide: '+totalValid+' · da rispondere: '+targets+' · da non rispondere: '+(totalValid-targets)]));
+      const manual = {hits:0, misses:0, falseAlarms:0, correctRejections:0, targets, nonTargets: totalValid-targets};
+      const grid = el('div',{class:'grid'});
+      const labels = {hits:'Risposte corrette (hit)', misses:'Mancate risposte (miss)', falseAlarms:'Falsi allarmi', correctRejections:'Rifiuti corretti'};
+      ['hits','misses','falseAlarms','correctRejections'].forEach(k=>{
+        grid.appendChild(field(labels[k], stepper(0,0,80,v=>{ manual[k]=v; }, 1)));
+      });
+      card.appendChild(grid); card.appendChild(noteWrap);
+      card.appendChild(el('button',{class:'primary', onclick:async ()=>{
+        session.counts = manual;
+        await completeAndSave(Date.now()-session.startedAt);
+      }},['Salva risultati']));
+    } else if(family==='choice'){
+      const totalValid = session.seq.filter(t=>t.valid).length;
+      card.appendChild(el('p',{class:'hint'},['Prove totali: '+totalValid]));
+      let correct=0, errors=0, omitted=0;
+      const grid = el('div',{class:'grid'});
+      grid.appendChild(field('Risposte corrette', stepper(0,0,120,v=>{correct=v;},1)));
+      grid.appendChild(field('Risposte errate', stepper(0,0,120,v=>{errors=v;},1)));
+      grid.appendChild(field('Risposte omesse', stepper(0,0,120,v=>{omitted=v;},1)));
+      card.appendChild(grid); card.appendChild(noteWrap);
+      card.appendChild(el('p',{class:'hint'},['In modalità manuale non è possibile calcolare la scomposizione per condizione (allerta/orienting/conflitto o switch cost) — solo l\'accuratezza complessiva.']));
+      card.appendChild(el('button',{class:'primary', onclick:async ()=>{
+        const log = [];
+        for(let i=0;i<correct;i++) log.push({correct:true, rt:null, omitted:false});
+        for(let i=0;i<errors;i++) log.push({correct:false, rt:null, omitted:false});
+        for(let i=0;i<omitted;i++) log.push({correct:false, rt:null, omitted:true});
+        session.choiceLog = log;
+        await completeAndSave(Date.now()-session.startedAt);
+      }},['Salva risultati']));
+    } else { // dual
+      card.appendChild(el('p',{class:'hint'},['Inserisci i conteggi separatamente per canale visivo e uditivo.']));
+      const manualV = {hits:0, misses:0, falseAlarms:0, correctRejections:0};
+      const manualA = {hits:0, misses:0, falseAlarms:0, correctRejections:0};
+      const labels = {hits:'Hit', misses:'Miss', falseAlarms:'Falsi allarmi', correctRejections:'Rifiuti corretti'};
+      card.appendChild(el('label',{},['Canale visivo']));
+      const gridV = el('div',{class:'grid'});
+      ['hits','misses','falseAlarms','correctRejections'].forEach(k=> gridV.appendChild(field(labels[k], stepper(0,0,80,v=>{manualV[k]=v;},1))));
+      card.appendChild(gridV);
+      card.appendChild(el('label',{},['Canale uditivo']));
+      const gridA = el('div',{class:'grid'});
+      ['hits','misses','falseAlarms','correctRejections'].forEach(k=> gridA.appendChild(field(labels[k], stepper(0,0,80,v=>{manualA[k]=v;},1))));
+      card.appendChild(gridA);
+      card.appendChild(noteWrap);
+      card.appendChild(el('button',{class:'primary', onclick:async ()=>{
+        session.counts = manualV; session.countsAud = manualA;
+        await completeAndSave(Date.now()-session.startedAt);
+      }},['Salva risultati']));
+    }
+
+    s.appendChild(card); root.appendChild(s);
+  }
+
+  function ScreenResults(root){
+    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    const r = lastResult;
+    const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : r.taskMode;
+    card.appendChild(el('h2',{},['Risultati sessione']));
+    const subLabel = EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType ? STIM_LABELS[r.stimType]+' · ' : '';
+    card.appendChild(el('p',{class:'hint'},[
+      subLabel+exLabel+' · '+r.trials+' prove · '+(r.patientCode? 'paziente '+r.patientCode+' · ':'')+r.dateLabel
+    ]));
+
+    const mg = el('div',{class:'metricgrid'});
+    function metric(n,l){ return el('div',{class:'metric'},[el('div',{class:'n'},[n]),el('div',{class:'l'},[l])]); }
+
+    if(r.family==='choice'){
+      mg.appendChild(metric(r.choice.correct+' / '+r.choice.total, 'Risposte corrette'));
+      mg.appendChild(metric(fmtPct(r.choice.accuracy), 'Accuratezza'));
+      mg.appendChild(metric(String(r.choice.omitted), 'Omesse'));
+      if(r.choice.meanRT!=null) mg.appendChild(metric(Math.round(r.choice.meanRT)+' ms', 'RT medio (corrette)'));
+      if(r.choice.alerting!=null) mg.appendChild(metric(r.choice.alerting+' ms', 'Indice allerta'));
+      if(r.choice.orienting!=null) mg.appendChild(metric(r.choice.orienting+' ms', 'Indice orienting'));
+      if(r.choice.conflict!=null) mg.appendChild(metric(r.choice.conflict+' ms', 'Indice conflitto'));
+      if(r.choice.switchCost!=null) mg.appendChild(metric(r.choice.switchCost+' ms', 'Switch cost'));
+    } else if(r.family==='dual'){
+      mg.appendChild(metric(fmtPct(r.metrics.acc), 'Accuratezza visiva'));
+      mg.appendChild(metric(fmtPct(r.metricsAud.acc), 'Accuratezza uditiva'));
+      mg.appendChild(metric(r.metrics.dprime!=null? r.metrics.dprime.toFixed(2):'—', "d′ visivo"));
+      mg.appendChild(metric(r.metricsAud.dprime!=null? r.metricsAud.dprime.toFixed(2):'—', "d′ uditivo"));
+    } else if(r.family==='spatial'){
+      const ng = r.neglect;
+      mg.appendChild(metric(fmtPct(ng.pctLeft), 'Trovati a sinistra'));
+      mg.appendChild(metric(fmtPct(ng.pctRight), 'Trovati a destra'));
+      mg.appendChild(metric(ng.omittedLeft+' / '+ng.omittedRight, 'Omessi (sin. / des.)'));
+      if(ng.asymmetry!=null) mg.appendChild(metric((ng.asymmetry>0?'+':'')+ng.asymmetry+' pt', 'Asimmetria (– = più omissioni a sin.)'));
+      mg.appendChild(metric(String(ng.falseAlarms), 'Falsi allarmi'));
+      if(ng.meanTimeMs!=null) mg.appendChild(metric(fmtTime(ng.meanTimeMs), 'Tempo medio/tavola'));
+    } else { // signal
+      mg.appendChild(metric(r.counts.hits+' / '+(r.counts.hits+r.counts.misses), 'Hit / target'));
+      mg.appendChild(metric(String(r.counts.falseAlarms), 'Falsi allarmi'));
+      mg.appendChild(metric(fmtPct(r.metrics.acc), 'Accuratezza'));
+      mg.appendChild(metric(r.metrics.dprime!=null? r.metrics.dprime.toFixed(2):'—', "d′"));
+      if(r.avgRT!=null) mg.appendChild(metric(Math.round(r.avgRT)+' ms', 'RT medio (hit)'));
+      if(r.ssrt!=null) mg.appendChild(metric(Math.round(r.ssrt)+' ms', 'SSRT (stima)'));
+      if(r.taskMode==='nback' && r.finalNLevel!=null && r.finalNLevel!==r.nLevel){
+        mg.appendChild(metric(r.nLevel+' → '+r.finalNLevel, 'Livello (iniziale → finale)'));
+      }
+    }
+    mg.appendChild(metric(fmtTime(r.durationMs), 'Durata'));
+    card.appendChild(mg);
+
+    const rowbtns = el('div',{class:'rowbtns'});
+    rowbtns.appendChild(el('button',{class:'primary', onclick:()=>{ view=homeView(); render(); }},['Nuova sessione']));
+    rowbtns.appendChild(el('button',{class:'ghost', onclick:()=>{ view='history'; render(); }},['Storico']));
+    card.appendChild(rowbtns);
+
+    s.appendChild(card); root.appendChild(s);
+  }
+
+  /* ---------- HISTORY ---------- */
+  /* ---------- CLOUD SYNC SCREEN ---------- */
+  function ScreenCloud(root){
+    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['Sincronizzazione cloud']));
+    card.appendChild(el('p',{class:'hint'},[
+      'Facoltativa. Senza configurazione l\'app funziona solo in locale su questo dispositivo. Configurando un progetto Supabase gratuito, più operatori possono lavorare insieme e i pazienti possono allenarsi da soli, da qualunque dispositivo.'
+    ]));
+
+    // config fields
+    const fUrl = el('div',{class:'field'});
+    fUrl.appendChild(el('label',{},['URL progetto Supabase']));
+    const urlInp = el('input',{type:'text', placeholder:'https://xxxxx.supabase.co', value:cloudCfg.url});
+    fUrl.appendChild(urlInp);
+    card.appendChild(fUrl);
+
+    const fKey = el('div',{class:'field'});
+    fKey.appendChild(el('label',{},['Chiave anon (pubblica)']));
+    const keyInp = el('input',{type:'text', placeholder:'eyJhbGciOi...', value:cloudCfg.key});
+    fKey.appendChild(keyInp);
+    card.appendChild(fKey);
+
+    card.appendChild(el('button',{class:'ghost', onclick: async ()=>{
+      await cloudSaveConfig(urlInp.value, keyInp.value);
+    }},['Salva configurazione']));
+
+    card.appendChild(el('p',{class:'hint'},['Stato: '+cloudStatusLabel()+'. La chiave "anon" è pensata per stare nel codice pubblico: l\'accesso ai dati è comunque protetto dal login e dalle regole del database (vedi istruzioni).']));
+
+    if(sb && !cloudUser){
+      card.appendChild(field('Accesso come', segButtons(['operatore','paziente'], cloudLoginMode, v=>{ cloudLoginMode=v; render(); }, {operatore:'Operatore', paziente:'Paziente'})));
+
+      if(cloudLoginMode==='operatore'){
+        const emailInp = el('input',{type:'text', placeholder:'email'});
+        const pwInp = el('input',{type:'text', placeholder:'password (min 6 caratteri)'});
+        card.appendChild(el('div',{class:'field'},[el('label',{},['Email']), emailInp]));
+        card.appendChild(el('div',{class:'field'},[el('label',{},['Password']), pwInp]));
+        const rb = el('div',{class:'rowbtns'});
+        rb.appendChild(el('button',{class:'primary', disabled:cloudBusy, onclick:()=>cloudSignIn(emailInp.value, pwInp.value)},[cloudBusy?'Attendere…':'Accedi']));
+        rb.appendChild(el('button',{class:'ghost', disabled:cloudBusy, onclick:()=>cloudSignUp(emailInp.value, pwInp.value)},['Registrati']));
+        card.appendChild(rb);
+      } else {
+        const codeInp = el('input',{type:'text', placeholder:'es. K7XQ2M9P', style:'text-transform:uppercase;'});
+        card.appendChild(el('div',{class:'field'},[el('label',{},['Codice di accesso (fornito dall\'operatore)']), codeInp]));
+        card.appendChild(el('button',{class:'primary', disabled:cloudBusy, onclick:()=>cloudPatientSignIn(codeInp.value)},[cloudBusy?'Attendere…':'Entra']));
+      }
+    }
+    if(sb && cloudUser){
+      if(patientProfile){
+        card.appendChild(el('p',{class:'hint'},['Connesso come paziente '+patientProfile.codice_paziente+'.']));
+      } else {
+        card.appendChild(el('p',{class:'hint'},['Connesso come operatore: '+cloudUser.email+'. Le nuove sessioni si sincronizzano automaticamente; lo storico unisce i dati locali e quelli in cloud.']));
+        const nav2 = el('div',{class:'navlinks'});
+        nav2.appendChild(el('button',{class:'link', onclick:()=>{ view='patients'; render(); }},['Gestisci pazienti →']));
+        card.appendChild(nav2);
+      }
+      card.appendChild(el('button',{class:'ghost', onclick: cloudSignOut},['Disconnetti']));
+    }
+
+    const nav = el('div',{class:'navlinks'});
+    if(cloudUser){
+      nav.appendChild(el('button',{class:'link', onclick:()=>{ view=homeView(); render(); }},['← Torna al setup']));
+    } else {
+      nav.appendChild(el('button',{class:'link', onclick:()=>{ view='setup'; render(); }},['Continua senza account (solo su questo dispositivo) →']));
+    }
+    card.appendChild(nav);
+
+    s.appendChild(card); root.appendChild(s);
+  }
+
+  /* ---------- GESTIONE PAZIENTI (solo operatore) ---------- */
+  function ScreenPatients(root){
+    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['I tuoi pazienti']));
+    if(!sb || !cloudUser || patientProfile){
+      card.appendChild(el('p',{class:'hint'},['Disponibile solo per account operatore con sincronizzazione cloud attiva.']));
+      card.appendChild(el('button',{class:'ghost', onclick:()=>{ view='cloud'; render(); }},['← Sincronizzazione cloud']));
+      s.appendChild(card); root.appendChild(s); return;
+    }
+    card.appendChild(el('p',{class:'hint'},['Ogni paziente ha un proprio account, isolato dagli altri: può allenarsi da un suo dispositivo con il solo codice di accesso, senza vedere nulla del tuo lavoro con altri pazienti.']));
+
+    const listWrap = el('div',{},[el('p',{class:'empty'},['Caricamento…'])]);
+    card.appendChild(listWrap);
+
+    card.appendChild(el('button',{class:'primary', onclick: async ()=>{
+      const nome = prompt('Codice/etichetta per il nuovo paziente (es. "PT-014" — non usare il nominativo):');
+      if(!nome || !nome.trim()) return;
+      const res = await createPatientAccount(nome.trim());
+      if(res){
+        alert('Paziente creato.\nCodice di accesso: '+res.codiceAccesso+'\n\nConsegna questo codice al paziente — è l\'unica cosa che gli serve per accedere. Non è recuperabile in seguito, salvalo ora.');
+        render();
+      }
+    }},['+ Nuovo paziente']));
+
+    const nav = el('div',{class:'navlinks'});
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='cloud'; render(); }},['← Sincronizzazione cloud']));
+    card.appendChild(nav);
+    s.appendChild(card); root.appendChild(s);
+
+    listMyPatients().then(list=>{
+      listWrap.innerHTML='';
+      if(!list.length){ listWrap.appendChild(el('p',{class:'empty'},['Nessun paziente creato ancora.'])); return; }
+      list.forEach(p=>{
+        const program = patientProgram(p);
+        const presetLabel = program.length ? program.map(x=>x.nome).join(', ') : 'nessun allenamento assegnato';
+        const row = el('div',{class:'histrow'},[
+          el('div',{},[
+            el('div',{},[p.codice_paziente]),
+            el('div',{class:'l'},['assegnato: '+presetLabel])
+          ]),
+          el('div',{style:'display:flex; gap:8px;'},[
+            el('button',{class:'ghost', onclick:()=>{ alert('Codice di accesso di '+p.codice_paziente+':\n'+p.codice_accesso); }},['Codice']),
+            el('button',{class:'ghost', onclick:()=>{ editingPatient = p; view='patientProgram'; render(); }},['Gestisci programma'])
+          ])
+        ]);
+        listWrap.appendChild(row);
+      });
+    });
+  }
+
+  /* ---------- PROGRAMMA PAZIENTE (assegna più esercizi) ---------- */
+  function ScreenPatientProgram(root){
+    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    if(!editingPatient){
+      card.appendChild(el('p',{class:'hint'},['Nessun paziente selezionato.']));
+      card.appendChild(el('button',{class:'ghost', onclick:()=>{ view='patients'; render(); }},['← Torna ai pazienti']));
+      s.appendChild(card); root.appendChild(s); return;
+    }
+    card.appendChild(el('h2',{},['Programma di '+editingPatient.codice_paziente]));
+    card.appendChild(el('p',{class:'hint'},['Seleziona uno o più preset salvati su questo dispositivo da assegnare. Il paziente vedrà l\'elenco e potrà avviare quello che vuole a ogni accesso — non serve un ordine fisso.']));
+
+    const presets = listPresets();
+    const already = new Set(patientProgram(editingPatient).map(x=>x.nome));
+    const selected = new Set(presets.filter(p=>already.has(p.name)).map(p=>p.id));
+
+    if(!presets.length){
+      card.appendChild(el('p',{class:'hint'},['Non hai ancora preset salvati su questo dispositivo. Torna al setup, configura un esercizio e usa "Salva impostazioni attuali come preset", poi torna qui.']));
+    } else {
+      presets.forEach(p=>{
+        const row = el('label',{style:'display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid var(--line); cursor:pointer;'});
+        const cb = el('input',{type:'checkbox'});
+        if(selected.has(p.id)) cb.setAttribute('checked','checked');
+        cb.addEventListener('change', ()=>{ if(cb.checked) selected.add(p.id); else selected.delete(p.id); });
+        const exLabel = EXERCISES[p.cfg.taskMode] ? EXERCISES[p.cfg.taskMode].label : p.cfg.taskMode;
+        row.appendChild(cb);
+        row.appendChild(el('div',{},[el('div',{},[p.name]), el('div',{class:'l'},[exLabel])]));
+        card.appendChild(row);
+      });
+    }
+
+    card.appendChild(el('button',{class:'primary', style:'margin-top:16px;', onclick: async ()=>{
+      const program = presets.filter(p=>selected.has(p.id)).map(p=>({nome:p.name, cfg:p.cfg}));
+      if(!program.length){ alert('Seleziona almeno un preset, oppure annulla.'); return; }
+      const ok = await assignProgramToPatient(editingPatient.id, program);
+      if(ok){ editingPatient=null; view='patients'; render(); }
+    }},['Salva programma ('+selected.size+' selezionati)']));
+
+    const nav = el('div',{class:'navlinks'});
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ editingPatient=null; view='patients'; render(); }},['← Annulla']));
+    card.appendChild(nav);
+    s.appendChild(card); root.appendChild(s);
+  }
+
+  /* ---------- VISTA PAZIENTE (semplificata) ---------- */
+  function ScreenPatientHome(root){
+    root.appendChild(el('div',{class:'brand'},[
+      el('div',{class:'mark'},['Traccia',el('span',{},['N'])]),
+      el('div',{class:'sub'},['CT MRI'])
+    ]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['Ciao'+(patientProfile&&patientProfile.codice_paziente?', '+patientProfile.codice_paziente:'')]));
+    const program = patientProgram(patientProfile);
+    if(!program.length){
+      card.appendChild(el('p',{class:'hint'},['Il tuo operatore non ha ancora assegnato un allenamento. Torna più tardi.']));
+    } else {
+      card.appendChild(el('p',{class:'hint'},['Il tuo operatore ti ha assegnato '+program.length+(program.length>1?' allenamenti':' allenamento')+':']));
+      program.forEach(item=>{
+        const exLabel = EXERCISES[item.cfg.taskMode] ? EXERCISES[item.cfg.taskMode].label : item.cfg.taskMode;
+        const row = el('div',{class:'histrow'},[
+          el('div',{},[ el('div',{},[item.nome||exLabel]), el('div',{class:'l'},[exLabel]) ]),
+          el('button',{class:'primary', style:'padding:10px 16px;', onclick:()=>{
+            loadPreset({cfg:item.cfg});
+            cfg.patientCode = patientProfile.codice_paziente;
+            view='instructions'; render();
+          }},['Inizia'])
+        ]);
+        card.appendChild(row);
+      });
+    }
+    const nav = el('div',{class:'navlinks'});
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='history'; render(); }},['I miei risultati →']));
+    nav.appendChild(el('button',{class:'link', onclick: cloudSignOut},['Esci']));
+    card.appendChild(nav);
+    s.appendChild(card); root.appendChild(s);
+  }
+
+
+  function ScreenHistory(root){
+    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['Storico sessioni']));
+    card.appendChild(el('p',{class:'hint'},[
+      sb && cloudUser ? 'Sincronizzate con il cloud (' + cloudUser.email + ') e disponibili in locale su questo dispositivo.'
+                       : 'Salvate solo in locale su questo dispositivo. Attiva la sincronizzazione cloud per condividerle tra i tuoi dispositivi.'
+    ]));
+    const listWrap = el('div',{},[el('p',{class:'empty'},['Caricamento…'])]);
+    card.appendChild(listWrap);
+    const rowbtns = el('div',{class:'rowbtns'});
+    rowbtns.appendChild(el('button',{class:'ghost', onclick:()=>{ view=homeView(); render(); }},['← Nuova sessione']));
+    const exportBtn = el('button',{class:'ghost', onclick:async ()=>{ const items = await loadHistory(); if(items.length) exportCSV(items); }},['Esporta CSV']);
+    rowbtns.appendChild(exportBtn);
+    card.appendChild(rowbtns);
+    s.appendChild(card); root.appendChild(s);
+
+    loadHistory().then(items=>{
+      listWrap.innerHTML='';
+      if(!items.length){ listWrap.appendChild(el('p',{class:'empty'},['Nessuna sessione salvata.'])); return; }
+      items.forEach(r=>{
+        const family = r.family || 'signal';
+        const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
+        const detail = family==='choice' ? exLabel
+          : (r.taskMode==='nback' ? exLabel+' n='+r.nLevel : exLabel);
+        const scoreLabel = family==='choice'
+          ? fmtPct(r.choice.accuracy)+' corr.'
+          : family==='dual'
+            ? fmtPct(r.metrics.acc)+' vis · '+fmtPct(r.metricsAud.acc)+' ud.'
+            : family==='spatial'
+              ? fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des'
+              : fmtPct(r.metrics.acc)+(r.metrics.dprime!=null? ' · d′ '+r.metrics.dprime.toFixed(2):'');
+        const row = el('div',{class:'histrow'},[
+          el('div',{},[
+            el('div',{},[(EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType ? STIM_LABELS[r.stimType]+' · ':'')+detail+' · '+r.trials+' prove'+(r.patientCode?' · '+r.patientCode:'')]),
+            el('div',{class:'l'},[r.dateLabel])
+          ]),
+          el('div',{},[scoreLabel])
+        ]);
+        listWrap.appendChild(row);
+      });
+    });
+  }
+
+  const SCREENS = {
+    setup: ScreenSetup, instructions: ScreenInstructions, countdown: ScreenCountdown,
+    manualEntry: ScreenManualEntry, results: ScreenResults, history: ScreenHistory,
+    cloud: ScreenCloud, patients: ScreenPatients, patientHome: ScreenPatientHome, patientProgram: ScreenPatientProgram
+  };
+
+  initSupabase();
+  function decideInitialView(){
+    if(patientProfile) return 'patientHome';
+    if(cloudUser) return 'setup'; // operatore già collegato
+    return 'cloud'; // non collegato: si parte dalla schermata di accesso
+  }
+  restoreCloudSession().finally(()=>{ view = decideInitialView(); render(); });
+})();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>

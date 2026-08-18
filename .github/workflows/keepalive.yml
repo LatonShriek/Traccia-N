@@ -1,20 +1,3 @@
-printf '%s\n' \
-'name: Keep Supabase Active' \
-'on:' \
-'  schedule:' \
-"    - cron: '0 6 * * 1,4'" \
-'  workflow_dispatch:' \
-'jobs:' \
-'  ping:' \
-'    runs-on: ubuntu-latest' \
-'    steps:' \
-'      - name: Ping Supabase' \
-'        env:' \
-'          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}' \
-'        run: |' \
-'          curl -s -H "apikey: $SUPABASE_ANON_KEY" "https://qfzpjebloxstjotdytbe.supabase.co/rest/v1/pazienti?select=id&limit=1"'
-Output
-
 name: Keep Supabase Active
 on:
   schedule:

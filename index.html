@@ -319,7 +319,7 @@
     neglect:    {label:'Cancellazione (neglect)',  usesStimType:true,  usesTargetSeq:true,  family:'spatial',
       domini:['Attenzione visuospaziale','Esplorazione dello spazio'],
       instructions:c=>{
-        if(c.neglectMode==='intruso') return 'Sullo schermo compariranno molti simboli: quasi tutti compaiono in coppia (due uguali), tranne uno solo, che compare una volta sola e non ha nessun doppione. Trova ed esplora tutto lo schermo per individuarlo, poi toccalo. Quando sei sicuro di aver esplorato tutta la tavola, tocca "Fatto".';
+        if(c.neglectMode==='intruso') return 'Sullo schermo compariranno molti simboli, alcuni ripetuti più volte, tranne uno solo: quello non ha nessun doppione da nessuna parte sulla tavola. Esplora tutto lo schermo per individuarlo, poi toccalo. Quando sei sicuro di aver esplorato tutta la tavola, tocca "Fatto".';
         if(c.neglectMode==='regola'){
           const rule = neglectRuleFor((c.stimType==='numeri'?'numeri':'lettere'), c.neglectRuleLevel);
           return 'Sullo schermo compariranno molti '+(c.stimType==='numeri'?'numeri':'lettere')+', alcuni neri e alcuni rossi. Tocca solo quelli che rispettano questa regola: '+rule.label+'. Ignora tutti gli altri, ed esplora tutta la tavola prima di dire di aver finito.';
@@ -716,8 +716,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2271,10 +2271,7 @@
       if(cfg.neglectMode==='classico'){
         card.appendChild(el('p',{class:'hint'},['Compaiono molti elementi contemporaneamente sulla tavola: quelli scelti sopra sono i bersagli da toccare, tutti gli altri sono distrattori. Il gradiente permette di caricare deliberatamente un lato; la tavola avanza solo quando tocchi "Fatto" — mai da sola, nemmeno se hai già trovato tutti i bersagli — così devi monitorare tu stesso l\'avanzamento.']));
       } else if(cfg.neglectMode==='intruso'){
-        card.appendChild(el('p',{class:'hint'},['Ricerca visiva a singolarità: ogni tavola ha un solo elemento senza doppione, il resto compare sempre in coppia. La tavola avanza solo quando tocchi "Fatto".']));
-        if(cfg.neglectBoardSize > 47){
-          card.appendChild(el('p',{class:'hint', style:'color:var(--alert);'},['⚠ Il pool di glifi disponibili copre coppie pulite fino a 47 elementi per tavola: con "'+cfg.neglectBoardSize+'" richiesti, la tavola verrà generata più piccola (47) per non dover ripetere lo stesso glifo più di due volte.']));
-        }
+        card.appendChild(el('p',{class:'hint'},['Ricerca visiva a singolarità: un solo elemento sulla tavola non ha alcun doppione. Ai livelli bassi il resto della tavola è ripetitivo (poche identità molto ripetute, il singolo spicca per contrasto); ai livelli alti diventa eterogeneo (quasi ogni elemento ha un solo doppione, serve confrontarli uno per uno). La tavola avanza solo quando tocchi "Fatto".']));
       } else {
         card.appendChild(el('p',{class:'hint'},['Conteggio/ricerca a regola composta: la regola cresce di una condizione in più ad ogni livello (1-5), cumulativa. La tavola avanza solo quando tocchi "Fatto".']));
       }
@@ -2563,6 +2560,16 @@
   // categorie ovvie come "lettera vs numero". Non è un pool linguistico,
   // sono scelti solo per la somiglianza percettiva.
   const INTRUSO_POOL = ['a','e','o','p','c','x','y','k','n','u','v','w','m','h','s','z', 'а','е','о','р','с','х','і','ѕ']; // 16 latine + 8 cirilliche visivamente confondibili con le corrispondenti latine
+  // Quante identità DISTINTE usare fra i non-bersaglio, come frazione del
+  // massimo possibile per quella tavola: a livelli bassi poche identità
+  // molto ripetute (campo omogeneo, il singolo spicca per contrasto —
+  // ricerca "a colpo d'occhio"), a livelli alti tante identità quasi tutte
+  // in semplice coppia (campo eterogeneo, serve confrontare quasi ogni
+  // elemento con il suo eventuale doppione — ricerca seriale, più lenta e
+  // impegnativa). Non è la dimensione della tavola a cambiare per livello
+  // (quella la gestisce già ADAPT_NEGLECT_SIZE), è quanto la tavola è
+  // ripetitiva al suo interno.
+  const INTRUSO_DISTINCT_FRACTION = {1:0.15, 2:0.30, 3:0.50, 4:0.75, 5:1.0};
   // Regole composte per la modalità "regola": ogni livello aggiunge UNA
   // condizione in più rispetto al precedente, cumulativa (livello 3
   // contiene anche le condizioni del livello 1 e 2) — stessa filosofia
@@ -2625,23 +2632,25 @@
   // come osservazione aggiuntiva, non come misura di neglect controllata.
   function buildNeglectBoardIntruso(){
     const n = cfg.adaptive ? (ADAPT_NEGLECT_SIZE[session.liveBoardLevel] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
-    const nOdd = n % 2 === 0 ? n+1 : n; // deve essere dispari: coppie + un singolo
-    // Il pool di glifi confondibili è limitato: se la tavola richiesta
-    // avrebbe bisogno di più coppie di quante il pool ne possa fornire in
-    // modo distinto, la tavola viene ridotta invece di riusare uno stesso
-    // glifo più di due volte — altrimenti la struttura "tutto in coppie
-    // pulite, tranne un singolo" si romperebbe (alcuni glifi finirebbero per
-    // comparire 4-6 volte, rendendo il compito ambiguo o troppo facile).
-    const pairsCount = Math.min((nOdd-1)/2, INTRUSO_POOL.length-1);
-    const nFinal = pairsCount*2+1;
+    const level = (session && session.liveBoardLevel) || cfg.neglectStartLevel || 3;
+    const nOdd = n % 2 === 0 ? n+1 : n; // deve essere dispari: bersaglio singolo + il resto ripetuto
+    const slots = nOdd - 1; // posizioni da riempire con identità ripetute
+    // Massimo di identità distinte che la tavola può ospitare restando
+    // comunque "ripetute" (almeno 2 copie ciascuna) e senza eccedere il
+    // pool di glifi disponibili.
+    const maxK = Math.max(1, Math.min(Math.floor(slots/2), INTRUSO_POOL.length-1));
+    const fraction = INTRUSO_DISTINCT_FRACTION[Math.max(1,Math.min(5,level))] || 1;
+    const k = Math.max(1, Math.min(maxK, Math.round(maxK*fraction)));
     const shuffled = shuffleArr(INTRUSO_POOL.slice());
-    const pairGlyphs = shuffled.slice(0, pairsCount);
-    const singleton = shuffled[pairsCount];
+    const identities = shuffled.slice(0, k);
+    const singleton = shuffled[k];
+    // distribuisce gli slot il più equamente possibile fra le k identità
+    // (ognuna riceve almeno 2 copie, per costruzione di maxK)
     let glyphSequence = [];
-    pairGlyphs.forEach(g=> glyphSequence.push(g,g));
+    for(let i=0;i<slots;i++){ glyphSequence.push(identities[i % k]); }
     glyphSequence.push(singleton);
     glyphSequence = shuffleArr(glyphSequence);
-    const positions = neglectLayoutPositions(nFinal);
+    const positions = neglectLayoutPositions(nOdd);
     return positions.map((p,i)=>{
       const val = glyphSequence[i];
       return {x:p.x, y:p.y, val, isTarget: val===singleton, side:p.side, found:false, falseTap:false};

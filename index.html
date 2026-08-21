@@ -116,6 +116,11 @@
     font-size:clamp(14px,3vw,22px); color:var(--ink); cursor:pointer; user-select:none; touch-action:manipulation;}
   .neglect-item.found{background:var(--signal-soft); border-color:var(--signal); opacity:.45;}
   .neglect-item.falsetap{background:var(--alert-soft); border-color:var(--alert); opacity:.6;}
+  .neglect-item.cue-pulse{animation: neglectCuePulse 1.1s ease-in-out infinite;}
+  @keyframes neglectCuePulse{
+    0%, 100% { box-shadow: 0 0 0 0 rgba(217,164,65,.55); }
+    50% { box-shadow: 0 0 0 8px rgba(217,164,65,0); }
+  }
   .blank{color:rgba(255,255,255,.18); font-size:min(14vw,110px); font-family:'Space Grotesk',sans-serif;}
 
   .audio-pulse{width:120px; height:120px; border-radius:50%; border:3px solid var(--accent);
@@ -306,7 +311,7 @@
     switching:  {label:'Task-switching',          usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Flessibilità cognitiva','Funzioni esecutive'],
       instructions:c=>{
-        if(c.switchMaterial==='bivalente') return 'Vedrai un carattere che può essere un numero o una lettera, scritto in nero o in rosso. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere, ignora il colore) oppure "Nero / Rosso" (rispondi in base al colore, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
+        if(c.switchMaterial==='bivalente') return 'Vedrai un carattere che può essere un numero o una lettera, scritto in bianco o in rosso. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere, ignora il colore) oppure "Bianco / Rosso" (rispondi in base al colore, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
         const rs=SWITCH_RULESETS[c.switchMaterial]; const matName = c.switchMaterial==='numeri'?'un numero':c.switchMaterial==='lettere'?'una lettera':c.switchMaterial==='simboli'?'un simbolo':'un colore'; return 'Vedrai '+matName+', con accanto un\'indicazione che cambia: a volte devi classificarlo come "'+rs.ruleA.label+'", altre volte come "'+rs.ruleB.label+'". Segui l\'indicazione mostrata in quel momento.'; }},
     dualtask:   {label:'Doppio compito',          usesStimType:false, usesTargetSeq:false, family:'dual',
       domini:['Attenzione divisa','Funzioni esecutive'],
@@ -321,7 +326,7 @@
       instructions:c=>{
         if(c.neglectMode==='intruso') return 'Sullo schermo compariranno molti simboli, alcuni ripetuti più volte, tranne uno solo: quello non ha nessun doppione da nessuna parte sulla tavola. Esplora tutto lo schermo per individuarlo, poi toccalo. Quando sei sicuro di aver esplorato tutta la tavola, tocca "Fatto".';
         if(c.neglectMode==='regola'){
-          const rule = neglectRuleFor((c.stimType==='numeri'?'numeri':'lettere'), c.neglectRuleLevel);
+          const rule = neglectRuleFor((c.stimType==='numeri'?'numeri':'lettere'), c.neglectRuleLevel, c.neglectRuleClauses);
           return 'Sullo schermo compariranno molti '+(c.stimType==='numeri'?'numeri':'lettere')+', alcuni neri e alcuni rossi. Tocca solo quelli che rispettano questa regola: '+rule.label+'. Ignora tutti gli altri, ed esplora tutta la tavola prima di dire di aver finito.';
         }
         const f = stimGender(c.stimType)==='f';
@@ -376,9 +381,13 @@
     dualVisual:'lettere', dualVisual2:'numeri', dualPairing:'vis-aud', dualStartLevel1:3, dualStartLevel2:3, // solo per Doppio compito
     neglectGradient:50, neglectLayout:'griglia', neglectTimeLimit:60, neglectBoardSize:40, // solo per Cancellazione — gradiente 0=tutto a destra, 100=tutto a sinistra, 50=simmetrico
     neglectMode:'classico', neglectRuleLevel:1, // 'classico' (bersagli noti), 'intruso' (l'unico elemento senza doppione), 'regola' (regola composta crescente 1-5)
+    neglectBottomUp:'auto', // solo per 'classico' — 'auto' (pulsazione bottom-up sul lato debole, solo ai livelli bassi e solo se emerge un'asimmetria nella tavola) oppure 'off' (mai, consigliato nelle sessioni di rivalutazione per non falsare la misura)
+    neglectAlphabet:'auto', // solo per 'intruso' — 'auto' (progressione per livello) oppure famiglia forzata: 'latino_cirillico'|'greco'|'armeno'
+    neglectRuleClauses:null, // solo per 'regola' — null=progressione automatica cumulativa per livello; altrimenti array di chiavi scelte manualmente fra 'base','colore','riga','sfondo'
     goaltaskScenario:'sei_compiti_classico', goaltaskLivello:2, // solo per Scenari ecologici (1-5, crescente)
     memoriaModo:'pqrst', memoriaLivello:1, memoriaMateriale:'lista', // solo per Strategie di memoria — memoriaMateriale usato solo da loci/errorless/vanishing (pqrst è sempre brano, chunking è sempre lista)
-    sequenzaMista:false // solo per Sequenza bersaglio: mescola codici diversi (lettere/numeri/colori/suoni/simboli) nella stessa sequenza invece di un solo tipo
+    sequenzaMista:false, // solo per Sequenza bersaglio: mescola codici diversi (lettere/numeri/colori/suoni/simboli) nella stessa sequenza invece di un solo tipo
+    nbackMista:false // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
   };
   // Tipi di stimolo utilizzabili insieme in una sequenza bersaglio mista.
   // Escluse le parole: la lunghezza variabile complicherebbe la costruzione
@@ -403,7 +412,7 @@
             ? c.targetSeq.map(e=>({stimType:e.stimType, label:seqLabel(e)}))
             : c.targetSeq.map(seqLabel))
         : null,
-      sequenzaMista: !!c.sequenzaMista,
+      sequenzaMista: !!c.sequenzaMista, nbackMista: !!c.nbackMista,
       trials:c.trials, isi:c.isi, stimDuration:c.stimDuration, targetRate:c.targetRate,
       respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, adaptive:c.adaptive,
       switchMaterial:c.switchMaterial, dualVisual:c.dualVisual, dualVisual2:c.dualVisual2, dualPairing:c.dualPairing, antMode:c.antMode,
@@ -447,7 +456,7 @@
     cfg.goaltaskScenario = pc.goaltaskScenario || 'sei_compiti_classico';
     cfg.goaltaskLivello = pc.goaltaskLivello || 2;
     cfg.memoriaModo = pc.memoriaModo || 'pqrst'; cfg.memoriaLivello = pc.memoriaLivello || 1; cfg.memoriaMateriale = pc.memoriaMateriale || 'lista';
-    cfg.sequenzaMista = !!pc.sequenzaMista;
+    cfg.sequenzaMista = !!pc.sequenzaMista; cfg.nbackMista = !!pc.nbackMista;
     cfg.targetSeq = (EXERCISES[pc.taskMode] && EXERCISES[pc.taskMode].usesTargetSeq && pc.targetSeq && pc.targetSeq.length)
       ? (pc.taskMode==='sequenza' && pc.sequenzaMista
           ? pc.targetSeq.map(e=>{ const pool = POOLS[e.stimType]||[]; return {stimType:e.stimType, item: pool.find(it=>seqLabel(it)===e.label) || e.label}; })
@@ -716,8 +725,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -830,6 +839,17 @@
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
     }catch(e){}
+  }
+  // Riga di controlli riutilizzabile per le istruzioni vocali: Ascolta (da
+  // capo) / Pausa / Riprendi. Non tiene uno stato reattivo complesso — sono
+  // tre azioni dirette sull'API nativa speechSynthesis, che è già tollerante
+  // (pause/resume non fanno nulla se non si sta parlando).
+  function speakControls(getText){
+    const row = el('div',{class:'rowbtns'});
+    row.appendChild(el('button',{class:'ghost', onclick:()=>{ speak(typeof getText==='function' ? getText() : getText); }},['🔊 Ascolta']));
+    row.appendChild(el('button',{class:'ghost', onclick:()=>{ try{ window.speechSynthesis && window.speechSynthesis.pause(); }catch(e){} }},['⏸ Pausa']));
+    row.appendChild(el('button',{class:'ghost', onclick:()=>{ try{ window.speechSynthesis && window.speechSynthesis.resume(); }catch(e){} }},['▶ Riprendi']));
+    return row;
   }
 
   /* ---------- sequence generation ---------- */
@@ -1018,9 +1038,15 @@
     // per ogni prova indipendentemente da quale regola sia attiva in quel
     // momento, e alimenta un indice di conflitto calcolato allo stesso modo
     // di quello dell'ANT (RT incongruenti − RT congruenti).
+    // Nota sull'etichetta "Bianco" invece di "Nero": lo schermo di sessione
+    // ha sfondo scuro (--focus), quindi un vero nero sarebbe invisibile —
+    // lo stimolo di quel colore viene reso in bianco (vedi renderStimulus).
+    // L'etichetta deve corrispondere a quello che il paziente vede davvero,
+    // non al nome interno della proprietà (colore:'nero' resta invariato
+    // nei dati per compatibilità con le sessioni già registrate).
     bivalente: {
       ruleA:{label:'Numero / Lettera', labelA:'Numero', labelB:'Lettera', classify:v=> v.tipo==='numero'},
-      ruleB:{label:'Nero / Rosso', labelA:'Nero', labelB:'Rosso', classify:v=> v.colore==='nero'}
+      ruleB:{label:'Bianco / Rosso', labelA:'Bianco', labelB:'Rosso', classify:v=> v.colore==='nero'}
     }
   };
   const SWITCH_BIVALENTE_NUM_POOL = ['1','2','3','4','6','7','8','9'];
@@ -2164,6 +2190,7 @@
     // (l'ANT classico usa sempre frecce fisse, il TAPAT invece sceglie il materiale)
     const isClassicAnt = cfg.taskMode==='ant' && cfg.antMode==='classico';
     const isSequenzaMista = cfg.taskMode==='sequenza' && cfg.sequenzaMista;
+    const isNbackMista = cfg.taskMode==='nback' && cfg.nbackMista;
     const neglectIntruso = cfg.taskMode==='neglect' && cfg.neglectMode==='intruso'; // pool fisso di glifi, nessuna scelta di materiale
     const neglectRegola = cfg.taskMode==='neglect' && cfg.neglectMode==='regola'; // solo numeri/lettere, servono proprietà classificabili (pari/dispari, vocale/consonante)
     if(cfg.taskMode==='sequenza'){
@@ -2173,9 +2200,15 @@
         render();
       }, {no:'Un solo tipo', si:'Mescolati (lettere/numeri/colori/suoni/simboli)'})));
     }
-    if(ex.usesStimType && !isClassicAnt && !isSequenzaMista && !neglectIntruso){
+    if(cfg.taskMode==='nback'){
+      grid.appendChild(field('Materiale', segButtons(['no','si'], cfg.nbackMista?'si':'no', v=>{
+        cfg.nbackMista = v==='si';
+        render();
+      }, {no:'Un solo tipo', si:'Mescolati (lettere/numeri/colori/suoni/simboli)'})));
+    }
+    if(ex.usesStimType && !isClassicAnt && !isSequenzaMista && !isNbackMista && !neglectIntruso){
       grid.appendChild(field('Tipo di stimolo', segButtons(
-        neglectRegola ? ['numeri','lettere'] : Object.keys(STIM_LABELS).filter(k=> !(cfg.taskMode==='stopsignal' && k==='suoni')),
+        neglectRegola ? ['numeri','lettere'] : Object.keys(STIM_LABELS).filter(k=> !((cfg.taskMode==='stopsignal' || cfg.taskMode==='neglect') && k==='suoni')),
         cfg.stimType, v=>{
         cfg.stimType=v;
         regenerateNumeriPool(); regenerateParolePool();
@@ -2199,7 +2232,7 @@
     }
 
     if(cfg.taskMode==='nback'){
-      grid.appendChild(field('Livello n-back', stepper(cfg.nLevel,1,5,v=>{cfg.nLevel=v; render();})));
+      grid.appendChild(field('Livello n-back', stepper(cfg.nLevel,1,6,v=>{cfg.nLevel=v; render();})));
     }
     if(cfg.taskMode==='nback' || cfg.taskMode==='sequenza' || cfg.taskMode==='gonogo' || cfg.taskMode==='switching' || cfg.taskMode==='dualtask' || cfg.taskMode==='ant' || cfg.taskMode==='stopsignal'){
       grid.appendChild(field('Difficoltà adattiva', segButtons(['no','si'], cfg.adaptive?'si':'no', v=>{ cfg.adaptive = v==='si'; render(); }, {no:'Fissa (manuale)', si:'Adattiva automatica'})));
@@ -2231,14 +2264,36 @@
         if(v!=='classico') cfg.targetSeq = [];
         render();
       }, {classico:'Classico (bersagli noti)', intruso:'Trova l\'intruso', regola:'Conteggio a regola'})));
+      if(cfg.neglectMode==='intruso'){
+        grid.appendChild(field('Alfabeto', segButtons(['auto','latino_cirillico','greco','armeno'], cfg.neglectAlphabet, v=>{cfg.neglectAlphabet=v; render();}, {auto:'Automatico per livello', latino_cirillico:'Solo latino/cirillico', greco:'Forza: + greco', armeno:'Forza: + armeno'})));
+      }
       if(cfg.neglectMode==='regola'){
         grid.appendChild(field('Complessità regola (1-5)', stepper(cfg.neglectRuleLevel,1,5,v=>{cfg.neglectRuleLevel=v; render();},1)));
+        grid.appendChild(field('Selezione condizioni', segButtons(['auto','manuale'], cfg.neglectRuleClauses?'manuale':'auto', v=>{
+          cfg.neglectRuleClauses = v==='manuale' ? ['base'] : null; render();
+        }, {auto:'Automatica (cumulativa per livello)', manuale:'Manuale (scelgo io le condizioni)'})));
+        if(cfg.neglectRuleClauses){
+          const CLAUSE_LABELS = {base:'Pari/vocale (base — sempre attiva)', colore:'Colore rosso', riga:'Riga pari', sfondo:'Sfondo colorato'};
+          const wrap = el('div',{class:'seg'});
+          ['base','colore','riga','sfondo'].forEach(k=>{
+            const on = cfg.neglectRuleClauses.includes(k);
+            const b = el('button',{class:on?'on':'', onclick:()=>{
+              if(k==='base') return; // sempre attiva, è la condizione minima classificabile
+              if(on) cfg.neglectRuleClauses = cfg.neglectRuleClauses.filter(x=>x!==k);
+              else cfg.neglectRuleClauses = cfg.neglectRuleClauses.concat([k]);
+              render();
+            }},[CLAUSE_LABELS[k]]);
+            wrap.appendChild(b);
+          });
+          grid.appendChild(field('Condizioni attive (tocca per attivare/disattivare)', wrap));
+        }
       }
       grid.appendChild(field('Numero di tavole', stepper(cfg.trials,1,10,v=>{cfg.trials=v;},1)));
       grid.appendChild(field('Elementi per tavola', stepper(cfg.neglectBoardSize,15,80,v=>{cfg.neglectBoardSize=v;},5)));
       grid.appendChild(field('Layout', segButtons(['griglia','sparsa'], cfg.neglectLayout, v=>{cfg.neglectLayout=v; render();}, {griglia:'Organizzato (griglia)', sparsa:'Sparso (libero)'})));
       if(cfg.neglectMode==='classico'){
         grid.appendChild(field('Gradiente sinistra/destra', stepper(cfg.neglectGradient,0,100,v=>{cfg.neglectGradient=v; render();},5,v=> v+'% sin. / '+(100-v)+'% des.')));
+        grid.appendChild(field('Sollecitazione bottom-up', segButtons(['auto','off'], cfg.neglectBottomUp, v=>{cfg.neglectBottomUp=v; render();}, {auto:'Automatica (solo livelli bassi, se emerge asimmetria)', off:'Disattivata (consigliata in rivalutazione)'})));
       }
       grid.appendChild(field('Tempo limite per tavola', stepper(cfg.neglectTimeLimit,0,180,v=>{cfg.neglectTimeLimit=v;},15,s=> s===0?'nessuno':s+' s')));
       grid.appendChild(field('Difficoltà adattiva', segButtons(['no','si'], cfg.adaptive?'si':'no', v=>{ cfg.adaptive = v==='si'; render(); }, {no:'Fissa (manuale)', si:'Adattiva automatica'})));
@@ -2365,7 +2420,7 @@
     card.appendChild(el('button',{class:'primary', onclick:()=>{
       if(cfg.taskMode==='sequenza' && cfg.targetSeq.length<2){ alert('Costruisci prima la sequenza bersaglio (almeno 2 elementi).'); return; }
       if(cfg.taskMode==='gonogo' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima l\'elemento no-go.'); return; }
-      if(cfg.taskMode==='neglect' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima almeno un elemento bersaglio da cancellare.'); return; }
+      if(cfg.taskMode==='neglect' && cfg.neglectMode==='classico' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima almeno un elemento bersaglio da cancellare.'); return; }
       view='instructions'; render();
     }},['Avvia sessione']));
 
@@ -2490,10 +2545,13 @@
     const textBox = el('p',{style:'font-size:16px; line-height:1.6; background:var(--paper-dim); border-radius:12px; padding:16px 18px; margin:0 0 18px;'},[text]);
     card.appendChild(textBox);
 
-    const rowbtns = el('div',{class:'rowbtns'});
-    const listenBtn = el('button',{class:'ghost', onclick:()=>{ speak(text); }},['🔊 Ascolta le istruzioni']);
-    rowbtns.appendChild(listenBtn);
-    card.appendChild(rowbtns);
+    card.appendChild(speakControls(text));
+
+    const nBtns = respondSpec().length;
+    if(cfg.respMode!=='manuale' && (nBtns===2 || nBtns===4)){
+      const keys = nBtns===2 ? 'A / L' : 'A / L / Z / M';
+      card.appendChild(el('p',{class:'hint', style:'margin-top:10px;'},['Da computer puoi rispondere anche da tastiera: '+keys+' (nell\'ordine dei pulsanti mostrati a schermo).']));
+    }
 
     card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ view='countdown'; render(); }},['Ho capito, inizia']));
     const nav = el('div',{class:'navlinks'});
@@ -2559,7 +2617,31 @@
   // visivi da altri alfabeti) — la ricerca deve basarsi sulla forma, non su
   // categorie ovvie come "lettera vs numero". Non è un pool linguistico,
   // sono scelti solo per la somiglianza percettiva.
-  const INTRUSO_POOL = ['a','e','o','p','c','x','y','k','n','u','v','w','m','h','s','z', 'а','е','о','р','с','х','і','ѕ']; // 16 latine + 8 cirilliche visivamente confondibili con le corrispondenti latine
+  // Famiglie di glifi per "Trova l'intruso", in ordine di difficoltà
+  // percettiva crescente per chi è abituato all'alfabeto latino: la
+  // cirillica condivide molte forme quasi identiche al latino (a/а, e/е,
+  // o/о...), il greco ne condivide alcune ma introduce forme più estranee
+  // (α, θ, λ), l'armeno è quasi interamente nuovo — massima difficoltà
+  // percettiva perché non si può fare leva su somiglianze pregresse.
+  const INTRUSO_FAMILIES = {
+    latino_cirillico: ['a','e','o','p','c','x','y','k','n','u','v','w','m','h','s','z', 'а','е','о','р','с','х','і','ѕ'], // 16 latine + 8 cirilliche
+    greco: ['α','β','γ','δ','θ','λ','μ','π','σ','τ','φ','χ'], // 12 lettere greche minuscole, alcune confondibili con il latino (α/a, χ/x, τ/t)
+    armeno: ['ա','բ','գ','դ','ե','զ','է','թ','ի','լ','խ','ծ'] // 12 lettere armene minuscole — quasi nessuna somiglianza col latino
+  };
+  // 'auto' = progressione automatica per livello (solo latino/cirillico ai
+  // livelli 1-3, si aggiunge il greco al 4, l'armeno al 5) — coerente con
+  // la filosofia "stack": la difficoltà percettiva cresce insieme al
+  // numero di identità distinte già gestito da INTRUSO_DISTINCT_FRACTION.
+  // In alternativa l'operatore può forzare una famiglia fissa per tutta la
+  // sessione (utile per allenare specificamente un pattern percettivo).
+  function intrusoPoolFor(alphabetCfg, livello){
+    if(alphabetCfg && alphabetCfg!=='auto') return INTRUSO_FAMILIES[alphabetCfg] || INTRUSO_FAMILIES.latino_cirillico;
+    let pool = INTRUSO_FAMILIES.latino_cirillico.slice();
+    if(livello>=4) pool = pool.concat(INTRUSO_FAMILIES.greco);
+    if(livello>=5) pool = pool.concat(INTRUSO_FAMILIES.armeno);
+    return pool;
+  }
+  const INTRUSO_POOL = INTRUSO_FAMILIES.latino_cirillico; // fallback storico, usato solo se qualcosa chiama il pool senza passare da intrusoPoolFor
   // Quante identità DISTINTE usare fra i non-bersaglio, come frazione del
   // massimo possibile per quella tavola: a livelli bassi poche identità
   // molto ripetute (campo omogeneo, il singolo spicca per contrasto —
@@ -2576,21 +2658,59 @@
   // "stack, non replace" già usata per gli scenari ecologici. "colore" e
   // "riga pari" sono dimensioni aggiunte apposta per la modalità, non
   // proprietà naturali di lettere/numeri.
-  function neglectRuleFor(stimType, livello){
+  // manualClauses: se presente (array di chiavi 'base'|'colore'|'riga'|
+  // 'sfondo'), sostituisce la progressione automatica per livello con la
+  // combinazione scelta dall'operatore — permette sia condizioni singole
+  // sia combinazioni multiple in qualunque ordine, non solo cumulative.
+  // Sollecitazione bottom-up (solo modalità classico): non è un cue sempre
+  // acceso, ma reattivo — si attiva solo quando, DENTRO la tavola in corso,
+  // è già evidente uno squilibrio (il paziente ha trovato molti più
+  // bersagli su un lato che sull'altro), e solo ai livelli bassi (dove
+  // l'esplorazione autonoma top-down potrebbe non bastare da sola). Il
+  // lato "debole" coincide con quello che il gradiente adattivo sta già
+  // caricando di più (vedi finishBoard): gradiente >50 = si sta caricando
+  // sinistra perché sinistra è il lato che va peggio.
+  function neglectBottomUpWeakSide(){
+    if(cfg.neglectMode!=='classico' || cfg.neglectBottomUp==='off') return null;
+    if(!cfg.adaptive || !session || session.liveBoardLevel==null) return null;
+    if(session.liveBoardLevel > 2) return null; // solo ai livelli 1-2
+    const gradient = session.liveGradient!=null ? session.liveGradient : cfg.neglectGradient;
+    if(Math.abs(gradient-50) < 15) return null; // nessuna asimmetria ancora emersa
+    const weakSide = gradient > 50 ? 'left' : 'right';
+    const strongSide = weakSide==='left' ? 'right' : 'left';
+    if(!session.board || !session.board.length) return null;
+    const foundWeak = session.board.filter(b=> b.side===weakSide && b.found).length;
+    const foundStrong = session.board.filter(b=> b.side===strongSide && b.found).length;
+    const remainingWeak = session.board.some(b=> b.side===weakSide && b.isTarget && !b.found);
+    if(!remainingWeak) return null; // niente rimasto da segnalare su quel lato
+    if(foundStrong - foundWeak < 3) return null; // lo squilibrio in questa tavola non è (ancora) evidente
+    return weakSide;
+  }
+  function neglectRuleFor(stimType, livello, manualClauses){
     livello = Math.max(1, Math.min(5, livello||1));
-    const clauses = [];
-    if(stimType==='numeri'){
-      clauses.push({test:(v)=> parseInt(v.carattere,10)%2===0, label:'pari'});
-    } else { // lettere (unico altro materiale supportato da questa modalità)
-      clauses.push({test:(v)=> 'AEIOU'.includes(v.carattere), label:'vocale'});
+    const CLAUSE_DEFS = {
+      base: stimType==='numeri'
+        ? {test:(v)=> parseInt(v.carattere,10)%2===0, label:'pari'}
+        : {test:(v)=> 'AEIOU'.includes(v.carattere), label:'vocale'},
+      colore: {test:(v)=> v.colore==='rosso', label:'rosso'},
+      riga:   {test:(v)=> v.rigaPari, label:'in una riga pari'},
+      sfondo: {test:(v)=> v.sfondo==='giallo', label:'con sfondo giallo'}
+    };
+    let keys;
+    if(manualClauses && manualClauses.length){
+      keys = manualClauses.includes('base') ? manualClauses : ['base'].concat(manualClauses);
+    } else {
+      keys = ['base'];
+      if(livello>=2) keys.push('colore');
+      if(livello>=3) keys.push('riga');
+      if(livello>=4) keys.push('sfondo');
+      // livello 5: stesse quattro condizioni, tavola più grande/tempo più
+      // stretto (già gestito da ADAPT_NEGLECT_SIZE/TIME) — la soglia di
+      // lettura del compito satura a 4 condizioni simultanee, oltre
+      // diventa arbitrario da tenere a mente, non più rappresentativo di
+      // attenzione selettiva.
     }
-    if(livello>=2) clauses.push({test:(v)=> v.colore==='rosso', label:'rosso'});
-    if(livello>=3) clauses.push({test:(v)=> v.rigaPari, label:'in una riga pari'});
-    // livelli 4-5: stesse tre condizioni ma tavola più grande/tempo più
-    // stretto (già gestito da ADAPT_NEGLECT_SIZE/TIME) — qui non serve
-    // aggiungere altre clausole, la soglia di lettura del compito satura a 3
-    // condizioni simultanee (oltre diventa arbitrario da tenere a mente,
-    // non più rappresentativo di attenzione selettiva).
+    const clauses = keys.map(k=>CLAUSE_DEFS[k]).filter(Boolean);
     const label = clauses.map(c=>c.label).join(' + ');
     return { test:(v)=> clauses.every(c=>c.test(v)), label, n: clauses.length };
   }
@@ -2633,15 +2753,16 @@
   function buildNeglectBoardIntruso(){
     const n = cfg.adaptive ? (ADAPT_NEGLECT_SIZE[session.liveBoardLevel] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
     const level = (session && session.liveBoardLevel) || cfg.neglectStartLevel || 3;
+    const pool = intrusoPoolFor(cfg.neglectAlphabet, level);
     const nOdd = n % 2 === 0 ? n+1 : n; // deve essere dispari: bersaglio singolo + il resto ripetuto
     const slots = nOdd - 1; // posizioni da riempire con identità ripetute
     // Massimo di identità distinte che la tavola può ospitare restando
     // comunque "ripetute" (almeno 2 copie ciascuna) e senza eccedere il
     // pool di glifi disponibili.
-    const maxK = Math.max(1, Math.min(Math.floor(slots/2), INTRUSO_POOL.length-1));
+    const maxK = Math.max(1, Math.min(Math.floor(slots/2), pool.length-1));
     const fraction = INTRUSO_DISTINCT_FRACTION[Math.max(1,Math.min(5,level))] || 1;
     const k = Math.max(1, Math.min(maxK, Math.round(maxK*fraction)));
-    const shuffled = shuffleArr(INTRUSO_POOL.slice());
+    const shuffled = shuffleArr(pool.slice());
     const identities = shuffled.slice(0, k);
     const singleton = shuffled[k];
     // distribuisce gli slot il più equamente possibile fra le k identità
@@ -2664,12 +2785,13 @@
     const stimType = (cfg.stimType==='numeri' || cfg.stimType==='lettere') ? cfg.stimType : 'lettere';
     const basePool = stimType==='numeri' ? ['1','2','3','4','5','6','7','8','9'] : ['A','E','I','O','U','B','C','D','F','G','H','L','M','N','P','R','S','T'];
     const n = cfg.adaptive ? (ADAPT_NEGLECT_SIZE[session.liveBoardLevel] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
-    const rule = neglectRuleFor(stimType, cfg.neglectRuleLevel);
+    const rule = neglectRuleFor(stimType, cfg.neglectRuleLevel, cfg.neglectRuleClauses);
     const positions = neglectLayoutPositions(n);
     return positions.map(p=>{
       const carattere = basePool[Math.floor(Math.random()*basePool.length)];
       const colore = Math.random()<0.5 ? 'nero' : 'rosso';
-      const val = {carattere, colore, rigaPari:p.rigaPari};
+      const sfondo = Math.random()<0.5 ? 'giallo' : 'nessuno'; // sfondo ben visibile, dimensione indipendente dal colore del carattere
+      const val = {carattere, colore, sfondo, rigaPari:p.rigaPari};
       return {x:p.x, y:p.y, val, isTarget: rule.test(val), side:p.side, found:false, falseTap:false};
     });
   }
@@ -2803,21 +2925,35 @@
   }
 
   // (session.liveNLevel), che può cambiare durante la sessione stessa.
+  // Uguaglianza fra due valori pescati per l'N-back: identica a
+  // sameSeqItem, ma richiamabile anche quando taskMode è 'nback' (non solo
+  // 'sequenza'), per la modalità mista che riusa la stessa forma {stimType,
+  // item} già usata dalla Sequenza bersaglio mista.
+  function nbackSameVal(a,b){
+    if(cfg.taskMode==='nback' && cfg.nbackMista) return a && b && a.stimType===b.stimType && a.item===b.item;
+    return a===b;
+  }
   function genNbackTrial(){
-    const pool = POOLS[cfg.stimType];
+    const isMista = cfg.nbackMista;
+    const pool = isMista ? null : POOLS[cfg.stimType];
+    const randMista = ()=>{
+      const t = SEQUENZA_MISTA_TYPES[Math.floor(Math.random()*SEQUENZA_MISTA_TYPES.length)];
+      const p = POOLS[t];
+      return {stimType:t, item:p[Math.floor(Math.random()*p.length)]};
+    };
     const i = session.seq.length;
     const n = session.liveNLevel;
     const freq = cfg.adaptive ? (ADAPT_NBACK_FREQ[n] || cfg.targetRate) : cfg.targetRate;
-    function runLen(val){ let run=1; for(let k=i-1;k>=0;k--){ if(session.seq[k].val===val) run++; else break; } return run; }
+    function runLen(val){ let run=1; for(let k=i-1;k>=0;k--){ if(nbackSameVal(session.seq[k].val,val)) run++; else break; } return run; }
     let makeTarget = i>=n && Math.random() < freq;
     let val;
     if(makeTarget){
       const cand = session.seq[i-n].val;
-      if(pool.length>1 && runLen(cand) > 3){ makeTarget=false; } else { val = cand; }
+      if((isMista || pool.length>1) && runLen(cand) > 3){ makeTarget=false; } else { val = cand; }
     }
     if(!makeTarget){
-      do{ val = pool[Math.floor(Math.random()*pool.length)]; }
-      while(pool.length>1 && ((i>=n && val===session.seq[i-n].val) || runLen(val)>3));
+      do{ val = isMista ? randMista() : pool[Math.floor(Math.random()*pool.length)]; }
+      while((isMista || pool.length>1) && ((i>=n && nbackSameVal(val, session.seq[i-n].val)) || runLen(val)>3));
     }
     const trial = {val, isTarget: i>=n ? makeTarget : false, valid:i>=n, nAtGeneration:n};
     session.seq.push(trial);
@@ -2958,7 +3094,7 @@
     stopsignal: {1:2800,2:2400,3:2000,4:1600,5:1200} // leva secondaria, indipendente dallo staircase SSD
   };
   const ADAPT_GONOGO_FREQ = {1:0.40,2:0.32,3:0.24,4:0.16,5:0.10}; // frequenza no-go — più bassa = più difficile
-  const ADAPT_NBACK_FREQ = {1:0.40,2:0.32,3:0.24,4:0.16,5:0.10}; // frequenza target n-back — più bassa = più difficile (stessa logica del Go/No-Go: più raro il target, più forte la tendenza abituale a non rispondere)
+  const ADAPT_NBACK_FREQ = {1:0.40,2:0.32,3:0.24,4:0.16,5:0.10,6:0.08}; // frequenza target n-back — più bassa = più difficile (stessa logica del Go/No-Go: più raro il target, più forte la tendenza abituale a non rispondere)
   const ADAPT_SWITCH_BALANCE = {1:0.50,2:0.60,3:0.70,4:0.80,5:0.90}; // quanto la regola "dominante" prevale sull'altra — più sbilanciato = più difficile quando tocca passare alla regola rara
   const ADAPT_DUAL_FREQ = {1:0.40,2:0.32,3:0.24,4:0.16,5:0.10}; // frequenza target per canale, indipendente sui due canali del doppio compito
   const DUAL_DOUBLE_TARGET_GRACE_MS = 500; // proroga concessa quando un trial richiede due tocchi e ne è arrivato solo uno alla scadenza
@@ -3239,7 +3375,7 @@
   function updateNeglectScreen(){
     const d = taskDom;
     const modeLabel = cfg.neglectMode==='intruso' ? 'trova l\'intruso (l\'unico senza doppione)'
-      : cfg.neglectMode==='regola' ? 'conta secondo la regola: '+neglectRuleFor((cfg.stimType==='numeri'?'numeri':'lettere'), cfg.neglectRuleLevel).label
+      : cfg.neglectMode==='regola' ? 'conta secondo la regola: '+neglectRuleFor((cfg.stimType==='numeri'?'numeri':'lettere'), cfg.neglectRuleLevel, cfg.neglectRuleClauses).label
       : 'bersagli: '+cfg.targetSeq.map(seqLabel).join(', ');
     d.infoSpan.textContent = 'tavola '+(Math.min(session.boardIdx+1,session.totalBoards))+' / '+session.totalBoards+' · '+
       (cfg.neglectMode==='classico' ? STIM_LABELS[cfg.stimType]+' · ' : '')+modeLabel;
@@ -3249,12 +3385,24 @@
       d.board.appendChild(el('div',{class:'blank'},['❚❚ in pausa']));
       return;
     }
+    const weakSide = neglectBottomUpWeakSide();
     session.board.forEach(item=>{
-      const cls = 'neglect-item'+(item.found?' found':'')+(item.falseTap?' falsetap':'');
+      const cueActive = weakSide && item.side===weakSide && !item.found && !item.falseTap;
+      const cls = 'neglect-item'+(item.found?' found':'')+(item.falseTap?' falsetap':'')+(cueActive?' cue-pulse':'');
       const isRegolaItem = item.val && typeof item.val==='object' && 'carattere' in item.val;
+      // Sfondo giallo applicato via stile inline solo se l'elemento non è
+      // già stato trovato/segnato per errore: le classi .found/.falsetap
+      // hanno la stessa specificità CSS dello stile inline sul background,
+      // quindi uno stile inline sempre presente ne oscurerebbe il feedback
+      // visivo dopo il tocco.
+      const showSfondoGiallo = isRegolaItem && item.val.sfondo==='giallo' && !item.found && !item.falseTap;
       const style = 'left:'+item.x+'%; top:'+item.y+'%;'
         +(cfg.stimType==='colori' && cfg.neglectMode==='classico' ? ' background:'+item.val.hex+';' : '')
-        +(isRegolaItem ? ' color:'+(item.val.colore==='rosso'?'#e33b3b':'#fff')+';' : '');
+        +(showSfondoGiallo ? ' background:#F2D34A;' : '')
+        // "nero" qui è davvero visibile: la tavola ha sfondo chiaro
+        // (var(--paper)), a differenza dello schermo di sessione del
+        // task-switching che invece è scuro — vedi nota sul bivalente.
+        +(isRegolaItem ? ' color:'+(item.val.colore==='rosso'?'#e33b3b':'var(--ink)')+';' : '');
       const content = (cfg.stimType==='colori' && cfg.neglectMode==='classico') ? [] : [isRegolaItem ? item.val.carattere : seqLabel(item.val)];
       const btn = el('div',{class:cls, style, onclick:()=> tapNeglectItem(item)}, content);
       d.board.appendChild(btn);
@@ -3476,6 +3624,9 @@
     if(cfg.taskMode==='sequenza' && cfg.sequenzaMista){
       return renderTypedStimulus(trial.val.stimType, trial.val.item);
     }
+    if(cfg.taskMode==='nback' && cfg.nbackMista){
+      return renderTypedStimulus(trial.val.stimType, trial.val.item);
+    }
     if(cfg.stimType==='simboli'){
       return el('div',{class:'stimulus symbolwrap'},[trial.val]);
     }
@@ -3627,9 +3778,7 @@
           stratBox.appendChild(el('div',{},['Queste parole non condividono una categoria ovvia: prova a creare tu piccoli gruppi (2-3 parole) legandole con un\'immagine mentale o una breve storia che le colleghi, invece di ripeterle in ordine.']));
         }
         content.appendChild(stratBox);
-        const rowbtns = el('div',{class:'rowbtns'});
-        rowbtns.appendChild(el('button',{class:'ghost', onclick:()=>{ speak(m.parole.join(', ')); }},['🔊 Ascolta']));
-        content.appendChild(rowbtns);
+        content.appendChild(speakControls(()=>m.parole.join(', ')));
         content.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{
           try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
           session.phase='richiamo'; updateMemoriaScreen();
@@ -3653,9 +3802,7 @@
         } else if(stepKey==='read'){
           content.appendChild(el('h3',{},[m.titolo]));
           content.appendChild(el('p',{style:'font-size:17px; line-height:1.7; background:var(--paper-dim); border-radius:12px; padding:16px 18px;'},[m.testo]));
-          const rowbtns = el('div',{class:'rowbtns'});
-          rowbtns.appendChild(el('button',{class:'ghost', onclick:()=>{ speak(m.testo); }},['🔊 Ascolta']));
-          content.appendChild(rowbtns);
+          content.appendChild(speakControls(()=>m.testo));
           content.appendChild(el('button',{class:'primary', style:'margin-top:12px;', onclick:()=>{ session.pqrstStep=3; updateMemoriaScreen(); }},['Avanti — ripeti a te stesso →']));
         } else {
           content.appendChild(el('p',{class:'hint'},['Senza guardare più il testo, ripeti a te stesso (a voce bassa o mentalmente) i punti principali del brano, con parole tue. Quando ti senti pronto, passa al richiamo vero e proprio.']));
@@ -4736,6 +4883,26 @@
     operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode
   };
 
+  // Ingresso da tastiera (solo desktop) per le risposte a 2 o 4 alternative
+  // durante una sessione attiva. Mappatura fissa A/L (2 scelte) e A/L/Z/M
+  // (4 scelte, per esercizi futuri) sull'ordine dei pulsanti così come
+  // vengono renderizzati — mai attiva fuori da view==='task', per non
+  // creare scorciatoie accidentali nei menu.
+  const KEY_MAP_2 = {'a':0, 'l':1};
+  const KEY_MAP_4 = {'a':0, 'l':1, 'z':2, 'm':3};
+  document.addEventListener('keydown', function(ev){
+    if(view!=='task' || !taskDom || !taskDom.btns || session.paused) return;
+    const tag = (document.activeElement && document.activeElement.tagName) || '';
+    if(tag==='INPUT' || tag==='TEXTAREA') return;
+    const key = ev.key.toLowerCase();
+    const n = taskDom.btns.length;
+    const map = n===2 ? KEY_MAP_2 : (n===4 ? KEY_MAP_4 : null);
+    if(!map || !(key in map)) return;
+    const idx = map[key];
+    if(idx>=n) return;
+    ev.preventDefault();
+    taskDom.btns[idx].click();
+  });
   try{ if(window.speechSynthesis){ window.speechSynthesis.getVoices(); } }catch(e){}
   regenerateNumeriPool();
   regenerateParolePool();

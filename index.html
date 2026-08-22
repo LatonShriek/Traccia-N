@@ -775,8 +775,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2517,10 +2517,18 @@
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     if(buildingProgramFor){
-      card.appendChild(el('div',{style:'background:var(--paper-dim); border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between;'},[
+      const giaNelProgramma = editingPatient ? patientProgram(editingPatient) : [];
+      const banner = el('div',{style:'background:var(--paper-dim); border-radius:10px; padding:10px 14px; margin-bottom:14px;'});
+      banner.appendChild(el('div',{style:'display:flex; align-items:center; justify-content:space-between;'},[
         el('div',{style:'font-size:13px; font-weight:600;'},['Aggiungendo esercizio al programma di '+buildingProgramFor.nome]),
         el('button',{style:'background:none; border:none; color:var(--ink-soft); text-decoration:underline; font-size:12.5px; cursor:pointer; font-family:Inter;', onclick:()=>{ buildingProgramFor=null; programAddConfirmation=null; view='patientProgram'; render(); }},['Annulla'])
       ]));
+      banner.appendChild(el('div',{style:'font-size:12.5px; color:var(--ink-soft); margin-top:6px;'},[
+        giaNelProgramma.length
+          ? 'Già nel programma: '+giaNelProgramma.map(x=>x.nome).join(' · ')
+          : 'Il programma è ancora vuoto.'
+      ]));
+      card.appendChild(banner);
     } else if(!patientProfile){
       card.appendChild(contextStatusLine());
     }
@@ -4374,7 +4382,7 @@
   function programEntryFromFlag(f){
     const cfgOut = f.suggestedCfg || f.cfg;
     const label = f.suggestLabel || f.label;
-    return { nome: label+' (da screening)', cfg: cfgOut };
+    return { nome: label, cfg: cfgOut, fonte:'screening' };
   }
   // Nome leggibile generato automaticamente da una configurazione, per le
   // voci di programma aggiunte da Setup mentre si costruisce il programma
@@ -5313,35 +5321,37 @@
             if(p.lastConfig) loadPreset({cfg:p.lastConfig});
             view='setup'; render();
           }},[el('div',{},[p.nome])]),
-          el('button',{class:'ghost', onclick:()=>{
-            activeLocalPatientId=p.id; activeRemotePatientId=null; cfg.patientCode=p.nome;
-            startScreeningSession();
-          }},['Screening']),
-          el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId=p.id; historyFilterKind='local'; view='history'; render(); }},['Storico']),
-          el('button',{class:'ghost', onclick:()=>{ editingPatient=p; editingPatientKind='local'; view='patientProgram'; render(); }},['Assegna programma']),
-          el('button',{class:'ghost', onclick: async ()=>{
-            const items = await loadHistory();
-            const mine = items.filter(r=> r.localPatientId === p.id);
-            generateRCIReport(mine, p.nome);
-          }},['Report RCI (CSV)']),
-          el('button',{class:'ghost', onclick: async ()=>{
-            const items = await loadHistory();
-            const mine = items.filter(r=> r.localPatientId === p.id);
-            printRCIReport(mine, p.nome);
-          }},['Report RCI (stampa/PDF)']),
-          el('button',{class:'ghost', style:'color:var(--alert); border-color:var(--alert);', onclick: async ()=>{
-            if(!confirm('Eliminare il profilo locale di '+p.nome+'? Le sessioni già registrate restano nello storico, ma non saranno più raggruppate sotto il suo nome.')) return;
-            try{ localStorage.removeItem('traccian:localpatient:'+p.id); }catch(e){}
-            await deleteLocalPatientCloud(p.id);
-            if(activeLocalPatientId===p.id){ activeLocalPatientId=null; cfg.patientCode=''; }
-            render();
-          }},['Elimina'])
+          el('div',{style:'display:flex; gap:8px; flex-wrap:wrap;'},[
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
+              activeLocalPatientId=p.id; activeRemotePatientId=null; cfg.patientCode=p.nome;
+              startScreeningSession();
+            }},['Screening']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{ historyFilterPatientId=p.id; historyFilterKind='local'; view='history'; render(); }},['Storico']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{ editingPatient=p; editingPatientKind='local'; view='patientProgram'; render(); }},['Gestisci programma']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick: async ()=>{
+              const items = await loadHistory();
+              const mine = items.filter(r=> r.localPatientId === p.id);
+              generateRCIReport(mine, p.nome);
+            }},['Report RCI (CSV)']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick: async ()=>{
+              const items = await loadHistory();
+              const mine = items.filter(r=> r.localPatientId === p.id);
+              printRCIReport(mine, p.nome);
+            }},['Report RCI (stampa/PDF)']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px; color:var(--alert); border-color:var(--alert);', onclick: async ()=>{
+              if(!confirm('Eliminare il profilo locale di '+p.nome+'? Le sessioni già registrate restano nello storico, ma non saranno più raggruppate sotto il suo nome.')) return;
+              try{ localStorage.removeItem('traccian:localpatient:'+p.id); }catch(e){}
+              await deleteLocalPatientCloud(p.id);
+              if(activeLocalPatientId===p.id){ activeLocalPatientId=null; cfg.patientCode=''; }
+              render();
+            }},['Elimina'])
+          ])
         ]);
         card.appendChild(row);
         const activeFlags = (p.screeningFlags||[]).filter(f=>f.attivo);
         if(activeFlags.length){
           card.appendChild(el('div',{style:'padding:0 4px 10px; font-size:12.5px; color:var(--ink-soft);'},[
-            '⭐ '+activeFlags.length+(activeFlags.length===1?' suggerimento':' suggerimenti')+' da screening — gestiscili da "Assegna programma".'
+            '⭐ '+activeFlags.length+(activeFlags.length===1?' suggerimento':' suggerimenti')+' da screening — gestiscili da "Gestisci programma".'
           ]));
         }
       });
@@ -5481,7 +5491,7 @@
         editingPatient = {id:info.pazienteId, codice_paziente:info.patientLabel};
         editingPatientKind='remote';
         pendingAccessCode=null; view='patientProgram'; render();
-      }},['Assegna programma ora →']));
+      }},['Gestisci programma ora →']));
     } else if(info.modalitaAccesso==='screening_poi_suggeriti'){
       card.appendChild(el('p',{class:'hint'},['Modalità solo screening: al primo accesso il paziente vedrà solo la valutazione iniziale — nessun\'altra azione richiesta ora.']));
     }
@@ -5530,13 +5540,10 @@
       listWrap.innerHTML='';
       if(!list.length){ listWrap.appendChild(el('p',{class:'empty'},['Nessun paziente creato ancora.'])); return; }
       list.forEach(p=>{
-        const program = patientProgram(p);
-        const presetLabel = program.length ? program.map(x=>x.nome).join(', ') : 'nessun allenamento assegnato';
         const isArchived = p.attivo === false;
         const row = el('div',{class:'histrow'},[
           el('div',{},[
-            el('div',{},[p.codice_paziente + (isArchived ? '  ·  (archiviato)' : '')]),
-            el('div',{class:'l'},['assegnato: '+presetLabel])
+            el('div',{},[p.codice_paziente + (isArchived ? '  ·  (archiviato)' : '')])
           ]),
           el('div',{style:'display:flex; gap:8px; flex-wrap:wrap;'},[
             el('button',{class:'primary', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
@@ -5613,8 +5620,12 @@
     } else {
       programmaAttuale.forEach((entry,idx)=>{
         const exLabel = EXERCISES[entry.cfg.taskMode] ? EXERCISES[entry.cfg.taskMode].label : entry.cfg.taskMode;
+        const isFromScreening = entry.fonte==='screening';
         const row = el('div',{class:'histrow'},[
-          el('div',{},[el('div',{},[entry.nome]), el('div',{class:'l'},[exLabel])]),
+          el('div',{},[
+            el('div',{},[entry.nome].concat(isFromScreening ? [el('span',{style:'display:inline-block; margin-left:8px; background:var(--paper-dim); color:var(--ink-soft); border-radius:999px; padding:2px 9px; font-size:11px; font-weight:600; vertical-align:middle;', title:'Aggiunto automaticamente in base ai risultati dello screening — modificabile come qualunque altra voce.'},['⭐ da screening'])] : [])),
+            el('div',{class:'l'},[exLabel])
+          ]),
           el('button',{class:'ghost', onclick: async ()=>{
             const rimasti = programmaAttuale.slice(0,idx).concat(programmaAttuale.slice(idx+1));
             if(isLocal){
@@ -6066,7 +6077,11 @@
     const rowbtns = el('div',{class:'rowbtns'});
     rowbtns.appendChild(el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId=null; view=homeView(); render(); }},['← Nuova sessione']));
     if(!patientProfile){
-      const exportBtn = el('button',{class:'ghost', onclick:async ()=>{ const items = await loadHistory(); if(items.length) exportCSV(items); }},['Esporta CSV']);
+      const exportBtn = el('button',{class:'ghost', onclick:async ()=>{
+        const allItems = await loadHistory();
+        const items = filterId ? allItems.filter(r=> filterKind==='remote' ? r.pazienteId===filterId : r.localPatientId===filterId) : allItems;
+        if(items.length) exportCSV(items);
+      }},[filterLabel ? 'Esporta CSV — solo '+filterLabel : 'Esporta CSV']);
       rowbtns.appendChild(exportBtn);
     }
     card.appendChild(rowbtns);

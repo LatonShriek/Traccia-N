@@ -1,14 +1,16 @@
 # TracciaN — batteria di attenzione e controllo esecutivo per tablet
 
-Applicazione web standalone per la somministrazione di una batteria di 10
+Applicazione web standalone per la somministrazione di una batteria di 11
 esercizi di attenzione, memoria di lavoro, controllo esecutivo e memoria
 strategica: N-back, Sequenza bersaglio, Go/No-Go, Stop-Signal, Attenzione
-(tipo ANT/TAPAT), Task-switching, Doppio compito, Cancellazione (neglect),
-Scenari ecologici (pianificazione/multitasking) e Strategie di memoria
-(PQRST/chunking). Raccolta risposte touch o manuale, punteggio automatico,
-istruzioni leggibili e ascoltabili prima di ogni esercizio, storico
-sessioni sincronizzabile, ed è utilizzabile da più operatori insieme e da
-pazienti in autonomia da propri dispositivi.
+(tipo ANT/TAPAT), Task-switching, Categorizzazione condizionale, Doppio
+compito, Cancellazione (neglect), Scenari ecologici
+(pianificazione/multitasking) e Strategie di memoria (PQRST/chunking
+multi-metodo/metodo dei loci/errorless learning/vanishing cues). Raccolta
+risposte touch o manuale, punteggio automatico, istruzioni leggibili e
+ascoltabili prima di ogni esercizio, storico sessioni sincronizzabile, ed
+è utilizzabile da più operatori insieme e da pazienti in autonomia da
+propri dispositivi.
 
 **Nessun server obbligatorio, nessun account richiesto per l'uso base.**
 I dati restano salvati in locale nel browser del dispositivo
@@ -17,6 +19,8 @@ multi-operatore e accesso paziente — è opzionale.
 
 **Indice:** [Framework teorico](#framework-teorico-della-batteria) ·
 [Difficoltà adattiva](#difficoltà-adattiva) ·
+[Categorizzazione condizionale](#categorizzazione-condizionale) ·
+[Batteria di screening iniziale](#batteria-di-screening-iniziale) ·
 [Pubblicazione su GitHub Pages](#pubblicazione-su-github-pages-una-volta-sola) ·
 [Uso sul dispositivo](#uso-sul-dispositivo) ·
 [Dati e privacy](#dati-e-privacy) ·
@@ -40,6 +44,7 @@ dieci varianti dello stesso compito.
 | Stop-Signal | Cancellazione di un'azione già in corso (action cancellation), con stima di SSRT | Via fronto-striatale destra (RIFG–preSMA–STN) |
 | Attenzione (ANT / TAPAT) | Allerta (tonica/fasica), orienting spaziale, conflitto percettivo | Locus coeruleus-NA; reti dorsale/ventrale; ACC-DLPFC |
 | Task-switching | Flessibilità cognitiva (shifting), switch cost | Rete fronto-parietale dominio-generale, solco frontale inferiore |
+| Categorizzazione condizionale | Applicazione di regole di classificazione di complessità crescente (fissa, non a costo di switch) | Corteccia prefrontale dorsolaterale, striato (apprendimento di regole condizionali) |
 | Doppio compito | Attenzione divisa, coordinamento di due compiti concorrenti | Corteccia frontopolare (BA10), colli di bottiglia prefrontali laterali |
 | Cancellazione (neglect) | Ricerca visiva ed esplorazione spaziale simmetrica/asimmetrica | Rete attentiva parietale destra; asimmetria sinistra/destra come indice di neglect |
 | Scenari ecologici | Pianificazione, multitasking, autogestione sotto vincoli (Six Elements/Multiple Errands) | Corteccia prefrontale dorsolaterale e frontopolare (BA10), monitoraggio prospettico |
@@ -66,22 +71,50 @@ hanno tabelle di riferimento.
 
 Quasi tutti gli esercizi (N-back, Sequenza bersaglio, Go/No-Go, ANT/TAPAT,
 Task-switching, Doppio compito, Cancellazione) condividono la stessa
-regola: valutano blocchi di 8 prove valide (o, per la Cancellazione, ogni
-tavola), salgono di un livello sopra l'85% di accuratezza, scendono sotto
-il 70% (fascia 70–85% invariata) — livello minimo 1, massimo 5. La soglia
-è coerente sia con la letteratura sul training adattivo sia con la
+regola di titolazione: valutano blocchi di 8 prove valide (o, per la
+Cancellazione, ogni tavola), salgono di un livello sopra l'85% di
+accuratezza, scendono sotto il 70% (fascia 70–85% invariata). La soglia è
+coerente sia con la letteratura sul training adattivo sia con la
 "Eighty Five Percent Rule" (Wilson et al., 2019) sul tasso di errore
 ottimale per l'apprendimento. Durante la sessione sono sempre disponibili
 i pulsanti +/– nella barra in alto per forzare il livello manualmente in
 qualunque momento; se la titolazione automatica è attiva riprende dal
 valore impostato manualmente.
 
+**Il numero di livelli non è più uguale per tutti gli esercizi.** La
+scala 1-5 originaria era un compromesso di partenza, non un vincolo
+clinico: alcuni esercizi avevano un margine insufficiente sia per
+pazienti con deficit marcati (nessun vero "pavimento" facile) sia per
+pazienti lievi (nessun vero "soffitto" impegnativo). Il principio seguito
+nell'estensione non è stato raddoppiare la scala allo stesso modo per
+tutti, ma **aggiungere risoluzione dove mancava**, esercizio per
+esercizio:
+
+| Esercizio | Livelli | Cosa varia col livello |
+|---|---|---|
+| N-back | 1-6 | Frequenza target (40%→8%); il livello 6 (N più alto) è stato aggiunto per dare più soffitto ai pazienti con prestazioni già forti a n=5 |
+| Go/No-Go | 1-10 | Frequenza no-go (48%→5%), numero di elementi no-go attivi (1→6), più un ISI ora adattivo anche ai livelli bassi (prima l'ISI era fisso: mancava del tutto un pavimento di velocità) |
+| Sequenza bersaglio | 1-10 | ISI (4500→900ms) e, solo in modalità adattiva, lunghezza della sequenza bersaglio (2→5 elementi, prima fissa a quella scelta manualmente) |
+| Stop-Signal | 1-10 (leva secondaria) + staircase SSD continuo | ISI secondario (3600→750ms); lo SSD resta un meccanismo indipendente e continuo, non a livelli (vedi sotto) |
+| ANT (classico) | 1-10 | ISI (3200→650ms) |
+| TAPAT | 1-10 | Intervallo tra stimoli, da prevedibile e ravvicinato (0.9-1.8s) a lungo e imprevedibile (12-25s) |
+| Task-switching | 1-5 | Intervallo cue→stimolo (CSI, 900→150ms) — scala non ancora estesa, in coda |
+| Doppio compito | 1-5 | Frequenza target per canale — scala non ancora estesa, in coda |
+| Cancellazione (neglect) | 1-5 | Elementi per tavola (20→75) — scala non ancora estesa, in coda |
+
+Task-switching, Doppio compito e Cancellazione restano volutamente a 5
+livelli: l'estensione di questi tre non è stata ancora affrontata, non è
+un'omissione — è la prossima voce in coda.
+
 Fa eccezione lo **Stop-Signal**, che usa una titolazione propria e
-indipendente: lo staircase del ritardo SSD (Stop Signal Delay), sempre
-attivo, che converge verso il punto in cui il paziente riesce a fermarsi
-circa il 50% delle volte — non la regola 70-85%. Ha comunque anche lui
-una leva secondaria opzionale sull'ISI, quella sì guidata dalla regola
-70-85% standard, ma solo sull'accuratezza dei trial "go".
+indipendente dal "livello" per la sua misura principale: lo staircase del
+ritardo SSD (Stop Signal Delay), sempre attivo, che converge verso il
+punto in cui il paziente riesce a fermarsi circa il 50% delle volte — non
+la regola 70-85%. Il passo dello staircase (`ssdStep`) è già configurabile
+a parte nell'app; per questo l'estensione a 10 livelli qui sopra riguarda
+solo la leva secondaria sull'ISI, guidata dalla regola 70-85% standard
+sui trial "go" — estendere anche lo SSD alla scala a livelli sarebbe stato
+ridondante con un parametro già regolabile altrove.
 
 Gli **Scenari ecologici** hanno una progressione a 5 livelli scelti
 manualmente in setup, non una titolazione automatica in tempo reale — la
@@ -89,8 +122,94 @@ natura del compito (completare un elenco di elementi, non rispondere a
 stimoli ripetuti) non si presta allo stesso meccanismo. Ai livelli 3-5 gli
 incrementi sono cumulativi: il livello 5 contiene sempre anche i
 meccanismi introdotti ai livelli 3 e 4, non li sostituisce — vedi la
-sezione dedicata più sotto. Le **Strategie di memoria** hanno 16 livelli
-di difficoltà del materiale, anch'essi scelti manualmente.
+sezione dedicata più sotto. La **Categorizzazione condizionale** ha
+allo stesso modo una progressione a 5 livelli scelti manualmente, non
+adattiva — vedi la sezione dedicata. Le **Strategie di memoria** hanno 16
+livelli di difficoltà del materiale, anch'essi scelti manualmente.
+
+## Categorizzazione condizionale
+
+Esercizio distinto dal Task-switching: qui la regola resta **fissa** per
+tutta la sessione — non si misura il costo di cambiare regola, ma il
+carico di applicarne una via via più complessa. Per questo non è
+adattivo in tempo reale: il livello (1-5) si sceglie a mano in setup,
+come per la Cancellazione a regola.
+
+| Livello | Struttura | Risposte |
+|---|---|---|
+| 1 | Singola dimensione (colore o simbolo, a scelta) | 2 |
+| 2 | Doppia dimensione (tipo di carattere + colore) con no-go: lettera nera→A, numero rosso→B, numero nero→C, lettera rossa→nessuna risposta | 3 + no-go |
+| 3 | Stessa doppia dimensione, ricombinata in una regola disgiuntiva: A se lettera nera *oppure* numero rosso, B se lettera rossa *oppure* numero nero | 2 |
+| 4 | Stessa singola dimensione del livello 1, con l'aggiunta del confronto con lo stimolo precedente (1-back sulla categoria) | 1 (rispondi se la categoria è la stessa di prima) |
+| 5 | Stessa doppia dimensione, mappata direttamente su 4 risposte (nessun no-go, nessuna disgiunzione) | 4 (tastiera A/L/Z/M) |
+
+I livelli 2, 3 e 5 condividono lo stesso stimolo a due dimensioni
+indipendenti (lettera/numero × nero/rosso) già usato dalla modalità
+"Bivalente" del Task-switching, ma lo ricombinano in mappature diverse
+sulla risposta — a parità di stimolo, cambia solo la regola di
+classificazione, in modo da isolare il carico della regola stessa dal
+carico percettivo. I livelli 1 e 4 condividono invece un'unica
+dimensione (colore o simbolo), e sono collegati fra loro: il livello 4
+aggiunge al livello 1 il carico di memoria di lavoro di confrontare con
+lo stimolo precedente, senza cambiare la regola di classificazione di
+base.
+
+Il conteggio "risposte omesse" nello storico e nel CSV per questo
+esercizio conta solo le mancate risposte vere (dove serviva un tocco),
+non i casi in cui non rispondere era la risposta corretta (no-go ai
+livelli 2 e 4) — altrimenti il dato sarebbe fuorviante.
+
+## Batteria di screening iniziale
+
+Sessione breve e riproducibile che confronta, per 4 domini, un blocco
+**base** (stimolo semplice, nessun carico esecutivo) con un blocco
+**caricato** (stessa area, con carico esecutivo) — un quinto dominio
+(Attenzione divisa) riusa il blocco base dell'Attenzione invece di averne
+uno proprio, sullo stesso principio del "base condiviso". Riutilizza
+esercizi già esistenti con parametri fissi e brevi (16 prove per blocco,
+1 tavola per la Cancellazione), non introduce contenuti nuovi:
+
+| Dominio | Blocco base | Blocco caricato |
+|---|---|---|
+| Attenzione sostenuta / inibizione | Go/No-Go, no-go frequente (48%), 1 elemento | Go/No-Go, no-go raro (22%), 3 elementi |
+| Memoria di lavoro | N-back, n=1 | N-back, n=2 |
+| Flessibilità cognitiva | Categorizzazione condizionale, livello 1 | Task-switching, bilanciato |
+| Attenzione divisa | *(riusa il base dell'Attenzione)* | Doppio compito, visivo+uditivo |
+| Esplorazione visuospaziale | Cancellazione classica, 20 elementi | Cancellazione a regola, livello 2 |
+
+**A cosa serve il confronto.** Se il blocco caricato è sotto soglia
+(70%, la stessa "Eighty Five Percent Rule"-derivata già in uso per la
+titolazione adattiva, qui usata come soglia di allarme più che di
+apprendimento) **e** il blocco base di quel dominio è nella norma, il
+pattern suggerisce un deficit **specifico esecutivo** in quel dominio —
+il substrato percettivo/attentivo di base funziona, cede solo sotto
+carico. Se invece anche il blocco base è sotto soglia, il problema sembra
+più a monte (percettivo/attentivo di base), e in quel caso **non** si
+propone alcun suggerimento — proporre un esercizio esecutivo mirato
+sarebbe fuorviante quando il deficit osservato non è quello. Ogni
+accuratezza resta comunque visibile per esteso nei risultati, il flag
+è una sintesi, non l'unico dato disponibile.
+
+**Flag "consigliato": automatico, sempre sovrascrivibile a mano.**
+Quando un dominio soddisfa la condizione sopra, l'esercizio corrispondente
+al suo blocco caricato viene salvato come "consigliato" sul profilo del
+paziente attivo (locale o remoto — lo screening senza un paziente
+selezionato resta solo un'analisi a schermo, non salvata da nessuna
+parte). I flag compaiono come etichette (⭐) nell'elenco pazienti, con una
+"✕" per rimuoverli in qualunque momento. Se un flag viene rimosso a mano
+e un successivo screening rileva di nuovo la stessa condizione, **resta
+rimosso**: la disattivazione manuale ha sempre la precedenza sul
+risultato automatico, per evitare che un giudizio clinico già espresso
+venga silenziosamente annullato da una sessione successiva.
+
+**Limiti dichiarati.** Come per gli altri moduli non normati, questo è
+uno strumento di orientamento interno a TracciaN, non uno screening
+validato con soglie normative pubblicate — la soglia del 70% e le scelte
+di quali esercizi rappresentano ciascun dominio sono decisioni interne,
+motivate ma non normate, pensate per essere riviste con l'uso clinico
+reale. Un solo blocco per condizione (16 prove, 1 tavola per la
+Cancellazione) è una stima rapida, non una misura precisa: da trattare
+come un primo orientamento su cosa approfondire, non come diagnosi.
 
 ## Pubblicazione su GitHub Pages (una volta sola)
 
@@ -146,7 +265,10 @@ dispositivo. Collegando un progetto Supabase gratuito ottieni tre cose insieme:
 più operatori possono lavorare in parallelo (ognuno vede solo i propri
 pazienti), ogni paziente può allenarsi da un proprio dispositivo con un
 semplice codice di accesso, e i risultati restano sempre esportabili in CSV
-indipendentemente da tutto il resto.
+indipendentemente da tutto il resto. Abilita anche un **registro accessi**
+(login/logout/tentativi falliti, vista aggregata per operatore con
+drill-down, sezione dedicata visibile solo al super-operatore) — vedi le
+istruzioni di attivazione al punto 2 qui sotto.
 
 ### 1 — Crea il progetto
 
@@ -178,6 +300,7 @@ create table if not exists pazienti (
   obiettivo jsonb,                    -- array di obiettivi {tipo:'livello'|'tempo', ...}
   limiti jsonb,                       -- {sessioniAlGiorno, minutiAlGiorno}
   attivo boolean default true,        -- false = profilo archiviato, login bloccato
+  screening_flags jsonb,              -- array di esercizi "consigliati" (automatico da screening, sempre sovrascrivibile a mano) — vedi sezione Batteria di screening
   creato_il timestamptz default now()
 );
 alter table pazienti add column if not exists preset_assegnato jsonb;
@@ -186,6 +309,7 @@ alter table pazienti add column if not exists ultima_config jsonb;
 alter table pazienti add column if not exists obiettivo jsonb;
 alter table pazienti add column if not exists limiti jsonb;
 alter table pazienti add column if not exists attivo boolean default true;
+alter table pazienti add column if not exists screening_flags jsonb;
 alter table pazienti enable row level security;
 drop policy if exists "operatore vede e gestisce i propri pazienti" on pazienti;
 create policy "operatore vede e gestisce i propri pazienti" on pazienti for all
@@ -248,8 +372,10 @@ create table if not exists pazienti_locali (
   operatore_id uuid references auth.users not null,
   nome text not null,
   ultima_config jsonb,
+  screening_flags jsonb, -- vedi sezione Batteria di screening
   creato_il timestamptz default now()
 );
+alter table pazienti_locali add column if not exists screening_flags jsonb;
 alter table pazienti_locali enable row level security;
 drop policy if exists "operatore vede e gestisce i propri pazienti locali" on pazienti_locali;
 create policy "operatore vede e gestisce i propri pazienti locali" on pazienti_locali for all
@@ -343,7 +469,9 @@ mettere in produzione qualsiasi tabella nuova:
 Le sei tabelle sopra (`pazienti`, `sessioni`, `pazienti_locali`,
 `sessioni_login`, `operatori`, `accessi`) hanno già RLS abilitata con policy
 verificate — questa checklist riguarda solo eventuali tabelle aggiunte in
-futuro.
+futuro. Le colonne `screening_flags` aggiunte a `pazienti`/`pazienti_locali`
+sono coperte dalle stesse policy già esistenti su quelle tabelle (le policy
+sono per riga, non per colonna).
 
 Infine, in **Project Settings → API**, copia **Project URL** e la chiave
 **anon public** (non la "service_role" — quella non va mai incollata
@@ -590,8 +718,8 @@ richiederebbe un motore dedicato separato da questo.
 
 ## Strategie di memoria
 
-Decimo esercizio della batteria. **Cinque tecniche**, un livello 1-16 da
-scegliere in setup:
+Decimo esercizio della batteria (il sesto in ordine di comparsa nel
+selettore). **Cinque tecniche**, un livello 1-16 da scegliere in setup:
 
 **PQRST** (sempre su brano, 16 brani graduati) — la fase di studio è
 guidata a passaggi veri, non un unico schermo con tutto il testo:
@@ -605,30 +733,69 @@ brani crescono per lunghezza (~30→~220 parole), densità di idee,
 presenza di dettagli interferenti (numeri, nomi, date — assenti nei
 primi livelli), complessità sintattica, astrattezza del contenuto.
 
-**Chunking** (sempre su lista, 16 liste di parole graduate) — la fase di
-studio mostra un suggerimento di strategia esplicito: se la lista è
-categorizzabile (livelli 1-5), rivela la categoria e invita a
-raggruppare mentalmente; se non lo è (dal livello 6 in su), invita a
-creare associazioni o piccole storie proprie. Le liste crescono per
-lunghezza (4→14 parole), presenza di categorie semantiche
-raggruppabili, concretezza/immaginabilità delle parole, frequenza d'uso.
+**Chunking** (sempre su lista, 16 liste di parole graduate) —
+**multi-metodo**: in setup l'operatore sceglie fino a 2 tecniche fra
+cinque, mai in automatico:
+- *Categorizzazione semantica* — se la lista è categorizzabile (livelli
+  1-5), rivela la categoria e invita a raggruppare mentalmente; se non lo
+  è (dal livello 6 in su), invita a creare associazioni proprie.
+- *Acronimo/acrostico* — evidenzia la prima lettera di ogni parola
+  direttamente sulla lista mostrata, invitando a costruire insieme (operatore
+  e paziente) una parola o frase che le usi in ordine.
+- *Narrazione/concatenamento* — invita a costruire insieme una breve
+  storia che colleghi le parole in sequenza.
+- *Immagine associativa* — invita a creare un'immagine mentale vivida
+  che colleghi ogni parola (o coppia di parole consecutive) alla
+  successiva, senza un percorso spaziale fisso (a differenza del metodo
+  dei loci sotto).
+- *Personale* — nessun box automatico: un campo di testo libero dove
+  l'operatore annota la tecnica concordata con quel paziente specifico,
+  quando non rientra nelle quattro codificate.
+
+Sotto il livello 11 è selezionabile una sola tecnica alla volta; dal
+livello 11 in su se ne possono combinare due, a scelta manuale — la
+combinazione utile dipende dal singolo paziente, non è deducibile a
+priori dal livello. Le liste crescono per lunghezza (4→14 parole),
+presenza di categorie semantiche raggruppabili, concretezza/immaginabilità
+delle parole, frequenza d'uso.
 
 Le tre tecniche seguenti sono selezionabili **sia su lista di parole sia
-su brano** (nuovo campo `memoriaMateriale` in setup — su PQRST/Chunking
-resta fisso, rispettivamente brano/lista):
+su brano** (campo `memoriaMateriale` in setup — su PQRST/Chunking resta
+fisso, rispettivamente brano/lista):
 
-**Metodo dei loci** — un percorso mentale fisso di 16 luoghi familiari
-(un cammino attraverso una casa: portone, ingresso, cucina, scala...).
-Ogni parola (o idea-chiave del brano) viene associata a una tappa del
-percorso, una alla volta, con l'istruzione di immaginare la scena il
-più vividamente possibile. Base di evidenza consolidata in
-riabilitazione (Kaschel et al., 2002).
+**Metodo dei loci** — un elemento per tappa, tappa ed elemento sempre
+mostrati esplicitamente insieme (mai lasciati all'immaginazione libera),
+con l'istruzione di immaginare la scena il più vividamente possibile.
+Tre percorsi disponibili, scelti in setup:
+- *Casa tipo* — percorso fisso di 16 luoghi familiari (portone, ingresso,
+  cucina, scala...), adatto quando non si conosce l'ambiente reale del
+  paziente o si vuole un percorso standardizzato fra sedute diverse.
+- *Corpo* — percorso fisso di 16 parti del corpo, in ordine anatomico
+  (testa→piedi): per pazienti con scarsa familiarità ambientale attuale,
+  o ricoverati da tempo, per cui un percorso domestico non è un
+  riferimento stabile.
+- *Personalizzato* — l'operatore digita le tappe reali del paziente
+  (es. il proprio domicilio effettivo), una per riga: il percorso più
+  efficace quando è praticabile, perché sfrutta una familiarità spaziale
+  già consolidata invece di costruirne una nuova.
 
-**Errorless learning** — l'informazione corretta viene mostrata
-direttamente per due passaggi completi, senza mai chiedere un tentativo
-di richiamo durante lo studio: evita che un errore commesso durante
-l'apprendimento venga rinforzato, principio centrale per pazienti con
-amnesie severe (Wilson & Evans).
+Base di evidenza consolidata in riabilitazione (Kaschel et al., 2002).
+
+**Errorless learning** — **spaced retrieval**: l'informazione viene
+presentata direttamente (mai indovinata), poi richiamata a intervalli
+crescenti — 5s, poi doppio ad ogni richiamo riuscito (10s, 20s, 40s...).
+Se il richiamo fallisce, la risposta corretta viene ridata subito e si
+riparte dall'ultimo intervallo riuscito, mai da un tentativo libero senza
+rete. Un elemento si considera consolidato dopo 4 successi consecutivi o
+al superamento dei 60s, poi si passa al successivo — soglie provvisorie,
+regolabili se l'uso clinico suggerisce altri valori. Rispetto alla
+versione precedente (due passaggi di sola esposizione, senza alcun
+richiamo), questa aderisce meglio al principio stesso della tecnica: il
+punto dell'errorless learning non è evitare *ogni* richiamo, ma
+strutturare il richiamo in modo che l'errore resti altamente improbabile
+— l'intervallo cresce solo quando il successo è già garantito dal
+precedente, e si contrae immediatamente al primo segnale di difficoltà
+(Wilson & Evans; Camp, per la spaced retrieval nello specifico).
 
 **Vanishing cues** — per ciascun elemento, due stadi di suggerimento
 decrescente (prima ~65% delle lettere iniziali visibili, poi ~25%) prima

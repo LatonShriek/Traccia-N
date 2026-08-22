@@ -316,7 +316,7 @@
     categorizzazione: {label:'Categorizzazione condizionale', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Funzioni esecutive','Categorizzazione','Memoria di lavoro'],
       instructions:c=>{
-        const liv = c.categLivello;
+        const liv = categStructureOfLevel(c.categLivello);
         const matLabel = c.categMateriale==='colori' ? 'un cerchio colorato' : 'un simbolo';
         if(liv===1){
           const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
@@ -391,7 +391,7 @@
 
   /* ---------- state ---------- */
   let cfg = {
-    stimType:'lettere', nLevel:2, isi:2200, stimDuration:600, trials:24,
+    stimType:'lettere', nLevel:5, isi:2200, stimDuration:600, trials:24,
     targetRate:0.32, respMode:'paziente', voice:false, patientCode:'', notes:'',
     taskMode:'nback', targetSeq: POOLS.lettere.slice(0,3),
     ssd:250, ssdStep:50, // solo per Stop-Signal
@@ -413,7 +413,7 @@
     memoriaFormaIdx:0, // solo per pqrst/chunking, solo sui livelli con forme parallele (1-2 al momento) — quale forma (A/B/C...) usare in questa sessione; scelta sempre manuale dall'operatore, mai casuale, per poter pilotare baseline/intermedia/finale nel confronto RCI
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
-    categLivello:1, categMateriale:'colori', // solo per Categorizzazione condizionale — livello 1-5 (struttura fissa, non adattiva); categMateriale usato solo ai livelli 1 e 4 ('colori'|'simboli')
+    categLivello:1, categMateriale:'colori', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('colori'|'simboli')
     sequenzaMista:false, // solo per Sequenza bersaglio: mescola codici diversi (lettere/numeri/colori/suoni/simboli) nella stessa sequenza invece di un solo tipo
     nbackMista:false // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
   };
@@ -728,7 +728,7 @@
       list.forEach(p=>{
         const exl = EXERCISES[p.cfg.taskMode] ? EXERCISES[p.cfg.taskMode].label : p.cfg.taskMode;
         const stimPart = (EXERCISES[p.cfg.taskMode] && EXERCISES[p.cfg.taskMode].usesStimType) ? STIM_LABELS[p.cfg.stimType]+' · ' : '';
-        const desc = stimPart+exl+(p.cfg.taskMode==='nback' ? ' n='+p.cfg.nLevel : '')+' · '+p.cfg.trials+' prove';
+        const desc = stimPart+exl+(p.cfg.taskMode==='nback' ? ' livello '+p.cfg.nLevel+' (n='+nbackParamsForLevel(p.cfg.nLevel).n+')' : '')+' · '+p.cfg.trials+' prove';
         const row = el('div',{class:'histrow'},[
           el('div',{style:'cursor:pointer; flex:1;', onclick:()=>loadPreset(p)},[
             el('div',{},[p.name]),
@@ -740,7 +740,7 @@
       });
     }
     wrap.appendChild(el('button',{class:'ghost', onclick:()=>{
-      const suggested = (EXERCISES[cfg.taskMode].usesStimType?STIM_LABELS[cfg.stimType]+' — ':'')+EXERCISES[cfg.taskMode].label+(cfg.taskMode==='nback'?' n='+cfg.nLevel:'');
+      const suggested = (EXERCISES[cfg.taskMode].usesStimType?STIM_LABELS[cfg.stimType]+' — ':'')+EXERCISES[cfg.taskMode].label+(cfg.taskMode==='nback'?' livello '+cfg.nLevel:'');
       const name = prompt('Nome per questo preset:', suggested);
       if(name && name.trim()){ savePreset(name.trim()); render(); }
     }},['+ Salva impostazioni attuali come preset']));
@@ -761,8 +761,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -905,7 +905,12 @@
     }
   }
   function buildSequenceNback(){
+    // Non raggiunta nell'uso normale: l'N-back è sempre a generazione
+    // incrementale (vedi isIncremental/genNbackTrial), tenuta comunque
+    // coerente con la tabella livello->n per non lasciare codice morto
+    // disallineato.
     const pool = POOLS[cfg.stimType];
+    const n = nbackParamsForLevel(cfg.nLevel).n;
     const seq = [];
     function runLen(i, val){ // quante ripetizioni consecutive di val terminerebbero in i
       let run = 1;
@@ -913,18 +918,18 @@
       return run;
     }
     for(let i=0;i<cfg.trials;i++){
-      let makeTarget = i>=cfg.nLevel && Math.random() < cfg.targetRate;
+      let makeTarget = i>=n && Math.random() < cfg.targetRate;
       let val;
       if(makeTarget){
-        const cand = seq[i-cfg.nLevel].val;
+        const cand = seq[i-n].val;
         if(pool.length>1 && runLen(i,cand) > 3){ makeTarget = false; } // il vincolo anti-ripetizione ha priorità
         else val = cand;
       }
       if(!makeTarget){
         do{ val = pool[Math.floor(Math.random()*pool.length)]; }
-        while(pool.length>1 && ((i>=cfg.nLevel && val===seq[i-cfg.nLevel].val) || runLen(i,val)>3));
+        while(pool.length>1 && ((i>=n && val===seq[i-n].val) || runLen(i,val)>3));
       }
-      seq.push({val, isTarget: i>=cfg.nLevel ? makeTarget : false, valid:i>=cfg.nLevel});
+      seq.push({val, isTarget: i>=n ? makeTarget : false, valid:i>=n});
     }
     return seq;
   }
@@ -1193,32 +1198,51 @@
     return item.colore==='nero' ? 'z' : 'm';
   }
   function buildCategorizzazione(){
-    const liv = cfg.categLivello;
+    const level = cfg.categLivello;
+    const structure = categStructureOfLevel(level);
+    const isiOverride = CATEG_ISI[level]; // undefined ai livelli 7-8 (banda lure): resta cfg.isi
     const seq = [];
-    if(liv===1){
+    if(structure===1){
       const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
       const pool = POOLS[cfg.categMateriale];
       for(let i=0;i<cfg.trials;i++){
         const val = pool[Math.floor(Math.random()*pool.length)];
-        seq.push({val, correctAnswer: rs.classify(val)?'a':'b', valid:true, categMateriale:cfg.categMateriale});
+        seq.push({val, correctAnswer: rs.classify(val)?'a':'b', valid:true, categMateriale:cfg.categMateriale, isiOverride});
       }
-    } else if(liv===4){
+    } else if(structure===4){
       const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
       const pool = POOLS[cfg.categMateriale];
-      let prevCat = null;
+      const lureFreq = CATEG_LURE[level]||0;
+      function pickCategValue(wantCat){
+        const want = wantCat==='a';
+        const filtered = pool.filter(v=>rs.classify(v)===want);
+        return filtered.length ? filtered[Math.floor(Math.random()*filtered.length)] : pool[Math.floor(Math.random()*pool.length)];
+      }
+      let prevCat = null, prevCat2 = null;
       for(let i=0;i<cfg.trials;i++){
-        const val = pool[Math.floor(Math.random()*pool.length)];
-        const cat = rs.classify(val) ? 'a' : 'b';
-        const valid = i>0; // il primo stimolo non ha un precedente con cui confrontarsi
+        const valid = i>0;
+        let val, cat, isLure=false;
+        if(valid && i>=2 && prevCat2!=null && prevCat2!==prevCat && Math.random()<lureFreq){
+          // trial lure: stessa categoria di 2 prove fa (non di 1) — "sembra"
+          // familiare per prossimità recente ma la risposta corretta resta
+          // "nogo", perché il confronto è sempre e solo con la prova
+          // immediatamente precedente.
+          cat = prevCat2;
+          val = pickCategValue(cat);
+          isLure = true;
+        } else {
+          val = pool[Math.floor(Math.random()*pool.length)];
+          cat = rs.classify(val) ? 'a' : 'b';
+        }
         const correctAnswer = (valid && cat===prevCat) ? 'match' : 'nogo';
-        seq.push({val, correctAnswer, valid, categMateriale:cfg.categMateriale});
-        prevCat = cat;
+        seq.push({val, correctAnswer, valid, categMateriale:cfg.categMateriale, isLure});
+        prevCat2 = prevCat; prevCat = cat;
       }
     } else {
       for(let i=0;i<cfg.trials;i++){
         const item = genCategItem();
-        const correctAnswer = liv===2 ? categL2Outcome(item) : liv===3 ? categL3Outcome(item) : categL5Outcome(item);
-        seq.push({val:item, correctAnswer, valid:true, categBivalente:true});
+        const correctAnswer = structure===2 ? categL2Outcome(item) : structure===3 ? categL3Outcome(item) : categL5Outcome(item);
+        seq.push({val:item, correctAnswer, valid:true, categBivalente:true, isiOverride});
       }
     }
     return seq;
@@ -1253,13 +1277,24 @@
     const i = session.seq.length;
     const freq1 = cfg.adaptive ? (ADAPT_DUAL_FREQ[session.dualLevel1]||cfg.targetRate) : cfg.targetRate;
     const freq2 = cfg.adaptive ? (ADAPT_DUAL_FREQ[session.dualLevel2]||cfg.targetRate) : cfg.targetRate;
+    const lure1 = ADAPT_DUAL_LURE[session.dualLevel1]||0;
+    const lure2 = ADAPT_DUAL_LURE[session.dualLevel2]||0;
     let v1 = pool1[Math.floor(Math.random()*pool1.length)];
     let v2 = pool2[Math.floor(Math.random()*pool2.length)];
     let t1 = i>0 && Math.random()<freq1;
     let t2 = i>0 && Math.random()<freq2;
+    let isLure1=false, isLure2=false;
     if(t1) v1 = session.prevDual1;
+    else if(i>=2 && lure1>0 && Math.random()<lure1){
+      const cand = session.seq[i-2].visualVal;
+      if(cand!==session.prevDual1){ v1 = cand; isLure1 = true; }
+    }
     if(t2) v2 = session.prevDual2;
-    const trial = {val:v1, visualVal:v1, audioVal:v2, visualIsTarget: i>0?t1:false, audioIsTarget: i>0?t2:false, valid:i>0};
+    else if(i>=2 && lure2>0 && Math.random()<lure2){
+      const cand = session.seq[i-2].audioVal;
+      if(cand!==session.prevDual2){ v2 = cand; isLure2 = true; }
+    }
+    const trial = {val:v1, visualVal:v1, audioVal:v2, visualIsTarget: i>0?t1:false, audioIsTarget: i>0?t2:false, valid:i>0, visualIsLure:isLure1, audioIsLure:isLure2};
     session.seq.push(trial);
     session.prevDual1 = v1; session.prevDual2 = v2;
     return trial;
@@ -2551,7 +2586,8 @@
     }
 
     if(cfg.taskMode==='nback'){
-      grid.appendChild(field('Livello n-back', stepper(cfg.nLevel,1,6,v=>{cfg.nLevel=v; render();})));
+      grid.appendChild(field('Livello', stepper(cfg.nLevel,1,10,v=>{cfg.nLevel=v; render();})));
+      grid.appendChild(el('p',{class:'hint'},['n='+nbackParamsForLevel(cfg.nLevel).n+' a questo livello. Il livello combina n (1-3, cresce solo ai passaggi di banda) con frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso).']));
     }
     if(cfg.taskMode==='nback' || cfg.taskMode==='sequenza' || cfg.taskMode==='gonogo' || cfg.taskMode==='switching' || cfg.taskMode==='dualtask' || cfg.taskMode==='ant' || cfg.taskMode==='stopsignal'){
       grid.appendChild(field('Difficoltà adattiva', segButtons(['no','si'], cfg.adaptive?'si':'no', v=>{ cfg.adaptive = v==='si'; render(); }, {no:'Fissa (manuale)', si:'Adattiva automatica'})));
@@ -2739,16 +2775,22 @@
       }
     }
     if(cfg.taskMode==='categorizzazione'){
-      card.appendChild(field('Livello (1-5)', stepper(cfg.categLivello,1,5,v=>{cfg.categLivello=v; render();},1)));
-      if(cfg.categLivello===1 || cfg.categLivello===4){
+      card.appendChild(field('Livello (1-10)', stepper(cfg.categLivello,1,10,v=>{cfg.categLivello=v; render();},1)));
+      const cStruct = categStructureOfLevel(cfg.categLivello);
+      if(cStruct===1 || cStruct===4){
         card.appendChild(field('Materiale', segButtons(['colori','simboli'], cfg.categMateriale, v=>{cfg.categMateriale=v; render();}, {colori:'Colori', simboli:'Simboli'})));
       }
       const CATEG_LEVEL_HINTS = {
-        1:'Singola dimensione, regola fissa per tutta la sessione (nessun costo di switch, a differenza del Task-switching).',
-        2:'Doppia dimensione con no-go: 3 risposte attive più un caso in cui non si deve rispondere.',
-        3:'Stessa doppia dimensione, ricombinata in una regola disgiuntiva a 2 risposte ("A se... oppure...").',
-        4:'Stessa singola dimensione del livello 1, con l\'aggiunta del confronto con lo stimolo precedente (1-back sulla categoria).',
-        5:'Stessa doppia dimensione, mappata direttamente su 4 risposte — nessun no-go, nessuna disgiunzione.'
+        1:'Singola dimensione, regola fissa per tutta la sessione (nessun costo di switch, a differenza del Task-switching) — ISI ampio.',
+        2:'Stessa struttura del livello 1 — ISI più stretto (pressione di velocità).',
+        3:'Doppia dimensione con no-go: 3 risposte attive più un caso in cui non si deve rispondere — ISI ampio.',
+        4:'Stessa struttura del livello 3 — ISI più stretto.',
+        5:'Stessa doppia dimensione, ricombinata in una regola disgiuntiva a 2 risposte ("A se... oppure...") — ISI ampio.',
+        6:'Stessa struttura del livello 5 — ISI più stretto.',
+        7:'Confronto con lo stimolo precedente (1-back sulla categoria) — nessun trial lure.',
+        8:'Stessa struttura del livello 7, con trial lure: stessa categoria di 2 prove fa invece che 1 (sembra familiare ma la risposta corretta resta "nessuna risposta").',
+        9:'Doppia dimensione mappata direttamente su 4 risposte — nessun no-go, nessuna disgiunzione — ISI ampio.',
+        10:'Stessa struttura del livello 9 — ISI più stretto.'
       };
       card.appendChild(el('p',{class:'hint'},[CATEG_LEVEL_HINTS[cfg.categLivello]]));
     }
@@ -2764,9 +2806,10 @@
       } else {
         card.appendChild(el('p',{class:'hint'},['Due toni simultanei di registro diverso (uno grave, uno acuto), ciascuno con regola 1-back propria — nessuno stimolo visivo.']));
       }
+      card.appendChild(el('p',{class:'hint'},['Ogni canale ha un proprio livello (1-10, pulsanti C1/C2 in barra alta), che regola sia la frequenza bersaglio sia la frequenza di trial lure (foil identico a quello di 2 prove fa invece che 1, stessa logica del lure nell\'N-back) — i lure compaiono solo dal livello 2 in su.']));
     }
     if(cfg.taskMode==='nback' && cfg.adaptive){
-      card.appendChild(el('p',{class:'hint'},['Il livello sale di 1 se l\'accuratezza supera l\'85% negli ultimi 8 trial validi, scende sotto il 70% (fascia 70–85% invariata) — livello minimo 1, massimo 5. Durante la sessione puoi comunque forzare il livello manualmente con i pulsanti +/– nella barra in alto: l\'automatismo riprende dal valore che imposti.']));
+      card.appendChild(el('p',{class:'hint'},['Il livello sale di 1 se l\'accuratezza supera l\'85% negli ultimi 8 trial validi, scende sotto il 70% (fascia 70–85% invariata) — livello minimo 1, massimo 10. n cresce solo a un cambio di banda (1 ai livelli 1-4, 2 ai livelli 5-9, 3 al solo livello 10); dentro ogni banda la difficoltà sale con la frequenza bersaglio e con i trial lure. Durante la sessione puoi comunque forzare il livello manualmente con i pulsanti +/– nella barra in alto: l\'automatismo riprende dal valore che imposti.']));
     }
 
     // response mode
@@ -3339,20 +3382,36 @@
       return {stimType:t, item:p[Math.floor(Math.random()*p.length)]};
     };
     const i = session.seq.length;
-    const n = session.liveNLevel;
-    const freq = cfg.adaptive ? (ADAPT_NBACK_FREQ[n] || cfg.targetRate) : cfg.targetRate;
+    const level = session.liveNLevel;
+    const params = nbackParamsForLevel(level);
+    const n = params.n;
+    const freq = cfg.adaptive ? params.freq : cfg.targetRate;
+    const lureFreq = params.lure;
+    const lureLag = nbackLureLag(n);
     function runLen(val){ let run=1; for(let k=i-1;k>=0;k--){ if(nbackSameVal(session.seq[k].val,val)) run++; else break; } return run; }
     let makeTarget = i>=n && Math.random() < freq;
-    let val;
+    let val, isLure=false;
     if(makeTarget){
       const cand = session.seq[i-n].val;
       if((isMista || pool.length>1) && runLen(cand) > 3){ makeTarget=false; } else { val = cand; }
     }
     if(!makeTarget){
-      do{ val = isMista ? randMista() : pool[Math.floor(Math.random()*pool.length)]; }
-      while((isMista || pool.length>1) && ((i>=n && nbackSameVal(val, session.seq[i-n].val)) || runLen(val)>3));
+      // Prova un trial lure: un foil che corrisponde allo scarto vicino a n
+      // (n-1, o n+1 quando n=1) invece che a n — "sembra" familiare per
+      // prossimità recente ma la risposta corretta resta "non rispondere".
+      if(i>=lureLag && lureFreq>0 && Math.random()<lureFreq){
+        const lureCand = session.seq[i-lureLag].val;
+        const wouldBeRealTarget = i>=n && nbackSameVal(lureCand, session.seq[i-n].val);
+        if(!wouldBeRealTarget && (isMista || pool.length>1 ? runLen(lureCand)<=3 : true)){
+          val = lureCand; isLure = true;
+        }
+      }
+      if(val===undefined){
+        do{ val = isMista ? randMista() : pool[Math.floor(Math.random()*pool.length)]; }
+        while((isMista || pool.length>1) && ((i>=n && nbackSameVal(val, session.seq[i-n].val)) || runLen(val)>3));
+      }
     }
-    const trial = {val, isTarget: i>=n ? makeTarget : false, valid:i>=n, nAtGeneration:n};
+    const trial = {val, isTarget: i>=n ? makeTarget : false, valid:i>=n, nAtGeneration:n, isLure};
     session.seq.push(trial);
     return trial;
   }
@@ -3421,7 +3480,7 @@
   // dualtask — vedi sotto).
   function currentLevelMax(){
     const key = adaptLevelKey();
-    if(key==='liveNLevel') return 6;
+    if(key==='liveNLevel') return 10;
     if(key==='tapatLevel') return 10;
     if(key==='liveBoardLevel') return 10;
     if(key==='adaptLevel') return 10; // gonogo, sequenza, stopsignal, ant, switching
@@ -3512,12 +3571,58 @@
     stopsignal: {1:3600,2:3200,3:2800,4:2400,5:2000,6:1700,7:1400,8:1150,9:950,10:750} // leva secondaria, indipendente dallo staircase SSD
   };
   const ADAPT_GONOGO_FREQ = {1:0.48,2:0.44,3:0.40,4:0.34,5:0.28,6:0.22,7:0.17,8:0.12,9:0.08,10:0.05}; // frequenza no-go — più bassa = più difficile
-  const ADAPT_NBACK_FREQ = {1:0.40,2:0.32,3:0.24,4:0.16,5:0.10,6:0.08}; // frequenza target n-back — più bassa = più difficile (stessa logica del Go/No-Go: più raro il target, più forte la tendenza abituale a non rispondere)
+  // N-back: il "livello" (1-10) non è più uguale a n. n resta clinicamente
+  // vincolato a un ceiling di 3 (a sua volta confinato al solo livello 10);
+  // il resto della scala nasce da due leve — frequenza bersaglio (come
+  // prima) e frequenza di trial "lure" (foil che corrispondono a uno
+  // scarto vicino a n, non a n stesso: aumentano il carico di controllo
+  // dell'interferenza senza alzare n — Kane, Conway, Miura & Colflesh,
+  // 2007). All'inizio di ogni nuovo valore di n la lure riparte da 0 per
+  // non sommare due salti di difficoltà nello stesso passaggio di livello.
+  const NBACK_LEVEL_TABLE = {
+    1:{n:1, freq:0.38, lure:0},
+    2:{n:1, freq:0.30, lure:0.08},
+    3:{n:1, freq:0.24, lure:0.15},
+    4:{n:1, freq:0.18, lure:0.22},
+    5:{n:2, freq:0.34, lure:0},
+    6:{n:2, freq:0.28, lure:0.10},
+    7:{n:2, freq:0.22, lure:0.18},
+    8:{n:2, freq:0.16, lure:0.25},
+    9:{n:2, freq:0.12, lure:0.32},
+    10:{n:3, freq:0.20, lure:0.20}
+  };
+  function nbackParamsForLevel(level){ return NBACK_LEVEL_TABLE[level] || NBACK_LEVEL_TABLE[10]; }
+  // Scarto (lag) usato per generare i lure: n-1 se possibile (la
+  // manipolazione classica in letteratura), altrimenti n+1 quando n=1 (non
+  // esiste uno scarto "0 indietro" significativo).
+  function nbackLureLag(n){ return n>1 ? n-1 : n+1; }
   // Switching, doppio compito e cancellazione estesi a 10 livelli in questo
   // turno, stessa filosofia delle tabelle già a 10 livelli sopra: risoluzione
   // aggiunta a pavimento e soffitto, non raddoppio uniforme.
   const ADAPT_SWITCH_BALANCE = {1:0.50,2:0.56,3:0.62,4:0.68,5:0.74,6:0.80,7:0.85,8:0.90,9:0.94,10:0.97}; // quanto la regola "dominante" prevale sull'altra — più sbilanciato = più difficile quando tocca passare alla regola rara
   const ADAPT_DUAL_FREQ = {1:0.40,2:0.35,3:0.30,4:0.25,5:0.20,6:0.16,7:0.13,8:0.10,9:0.07,10:0.05}; // frequenza target per canale, indipendente sui due canali del doppio compito
+  // Trial lure per canale — stessa logica del lure nell'N-back (foil che
+  // corrisponde a uno scarto vicino al target vero, qui 2 indietro invece
+  // di 1, dato che ogni canale è un 1-back fisso): aumenta il carico di
+  // controllo dell'interferenza senza introdurre un secondo n. Parte da 0
+  // ai livelli più bassi per non sommarsi a una frequenza bersaglio già
+  // impegnativa a inizio scala.
+  const ADAPT_DUAL_LURE = {1:0,2:0.05,3:0.10,4:0.15,5:0.19,6:0.23,7:0.27,8:0.31,9:0.35,10:0.40};
+  // Categorizzazione condizionale: 10 livelli come banda-doppia delle 5
+  // strutture originarie (confermate da Rodrigo, ordine di complessità
+  // relazionale secondo Halford, Wilson & Phillips 1998 — non numero di
+  // mappature S-R). Dentro ogni banda la difficoltà cresce con ISI (più
+  // stretto = più difficile), tranne nella banda del 1-back sulla
+  // categoria (livelli 7-8), dove il secondo parametro è la frequenza di
+  // trial lure (stessa categoria di 2 prove fa invece che 1 — stessa
+  // logica del lure nell'N-back/Doppio compito).
+  //  1 = dimensione singola; 2 = doppia dimensione + no-go;
+  //  3 = regola disgiuntiva; 4 = 1-back sulla categoria; 5 = doppia
+  //  dimensione mappata direttamente su 4 risposte.
+  const CATEG_STRUCTURE_OF_LEVEL = {1:1,2:1,3:2,4:2,5:3,6:3,7:4,8:4,9:5,10:5};
+  const CATEG_ISI  = {1:2200,2:1300,3:2200,4:1300,5:2200,6:1300,9:2200,10:1300}; // assente ai livelli 7-8 (banda lure)
+  const CATEG_LURE = {7:0, 8:0.30};
+  function categStructureOfLevel(level){ return CATEG_STRUCTURE_OF_LEVEL[level] || 1; }
   const DUAL_DOUBLE_TARGET_GRACE_MS = 500; // proroga concessa quando un trial richiede due tocchi e ne è arrivato solo uno alla scadenza
   const ADAPT_GONOGO_COUNT = {1:1,2:1,3:1,4:2,5:2,6:3,7:3,8:4,9:5,10:6}; // quanti elementi no-go attivi (dal set configurato) — di più = più difficile; ai livelli 9-10 richiede un pool di stimoli di almeno 5-6 elementi
   const ADAPT_SWITCH_CSI  = {1:900,2:750,3:600,4:480,5:380,6:300,7:230,8:170,9:120,10:80}; // intervallo cue→stimolo — più corto = più difficile
@@ -3879,7 +3984,7 @@
       case 'switching':
         return [{action:'a', label:'—', cls:'match'}, {action:'b', label:'—', cls:'nomatch'}];
       case 'categorizzazione': {
-        const liv = cfg.categLivello;
+        const liv = categStructureOfLevel(cfg.categLivello);
         if(liv===1){
           const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
           return [{action:'a', label:rs.labelA, cls:'match'}, {action:'b', label:rs.labelB, cls:'nomatch'}];
@@ -3904,7 +4009,7 @@
         const isSeq = cfg.taskMode==='sequenza';
         const matchLabel = isSeq
           ? (cfg.respMode==='operatore' ? "Il paziente segnala: sequenza appena avvenuta" : "È appena avvenuta la sequenza")
-          : (cfg.respMode==='operatore' ? 'Il paziente indica corrispondenza' : 'Corrispondenza (n='+cfg.nLevel+')');
+          : (cfg.respMode==='operatore' ? 'Il paziente indica corrispondenza' : 'Corrispondenza (n='+nbackParamsForLevel(session&&session.liveNLevel?session.liveNLevel:cfg.nLevel).n+')');
         return [{action:'match', label:matchLabel, cls:'match', full:true}];
       }
     }
@@ -3968,7 +4073,7 @@
     const trial = session.idx>=0 && session.idx<session.seq.length ? session.seq[session.idx] : null;
     const genericLevelKey = adaptLevelKey();
     const modeLabel = cfg.taskMode==='sequenza' ? 'sequenza bersaglio'+(cfg.adaptive?' · livello '+session.adaptLevel:'')
-      : cfg.taskMode==='nback' ? 'n='+session.liveNLevel+(cfg.adaptive?' (adattivo)':'')
+      : cfg.taskMode==='nback' ? 'livello '+session.liveNLevel+' · n='+nbackParamsForLevel(session.liveNLevel).n+(cfg.adaptive?' (adattivo)':'')
       : cfg.taskMode==='gonogo' ? 'go/no-go'+(cfg.adaptive?' · livello '+session.adaptLevel:'')
       : cfg.taskMode==='stopsignal' ? 'SSD '+Math.round(session.currentSSD)+'ms'+(cfg.adaptive?' · ritmo livello '+session.adaptLevel:'')
       : (cfg.taskMode==='ant' && cfg.antMode==='tapat' && trial) ? 'TAPAT — blocco '+(trial.block==='tonic'?'tonico':'fasico')+' · livello '+session.tapatLevel+(cfg.adaptive?' (adattivo)':'')
@@ -3986,7 +4091,7 @@
       d.btns[1].textContent = trial.ruleDef.labelB;
     }
     if(cfg.taskMode==='nback' && d.btns.length===1 && cfg.respMode!=='operatore'){
-      d.btns[0].textContent = 'Corrispondenza (n='+session.liveNLevel+')';
+      d.btns[0].textContent = 'Corrispondenza (n='+nbackParamsForLevel(session.liveNLevel).n+')';
     }
 
     d.stimSlot.innerHTML='';
@@ -4147,7 +4252,7 @@
     { domain:'memoria', tipo:'base', domainLabel:'Memoria di lavoro', label:'Memoria di lavoro — blocco base',
       patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:1, adaptive:false, targetRate:0.32, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}) },
     { domain:'memoria', tipo:'caricato', domainLabel:'Memoria di lavoro', label:'Memoria di lavoro — blocco caricato', suggestTaskMode:'nback', suggestLabel:'N-back',
-      patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:2, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}) },
+      patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:5, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}) },
     { domain:'flessibilita', tipo:'base', domainLabel:'Flessibilità cognitiva', label:'Flessibilità — blocco base',
       patch:()=>({taskMode:'categorizzazione', categLivello:1, categMateriale:'colori', isi:1800, stimDuration:700, trials:SCREENING_TRIALS}) },
     { domain:'flessibilita', tipo:'caricato', domainLabel:'Flessibilità cognitiva', label:'Flessibilità — blocco caricato', suggestTaskMode:'switching', suggestLabel:'Task-switching',
@@ -5682,7 +5787,7 @@
         const family = r.family || 'signal';
         const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
         const detail = family==='choice' ? exLabel
-          : (r.taskMode==='nback' ? exLabel+' n='+r.nLevel : exLabel);
+          : (r.taskMode==='nback' ? exLabel+' livello '+r.nLevel : exLabel);
         const scoreLabel = family==='choice'
           ? fmtPct(r.choice.accuracy)+' corr.'
           : family==='dual'

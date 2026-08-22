@@ -81,47 +81,26 @@ i pulsanti +/– nella barra in alto per forzare il livello manualmente in
 qualunque momento; se la titolazione automatica è attiva riprende dal
 valore impostato manualmente.
 
-**Il numero di livelli non è più uguale per tutti gli esercizi.** La
-scala 1-5 originaria era un compromesso di partenza, non un vincolo
-clinico: alcuni esercizi avevano un margine insufficiente sia per
-pazienti con deficit marcati (nessun vero "pavimento" facile) sia per
-pazienti lievi (nessun vero "soffitto" impegnativo). Il principio seguito
-nell'estensione non è stato raddoppiare la scala allo stesso modo per
-tutti, ma **aggiungere risoluzione dove mancava**, esercizio per
-esercizio:
+**Il numero di livelli varia per esercizio.** La scala non è uniforme
+perché il numero di livelli riflette quanti step distinti i parametri di
+un compito possono effettivamente sostenere con significato clinico, non
+una convenzione fissa: dove un secondo parametro può scalare insieme al
+primo (es. un ISI che si aggiunge a una frequenza), il compito guadagna
+margine sia a pavimento (deficit marcati) sia a soffitto (prestazioni
+forti):
 
 | Esercizio | Livelli | Cosa varia col livello |
 |---|---|---|
-| N-back | 1-6 | Frequenza target (40%→8%); il livello 6 (N più alto) è stato aggiunto per dare più soffitto ai pazienti con prestazioni già forti a n=5 |
-| Go/No-Go | 1-10 | Frequenza no-go (48%→5%), numero di elementi no-go attivi (1→6), più un ISI ora adattivo anche ai livelli bassi (prima l'ISI era fisso: mancava del tutto un pavimento di velocità) |
-| Sequenza bersaglio | 1-10 | ISI (4500→900ms) e, solo in modalità adattiva, lunghezza della sequenza bersaglio (2→5 elementi, prima fissa a quella scelta manualmente) |
+| N-back | 1-10 | n cresce solo a cambio di banda — 1 ai livelli 1-4, 2 ai livelli 5-9, 3 al solo livello 10 (il carico "puro" resta clinicamente vincolato: la letteratura su cui si basa l'n-back mostra un calo netto di accuratezza già a n=3) — dentro ogni banda scalano frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso: aumentano il carico di controllo dell'interferenza senza alzare n, cfr. Kane, Conway, Miura & Colflesh, 2007) |
+| Go/No-Go | 1-10 | Frequenza no-go (48%→5%), numero di elementi no-go attivi (1→6), ISI (che scala col livello) |
+| Sequenza bersaglio | 1-10 | ISI (4500→900ms) e, solo in modalità adattiva, lunghezza della sequenza bersaglio (2→5 elementi) |
 | Stop-Signal | 1-10 (leva secondaria) + staircase SSD continuo | ISI secondario (3600→750ms); lo SSD resta un meccanismo indipendente e continuo, non a livelli (vedi sotto) |
 | ANT (classico) | 1-10 | ISI (3200→650ms) |
 | TAPAT | 1-10 | Intervallo tra stimoli, da prevedibile e ravvicinato (0.9-1.8s) a lungo e imprevedibile (12-25s) |
-| Task-switching | 1-10 | Intervallo cue→stimolo (CSI, 900→150ms) insieme allo sbilanciamento fra le due regole (50%→97%) — due parametri combinati, stessa logica di Go/No-Go |
-| Doppio compito | 1-10 (per canale, indipendenti) | Frequenza target per canale (40%→5%) insieme all'ISI condiviso fra i due canali (3000→700ms, derivato dalla media dei due livelli canale) |
+| Task-switching | 1-10 | Intervallo cue→stimolo (CSI, 900→150ms) insieme allo sbilanciamento fra le due regole (50%→97%) — due parametri combinati |
+| Doppio compito | 1-10 (per canale, indipendenti) | Frequenza target per canale (40%→5%) insieme all'ISI condiviso fra i due canali (3000→700ms, derivato dalla media dei due livelli canale); ciascun canale ha anche una propria frequenza di trial lure (foil identico a quello di 2 prove fa invece che 1 — stessa logica del lure nell'N-back), assente ai due livelli più bassi e crescente fino al livello 10 |
+| Categorizzazione condizionale | 1-10 (non adattivo, scelto in setup) | Banda doppia delle 5 strutture originarie (dimensione singola → doppia dimensione+no-go → regola disgiuntiva → 1-back sulla categoria → doppia dimensione a 4 risposte), ordinate per complessità relazionale (Halford, Wilson & Phillips, 1998) non per numero di mappature stimolo-risposta; dentro ogni banda l'ISI si stringe, tranne nella banda del 1-back (livelli 7-8) dove il secondo parametro è la frequenza di trial lure (stessa categoria di 2 prove fa invece che 1) |
 | Cancellazione (neglect) | 1-10 | Elementi per tavola (14→85) insieme al tempo limite per tavola (nessun limite ai livelli 1-2, poi 110→18s) |
-
-Task-switching, Doppio compito e Cancellazione sono stati portati a 10
-livelli in questo giro, con lo stesso principio delle tabelle precedenti:
-più risoluzione a pavimento e soffitto, un secondo parametro combinato
-dove prima ce n'era uno solo (Doppio compito aveva solo la frequenza;
-ora anche l'ISI condiviso scala col livello). In questo lavoro sono
-emersi e corretti due bug reali, non solo estensioni:
-- **Cancellazione**: le tabelle a 10 livelli (elementi, tempo) erano già
-  presenti, ma l'incremento automatico del livello durante la sessione
-  restava bloccato a un tetto di 5 rimasto dalla vecchia scala — il
-  paziente non poteva mai salire oltre il vecchio livello massimo anche
-  con accuratezza costantemente alta. Corretto: ora usa lo stesso tetto
-  dichiarato in `currentLevelMax()`.
-- **Doppio compito**: la tabella ISI a 10 livelli esisteva ma non veniva
-  mai letta correttamente — il codice cercava l'ISI sotto una chiave di
-  livello (`session.adaptLevel`) che il doppio compito non usa (ha due
-  livelli indipendenti per canale, `dualLevel1`/`dualLevel2`). L'ISI
-  restava quindi sempre a quello fisso manuale anche in modalità
-  adattiva. Corretto: l'ISI condiviso ora si calcola dalla media dei due
-  livelli canale.
-
 
 Fa eccezione lo **Stop-Signal**, che usa una titolazione propria e
 indipendente dal "livello" per la sua misura principale: lo staircase del
@@ -149,24 +128,47 @@ livelli di difficoltà del materiale, anch'essi scelti manualmente.
 Esercizio distinto dal Task-switching: qui la regola resta **fissa** per
 tutta la sessione — non si misura il costo di cambiare regola, ma il
 carico di applicarne una via via più complessa. Per questo non è
-adattivo in tempo reale: il livello (1-5) si sceglie a mano in setup,
+adattivo in tempo reale: il livello (1-10) si sceglie a mano in setup,
 come per la Cancellazione a regola.
 
-| Livello | Struttura | Risposte |
-|---|---|---|
-| 1 | Singola dimensione (colore o simbolo, a scelta) | 2 |
-| 2 | Doppia dimensione (tipo di carattere + colore) con no-go: lettera nera→A, numero rosso→B, numero nero→C, lettera rossa→nessuna risposta | 3 + no-go |
-| 3 | Stessa doppia dimensione, ricombinata in una regola disgiuntiva: A se lettera nera *oppure* numero rosso, B se lettera rossa *oppure* numero nero | 2 |
-| 4 | Stessa singola dimensione del livello 1, con l'aggiunta del confronto con lo stimolo precedente (1-back sulla categoria) | 1 (rispondi se la categoria è la stessa di prima) |
-| 5 | Stessa doppia dimensione, mappata direttamente su 4 risposte (nessun no-go, nessuna disgiunzione) | 4 (tastiera A/L/Z/M) |
+I 10 livelli sono una banda doppia delle 5 strutture qualitativamente
+distinte descritte sotto — non un'unica scala continua, perché non
+esiste un singolo parametro che le attraversi tutte. Ogni struttura
+occupa 2 livelli consecutivi: il primo con ISI ampio, il secondo con ISI
+più stretto (pressione di velocità), tranne la struttura del 1-back
+(livelli 7-8) dove il secondo parametro è la frequenza di trial lure
+invece dell'ISI.
 
-I livelli 2, 3 e 5 condividono lo stesso stimolo a due dimensioni
-indipendenti (lettera/numero × nero/rosso) già usato dalla modalità
-"Bivalente" del Task-switching, ma lo ricombinano in mappature diverse
-sulla risposta — a parità di stimolo, cambia solo la regola di
+| Livello | Struttura | Parametro che varia | Risposte |
+|---|---|---|---|
+| 1 | Dimensione singola (colore o simbolo) | ISI ampio | 2 |
+| 2 | Dimensione singola (colore o simbolo) | ISI stretto | 2 |
+| 3 | Doppia dimensione + no-go: lettera nera→A, numero rosso→B, numero nero→C, lettera rossa→nessuna risposta | ISI ampio | 3 + no-go |
+| 4 | Stessa struttura del livello 3 | ISI stretto | 3 + no-go |
+| 5 | Stessa doppia dimensione, ricombinata in una regola disgiuntiva: A se lettera nera *oppure* numero rosso, B se lettera rossa *oppure* numero nero | ISI ampio | 2 |
+| 6 | Stessa struttura del livello 5 | ISI stretto | 2 |
+| 7 | Confronto con lo stimolo precedente (1-back sulla categoria) | Nessun trial lure | 1 (rispondi se la categoria è la stessa di prima) |
+| 8 | Stessa struttura del livello 7 | Trial lure: stessa categoria di 2 prove fa invece che 1 — sembra familiare per prossimità recente ma la risposta corretta resta "nessuna risposta" | 1 |
+| 9 | Stessa doppia dimensione, mappata direttamente su 4 risposte (nessun no-go, nessuna disgiunzione) | ISI ampio | 4 (tastiera A/L/Z/M) |
+| 10 | Stessa struttura del livello 9 | ISI stretto | 4 (tastiera A/L/Z/M) |
+
+L'ordine delle 5 strutture (singola dimensione → doppia dimensione+no-go
+→ disgiuntiva → 1-back → doppia dimensione a 4 risposte) segue la
+complessità relazionale (Halford, Wilson & Phillips, *Behavioral and
+Brain Sciences*, 1998), non il numero di mappature stimolo-risposta: una
+regola disgiuntiva che integra due dimensioni con un connettivo logico
+impone un carico maggiore di una tabella di mappature dirette più
+numerose, perché il carico cresce con il numero di variabili da
+integrare in parallelo nella stessa rappresentazione, non con il numero
+di risposte disponibili.
+
+Le strutture a livelli 3/4/6/9/10 condividono lo stesso item a due
+dimensioni indipendenti (lettera/numero × nero/rosso) già usato dalla
+modalità "Bivalente" del Task-switching, ma lo ricombinano in mappature
+diverse sulla risposta — a parità di stimolo, cambia solo la regola di
 classificazione, in modo da isolare il carico della regola stessa dal
-carico percettivo. I livelli 1 e 4 condividono invece un'unica
-dimensione (colore o simbolo), e sono collegati fra loro: il livello 4
+carico percettivo. I livelli 1/2 e 7/8 condividono invece un'unica
+dimensione (colore o simbolo), e sono collegati fra loro: il livello 7
 aggiunge al livello 1 il carico di memoria di lavoro di confrontare con
 lo stimolo precedente, senza cambiare la regola di classificazione di
 base.
@@ -174,7 +176,7 @@ base.
 Il conteggio "risposte omesse" nello storico e nel CSV per questo
 esercizio conta solo le mancate risposte vere (dove serviva un tocco),
 non i casi in cui non rispondere era la risposta corretta (no-go ai
-livelli 2 e 4) — altrimenti il dato sarebbe fuorviante.
+livelli 3/4 e 7/8) — altrimenti il dato sarebbe fuorviante.
 
 ## Batteria di screening iniziale
 

@@ -528,7 +528,7 @@
         localPatientsCloudCache = [];
         sb.from('pazienti_locali').select('*').eq('operatore_id', cloudUser.id).then(({data,error})=>{
           if(!error && data){
-            localPatientsCloudCache = data.map(r=>({id:r.id, nome:r.nome, createdAt:r.creato_il?Date.parse(r.creato_il):Date.now(), lastConfig:r.ultima_config||null, screeningFlags:r.screening_flags||null}));
+            localPatientsCloudCache = data.map(r=>({id:r.id, nome:r.nome, createdAt:r.creato_il?Date.parse(r.creato_il):Date.now(), lastConfig:r.ultima_config||null, screeningFlags:r.screening_flags||null, programma:r.programma_assegnato||null}));
             // porta in locale anche i profili creati altrove, per uso offline
             localPatientsCloudCache.forEach(p=>{
               try{ if(!localStorage.getItem('traccian:localpatient:'+p.id)) localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(p)); }catch(e){}
@@ -546,7 +546,7 @@
     if(!sb || !cloudUser || patientProfile) return;
     try{
       await sb.from('pazienti_locali').upsert({
-        id:p.id, operatore_id:cloudUser.id, nome:p.nome, ultima_config:p.lastConfig||null, screening_flags:p.screeningFlags||null
+        id:p.id, operatore_id:cloudUser.id, nome:p.nome, ultima_config:p.lastConfig||null, screening_flags:p.screeningFlags||null, programma_assegnato:p.programma||null
       });
       localPatientsCloudCache = null; // forza un refresco al prossimo listLocalPatients()
     }catch(e){ console.error('sync paziente locale fallita', e); }
@@ -615,15 +615,22 @@
     wrap.appendChild(row);
     if(activeLocal){
       const rb = el('div',{class:'rowbtns'});
-      rb.appendChild(el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId = activeLocal.id; view='history'; render(); }},['Storico di '+activeLocal.nome]));
+      rb.appendChild(el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId = activeLocal.id; historyFilterKind='local'; view='history'; render(); }},['Storico di '+activeLocal.nome]));
       if(sb && cloudUser && !patientProfile){
         rb.appendChild(el('button',{class:'ghost', onclick: async ()=>{
-          if(!confirm('Trasformare "'+activeLocal.nome+'" in un account paziente remoto? Potrà accedere da solo con un codice, e lo storico già registrato in presenza resterà collegato a lui.')) return;
+          if(!confirm('Trasformare "'+activeLocal.nome+'" in un account paziente remoto? Potrà accedere da solo con un codice, e lo storico già registrato in presenza — insieme al programma assegnato e ai suggerimenti da screening, se presenti — resterà collegato a lui.')) return;
           const res = await createPatientAccount(activeLocal.nome);
           if(res){
             await migrateLocalPatientSessions(activeLocal.id, res.pazienteId);
+            const ereditato = {};
+            if(activeLocal.programma && activeLocal.programma.length) ereditato.programma_assegnato = activeLocal.programma;
+            if(activeLocal.screeningFlags && activeLocal.screeningFlags.length) ereditato.screening_flags = activeLocal.screeningFlags;
+            if(Object.keys(ereditato).length){
+              try{ await sb.from('pazienti').update(ereditato).eq('id', res.pazienteId).eq('operatore_id', cloudUser.id); }
+              catch(e){ console.error('eredità programma/flag fallita', e); }
+            }
             cachedRemotePatients = null;
-            pendingAccessCode = {codice: res.codiceAccesso, patientLabel: activeLocal.nome};
+            pendingAccessCode = {codice: res.codiceAccesso, patientLabel: activeLocal.nome, pazienteId: res.pazienteId, modalitaAccesso:'diretto', hasProgram: !!(activeLocal.programma && activeLocal.programma.length)};
             view='accessCode'; render();
           }
         }},['Trasforma in account remoto →']));
@@ -694,15 +701,22 @@
     const activeRemote = remotePatients.find(x=>x.id===activeRemotePatientId);
     if(activeLocal){
       const rb = el('div',{class:'rowbtns'});
-      rb.appendChild(el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId = activeLocal.id; view='history'; render(); }},['Storico di '+activeLocal.nome]));
+      rb.appendChild(el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId = activeLocal.id; historyFilterKind='local'; view='history'; render(); }},['Storico di '+activeLocal.nome]));
       if(sb && cloudUser && !patientProfile){
         rb.appendChild(el('button',{class:'ghost', onclick: async ()=>{
-          if(!confirm('Trasformare "'+activeLocal.nome+'" in un account paziente remoto? Potrà accedere da solo con un codice, e lo storico già registrato in presenza resterà collegato a lui.')) return;
+          if(!confirm('Trasformare "'+activeLocal.nome+'" in un account paziente remoto? Potrà accedere da solo con un codice, e lo storico già registrato in presenza — insieme al programma assegnato e ai suggerimenti da screening, se presenti — resterà collegato a lui.')) return;
           const res = await createPatientAccount(activeLocal.nome);
           if(res){
             await migrateLocalPatientSessions(activeLocal.id, res.pazienteId);
+            const ereditato = {};
+            if(activeLocal.programma && activeLocal.programma.length) ereditato.programma_assegnato = activeLocal.programma;
+            if(activeLocal.screeningFlags && activeLocal.screeningFlags.length) ereditato.screening_flags = activeLocal.screeningFlags;
+            if(Object.keys(ereditato).length){
+              try{ await sb.from('pazienti').update(ereditato).eq('id', res.pazienteId).eq('operatore_id', cloudUser.id); }
+              catch(e){ console.error('eredità programma/flag fallita', e); }
+            }
             cachedRemotePatients = null; // forza il ricaricamento dell'elenco remoto
-            pendingAccessCode = {codice: res.codiceAccesso, patientLabel: activeLocal.nome};
+            pendingAccessCode = {codice: res.codiceAccesso, patientLabel: activeLocal.nome, pazienteId: res.pazienteId, modalitaAccesso:'diretto', hasProgram: !!(activeLocal.programma && activeLocal.programma.length)};
             view='accessCode'; render();
           }
         }},['Trasforma in account remoto →']));
@@ -761,8 +775,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -776,8 +790,10 @@
   let accessLogCache = null; // cache in-memory della tabella 'accessi', solo per il super-operatore
   let cloudLoginMode = 'operatore'; // 'operatore' | 'paziente' — quale form di accesso mostrare
   let editingPatient = null; // riga paziente correntemente aperta in "Gestisci programma"
+  let editingPatientKind = 'remote'; // 'remote' | 'local' — quale tipo di profilo è editingPatient
   let activeLocalPatientId = null; // profilo paziente locale selezionato per la sessione in presenza
-  let historyFilterPatientId = null; // se impostato, lo storico mostra solo le sessioni di questo profilo locale
+  let historyFilterPatientId = null; // se impostato, lo storico mostra solo le sessioni di questo profilo (locale o remoto)
+  let historyFilterKind = 'local'; // 'local' | 'remote' — quale tipo di id è historyFilterPatientId
   let activeRemotePatientId = null; // paziente remoto scelto per una seduta in presenza (invece di uno locale)
   let screeningState = null; // {blockIdx, results:[], respModeBefore} — non-null solo durante una sessione di screening in corso
   let cachedRemotePatients = null; // null = non ancora caricati
@@ -2436,7 +2452,8 @@
   // che esistesse il multi-esercizio (preset_assegnato singolo).
   function patientProgram(p){
     if(!p) return [];
-    if(p.programma_assegnato && p.programma_assegnato.length) return p.programma_assegnato;
+    if(p.programma_assegnato && p.programma_assegnato.length) return p.programma_assegnato; // paziente remoto
+    if(p.programma && p.programma.length) return p.programma; // paziente in presenza
     if(p.preset_assegnato){
       const c = p.preset_assegnato;
       const nome = EXERCISES[c.taskMode] ? EXERCISES[c.taskMode].label : c.taskMode;
@@ -4292,7 +4309,13 @@
       const baseAcc = baseRes ? baseRes.accuracy : null;
       const carAcc = carRes ? carRes.accuracy : null;
       const flagged = carAcc!=null && baseAcc!=null && carAcc<SCREENING_FLAG_THRESHOLD && baseAcc>=SCREENING_FLAG_THRESHOLD;
-      return { domain:b.domain, domainLabel:b.domainLabel, baseAcc, carAcc, flagged, suggestTaskMode:b.suggestTaskMode, suggestLabel:b.suggestLabel };
+      // Configurazione suggerita per il "+ aggiungi al programma": riparte
+      // dal blocco caricato dello screening (già tarato per il dominio) ma
+      // con un numero di prove normale da allenamento, non le 16 ridotte
+      // dello screening — e adattivo attivo, così il livello di partenza si
+      // aggiusta da solo nelle prime sessioni invece di restare fisso.
+      const suggestedCfg = Object.assign({}, b.patch(), {trials:24, adaptive:true});
+      return { domain:b.domain, domainLabel:b.domainLabel, baseAcc, carAcc, flagged, suggestTaskMode:b.suggestTaskMode, suggestLabel:b.suggestLabel, suggestedCfg };
     });
   }
   async function finishScreening(){
@@ -4304,8 +4327,10 @@
     view='screeningResults'; render();
   }
   // Salva i flag "consigliato" sul profilo del paziente attivo (locale o
-  // remoto) — mai sul dispositivo/operatore in generale, lo screening
-  // senza un paziente selezionato resta solo un'analisi non salvata.
+  // remoto, oppure — se è il paziente stesso a fare lo screening da remoto —
+  // sul proprio profilo). Mai sul dispositivo/operatore in generale: lo
+  // screening senza un paziente selezionato resta solo un'analisi non
+  // salvata.
   // Se un flag per lo stesso esercizio esiste già ed è stato disattivato
   // a mano in precedenza, resta disattivato: un nuovo screening non lo
   // riaccende da solo, la disattivazione manuale ha sempre la precedenza.
@@ -4313,13 +4338,44 @@
     const out = (existing||[]).slice();
     fresh.forEach(f=>{
       const i = out.findIndex(x=>x.taskMode===f.suggestTaskMode);
-      const rec = {taskMode:f.suggestTaskMode, label:f.suggestLabel, domainLabel:f.domainLabel, motivo:'screening: '+Math.round(f.carAcc*100)+'% con carico vs '+Math.round(f.baseAcc*100)+'% base', aggiornatoIl:Date.now()};
+      const rec = {taskMode:f.suggestTaskMode, label:f.suggestLabel, domainLabel:f.domainLabel, motivo:'screening: '+Math.round(f.carAcc*100)+'% con carico vs '+Math.round(f.baseAcc*100)+'% base', cfg:f.suggestedCfg, aggiornatoIl:Date.now()};
       if(i===-1){ out.push(Object.assign({attivo:true}, rec)); }
       else { out[i] = Object.assign({}, out[i], rec); } // preserva 'attivo' esistente (rispetta l'eventuale disattivazione manuale)
     });
     return out;
   }
+  // Costruisce una voce di programma da un flag di screening (o da
+  // qualunque oggetto con {suggestTaskMode/taskMode, suggestLabel/label,
+  // suggestedCfg/cfg}) — usata sia dall'autorizzazione automatica del gate
+  // sia dal pulsante "+ Aggiungi al programma" per la modulazione manuale.
+  function programEntryFromFlag(f){
+    const cfgOut = f.suggestedCfg || f.cfg;
+    const label = f.suggestLabel || f.label;
+    return { nome: label+' (da screening)', cfg: cfgOut };
+  }
   async function persistScreeningFlags(flagged){
+    if(patientProfile){
+      // Il paziente sta facendo lo screening da solo, da remoto.
+      try{
+        const merged = mergeScreeningFlags(patientProfile.screening_flags, flagged);
+        const patch = { screening_flags: merged };
+        const isFirstGateCompletion = patientProfile.modalita_accesso==='screening_poi_suggeriti' && !patientProfile.screening_completato_il;
+        if(isFirstGateCompletion){
+          // Autorizzazione automatica una tantum: i domini flaggati in
+          // QUESTO screening entrano direttamente nel programma assegnato,
+          // così il paziente li vede da subito — l'operatore può comunque
+          // aggiungerne/toglierne a mano in qualsiasi momento dopo.
+          const nuoveVoci = flagged.map(programEntryFromFlag);
+          const programmaEsistente = patientProfile.programma_assegnato || [];
+          patch.programma_assegnato = programmaEsistente.concat(nuoveVoci);
+          patch.screening_completato_il = new Date().toISOString();
+        }
+        const { error } = await sb.from('pazienti').update(patch).eq('id', cloudUser.id);
+        if(error) throw error;
+        Object.assign(patientProfile, patch);
+      }catch(e){ console.error('salvataggio flag screening fallito', e); }
+      return;
+    }
     if(!flagged.length) return;
     if(!patientProfile && activeLocalPatientId){
       try{
@@ -4361,15 +4417,22 @@
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',{},['Risultati screening']));
     const anyFlagged = screeningState.summary.some(x=>x.flagged);
-    card.appendChild(el('p',{class:'hint'},[anyFlagged ? 'Confronto base/caricato per dominio. I domini evidenziati sono stati proposti come "consigliati" nel profilo del paziente — sempre modificabile a mano.' : 'Confronto base/caricato per dominio. Nessun dominio sotto soglia con base nella norma: nessun flag proposto.']));
-    screeningState.summary.forEach(row=>{
-      const bp = row.baseAcc!=null ? Math.round(row.baseAcc*100)+'%' : '—';
-      const cp = row.carAcc!=null ? Math.round(row.carAcc*100)+'%' : '—';
-      const wrap = el('div',{style:'padding:10px 4px; border-bottom:1px solid var(--line);'+(row.flagged?' background:var(--paper-dim);':'')});
-      wrap.appendChild(el('div',{style:'font-weight:600;'},[row.domainLabel+(row.flagged?' — consigliato: '+row.suggestLabel:'')]));
-      wrap.appendChild(el('div',{style:'font-size:13px; color:var(--ink-soft);'},['base '+bp+' · caricato '+cp]));
-      card.appendChild(wrap);
-    });
+    const forPatient = !!patientProfile;
+    card.appendChild(el('p',{class:'hint'},[
+      forPatient
+        ? (anyFlagged ? 'Valutazione completata. In base ai risultati, il tuo operatore ha reso disponibili alcuni esercizi in più — li trovi nella tua pagina principale, e potrà comunque modificarli in seguito.' : 'Valutazione completata. Nessun'+'\u00A0'+'area particolare emersa: trovi il tuo allenamento nella pagina principale.')
+        : (anyFlagged ? 'Confronto base/caricato per dominio. I domini evidenziati sono stati proposti come "consigliati" nel profilo del paziente — sempre modificabile a mano.' : 'Confronto base/caricato per dominio. Nessun dominio sotto soglia con base nella norma: nessun flag proposto.')
+    ]));
+    if(!forPatient){
+      screeningState.summary.forEach(row=>{
+        const bp = row.baseAcc!=null ? Math.round(row.baseAcc*100)+'%' : '—';
+        const cp = row.carAcc!=null ? Math.round(row.carAcc*100)+'%' : '—';
+        const wrap = el('div',{style:'padding:10px 4px; border-bottom:1px solid var(--line);'+(row.flagged?' background:var(--paper-dim);':'')});
+        wrap.appendChild(el('div',{style:'font-weight:600;'},[row.domainLabel+(row.flagged?' — consigliato: '+row.suggestLabel:'')]));
+        wrap.appendChild(el('div',{style:'font-size:13px; color:var(--ink-soft);'},['base '+bp+' · caricato '+cp]));
+        card.appendChild(wrap);
+      });
+    }
     card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ screeningState=null; view=homeView(); render(); }},['Fatto']));
     s.appendChild(card); root.appendChild(s);
   }
@@ -5185,7 +5248,8 @@
             activeLocalPatientId=p.id; activeRemotePatientId=null; cfg.patientCode=p.nome;
             startScreeningSession();
           }},['Screening']),
-          el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId=p.id; view='history'; render(); }},['Storico']),
+          el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId=p.id; historyFilterKind='local'; view='history'; render(); }},['Storico']),
+          el('button',{class:'ghost', onclick:()=>{ editingPatient=p; editingPatientKind='local'; view='patientProgram'; render(); }},['Assegna programma']),
           el('button',{class:'ghost', onclick: async ()=>{
             const items = await loadHistory();
             const mine = items.filter(r=> r.localPatientId === p.id);
@@ -5211,6 +5275,20 @@
           activeFlags.forEach(f=>{
             flagsWrap.appendChild(el('span',{style:'background:var(--paper-dim); border-radius:999px; padding:3px 10px; display:inline-flex; align-items:center; gap:6px;'},[
               '⭐ '+f.label,
+              el('button',{style:'border:none; background:none; cursor:pointer; color:var(--signal); padding:0; font-size:12px; font-weight:600;', title:'Aggiungi al programma assegnato', onclick:()=>{
+                if(!f.cfg){ alert('Questo suggerimento è di una versione precedente e non ha una configurazione salvata — rilancia lo screening per rigenerarlo.'); return; }
+                try{
+                  const raw = localStorage.getItem('traccian:localpatient:'+p.id);
+                  if(!raw) return;
+                  const pp = JSON.parse(raw);
+                  const nuovaVoce = programEntryFromFlag(f);
+                  pp.programma = (pp.programma||[]).concat([nuovaVoce]);
+                  (pp.screeningFlags||[]).forEach(x=>{ if(x.taskMode===f.taskMode) x.attivo=false; });
+                  localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(pp));
+                  syncLocalPatientToCloud(pp);
+                  render();
+                }catch(e){}
+              }},['+ Aggiungi']),
               el('button',{style:'border:none; background:none; cursor:pointer; color:var(--ink-soft); padding:0; font-size:12px;', title:'Rimuovi suggerimento', onclick:()=>{
                 try{
                   const raw = localStorage.getItem('traccian:localpatient:'+p.id);
@@ -5357,6 +5435,16 @@
       }catch(e){ alert('Copia manuale: '+info.codice); }
     }},['📋 Copia codice']);
     card.appendChild(copyBtn);
+    if(info.modalitaAccesso==='diretto' && info.pazienteId){
+      if(!info.hasProgram) card.appendChild(el('p',{class:'hint'},['Modalità diretta: senza un programma assegnato, il paziente non vedrà ancora nessun esercizio al primo accesso.']));
+      card.appendChild(el('button',{class:'ghost', style:'margin-top:8px;', onclick:()=>{
+        editingPatient = {id:info.pazienteId, codice_paziente:info.patientLabel};
+        editingPatientKind='remote';
+        pendingAccessCode=null; view='patientProgram'; render();
+      }},['Assegna programma ora →']));
+    } else if(info.modalitaAccesso==='screening_poi_suggeriti'){
+      card.appendChild(el('p',{class:'hint'},['Modalità solo screening: al primo accesso il paziente vedrà solo la valutazione iniziale — nessun\'altra azione richiesta ora.']));
+    }
     card.appendChild(el('button',{class:'ghost', style:'margin-top:12px;', onclick:()=>{ pendingAccessCode=null; view='patients'; render(); }},['Fatto — torna ai pazienti']));
     s.appendChild(card); root.appendChild(s);
   }
@@ -5379,10 +5467,15 @@
     card.appendChild(el('button',{class:'primary', onclick: async ()=>{
       const nome = prompt('Codice/etichetta per il nuovo paziente (es. "PT-014" — non usare il nominativo):');
       if(!nome || !nome.trim()) return;
+      const modoScelta = prompt('Modalità di accesso:\n1) Assegno io direttamente gli esercizi\n2) Solo screening iniziale — poi suggeriti automaticamente (modificabili a mano in ogni momento)', '1');
+      if(modoScelta===null) return;
+      const modalitaAccesso = modoScelta.trim()==='2' ? 'screening_poi_suggeriti' : 'diretto';
       const res = await createPatientAccount(nome.trim());
       if(res){
+        try{ await sb.from('pazienti').update({modalita_accesso:modalitaAccesso}).eq('id', res.pazienteId).eq('operatore_id', cloudUser.id); }
+        catch(e){ console.error('impostazione modalità accesso fallita', e); }
         cachedRemotePatients = null;
-        pendingAccessCode = {codice: res.codiceAccesso, patientLabel: nome.trim()};
+        pendingAccessCode = {codice: res.codiceAccesso, patientLabel: nome.trim(), pazienteId: res.pazienteId, modalitaAccesso};
         view='accessCode'; render();
       }
     }},['+ Nuovo paziente']));
@@ -5411,12 +5504,13 @@
               if(p.ultima_config) loadPreset({cfg:p.ultima_config});
               view='setup'; render();
             }},['Usa ora →']),
+            el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId=p.id; historyFilterKind='remote'; view='history'; render(); }},['Storico']),
             el('button',{class:'ghost', onclick:()=>{
               activeRemotePatientId = p.id; activeLocalPatientId = null; cfg.patientCode = p.codice_paziente;
               startScreeningSession();
             }},['Screening']),
             el('button',{class:'ghost', onclick:()=>{ pendingAccessCode = {codice: p.codice_accesso, patientLabel: p.codice_paziente}; view='accessCode'; render(); }},['Codice']),
-            el('button',{class:'ghost', onclick:()=>{ editingPatient = p; view='patientProgram'; render(); }},['Gestisci programma']),
+            el('button',{class:'ghost', onclick:()=>{ editingPatient = p; editingPatientKind='remote'; view='patientProgram'; render(); }},['Gestisci programma']),
             el('button',{class:'ghost', onclick: async ()=>{
               const nuovoStato = isArchived; // se è archiviato, il click lo riattiva; altrimenti lo archivia
               if(!nuovoStato && !confirm('Archiviare '+p.codice_paziente+'? Il paziente non potrà più accedere da solo, ma tu potrai continuare a usarlo in presenza e a vederne lo storico. Puoi riattivarlo in qualsiasi momento.')) return;
@@ -5445,6 +5539,18 @@
           activeFlags.forEach(f=>{
             flagsWrap.appendChild(el('span',{style:'background:var(--paper-dim); border-radius:999px; padding:3px 10px; display:inline-flex; align-items:center; gap:6px;'},[
               '⭐ '+f.label,
+              el('button',{style:'border:none; background:none; cursor:pointer; color:var(--signal); padding:0; font-size:12px; font-weight:600;', title:'Aggiungi al programma assegnato', onclick: async ()=>{
+                if(!f.cfg){ alert('Questo suggerimento è di una versione precedente e non ha una configurazione salvata — rilancia lo screening per rigenerarlo.'); return; }
+                const nuovaVoce = programEntryFromFlag(f);
+                const programmaAttuale = patientProgram(p);
+                const ok = await assignProgramToPatient(p.id, programmaAttuale.concat([nuovaVoce]));
+                if(ok){
+                  const merged = (p.screening_flags||[]).map(x=> x.taskMode===f.taskMode ? Object.assign({}, x, {attivo:false}) : x);
+                  try{ await sb.from('pazienti').update({screening_flags:merged}).eq('id', p.id).eq('operatore_id', cloudUser.id); }catch(e){}
+                  cachedRemotePatients = null;
+                  render();
+                }
+              }},['+ Aggiungi']),
               el('button',{style:'border:none; background:none; cursor:pointer; color:var(--ink-soft); padding:0; font-size:12px;', title:'Rimuovi suggerimento', onclick: async ()=>{
                 const merged = (p.screening_flags||[]).map(x=> x.taskMode===f.taskMode ? Object.assign({}, x, {attivo:false}) : x);
                 try{
@@ -5471,8 +5577,14 @@
       card.appendChild(el('button',{class:'ghost', onclick:()=>{ view='patients'; render(); }},['← Torna ai pazienti']));
       s.appendChild(card); root.appendChild(s); return;
     }
-    card.appendChild(el('h2',{},['Programma di '+editingPatient.codice_paziente]));
-    card.appendChild(el('p',{class:'hint'},['Seleziona uno o più preset salvati su questo dispositivo da assegnare. Il paziente vedrà l\'elenco e potrà avviare quello che vuole a ogni accesso — non serve un ordine fisso.']));
+    const isLocal = editingPatientKind==='local';
+    const displayName = isLocal ? editingPatient.nome : editingPatient.codice_paziente;
+    card.appendChild(el('h2',{},['Programma di '+displayName]));
+    card.appendChild(el('p',{class:'hint'},[
+      isLocal
+        ? 'Seleziona uno o più preset salvati su questo dispositivo: da quel momento, quando selezioni questo paziente in presenza, li trovi come scorciatoia di avvio rapido — resta comunque libero di lanciare qualunque altro esercizio, non è un vincolo.'
+        : 'Seleziona uno o più preset salvati su questo dispositivo da assegnare. Il paziente vedrà l\'elenco e potrà avviare quello che vuole a ogni accesso — non serve un ordine fisso.'
+    ]));
 
     const presets = listPresets();
     const already = new Set(patientProgram(editingPatient).map(x=>x.nome));
@@ -5496,9 +5608,43 @@
     card.appendChild(el('button',{class:'primary', style:'margin-top:16px;', onclick: async ()=>{
       const program = presets.filter(p=>selected.has(p.id)).map(p=>({nome:p.name, cfg:p.cfg}));
       if(!program.length){ alert('Seleziona almeno un preset, oppure annulla.'); return; }
-      const ok = await assignProgramToPatient(editingPatient.id, program);
-      if(ok){ editingPatient=null; view='patients'; render(); }
+      if(isLocal){
+        try{
+          const raw = localStorage.getItem('traccian:localpatient:'+editingPatient.id);
+          if(!raw) throw new Error('profilo non trovato');
+          const pp = JSON.parse(raw);
+          pp.programma = program;
+          localStorage.setItem('traccian:localpatient:'+editingPatient.id, JSON.stringify(pp));
+          syncLocalPatientToCloud(pp);
+          editingPatient=null; view='localPatientPicker'; render();
+        }catch(e){ alert('Errore: '+e.message); }
+      } else {
+        const ok = await assignProgramToPatient(editingPatient.id, program);
+        if(ok){ editingPatient=null; view='patients'; render(); }
+      }
     }},['Salva programma ('+selected.size+' selezionati)']));
+
+    if(isLocal){
+      const nav = el('div',{class:'navlinks'});
+      nav.appendChild(el('button',{class:'link', onclick:()=>{ editingPatient=null; view='localPatientPicker'; render(); }},['← Annulla']));
+      card.appendChild(nav);
+      s.appendChild(card); root.appendChild(s); return;
+    }
+
+    card.appendChild(el('label',{style:'display:block; margin-top:24px;'},['Modalità di accesso remoto']));
+    card.appendChild(el('p',{class:'hint'},['"Diretto": il paziente vede subito il programma assegnato sopra. "Solo screening all\'inizio": al primo accesso vede solo una breve valutazione iniziale; al termine, i domini risultati deboli vengono aggiunti automaticamente al programma (resti comunque libero di modificarlo a mano, anche prima o dopo). Il gate scatta una sola volta.']));
+    card.appendChild(segButtons(['diretto','screening_poi_suggeriti'], editingPatient.modalita_accesso||'diretto', async v=>{
+      try{
+        const { error } = await sb.from('pazienti').update({modalita_accesso:v}).eq('id', editingPatient.id).eq('operatore_id', cloudUser.id);
+        if(error) throw error;
+        editingPatient.modalita_accesso = v;
+        cachedRemotePatients = null;
+        render();
+      }catch(e){ alert('Errore: '+e.message); }
+    }, {diretto:'Diretto', screening_poi_suggeriti:'Solo screening all\'inizio'}));
+    if(editingPatient.modalita_accesso==='screening_poi_suggeriti'){
+      card.appendChild(el('p',{class:'hint'},[editingPatient.screening_completato_il ? 'Gate già superato il '+new Date(editingPatient.screening_completato_il).toLocaleDateString('it-IT')+' — il paziente vede ora il programma normalmente.' : 'Il paziente non ha ancora completato la valutazione iniziale: vedrà solo quella al prossimo accesso.']));
+    }
 
     card.appendChild(el('label',{style:'display:block; margin-top:24px;'},['Obiettivi (mostrati al paziente come barre di avanzamento — facoltativi: si può procedere anche senza. Se ne può impostare più di uno, anche di tipo diverso.']));
     const currentGoals = normalizeGoals(editingPatient.obiettivo);
@@ -5694,6 +5840,19 @@
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',{},['Ciao'+(patientProfile&&patientProfile.codice_paziente?', '+patientProfile.codice_paziente:'')]));
 
+    // Gate "solo screening all'inizio": finché non lo completa una prima
+    // volta, il paziente vede solo l'ingresso allo screening, non il
+    // programma — vedi persistScreeningFlags per l'autorizzazione
+    // automatica che scatta al completamento.
+    if(patientProfile && patientProfile.modalita_accesso==='screening_poi_suggeriti' && !patientProfile.screening_completato_il){
+      card.appendChild(el('p',{class:'hint'},['Prima di iniziare, il tuo operatore ha chiesto una breve valutazione iniziale (circa 10 minuti). Al termine, gli esercizi più utili per te verranno sbloccati automaticamente.']));
+      card.appendChild(el('button',{class:'primary', style:'margin-top:10px;', onclick:()=>{ startScreeningSession(); }},['Inizia la valutazione iniziale']));
+      const nav0 = el('div',{class:'navlinks'});
+      nav0.appendChild(el('button',{class:'link', onclick: cloudSignOut},['Esci']));
+      card.appendChild(nav0);
+      s.appendChild(card); root.appendChild(s); return;
+    }
+
     const goals = computeGoalsProgress(patientProfile);
     goals.forEach(goal=>{
       const progWrap = el('div',{style:'margin-bottom:18px;'});
@@ -5757,8 +5916,12 @@
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     const filterId = historyFilterPatientId;
-    const filterPatient = filterId ? listLocalPatients().find(p=>p.id===filterId) : null;
-    card.appendChild(el('h2',{},[filterPatient ? 'Storico di '+filterPatient.nome : 'Storico sessioni']));
+    const filterKind = historyFilterKind;
+    const filterPatient = filterId
+      ? (filterKind==='remote' ? (cachedRemotePatients||[]).find(p=>p.id===filterId) : listLocalPatients().find(p=>p.id===filterId))
+      : null;
+    const filterLabel = filterPatient ? (filterKind==='remote' ? filterPatient.codice_paziente : filterPatient.nome) : null;
+    card.appendChild(el('h2',{},[filterLabel ? 'Storico di '+filterLabel : 'Storico sessioni']));
     if(filterPatient){
       const rb0 = el('div',{class:'navlinks'});
       rb0.appendChild(el('button',{class:'link', onclick:()=>{ historyFilterPatientId=null; render(); }},['Vedi tutto lo storico →']));
@@ -5780,7 +5943,7 @@
     s.appendChild(card); root.appendChild(s);
 
     loadHistory().then(allItems=>{
-      const items = filterId ? allItems.filter(r=> r.localPatientId===filterId) : allItems;
+      const items = filterId ? allItems.filter(r=> filterKind==='remote' ? r.pazienteId===filterId : r.localPatientId===filterId) : allItems;
       listWrap.innerHTML='';
       if(!items.length){ listWrap.appendChild(el('p',{class:'empty'},['Nessuna sessione salvata.'])); return; }
       items.forEach(r=>{

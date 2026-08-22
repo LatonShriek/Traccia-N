@@ -25,7 +25,7 @@ multi-operatore e accesso paziente — è opzionale.
 [Uso sul dispositivo](#uso-sul-dispositivo) ·
 [Dati e privacy](#dati-e-privacy) ·
 [Sincronizzazione cloud e multi-utente](#sincronizzazione-cloud-e-account-multi-utente-facoltativa--supabase) ·
-[Gestione pazienti: obiettivi, limiti, RCI, archiviazione](#gestione-pazienti-obiettivi-limiti-rci-archiviazione) ·
+[Gestione pazienti: programma, modalità di accesso, obiettivi, limiti, RCI, archiviazione](#gestione-pazienti-programma-modalità-di-accesso-obiettivi-limiti-rci-archiviazione) ·
 [Scenari ecologici](#scenari-ecologici-pianificazione--multitasking) ·
 [Strategie di memoria](#strategie-di-memoria)
 
@@ -320,6 +320,8 @@ create table if not exists pazienti (
   limiti jsonb,                       -- {sessioniAlGiorno, minutiAlGiorno}
   attivo boolean default true,        -- false = profilo archiviato, login bloccato
   screening_flags jsonb,              -- array di esercizi "consigliati" (automatico da screening, sempre sovrascrivibile a mano) — vedi sezione Batteria di screening
+  modalita_accesso text default 'diretto', -- 'diretto' | 'screening_poi_suggeriti' — vedi sezione Programma paziente
+  screening_completato_il timestamptz,-- prima volta che il gate screening_poi_suggeriti è stato superato
   creato_il timestamptz default now()
 );
 alter table pazienti add column if not exists preset_assegnato jsonb;
@@ -329,6 +331,8 @@ alter table pazienti add column if not exists obiettivo jsonb;
 alter table pazienti add column if not exists limiti jsonb;
 alter table pazienti add column if not exists attivo boolean default true;
 alter table pazienti add column if not exists screening_flags jsonb;
+alter table pazienti add column if not exists modalita_accesso text default 'diretto'; -- 'diretto' (vede subito il programma assegnato) | 'screening_poi_suggeriti' (vede solo lo screening finché non lo completa una prima volta)
+alter table pazienti add column if not exists screening_completato_il timestamptz; -- valorizzato la prima volta che il paziente completa lo screening in modalita_accesso='screening_poi_suggeriti' — il gate scatta una sola volta
 alter table pazienti enable row level security;
 drop policy if exists "operatore vede e gestisce i propri pazienti" on pazienti;
 create policy "operatore vede e gestisce i propri pazienti" on pazienti for all
@@ -392,9 +396,11 @@ create table if not exists pazienti_locali (
   nome text not null,
   ultima_config jsonb,
   screening_flags jsonb, -- vedi sezione Batteria di screening
+  programma_assegnato jsonb, -- elenco di esercizi assegnati come scorciatoia di avvio rapido in presenza (non vincolante)
   creato_il timestamptz default now()
 );
 alter table pazienti_locali add column if not exists screening_flags jsonb;
+alter table pazienti_locali add column if not exists programma_assegnato jsonb;
 alter table pazienti_locali enable row level security;
 drop policy if exists "operatore vede e gestisce i propri pazienti locali" on pazienti_locali;
 create policy "operatore vede e gestisce i propri pazienti locali" on pazienti_locali for all
@@ -624,10 +630,44 @@ Per applicare modifiche future, basta sostituire `index.html` (e gli altri
 file se cambiati) nello stesso repository — GitHub Pages si aggiorna da solo
 in circa un minuto. Lo storico salvato sul tablet non viene toccato.
 
-## Gestione pazienti: obiettivi, limiti, RCI, archiviazione
+## Gestione pazienti: programma, modalità di accesso, obiettivi, limiti, RCI, archiviazione
 
-Tutto questo si gestisce da **"Gestisci programma"**, sul profilo di un
-paziente remoto.
+**Programma assegnato** — dalla schermata "Gestisci programma" (pazienti
+remoti) o "Assegna programma" (pazienti in presenza) l'operatore
+seleziona uno o più preset salvati sul dispositivo. Per un paziente
+remoto è ciò che vede e può avviare da solo a ogni accesso. Per un
+paziente in presenza è solo una **scorciatoia di avvio rapido** quando
+l'operatore lo seleziona per la seduta — non è vincolante: resta libero
+di lanciare qualunque altro esercizio in qualsiasi momento.
+
+**Modalità di accesso** (solo pazienti remoti) — scelta alla creazione
+del profilo, modificabile in seguito da "Gestisci programma":
+- **Diretto**: il paziente vede subito il programma assegnato sopra.
+- **Solo screening all'inizio**: al primo accesso il paziente vede solo
+  l'ingresso alla batteria di screening, non il programma. Al termine,
+  i domini risultati sotto soglia (vedi sezione "Batteria di screening
+  iniziale") vengono **autorizzati automaticamente** nel programma
+  assegnato — il paziente li vede da quel momento senza bisogno di un
+  intervento manuale dell'operatore. Il gate scatta **una sola volta**:
+  una volta superato, il paziente vede sempre il programma direttamente,
+  anche se l'operatore lancia altri screening in seguito.
+
+**Suggerimenti da screening → programma** — ogni volta che uno screening
+(lanciato dall'operatore, o dal paziente stesso nel flusso "solo
+screening all'inizio") flagga un dominio, il suggerimento compare come
+etichetta ⭐ accanto al nome del paziente, con due azioni: **"+ Aggiungi"**
+lo trasforma subito in una voce reale del programma (con una
+configurazione di partenza già tarata su quel dominio, adattiva), **"✕"**
+lo scarta. Questa è la stessa leva usata dall'autorizzazione automatica
+del gate — la differenza è solo se scatta da sola alla prima valutazione
+o se la usa l'operatore a mano in qualsiasi momento successivo, anche
+ripetutamente.
+
+**Eredità da un profilo in presenza** — il pulsante "Trasforma in
+account remoto" (disponibile ovunque sia selezionato un paziente in
+presenza) porta con sé, oltre allo storico già registrato, anche il
+programma assegnato e i suggerimenti da screening del profilo locale,
+se presenti. Il nuovo account remoto parte in modalità "Diretto".
 
 **Obiettivi** — un paziente può averne più di uno contemporaneamente, di
 due tipi: **livello** (un livello target su un esercizio specifico) o
@@ -650,6 +690,11 @@ remoto. Un profilo archiviato: il paziente non può più accedere da solo
 (etichettato "archiviato"), utilizzabile per sedute in presenza, e il suo
 storico/report restano consultabili. "Riattiva" lo riporta come prima,
 stesso codice di accesso. Diverso da "Elimina", che resta distruttivo.
+
+**Storico sessione-per-sessione** — pulsante "Storico" su ciascun
+paziente, remoto o in presenza: elenco cronologico di ogni sessione con
+esercizio, livello, accuratezza. Diverso dal report RCI sotto, che è un
+confronto aggregato, non un elenco.
 
 **Valutazione RCI (Reliable Change Index)** — pulsante "Genera report
 RCI", disponibile sia per pazienti remoti sia per profili in presenza.

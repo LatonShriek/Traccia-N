@@ -227,13 +227,27 @@
       {hex:'#2DB6C7', icon:'Ciano'}, {hex:'#D6469B', icon:'Magenta'}
     ]
   };
-  const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori'};
+  POOLS.lettereVoce = POOLS.lettere; // stessi contenuti di 'lettere', letti dal sintetizzatore invece che mostrati
+  POOLS.numeriVoce = POOLS.numeri;   // tenuto sincronizzato con POOLS.numeri in regenerateNumeriPool()
+  const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati'};
+  // Stimoli uditivi puri: 'suoni' (toni) e le due varianti "voce" (lettere o
+  // numeri letti dal sintetizzatore vocale, nessuna rivelazione visiva) —
+  // stessa idea del canale acustico del Doppio compito, ma come tipo di
+  // stimolo autonomo utilizzabile in qualunque esercizio con usesStimType.
+  function isSpokenStim(t){ return t==='lettereVoce' || t==='numeriVoce'; }
+  function isAudioOnlyStim(t){ return t==='suoni' || isSpokenStim(t); }
+  // Riproduce lo stimolo per il tipo corrente — un'unica chiamata invece di
+  // ripetere ovunque il branch toni/voce.
+  function playStimulusAudio(stimType, val, dur){
+    if(stimType==='suoni') playTone(val, dur);
+    else if(isSpokenStim(stimType)) speak(String(val));
+  }
   const STOP_TONE = {f:140, type:'square'}; // segnale di stop uditivo, sempre lo stesso, distinto dagli stimoli
   const TAPAT_CUE_TONE = {f:880, type:'sine'}; // segnale di allerta fasico TAPAT — acuto e breve, non lateralizzato: raggiunge il paziente indipendentemente da dove guarda (importante per la variante spaziale/neglect, dove un cue solo visivo rischierebbe di cadere nell'emicampo trascurato)
   // "lettere"/"parole" sono femminili, gli altri materiali sono maschili —
   // serve per costruire istruzioni con l'accordo di genere corretto
   // (es. "una alla volta" vs "uno alla volta", "molte" vs "molti").
-  function stimGender(stimType){ return (stimType==='lettere' || stimType==='parole') ? 'f' : 'm'; }
+  function stimGender(stimType){ return (stimType==='lettere' || stimType==='lettereVoce' || stimType==='parole') ? 'f' : 'm'; }
 
   // Banca di parole concrete italiane, divisa per lunghezza/complessità.
   // "mista" pesca da tutte e tre in proporzioni uguali.
@@ -273,6 +287,7 @@
       if(!seen.has(n)){ seen.add(n); arr.push(String(n)); }
     }
     POOLS.numeri = arr;
+    POOLS.numeriVoce = arr;
   }
 
   const EXERCISES = {
@@ -280,11 +295,13 @@
       domini:['Memoria di lavoro','Attenzione sostenuta'],
       instructions:c=>{
         const f = stimGender(c.stimType)==='f';
-        return 'Vedrai una serie di '+STIM_LABELS[c.stimType].toLowerCase()+', '+(f?'una':'uno')+' alla volta. Tocca il pulsante dorato ogni volta che '+(f?'è uguale a quella':'è uguale a quello')+' di '+c.nLevel+(c.nLevel===1?' posizione prima':' posizioni prima')+'. Se non lo è, non toccare nulla.';
+        const verboVis = isAudioOnlyStim(c.stimType) ? 'Sentirai' : 'Vedrai';
+        const n = nbackParamsForLevel(c.nLevel).n;
+        return verboVis+' una serie di '+STIM_LABELS[c.stimType].toLowerCase()+', '+(f?'una':'uno')+' alla volta. Tocca il pulsante dorato ogni volta che '+(f?'è uguale a quella':'è uguale a quello')+' di '+n+(n===1?' posizione prima':' posizioni prima')+'. Se non lo è, non toccare nulla.';
       }},
     sequenza:   {label:'Sequenza bersaglio',      usesStimType:true,  usesTargetSeq:true,  family:'signal',
       domini:['Memoria di lavoro','Attenzione sostenuta'],
-      instructions:c=> 'Vedrai una serie di stimoli, uno dopo l\'altro. Tocca il pulsante dorato subito dopo che si è conclusa la sequenza '+c.targetSeq.map(seqLabel).join(', poi ')+'. Per tutti gli altri stimoli non toccare nulla.'},
+      instructions:c=> (isAudioOnlyStim(c.stimType)&&!c.sequenzaMista?'Sentirai':'Vedrai')+' una serie di stimoli, uno dopo l\'altro. Tocca il pulsante dorato subito dopo che si è conclusa la sequenza '+c.targetSeq.map(seqLabel).join(', poi ')+'. Per tutti gli altri stimoli non toccare nulla.'},
     gonogo:     {label:'Go/No-Go',                usesStimType:true,  usesTargetSeq:true,  family:'signal',
       domini:['Controllo inibitorio','Attenzione sostenuta'],
       instructions:c=>{
@@ -299,8 +316,8 @@
       domini:['Allerta','Orienting spaziale','Controllo esecutivo/conflitto'],
       instructions:c=>{
         if(c.antMode==='tapat'){
-          const matName = c.stimType==='suoni' ? 'il suono' : c.stimType==='colori' ? 'il cerchio colorato' : 'lo stimolo';
-          const verbo = c.stimType==='suoni' ? 'senti' : 'vedi';
+          const matName = c.stimType==='suoni' ? 'il suono' : isSpokenStim(c.stimType) ? 'la lettera o il numero pronunciato' : c.stimType==='colori' ? 'il cerchio colorato' : 'lo stimolo';
+          const verbo = isAudioOnlyStim(c.stimType) ? 'senti' : 'vedi';
           const spaziale = c.tapatSpatial ? ' Il bersaglio può comparire a sinistra o a destra invece che al centro — esplora tutto lo schermo, non fissare un punto solo.' : '';
           return 'Nella prima parte, gli intervalli tra uno stimolo e l\'altro sono lunghi e imprevedibili: mantieni l\'attenzione anche se sembra non succedere nulla, e tocca il pulsante appena '+verbo+' '+matName+'.'+spaziale+' Nella seconda parte, gli intervalli sono più brevi e a volte un piccolo segnale ti avviserà poco prima — rispondi comunque il più velocemente possibile, ogni volta.';
         }
@@ -528,7 +545,7 @@
         localPatientsCloudCache = [];
         sb.from('pazienti_locali').select('*').eq('operatore_id', cloudUser.id).then(({data,error})=>{
           if(!error && data){
-            localPatientsCloudCache = data.map(r=>({id:r.id, nome:r.nome, createdAt:r.creato_il?Date.parse(r.creato_il):Date.now(), lastConfig:r.ultima_config||null, screeningFlags:r.screening_flags||null, programma:r.programma_assegnato||null, screeningRisultati:r.screening_risultati||null}));
+            localPatientsCloudCache = data.map(r=>({id:r.id, nome:r.nome, createdAt:r.creato_il?Date.parse(r.creato_il):Date.now(), lastConfig:r.ultima_config||null, screeningFlags:r.screening_flags||null, programma:r.programma_assegnato||null, screeningRisultati:r.screening_risultati||null, attivo: r.attivo!==false, remotePazienteId: r.remote_paziente_id||null}));
             // porta in locale anche i profili creati altrove, per uso offline
             localPatientsCloudCache.forEach(p=>{
               try{ if(!localStorage.getItem('traccian:localpatient:'+p.id)) localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(p)); }catch(e){}
@@ -546,7 +563,7 @@
     if(!sb || !cloudUser || patientProfile) return;
     try{
       await sb.from('pazienti_locali').upsert({
-        id:p.id, operatore_id:cloudUser.id, nome:p.nome, ultima_config:p.lastConfig||null, screening_flags:p.screeningFlags||null, programma_assegnato:p.programma||null, screening_risultati:p.screeningRisultati||null
+        id:p.id, operatore_id:cloudUser.id, nome:p.nome, ultima_config:p.lastConfig||null, screening_flags:p.screeningFlags||null, programma_assegnato:p.programma||null, screening_risultati:p.screeningRisultati||null, attivo: p.attivo!==false, remote_paziente_id: p.remotePazienteId||null
       });
       localPatientsCloudCache = null; // forza un refresco al prossimo listLocalPatients()
     }catch(e){ console.error('sync paziente locale fallita', e); }
@@ -598,6 +615,18 @@
     }
     historyCache = null;
   }
+  // Il profilo in presenza superato da una trasformazione in account remoto
+  // viene archiviato automaticamente (non eliminato) e collegato al nuovo
+  // account, così resta ritrovabile in Archivio con l'indicazione di dove
+  // è confluito, invece di restare come doppione "attivo" accanto al nuovo.
+  async function archiveLocalPatientLinkedTo(localPatient, remotePazienteId){
+    try{
+      localPatient.attivo = false;
+      localPatient.remotePazienteId = remotePazienteId;
+      localStorage.setItem('traccian:localpatient:'+localPatient.id, JSON.stringify(localPatient));
+      syncLocalPatientToCloud(localPatient);
+    }catch(e){}
+  }
   function contextStatusLine(){
     const patients = listLocalPatients();
     const remotePatients = cachedRemotePatients || [];
@@ -629,6 +658,8 @@
               try{ await sb.from('pazienti').update(ereditato).eq('id', res.pazienteId).eq('operatore_id', cloudUser.id); }
               catch(e){ console.error('eredità programma/flag fallita', e); }
             }
+            await archiveLocalPatientLinkedTo(activeLocal, res.pazienteId);
+            if(activeLocalPatientId===activeLocal.id) activeLocalPatientId=null;
             cachedRemotePatients = null;
             pendingAccessCode = {codice: res.codiceAccesso, patientLabel: activeLocal.nome, pazienteId: res.pazienteId, modalitaAccesso:'diretto', hasProgram: !!(activeLocal.programma && activeLocal.programma.length)};
             view='accessCode'; render();
@@ -715,6 +746,8 @@
               try{ await sb.from('pazienti').update(ereditato).eq('id', res.pazienteId).eq('operatore_id', cloudUser.id); }
               catch(e){ console.error('eredità programma/flag fallita', e); }
             }
+            await archiveLocalPatientLinkedTo(activeLocal, res.pazienteId);
+            if(activeLocalPatientId===activeLocal.id) activeLocalPatientId=null;
             cachedRemotePatients = null; // forza il ricaricamento dell'elenco remoto
             pendingAccessCode = {codice: res.codiceAccesso, patientLabel: activeLocal.nome, pazienteId: res.pazienteId, modalitaAccesso:'diretto', hasProgram: !!(activeLocal.programma && activeLocal.programma.length)};
             view='accessCode'; render();
@@ -775,8 +808,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2592,7 +2625,7 @@
     }
     if(ex.usesStimType && !isClassicAnt && !isSequenzaMista && !isNbackMista && !neglectIntruso){
       grid.appendChild(field('Tipo di stimolo', segButtons(
-        neglectRegola ? ['numeri','lettere'] : Object.keys(STIM_LABELS).filter(k=> !((cfg.taskMode==='stopsignal' || cfg.taskMode==='neglect') && k==='suoni')),
+        neglectRegola ? ['numeri','lettere'] : Object.keys(STIM_LABELS).filter(k=> !((cfg.taskMode==='stopsignal' || cfg.taskMode==='neglect') && isAudioOnlyStim(k))),
         cfg.stimType, v=>{
         cfg.stimType=v;
         regenerateNumeriPool(); regenerateParolePool();
@@ -2906,6 +2939,7 @@
 
     const nav = el('div',{class:'navlinks'});
     nav.appendChild(el('button',{class:'link', onclick:()=>{ view='history'; render(); }},['Storico sessioni →']));
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='archive'; render(); }},['Archivio →']));
     nav.appendChild(el('button',{class:'link', onclick:()=>{ view='cloud'; render(); }},['Sincronizzazione cloud ('+cloudStatusLabel()+') →']));
     card.appendChild(nav);
 
@@ -2969,7 +3003,7 @@
         POOLS[t].forEach(item=>{
           const itemLabel = seqLabel(item);
           const attrs = {onclick:()=>{
-            if(t==='suoni') playTone(item, 350);
+            if(t==='suoni' || isSpokenStim(t)) playStimulusAudio(t, item, 350);
             if(cfg.targetSeq.length < 6){ cfg.targetSeq = cfg.targetSeq.concat([{stimType:t, item}]); render(); }
           }};
           if(t==='colori') attrs.style = 'background:'+item.hex+'; color:#fff; border-color:'+item.hex+';';
@@ -2984,7 +3018,7 @@
       pool.forEach(item=>{
         const itemLabel = seqLabel(item);
         const attrs = {onclick:()=>{
-          if(cfg.stimType==='suoni') playTone(item, 350);
+          if(isAudioOnlyStim(cfg.stimType)) playStimulusAudio(cfg.stimType, item, 350);
           if(isGoNoGo || isNeglect){
             if(cfg.targetSeq.some(t=>seqLabel(t)===itemLabel)) return; // già presente
             const cap = isGoNoGo ? 6 : 4; // go/no-go esteso a 10 livelli può usare fino a 6 elementi no-go al soffitto; neglect resta a 4
@@ -3765,12 +3799,12 @@
       return;
     }
     if(cfg.taskMode==='sequenza' && cfg.sequenzaMista){
-      if(trial.val.stimType==='suoni') playTone(trial.val.item, cfg.stimDuration);
+      if(trial.val.stimType==='suoni' || isSpokenStim(trial.val.stimType)) playStimulusAudio(trial.val.stimType, trial.val.item, cfg.stimDuration);
       else if(cfg.voice && trial.val.stimType==='lettere') speak(String(trial.val.item));
       return;
     }
-    if(cfg.stimType==='suoni'){
-      playTone(trial.val, cfg.stimDuration);
+    if(isAudioOnlyStim(cfg.stimType)){
+      playStimulusAudio(cfg.stimType, trial.val, cfg.stimDuration);
     } else if(cfg.voice && ['lettere','numeri','parole'].includes(cfg.stimType)){
       speak(String(trial.val));
     }
@@ -4175,7 +4209,7 @@
       if(trial.cueType==='center') wrap.appendChild(el('div',{style:'color:var(--accent); font-size:28px;'},['✦']));
       if(cfg.stimType==='colori'){
         wrap.appendChild(el('div',{class:'colorcircle', style:'width:110px; height:110px; background:'+trial.val.hex+';'},[]));
-      } else if(cfg.stimType==='suoni'){
+      } else if(isAudioOnlyStim(cfg.stimType)){
         wrap.appendChild(el('div',{class:'audio-pulse active'},['♪']));
       } else if(cfg.stimType==='simboli'){
         wrap.appendChild(el('div',{class:'stimulus symbolwrap'},[seqLabel(trial.val)]));
@@ -4261,7 +4295,7 @@
     if(cfg.stimType==='parole'){
       return el('div',{class:'stimulus word'},[trial.val]);
     }
-    if(cfg.stimType==='suoni'){
+    if(isAudioOnlyStim(cfg.stimType)){
       return el('div',{class:'audio-pulse active'},['♪']);
     }
     if(cfg.stimType==='colori'){
@@ -4274,7 +4308,7 @@
   // porta il proprio tipo invece di condividerne uno solo con cfg.stimType.
   function renderTypedStimulus(stimType, val){
     if(stimType==='simboli') return el('div',{class:'stimulus symbolwrap'},[val]);
-    if(stimType==='suoni') return el('div',{class:'audio-pulse active'},['♪']);
+    if(isAudioOnlyStim(stimType)) return el('div',{class:'audio-pulse active'},['♪']);
     if(stimType==='colori') return el('div',{class:'colorcircle', style:'background:'+val.hex+';'},[]);
     return el('div',{class:'stimulus'},[val]);
   }
@@ -5303,6 +5337,86 @@
   }
 
   /* ---------- SELEZIONE PAZIENTE IN PRESENZA ---------- */
+  /* ---------- ARCHIVIO (profili in presenza e remoti archiviati) ---------- */
+  function ScreenArchive(root){
+    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['Archivio']));
+    card.appendChild(el('p',{class:'hint'},['Profili archiviati, in presenza e remoti insieme. Non sono eliminati: storico e report restano consultabili, e possono tornare attivi in qualsiasi momento.']));
+
+    const listWrap = el('div',{},[el('p',{class:'empty'},['Caricamento…'])]);
+    card.appendChild(listWrap);
+
+    const nav = el('div',{class:'navlinks'});
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='operatorHome'; render(); }},['← Indietro']));
+    card.appendChild(nav);
+    s.appendChild(card); root.appendChild(s);
+
+    const localArchived = listLocalPatients().filter(p=>p.attivo===false).map(p=>Object.assign({_kind:'local'}, p));
+    const remoteP = (sb && cloudUser) ? listMyPatients() : Promise.resolve([]);
+    remoteP.then(remoteList=>{
+      cachedRemotePatients = remoteList.length ? remoteList : cachedRemotePatients;
+      const remoteArchived = remoteList.filter(p=>p.attivo===false).map(p=>Object.assign({_kind:'remote'}, p));
+      const all = localArchived.concat(remoteArchived).sort((a,b)=>{
+        const an = a._kind==='local'?a.nome:a.codice_paziente, bn = b._kind==='local'?b.nome:b.codice_paziente;
+        return an.localeCompare(bn);
+      });
+      listWrap.innerHTML='';
+      if(!all.length){ listWrap.appendChild(el('p',{class:'empty'},['Nessun profilo archiviato.'])); return; }
+      all.forEach(p=>{
+        const isLocal = p._kind==='local';
+        const nome = isLocal ? p.nome : p.codice_paziente;
+        const linkedRemote = isLocal && p.remotePazienteId ? remoteList.find(r=>r.id===p.remotePazienteId) : null;
+        const row = el('div',{class:'histrow'},[
+          el('div',{},[
+            el('div',{},[nome, el('span',{style:'margin-left:8px; font-size:11px; font-weight:600; color:var(--ink-soft); border:1px solid var(--line); border-radius:999px; padding:1px 8px;'},[isLocal?'in presenza':'remoto'])]),
+            linkedRemote ? el('div',{class:'l'},['confluito nell\'account remoto '+linkedRemote.codice_paziente+(linkedRemote.attivo===false?' (anch\'esso archiviato)':'')]) : null
+          ].filter(Boolean)),
+          el('div',{style:'display:flex; gap:8px; flex-wrap:wrap;'},[
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{ historyFilterPatientId=p.id; historyFilterKind=isLocal?'local':'remote'; view='history'; render(); }},['Storico']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{ editingPatient=p; editingPatientKind=isLocal?'local':'remote'; view='patientProgram'; render(); }},['Gestisci programma']),
+            el('button',{class:'primary', style:'padding:8px 14px; font-size:13px;', onclick: async ()=>{
+              if(isLocal){
+                try{
+                  const raw = localStorage.getItem('traccian:localpatient:'+p.id);
+                  if(!raw) return;
+                  const pp = JSON.parse(raw);
+                  pp.attivo = true;
+                  localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(pp));
+                  syncLocalPatientToCloud(pp);
+                  render();
+                }catch(e){}
+              } else {
+                try{
+                  const { error } = await sb.from('pazienti').update({attivo:true}).eq('id', p.id).eq('operatore_id', cloudUser.id);
+                  if(error) throw error;
+                  cachedRemotePatients = null;
+                  render();
+                }catch(e){ alert('Errore: '+e.message); }
+              }
+            }},['Riattiva']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px; color:var(--alert); border-color:var(--alert);', onclick: async ()=>{
+              if(!confirm('Eliminare definitivamente il profilo di '+nome+'? Le sessioni già registrate restano nello storico, ma non saranno più raggruppate sotto il suo nome.')) return;
+              if(isLocal){
+                try{ localStorage.removeItem('traccian:localpatient:'+p.id); }catch(e){}
+                await deleteLocalPatientCloud(p.id);
+              } else {
+                try{
+                  const { error } = await sb.from('pazienti').delete().eq('id', p.id).eq('operatore_id', cloudUser.id);
+                  if(error) throw error;
+                  cachedRemotePatients = null;
+                }catch(e){ alert('Errore eliminazione: '+e.message); return; }
+              }
+              render();
+            }},['Elimina'])
+          ])
+        ]);
+        listWrap.appendChild(row);
+      });
+    });
+  }
+
   function ScreenLocalPatientPicker(root){
     root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
     const s = el('div',{class:'screen'});
@@ -5310,7 +5424,7 @@
     card.appendChild(el('h2',{},['Paziente in presenza']));
     card.appendChild(el('p',{class:'hint'},['Profili locali a questo dispositivo — un\'etichetta, niente account. Le sessioni fatte con un profilo selezionato restano raggruppate sotto il suo nome, e potranno essere trasferite a un account remoto in seguito.']));
 
-    const patients = listLocalPatients();
+    const patients = listLocalPatients().filter(p=>p.attivo!==false);
     if(!patients.length){
       card.appendChild(el('p',{class:'empty'},['Nessun profilo ancora. Creane uno qui sotto.']));
     } else {
@@ -5338,6 +5452,14 @@
               const mine = items.filter(r=> r.localPatientId === p.id);
               printRCIReport(mine, p.nome);
             }},['Report RCI (stampa/PDF)']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
+              if(!confirm('Archiviare '+p.nome+'? Non comparirà più in questa lista — lo ritrovi in Archivio, sempre riattivabile.')) return;
+              p.attivo = false;
+              try{ localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(p)); }catch(e){}
+              syncLocalPatientToCloud(p);
+              if(activeLocalPatientId===p.id){ activeLocalPatientId=null; cfg.patientCode=''; }
+              render();
+            }},['Archivia']),
             el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px; color:var(--alert); border-color:var(--alert);', onclick: async ()=>{
               if(!confirm('Eliminare il profilo locale di '+p.nome+'? Le sessioni già registrate restano nello storico, ma non saranno più raggruppate sotto il suo nome.')) return;
               try{ localStorage.removeItem('traccian:localpatient:'+p.id); }catch(e){}
@@ -5367,6 +5489,7 @@
     }},['+ Nuovo paziente']));
 
     const nav = el('div',{class:'navlinks'});
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='archive'; render(); }},['Archivio →']));
     nav.appendChild(el('button',{class:'link', onclick:()=>{ view='operatorHome'; render(); }},['← Indietro']));
     card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
@@ -5531,19 +5654,20 @@
     }},['+ Nuovo paziente']));
 
     const nav = el('div',{class:'navlinks'});
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='archive'; render(); }},['Archivio →']));
     nav.appendChild(el('button',{class:'link', onclick:()=>{ view='operatorHome'; render(); }},['← Indietro']));
     card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
 
     listMyPatients().then(list=>{
-      cachedRemotePatients = list;
+      cachedRemotePatients = list; // cache completa (anche archiviati) — serve altrove per lookup di profilo/programma
       listWrap.innerHTML='';
-      if(!list.length){ listWrap.appendChild(el('p',{class:'empty'},['Nessun paziente creato ancora.'])); return; }
-      list.forEach(p=>{
-        const isArchived = p.attivo === false;
+      const attivi = list.filter(p=>p.attivo!==false);
+      if(!attivi.length){ listWrap.appendChild(el('p',{class:'empty'},['Nessun paziente attivo. '+(list.length?'Ne hai '+list.length+' in Archivio.':'Creane uno qui sopra.')])); return; }
+      attivi.forEach(p=>{
         const row = el('div',{class:'histrow'},[
           el('div',{},[
-            el('div',{},[p.codice_paziente + (isArchived ? '  ·  (archiviato)' : '')])
+            el('div',{},[p.codice_paziente])
           ]),
           el('div',{style:'display:flex; gap:8px; flex-wrap:wrap;'},[
             el('button',{class:'primary', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
@@ -5551,24 +5675,23 @@
               if(p.ultima_config) loadPreset({cfg:p.ultima_config});
               view='setup'; render();
             }},['Usa ora →']),
-            el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId=p.id; historyFilterKind='remote'; view='history'; render(); }},['Storico']),
-            el('button',{class:'ghost', onclick:()=>{
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{ historyFilterPatientId=p.id; historyFilterKind='remote'; view='history'; render(); }},['Storico']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
               activeRemotePatientId = p.id; activeLocalPatientId = null; cfg.patientCode = p.codice_paziente;
               startScreeningSession();
             }},['Screening']),
-            el('button',{class:'ghost', onclick:()=>{ pendingAccessCode = {codice: p.codice_accesso, patientLabel: p.codice_paziente}; view='accessCode'; render(); }},['Codice']),
-            el('button',{class:'ghost', onclick:()=>{ editingPatient = p; editingPatientKind='remote'; view='patientProgram'; render(); }},['Gestisci programma']),
-            el('button',{class:'ghost', onclick: async ()=>{
-              const nuovoStato = isArchived; // se è archiviato, il click lo riattiva; altrimenti lo archivia
-              if(!nuovoStato && !confirm('Archiviare '+p.codice_paziente+'? Il paziente non potrà più accedere da solo, ma tu potrai continuare a usarlo in presenza e a vederne lo storico. Puoi riattivarlo in qualsiasi momento.')) return;
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{ pendingAccessCode = {codice: p.codice_accesso, patientLabel: p.codice_paziente}; view='accessCode'; render(); }},['Codice']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{ editingPatient = p; editingPatientKind='remote'; view='patientProgram'; render(); }},['Gestisci programma']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick: async ()=>{
+              if(!confirm('Archiviare '+p.codice_paziente+'? Non comparirà più in questa lista — lo ritrovi in Archivio, il paziente perde solo l\'accesso autonomo, storico e report restano.')) return;
               try{
-                const { error } = await sb.from('pazienti').update({attivo:nuovoStato}).eq('id', p.id).eq('operatore_id', cloudUser.id);
+                const { error } = await sb.from('pazienti').update({attivo:false}).eq('id', p.id).eq('operatore_id', cloudUser.id);
                 if(error) throw error;
                 cachedRemotePatients = null;
                 render();
               }catch(e){ alert('Errore: '+e.message); }
-            }},[isArchived ? 'Riattiva' : 'Archivia']),
-            el('button',{class:'ghost', style:'color:var(--alert); border-color:var(--alert);', onclick: async ()=>{
+            }},['Archivia']),
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px; color:var(--alert); border-color:var(--alert);', onclick: async ()=>{
               if(!confirm('Eliminare il profilo di '+p.codice_paziente+'? Il paziente non potrà più accedere. Le sue sessioni già registrate restano nello storico.')) return;
               try{
                 const { error } = await sb.from('pazienti').delete().eq('id', p.id).eq('operatore_id', cloudUser.id);
@@ -6103,9 +6226,15 @@
             : family==='spatial'
               ? fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des'
               : fmtPct(r.metrics.acc)+(r.metrics.dprime!=null? ' · d′ '+r.metrics.dprime.toFixed(2):'');
+        // Se la vista è filtrata su un paziente remoto che in passato è
+        // stato un profilo in presenza migrato (vedi
+        // migrateLocalPatientSessions), le sessioni pre-migrazione portano
+        // ancora localPatientId: distinguerle rende leggibile lo storico
+        // combinato, invece di farle sembrare tutte fatte da remoto.
+        const origineTag = (filterKind==='remote' && filterId) ? (r.localPatientId ? ' · in presenza' : ' · da remoto') : '';
         const row = el('div',{class:'histrow'},[
           el('div',{},[
-            el('div',{},[((EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && !(r.taskMode==='ant' && r.antMode==='classico')) ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ':'')+detail+' · '+r.trials+' prove'+(r.patientCode?' · '+r.patientCode:'')]),
+            el('div',{},[((EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && !(r.taskMode==='ant' && r.antMode==='classico')) ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ':'')+detail+' · '+r.trials+' prove'+(r.patientCode?' · '+r.patientCode:'')+origineTag]),
             el('div',{class:'l'},[r.dateLabel])
           ]),
           el('div',{},[scoreLabel])
@@ -6228,7 +6357,7 @@
     manualEntry: ScreenManualEntry, results: ScreenResults, history: ScreenHistory,
     cloud: ScreenCloud, patients: ScreenPatients, patientHome: ScreenPatientHome, patientProgram: ScreenPatientProgram,
     operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode, accessLog: ScreenAccessLog,
-    screeningIntro: ScreenScreeningIntro, screeningResults: ScreenScreeningResults
+    screeningIntro: ScreenScreeningIntro, screeningResults: ScreenScreeningResults, archive: ScreenArchive
   };
 
   // Ingresso da tastiera (solo desktop) per le risposte a 2 o 4 alternative

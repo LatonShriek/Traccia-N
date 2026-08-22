@@ -400,11 +400,15 @@ create table if not exists pazienti_locali (
   screening_flags jsonb, -- vedi sezione Batteria di screening
   screening_risultati jsonb, -- ultimo screening completo (tutti i domini) — vedi sopra
   programma_assegnato jsonb, -- elenco di esercizi assegnati come scorciatoia di avvio rapido in presenza (non vincolante)
+  attivo boolean default true, -- vedi sopra
+  remote_paziente_id uuid references pazienti(id), -- vedi sopra
   creato_il timestamptz default now()
 );
 alter table pazienti_locali add column if not exists screening_flags jsonb;
 alter table pazienti_locali add column if not exists programma_assegnato jsonb;
 alter table pazienti_locali add column if not exists screening_risultati jsonb;
+alter table pazienti_locali add column if not exists attivo boolean default true; -- come pazienti.attivo — nasconde il profilo dalla lista principale, spostandolo in Archivio
+alter table pazienti_locali add column if not exists remote_paziente_id uuid references pazienti(id); -- valorizzato da "Trasforma in account remoto": collega il profilo in presenza superato al nuovo account remoto
 alter table pazienti_locali enable row level security;
 drop policy if exists "operatore vede e gestisce i propri pazienti locali" on pazienti_locali;
 create policy "operatore vede e gestisce i propri pazienti locali" on pazienti_locali for all

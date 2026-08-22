@@ -358,8 +358,11 @@
         if(c.memoriaModo==='pqrst') return 'Ti verrà mostrato (o letto) un breve testo: leggilo con attenzione, individuando le idee principali (è la tecnica PQRST — prevedi le domande, leggi, ripeti a te stesso, ripassa, verifica). Dopo, l\'operatore ti chiederà di raccontarlo a voce e segnerà le idee che hai recuperato.';
         const materiale = c.memoriaModo==='chunking' ? 'lista' : (c.memoriaMateriale||'lista');
         const cosa = materiale==='lista' ? 'ogni parola della lista' : 'ogni idea principale del brano';
-        if(c.memoriaModo==='loci') return 'Percorrerai mentalmente un tragitto di luoghi familiari (il metodo dei loci): '+cosa+' verrà associata a una tappa del percorso, una alla volta. Immagina la scena il più vividamente possibile. Dopo, ripercorri il tragitto a mente e richiama ciò che avevi posizionato in ciascuna tappa: l\'operatore segnerà ciò che recuperi.';
-        if(c.memoriaModo==='errorless') return 'Ti verrà mostrata l\'informazione corretta direttamente, senza doverla indovinare, per due passaggi completi — è la tecnica dell\'apprendimento senza errori. Non c\'è bisogno di sforzarti di ricordare durante lo studio: limitati a osservare con attenzione. Solo dopo, l\'operatore ti chiederà di richiamare quello che ricordi.';
+        if(c.memoriaModo==='loci'){
+          const percorsoTxt = c.memoriaLociTipo==='corpo' ? 'un percorso lungo il tuo corpo, dalla testa ai piedi' : c.memoriaLociTipo==='personalizzato' ? 'un percorso di luoghi reali che conosci bene' : 'un tragitto di luoghi familiari';
+          return 'Percorrerai mentalmente '+percorsoTxt+' (il metodo dei loci): '+cosa+' verrà associata a una tappa del percorso, una alla volta. Immagina la scena il più vividamente possibile. Dopo, ripercorri il tragitto a mente e richiama ciò che avevi posizionato in ciascuna tappa: l\'operatore segnerà ciò che recuperi.';
+        }
+        if(c.memoriaModo==='errorless') return 'Ti verrà mostrata l\'informazione corretta direttamente, senza doverla indovinare — è la tecnica dell\'apprendimento senza errori. Poco dopo, l\'operatore ti chiederà di richiamarla: se ci riesci, il tempo prima del prossimo richiamo si allunga; se non ci riesci, ti verrà ridata subito la risposta corretta, senza insistere su un tentativo libero. Si procede così, un elemento alla volta.';
         if(c.memoriaModo==='vanishing') return 'Per '+(materiale==='lista'?'ogni parola':'ogni idea')+' vedrai prima un forte suggerimento (quasi tutta l\'informazione), poi uno più debole: prova a completarla tu prima che sparisca del tutto. È la tecnica dei "vanishing cues". Alla fine, un richiamo libero senza alcun suggerimento.';
         return '';
       }},
@@ -386,6 +389,7 @@
     neglectRuleClauses:null, // solo per 'regola' — null=progressione automatica cumulativa per livello; altrimenti array di chiavi scelte manualmente fra 'base','colore','riga','sfondo'
     goaltaskScenario:'sei_compiti_classico', goaltaskLivello:2, // solo per Scenari ecologici (1-5, crescente)
     memoriaModo:'pqrst', memoriaLivello:1, memoriaMateriale:'lista', // solo per Strategie di memoria — memoriaMateriale usato solo da loci/errorless/vanishing (pqrst è sempre brano, chunking è sempre lista)
+    memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
     sequenzaMista:false, // solo per Sequenza bersaglio: mescola codici diversi (lettere/numeri/colori/suoni/simboli) nella stessa sequenza invece di un solo tipo
     nbackMista:false // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
   };
@@ -420,7 +424,8 @@
       numDigits:c.numDigits, wordComplexity:c.wordComplexity, showTrail:c.showTrail,
       neglectGradient:c.neglectGradient, neglectLayout:c.neglectLayout, neglectTimeLimit:c.neglectTimeLimit, neglectBoardSize:c.neglectBoardSize,
       neglectMode:c.neglectMode, neglectRuleLevel:c.neglectRuleLevel,
-      goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale
+      goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale,
+      memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom
     };
   }
   function listPresets(){
@@ -456,6 +461,7 @@
     cfg.goaltaskScenario = pc.goaltaskScenario || 'sei_compiti_classico';
     cfg.goaltaskLivello = pc.goaltaskLivello || 2;
     cfg.memoriaModo = pc.memoriaModo || 'pqrst'; cfg.memoriaLivello = pc.memoriaLivello || 1; cfg.memoriaMateriale = pc.memoriaMateriale || 'lista';
+    cfg.memoriaLociTipo = pc.memoriaLociTipo || 'casa'; cfg.memoriaLociCustom = pc.memoriaLociCustom || '';
     cfg.sequenzaMista = !!pc.sequenzaMista; cfg.nbackMista = !!pc.nbackMista;
     cfg.targetSeq = (EXERCISES[pc.taskMode] && EXERCISES[pc.taskMode].usesTargetSeq && pc.targetSeq && pc.targetSeq.length)
       ? (pc.taskMode==='sequenza' && pc.sequenzaMista
@@ -725,8 +731,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -736,6 +742,8 @@
   let cloudUser = null;
   let cloudBusy = false;
   let patientProfile = null; // riga di "pazienti" se l'utente loggato è un paziente, altrimenti null (operatore)
+  let isSuperOperatore = false; // vero solo se la riga 'operatori' del cloudUser ha super=true (tabella 'operatori', vedi checkRole)
+  let accessLogCache = null; // cache in-memory della tabella 'accessi', solo per il super-operatore
   let cloudLoginMode = 'operatore'; // 'operatore' | 'paziente' — quale form di accesso mostrare
   let editingPatient = null; // riga paziente correntemente aperta in "Gestisci programma"
   let activeLocalPatientId = null; // profilo paziente locale selezionato per la sessione in presenza
@@ -1851,6 +1859,27 @@
     'la libreria', 'la scala che sale', 'il pianerottolo', 'la porta della camera da letto',
     'il comodino', 'l\'armadio', 'la porta del bagno', 'lo scaffale del bagno'
   ];
+  // Percorso "corpo": tappe = parti del corpo in ordine anatomico fisso
+  // (testa -> piedi), per pazienti con scarsa familiarità ambientale o
+  // ricoverati da tempo, per cui un percorso domestico non è un riferimento
+  // stabile. Stesso principio del percorso casa: una tappa, un elemento.
+  const LOCI_ROUTE_CORPO = [
+    'la testa', 'la fronte', 'gli occhi', 'le orecchie',
+    'il naso', 'la bocca', 'il collo', 'le spalle',
+    'il petto', 'le braccia', 'le mani', 'la pancia',
+    'i fianchi', 'le ginocchia', 'le caviglie', 'i piedi'
+  ];
+  // Percorso "personalizzato": l'operatore digita le tappe reali del
+  // paziente (es. il proprio domicilio), una per riga. Usato solo quando
+  // memoriaLociTipo==='personalizzato'; se vuoto si ricade sul percorso casa.
+  function lociRouteFor(cfgLike){
+    if(cfgLike.memoriaLociTipo==='corpo') return LOCI_ROUTE_CORPO;
+    if(cfgLike.memoriaLociTipo==='personalizzato'){
+      const lines = (cfgLike.memoriaLociCustom||'').split('\n').map(s=>s.trim()).filter(Boolean);
+      return lines.length ? lines : LOCI_ROUTE;
+    }
+    return LOCI_ROUTE;
+  }
 
   function exportCSV(items){
     const head = ['data','codice_paziente','stimolo','esercizio','n_back','sequenza_bersaglio','prove','isi_ms','durata_stim_ms','modalita',
@@ -1934,12 +1963,45 @@
   }
   // Un account è "paziente" se esiste una riga in pazienti con id = auth.uid().
   async function checkRole(){
-    patientProfile = null;
+    patientProfile = null; isSuperOperatore = false;
     if(!sb || !cloudUser) return;
     try{
       const { data } = await sb.from('pazienti').select('*').eq('id', cloudUser.id).maybeSingle();
       patientProfile = data || null;
     }catch(e){ patientProfile = null; }
+    if(!patientProfile){
+      try{
+        const { data } = await sb.from('operatori').select('super').eq('id', cloudUser.id).maybeSingle();
+        isSuperOperatore = !!(data && data.super);
+      }catch(e){ isSuperOperatore = false; } // tabella 'operatori' assente o non ancora migrata: nessun accesso al registro, nessun blocco dell'app
+    }
+  }
+  // ---------- Registro accessi (solo lettura per il super-operatore) ----------
+  // Registra eventi discreti (login riuscito/fallito, logout) su 'accessi'.
+  // I tentativi falliti avvengono PRIMA di avere una sessione autenticata,
+  // quindi la policy di insert su questa tabella è volutamente permissiva
+  // (chiunque può scrivere, nessuno tranne il super-operatore può leggere) —
+  // stesso principio già in uso nell'app: la sicurezza sta nella RLS in
+  // lettura, non nel nascondere la chiave anon.
+  async function logAccessEvent(evento, esito, userType, userId, emailTentata){
+    if(!sb) return;
+    try{
+      await sb.from('accessi').insert({
+        evento, esito, user_type: userType,
+        user_id: userId || null,
+        email_tentata: emailTentata || null
+      });
+    }catch(e){ /* la tabella 'accessi' potrebbe non essere ancora stata migrata: non bloccare mai login/logout per questo */ }
+  }
+  async function loadAccessLog(force){
+    if(accessLogCache && !force) return accessLogCache;
+    if(!sb || !isSuperOperatore) return [];
+    try{
+      const { data, error } = await sb.from('accessi').select('*').order('ts',{ascending:false}).limit(5000);
+      if(error) throw error;
+      accessLogCache = data || [];
+    }catch(e){ accessLogCache = []; }
+    return accessLogCache;
   }
   // ---------- Sessione unica per account (anti-uso concorrente) ----------
   // Meccanismo volutamente semplice: al login viene scritto un "gettone"
@@ -1997,9 +2059,9 @@
     cloudBusy=true; render();
     const { data, error } = await sb.auth.signUp({ email, password: pw });
     cloudBusy=false;
-    if(error){ alert('Errore registrazione: '+error.message); render(); return; }
+    if(error){ alert('Errore registrazione: '+error.message); logAccessEvent('login','fallito','operatore',null,email); render(); return; }
     if(data.user && !data.session){ alert('Controlla la casella email per confermare l\'account, poi accedi.'); cloudUser=null; }
-    else { cloudUser = data.user; await checkRole(); await claimSession(); historyCache=null; view = patientProfile ? 'patientHome' : 'operatorHome'; }
+    else { cloudUser = data.user; await checkRole(); await claimSession(); historyCache=null; logAccessEvent('login','successo','operatore',cloudUser.id,email); view = patientProfile ? 'patientHome' : 'operatorHome'; }
     render();
   }
   async function cloudSignIn(email, pw){
@@ -2007,8 +2069,9 @@
     cloudBusy=true; render();
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
     cloudBusy=false;
-    if(error){ alert('Errore accesso: '+error.message); render(); return; }
+    if(error){ alert('Errore accesso: '+error.message); logAccessEvent('login','fallito','operatore',null,email); render(); return; }
     cloudUser = data.user; await checkRole(); await claimSession(); historyCache=null;
+    logAccessEvent('login','successo','operatore',cloudUser.id,email);
     view = patientProfile ? 'patientHome' : 'operatorHome';
     render();
   }
@@ -2021,18 +2084,20 @@
     cloudBusy=true; render();
     const { data, error } = await sb.auth.signInWithPassword({ email: patientCodeToEmail(normalized), password: normalized });
     cloudBusy=false;
-    if(error){ alert('Codice non riconosciuto: '+error.message); render(); return; }
+    if(error){ alert('Codice non riconosciuto: '+error.message); logAccessEvent('login','fallito','paziente',null,normalized); render(); return; }
     cloudUser = data.user; await checkRole(); historyCache=null;
-    if(!patientProfile){ alert('Questo account non risulta un account paziente valido.'); await cloudSignOut(); return; }
-    if(patientProfile.attivo === false){ alert('Questo profilo è stato archiviato dall\'operatore e non può accedere in autonomia. Contatta la struttura.'); await cloudSignOut(); return; }
+    if(!patientProfile){ alert('Questo account non risulta un account paziente valido.'); logAccessEvent('login','fallito','paziente',cloudUser.id,normalized); cloudUser=null; await cloudSignOut(); return; }
+    if(patientProfile.attivo === false){ alert('Questo profilo è stato archiviato dall\'operatore e non può accedere in autonomia. Contatta la struttura.'); logAccessEvent('login','fallito','paziente',cloudUser.id,normalized); cloudUser=null; await cloudSignOut(); return; }
     await claimSession();
+    logAccessEvent('login','successo','paziente',cloudUser.id,normalized);
     view='patientHome'; render();
   }
   async function cloudSignOut(){
     stopSessionGuard();
+    if(cloudUser) logAccessEvent('logout','successo', patientProfile?'paziente':'operatore', cloudUser.id, cloudUser.email);
     if(sb) try{ await sb.auth.signOut(); }catch(e){}
-    cloudUser = null; patientProfile = null; historyCache = null;
-    cachedRemotePatients = null; localPatientsCloudCache = null;
+    cloudUser = null; patientProfile = null; isSuperOperatore = false; historyCache = null;
+    cachedRemotePatients = null; localPatientsCloudCache = null; accessLogCache = null;
     view='cloud'; render();
   }
   // Crea un nuovo account paziente tramite la Edge Function (unico punto che
@@ -2245,6 +2310,15 @@
       grid.appendChild(field('Tecnica', segButtons(['pqrst','chunking','loci','errorless','vanishing'], cfg.memoriaModo, v=>{cfg.memoriaModo=v; render();}, {pqrst:'PQRST', chunking:'Chunking', loci:'Metodo dei loci', errorless:'Errorless learning', vanishing:'Vanishing cues'})));
       if(cfg.memoriaModo==='loci' || cfg.memoriaModo==='errorless' || cfg.memoriaModo==='vanishing'){
         grid.appendChild(field('Materiale', segButtons(['lista','brano'], cfg.memoriaMateriale||'lista', v=>{cfg.memoriaMateriale=v; render();}, {lista:'Lista di parole', brano:'Brano'})));
+      }
+      if(cfg.memoriaModo==='loci'){
+        grid.appendChild(field('Percorso', segButtons(['casa','corpo','personalizzato'], cfg.memoriaLociTipo||'casa', v=>{cfg.memoriaLociTipo=v; render();}, {casa:'Casa tipo (16 tappe)', corpo:'Corpo (16 tappe)', personalizzato:'Personalizzato'})));
+        if(cfg.memoriaLociTipo==='personalizzato'){
+          const ta = el('textarea',{rows:6, style:'width:100%; font:inherit; padding:8px; border-radius:8px; border:1px solid var(--line, #ccc);', placeholder:'Una tappa reale del paziente per riga, in ordine (es. il proprio ingresso di casa, la cucina, ecc.) — fino a 16 righe.'},[cfg.memoriaLociCustom||'']);
+          ta.value = cfg.memoriaLociCustom||'';
+          ta.addEventListener('change', ()=>{ cfg.memoriaLociCustom = ta.value; });
+          grid.appendChild(field('Tappe del paziente (una per riga)', ta));
+        }
       }
       grid.appendChild(field('Livello (1-16)', stepper(cfg.memoriaLivello,1,16,v=>{cfg.memoriaLivello=v; render();},1)));
     } else if(isGoalTask){
@@ -3739,19 +3813,32 @@
     const revealCount = Math.max(1, Math.ceil(str.length*revealFraction));
     return str.split('').map((ch,i)=> ch===' ' ? ' ' : (i<revealCount ? ch : '_')).join('');
   }
+  // Spaced retrieval (errorless learning): parametri del protocollo.
+  // Intervallo iniziale breve, raddoppia ad ogni richiamo riuscito; un
+  // elemento si considera consolidato dopo un numero di successi consecutivi
+  // o al superamento di un intervallo massimo — soglie provvisorie, non
+  // normative, pensate per stare dentro una seduta clinica.
+  const ERRORLESS_START_INTERVAL = 5;
+  const ERRORLESS_MAX_CONSECUTIVE = 4;
+  const ERRORLESS_MAX_INTERVAL = 60;
   function startMemoriaSession(){
     const material = memoriaMaterialFor(cfg);
     session = {
       material, phase:'studio', pqrstStep:0, recall:{}, startedAtWall:Date.now(),
-      lociIdx:0, lociReadDone:false, errorlessPass:1, vanishingIdx:0, vanishingStage:0
+      lociIdx:0, lociReadDone:false, vanishingIdx:0, vanishingStage:0,
+      errIdx:0, errStage:'study', errInterval:ERRORLESS_START_INTERVAL, errLastGood:ERRORLESS_START_INTERVAL,
+      errConsecutive:0, errRemaining:0, errTimer:null
     };
     view='task'; render();
+  }
+  function clearErrorlessTimer(){
+    if(session && session.errTimer){ clearInterval(session.errTimer); session.errTimer=null; }
   }
   function mountMemoriaScreen(root){
     const infoSpan = el('div',{class:'info'},['']);
     root.appendChild(el('div',{class:'topbar'},[
       infoSpan,
-      el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ view=homeView(); render(); } }},['Interrompi'])
+      el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ clearErrorlessTimer(); view=homeView(); render(); } }},['Interrompi'])
     ]));
     const content = el('div',{style:'padding:16px; max-width:640px; margin:0 auto; width:100%;'},[]);
     root.appendChild(content);
@@ -3824,7 +3911,8 @@
           content.appendChild(el('button',{class:'primary', style:'margin-top:12px;', onclick:()=>{ session.lociReadDone=true; updateMemoriaScreen(); }},['Ho letto — inizia il percorso →']));
         } else {
           const idx = session.lociIdx||0;
-          const locus = LOCI_ROUTE[idx % LOCI_ROUTE.length];
+          const route = lociRouteFor(cfg);
+          const locus = route[idx % route.length];
           const item = learnItems[idx];
           const isLast = idx>=learnItems.length-1;
           content.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:8px;'},['Tappa '+(idx+1)+' / '+learnItems.length]));
@@ -3840,26 +3928,61 @@
           }},[isLast ? 'Ho posizionato tutto — ripercorri il tragitto, poi passa al richiamo →' : 'Avanti — prossima tappa →']));
         }
       } else if(modo==='errorless'){
-        // Apprendimento senza errori: l'informazione corretta viene data
-        // direttamente, per due passaggi completi, senza mai chiedere un
-        // tentativo di richiamo che potrebbe rinforzare una risposta sbagliata.
-        const isBrano = materiale==='brano';
-        const pass = session.errorlessPass||1;
-        content.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:8px;'},['Ripasso '+pass+' / 2 — nessuno sforzo di richiamo, solo osservazione']));
-        if(isBrano){
-          content.appendChild(el('h3',{},[m.titolo]));
-          content.appendChild(el('p',{style:'font-size:17px; line-height:1.7; background:var(--paper-dim); border-radius:12px; padding:16px 18px;'},[m.testo]));
-          const listBox = el('div',{style:'margin-top:14px;'});
-          listBox.appendChild(el('div',{style:'font-weight:600; margin-bottom:6px;'},['Le idee principali da trattenere:']));
-          m.unita.forEach(u=> listBox.appendChild(el('div',{class:'l'},['• '+u])));
-          content.appendChild(listBox);
+        // Apprendimento senza errori con spaced retrieval: l'elemento viene
+        // presentato direttamente (mai indovinato), poi richiamato a
+        // intervalli crescenti. Successo -> l'intervallo raddoppia; fallimento
+        // -> risposta corretta ridata subito e si torna all'ultimo intervallo
+        // riuscito, mai un tentativo libero senza rete.
+        const idx = session.errIdx||0;
+        const stage = session.errStage||'study';
+        const item = learnItems[idx];
+        const progressLabel = el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:8px;'},
+          ['Elemento '+(idx+1)+' / '+learnItems.length]);
+        content.appendChild(progressLabel);
+        if(stage==='study'){
+          content.appendChild(el('p',{class:'hint'},[session.errConsecutive===0 && session.errInterval===ERRORLESS_START_INTERVAL ? 'Osserva con attenzione: non c\'è bisogno di indovinare.' : 'Ecco di nuovo la risposta corretta — nessun tentativo libero, si riparte da qui.']));
+          content.appendChild(el('div',{style:'font-size:22px; font-weight:700; text-align:center; padding:24px; background:var(--paper-dim); border-radius:12px;'},[item]));
+          content.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{
+            clearErrorlessTimer();
+            session.errStage='wait'; session.errRemaining=session.errInterval;
+            updateMemoriaScreen();
+            session.errTimer = setInterval(()=>{
+              session.errRemaining--;
+              if(session.errRemaining<=0){
+                clearErrorlessTimer();
+                session.errStage='test';
+                updateMemoriaScreen();
+              } else {
+                updateMemoriaScreen();
+              }
+            },1000);
+          }},['Ho visto — avvia il richiamo (tra '+session.errInterval+' s) →']));
+        } else if(stage==='wait'){
+          content.appendChild(el('p',{class:'hint'},['Tra poco l\'operatore chiederà al paziente di richiamare questo elemento. Non mostrarlo nel frattempo.']));
+          content.appendChild(el('div',{style:'font-size:40px; font-weight:700; text-align:center; padding:30px;'},[String(session.errRemaining)+' s']));
         } else {
-          content.appendChild(el('div',{style:'font-size:20px; line-height:1.9; text-align:center; padding:24px; background:var(--paper-dim); border-radius:12px;'},[m.parole.join('  ·  ')]));
+          const revealBox = el('div',{style:'min-height:22px; text-align:center; font-weight:600; margin-bottom:10px;'},['']);
+          content.appendChild(el('p',{class:'hint'},['Chiedi al paziente di richiamare a voce questo elemento.']));
+          content.appendChild(el('button',{class:'ghost', onclick:()=>{ revealBox.textContent = 'Risposta: '+item; }},['Mostra la risposta (operatore)']));
+          content.appendChild(revealBox);
+          const row = el('div',{class:'rowbtns', style:'margin-top:14px;'});
+          row.appendChild(el('button',{class:'primary', onclick:()=>{
+            session.errLastGood = session.errInterval;
+            session.errConsecutive = (session.errConsecutive||0)+1;
+            if(session.errConsecutive>=ERRORLESS_MAX_CONSECUTIVE || session.errInterval*2>ERRORLESS_MAX_INTERVAL){
+              if(idx>=learnItems.length-1){ session.phase='richiamo'; }
+              else { session.errIdx=idx+1; session.errStage='study'; session.errInterval=ERRORLESS_START_INTERVAL; session.errLastGood=ERRORLESS_START_INTERVAL; session.errConsecutive=0; }
+            } else {
+              session.errInterval = session.errInterval*2; session.errStage='wait';
+            }
+            updateMemoriaScreen();
+          }},['✓ Corretto']));
+          row.appendChild(el('button',{onclick:()=>{
+            session.errInterval = session.errLastGood; session.errConsecutive = 0; session.errStage='study';
+            updateMemoriaScreen();
+          }},['✗ Scorretto']));
+          content.appendChild(row);
         }
-        content.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{
-          if(pass<2){ session.errorlessPass=2; } else { session.phase='richiamo'; }
-          updateMemoriaScreen();
-        }},[pass<2 ? 'Avanti — secondo ripasso →' : 'Pronto — passa al richiamo →']));
       } else if(modo==='vanishing'){
         // Vanishing cues: due stadi con suggerimento via via più debole per
         // ciascun elemento (le lettere iniziali che restano visibili
@@ -4270,6 +4393,17 @@
       el('div',{class:'landing-desc'},['Gestisci i pazienti con account remoto: crea codici di accesso, assegna programmi, o avvia una seduta per uno di loro adesso.'])
     ]));
     card.appendChild(choices);
+
+    if(isSuperOperatore){
+      const superSection = el('div',{style:'margin-top:22px; padding-top:18px; border-top:1px solid var(--line, #ddd);'});
+      superSection.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:10px;'},['Solo super-operatore']));
+      superSection.appendChild(el('button',{class:'landing-card', style:'width:100%;', onclick:()=>{ view='accessLog'; render(); }},[
+        el('div',{class:'landing-icon'},['🔐']),
+        el('div',{class:'landing-title'},['Registro accessi']),
+        el('div',{class:'landing-desc'},['Login, logout e tentativi falliti di operatori e pazienti, con vista aggregata per operatore.'])
+      ]));
+      card.appendChild(superSection);
+    }
 
     const nav = el('div',{class:'navlinks'});
     nav.appendChild(el('button',{class:'link', onclick: cloudSignOut},['Disconnetti']));
@@ -4876,11 +5010,119 @@
     });
   }
 
+  function exportAccessLogCSV(rows){
+    const head = ['data_ora','evento','esito','tipo_utente','identificativo','user_id'];
+    const body = rows.map(r=>[
+      new Date(r.ts).toLocaleString('it-IT'), r.evento, r.esito, r.user_type||'', (r.email_tentata||'').replace(/[\n,;]/g,' '), r.user_id||''
+    ]);
+    const csv = [head.join(';')].concat(body.map(r=>r.join(';'))).join('\n');
+    const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'traccian_registro_accessi.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  // Raggruppa gli eventi grezzi per utente (user_id se presente, altrimenti
+  // l'identificativo digitato — capita per i tentativi falliti pre-login,
+  // dove non esiste ancora uno user_id autenticato). Calcola le durate
+  // sessione appaiando ogni login riuscito con il primo logout successivo
+  // dello stesso utente.
+  function summarizeAccessLog(rows, userType){
+    const filtered = rows.filter(r=> (r.user_type||'operatore')===userType);
+    const groups = {};
+    filtered.forEach(r=>{
+      const key = r.user_id || ('anon:'+(r.email_tentata||'sconosciuto'));
+      if(!groups[key]) groups[key] = {key, label: r.email_tentata || (r.user_id ? r.user_id.slice(0,8) : 'sconosciuto'), events:[]};
+      if(r.email_tentata) groups[key].label = r.email_tentata; // preferisci sempre l'ultima etichetta leggibile vista
+      groups[key].events.push(r);
+    });
+    const out = Object.values(groups).map(g=>{
+      const events = g.events.slice().sort((a,b)=> new Date(a.ts)-new Date(b.ts));
+      let loginsOk=0, loginsFail=0, logouts=0, lastTs=null, sessions=[], openLogin=null;
+      events.forEach(e=>{
+        if(e.evento==='login' && e.esito==='successo'){ loginsOk++; openLogin=e; }
+        else if(e.evento==='login' && e.esito==='fallito'){ loginsFail++; }
+        else if(e.evento==='logout'){
+          logouts++;
+          if(openLogin){ sessions.push({start:openLogin.ts, end:e.ts, durationMs: new Date(e.ts)-new Date(openLogin.ts)}); openLogin=null; }
+        }
+        lastTs = e.ts;
+      });
+      const avgDurationMs = sessions.length ? sessions.reduce((s,x)=>s+x.durationMs,0)/sessions.length : null;
+      return {key:g.key, label:g.label, loginsOk, loginsFail, logouts, lastTs, avgDurationMs, events: events.slice().reverse()};
+    });
+    out.sort((a,b)=> new Date(b.lastTs||0) - new Date(a.lastTs||0));
+    return out;
+  }
+  function fmtDuration(ms){
+    if(ms==null) return '—';
+    const totalMin = Math.round(ms/60000);
+    if(totalMin<1) return '<1 min';
+    const h = Math.floor(totalMin/60), m = totalMin%60;
+    return (h>0? h+'h ':'')+m+'min';
+  }
+  let accessLogExpanded = null; // key del gruppo attualmente espanso (drill-down), o null
+  function ScreenAccessLog(root){
+    root.appendChild(el('div',{class:'topbar'},[
+      el('div',{class:'info'},['Registro accessi']),
+      el('button',{onclick:()=>{ view='operatorHome'; render(); }},['← Indietro'])
+    ]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    if(!isSuperOperatore){
+      card.appendChild(el('p',{class:'hint'},['Sezione riservata al super-operatore.']));
+      s.appendChild(card); root.appendChild(s); return;
+    }
+    card.appendChild(el('h2',{},['Registro accessi']));
+    card.appendChild(el('p',{class:'hint'},['Login, logout e tentativi falliti — vista aggregata per utente. Tocca una riga per il dettaglio evento per evento.']));
+    const body = el('div',{style:'min-height:60px;'},[el('p',{class:'hint'},['Caricamento…'])]);
+    card.appendChild(body);
+    const btnRow = el('div',{class:'rowbtns', style:'margin-top:16px;'});
+    btnRow.appendChild(el('button',{class:'ghost', onclick: async ()=>{ await loadAccessLog(true); renderBody(); }},['Aggiorna']));
+    btnRow.appendChild(el('button',{class:'ghost', onclick: async ()=>{ exportAccessLogCSV(await loadAccessLog()); }},['Esporta CSV (tutto)']));
+    card.appendChild(btnRow);
+    s.appendChild(card); root.appendChild(s);
+
+    function renderGroupTable(title, groups){
+      const wrap = el('div',{style:'margin-top:18px;'});
+      wrap.appendChild(el('div',{style:'font-weight:600; margin-bottom:8px;'},[title+' ('+groups.length+')']));
+      if(!groups.length){ wrap.appendChild(el('p',{class:'hint'},['Nessun evento registrato.'])); return wrap; }
+      groups.forEach(g=>{
+        const row = el('div',{class:'histrow', style:'cursor:pointer; flex-direction:column; align-items:stretch;'});
+        const summary = el('div',{style:'display:flex; justify-content:space-between; gap:10px; width:100%;', onclick:()=>{ accessLogExpanded = accessLogExpanded===g.key ? null : g.key; renderBody(); }},[
+          el('div',{},[g.label]),
+          el('div',{style:'text-align:right; font-size:13px; color:var(--ink-soft);'},[
+            '✓ '+g.loginsOk+' · ✗ '+g.loginsFail+' · durata media '+fmtDuration(g.avgDurationMs)+' · ultimo: '+(g.lastTs? new Date(g.lastTs).toLocaleString('it-IT') : '—')
+          ])
+        ]);
+        row.appendChild(summary);
+        if(accessLogExpanded===g.key){
+          const detail = el('div',{style:'margin-top:10px; padding-top:10px; border-top:1px solid var(--line, #eee); font-size:13px;'});
+          g.events.forEach(e=>{
+            detail.appendChild(el('div',{style:'padding:3px 0; color:'+(e.esito==='fallito'?'var(--alert)':'var(--ink)')+';'},[
+              new Date(e.ts).toLocaleString('it-IT')+' — '+e.evento+' · '+e.esito
+            ]));
+          });
+          row.appendChild(detail);
+        }
+        wrap.appendChild(row);
+      });
+      return wrap;
+    }
+    async function renderBody(){
+      const rows = await loadAccessLog();
+      body.innerHTML = '';
+      body.appendChild(renderGroupTable('Operatori', summarizeAccessLog(rows,'operatore')));
+      body.appendChild(renderGroupTable('Pazienti', summarizeAccessLog(rows,'paziente')));
+    }
+    renderBody();
+  }
+
   const SCREENS = {
     setup: ScreenSetup, instructions: ScreenInstructions, countdown: ScreenCountdown,
     manualEntry: ScreenManualEntry, results: ScreenResults, history: ScreenHistory,
     cloud: ScreenCloud, patients: ScreenPatients, patientHome: ScreenPatientHome, patientProgram: ScreenPatientProgram,
-    operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode
+    operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode, accessLog: ScreenAccessLog
   };
 
   // Ingresso da tastiera (solo desktop) per le risposte a 2 o 4 alternative

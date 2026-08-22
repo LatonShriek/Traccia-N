@@ -269,7 +269,57 @@ alter table sessioni_login enable row level security;
 drop policy if exists "solo il proprio gettone di sessione" on sessioni_login;
 create policy "solo il proprio gettone di sessione" on sessioni_login for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Ruoli: distingue il super-operatore (unico che può leggere il registro
+-- accessi sotto) dagli altri operatori. Nessuna riga = operatore normale;
+-- va creata a mano una sola volta per l'account che deve avere accesso
+-- completo (vedi istruzioni subito dopo il blocco SQL).
+create table if not exists operatori (
+  id uuid primary key references auth.users on delete cascade,
+  super boolean default false,
+  creato_il timestamptz default now()
+);
+alter table operatori enable row level security;
+drop policy if exists "un operatore vede solo la propria riga di ruolo" on operatori;
+create policy "un operatore vede solo la propria riga di ruolo" on operatori for select
+  using (auth.uid() = id);
+
+-- Registro accessi: eventi discreti di login (riuscito/fallito) e logout,
+-- per operatori e pazienti. L'insert è volutamente aperto a chiunque
+-- (anche prima del login, quando un tentativo fallisce non esiste ancora
+-- una sessione autenticata) — la protezione dei dati sta tutta nella
+-- policy di lettura, riservata al super-operatore. Nessuna cancellazione
+-- automatica: la conservazione minima di 6 mesi richiesta è già garantita
+-- semplicemente non cancellando nulla; un'eventuale pulizia periodica va
+-- fatta a mano o con un cron dedicato, in un secondo momento.
+create table if not exists accessi (
+  id bigint generated always as identity primary key,
+  evento text not null,          -- 'login' | 'logout'
+  esito text not null,           -- 'successo' | 'fallito'
+  user_type text not null,       -- 'operatore' | 'paziente'
+  user_id uuid references auth.users,  -- null se il login è fallito (nessuna sessione creata)
+  email_tentata text,            -- email reale (operatore) o indirizzo sintetico/codice (paziente) — anche per i tentativi falliti
+  ts timestamptz default now()
+);
+alter table accessi enable row level security;
+drop policy if exists "chiunque può registrare un evento di accesso" on accessi;
+create policy "chiunque può registrare un evento di accesso" on accessi for insert
+  with check (true);
+drop policy if exists "solo il super-operatore legge il registro accessi" on accessi;
+create policy "solo il super-operatore legge il registro accessi" on accessi for select
+  using (exists(select 1 from operatori o where o.id = auth.uid() and o.super = true));
 ```
+
+**Attivare il super-operatore (una sola volta, solo per il tuo account).**
+Dopo aver eseguito lo script sopra:
+1. Su Supabase, **Authentication → Users**, copia l'UUID del tuo account operatore (quello con cui accedi normalmente all'app).
+2. Nel **SQL Editor**, esegui (sostituendo l'UUID):
+   ```sql
+   insert into operatori (id, super) values ('INCOLLA-QUI-IL-TUO-UUID', true)
+   on conflict (id) do update set super = true;
+   ```
+3. Ricarica l'app e accedi di nuovo: nella home operatore comparirà una sezione "Solo super-operatore" con il Registro accessi. Gli altri operatori non la vedranno, e un tentativo di lettura diretto della tabella `accessi` con le loro credenziali restituirà righe vuote per via della RLS.
+
 
 **Checklist di sicurezza per ogni nuova tabella.** La chiave "anon" incollata
 nell'app è pubblica per design — l'unica cosa che impedisce a chiunque abbia
@@ -290,9 +340,10 @@ mettere in produzione qualsiasi tabella nuova:
    users to sign up" sia disattivato su ogni progetto in uso clinico reale
    (va ricontrollato periodicamente, non solo alla configurazione iniziale).
 
-Le quattro tabelle sopra (`pazienti`, `sessioni`, `pazienti_locali`,
-`sessioni_login`) hanno già RLS abilitata con policy verificate — questa
-checklist riguarda solo eventuali tabelle aggiunte in futuro.
+Le sei tabelle sopra (`pazienti`, `sessioni`, `pazienti_locali`,
+`sessioni_login`, `operatori`, `accessi`) hanno già RLS abilitata con policy
+verificate — questa checklist riguarda solo eventuali tabelle aggiunte in
+futuro.
 
 Infine, in **Project Settings → API**, copia **Project URL** e la chiave
 **anon public** (non la "service_role" — quella non va mai incollata

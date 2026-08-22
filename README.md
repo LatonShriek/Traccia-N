@@ -98,13 +98,30 @@ esercizio:
 | Stop-Signal | 1-10 (leva secondaria) + staircase SSD continuo | ISI secondario (3600→750ms); lo SSD resta un meccanismo indipendente e continuo, non a livelli (vedi sotto) |
 | ANT (classico) | 1-10 | ISI (3200→650ms) |
 | TAPAT | 1-10 | Intervallo tra stimoli, da prevedibile e ravvicinato (0.9-1.8s) a lungo e imprevedibile (12-25s) |
-| Task-switching | 1-5 | Intervallo cue→stimolo (CSI, 900→150ms) — scala non ancora estesa, in coda |
-| Doppio compito | 1-5 | Frequenza target per canale — scala non ancora estesa, in coda |
-| Cancellazione (neglect) | 1-5 | Elementi per tavola (20→75) — scala non ancora estesa, in coda |
+| Task-switching | 1-10 | Intervallo cue→stimolo (CSI, 900→150ms) insieme allo sbilanciamento fra le due regole (50%→97%) — due parametri combinati, stessa logica di Go/No-Go |
+| Doppio compito | 1-10 (per canale, indipendenti) | Frequenza target per canale (40%→5%) insieme all'ISI condiviso fra i due canali (3000→700ms, derivato dalla media dei due livelli canale) |
+| Cancellazione (neglect) | 1-10 | Elementi per tavola (14→85) insieme al tempo limite per tavola (nessun limite ai livelli 1-2, poi 110→18s) |
 
-Task-switching, Doppio compito e Cancellazione restano volutamente a 5
-livelli: l'estensione di questi tre non è stata ancora affrontata, non è
-un'omissione — è la prossima voce in coda.
+Task-switching, Doppio compito e Cancellazione sono stati portati a 10
+livelli in questo giro, con lo stesso principio delle tabelle precedenti:
+più risoluzione a pavimento e soffitto, un secondo parametro combinato
+dove prima ce n'era uno solo (Doppio compito aveva solo la frequenza;
+ora anche l'ISI condiviso scala col livello). In questo lavoro sono
+emersi e corretti due bug reali, non solo estensioni:
+- **Cancellazione**: le tabelle a 10 livelli (elementi, tempo) erano già
+  presenti, ma l'incremento automatico del livello durante la sessione
+  restava bloccato a un tetto di 5 rimasto dalla vecchia scala — il
+  paziente non poteva mai salire oltre il vecchio livello massimo anche
+  con accuratezza costantemente alta. Corretto: ora usa lo stesso tetto
+  dichiarato in `currentLevelMax()`.
+- **Doppio compito**: la tabella ISI a 10 livelli esisteva ma non veniva
+  mai letta correttamente — il codice cercava l'ISI sotto una chiave di
+  livello (`session.adaptLevel`) che il doppio compito non usa (ha due
+  livelli indipendenti per canale, `dualLevel1`/`dualLevel2`). L'ISI
+  restava quindi sempre a quello fisso manuale anche in modalità
+  adattiva. Corretto: l'ISI condiviso ora si calcola dalla media dei due
+  livelli canale.
+
 
 Fa eccezione lo **Stop-Signal**, che usa una titolazione propria e
 indipendente dal "livello" per la sua misura principale: lo staircase del
@@ -733,6 +750,33 @@ brani crescono per lunghezza (~30→~220 parole), densità di idee,
 presenza di dettagli interferenti (numeri, nomi, date — assenti nei
 primi livelli), complessità sintattica, astrattezza del contenuto.
 
+Il ciclo P-Q-R-S non gira sull'intero brano in un unico passaggio: segue
+lo schema di riferimento in letteratura, che lo applica **per sezione
+tematica** (anteprima → domanda → lettura → ripetizione su una sezione,
+poi si passa alla successiva), con il richiamo finale a fare da Test
+cumulativo su tutte le sezioni insieme. Ogni sezione raggruppa ~2 unità
+concettuali. I brani storici a blocco unico vengono trattati come una
+sola sezione, quindi il meccanismo è identico per tutti i livelli anche
+prima che vengano riscritti in forma segmentata.
+
+**Forme parallele (RCI)** — ai livelli 1-2 sono disponibili 3 forme
+equivalenti (A/B/C: stessa lunghezza, stessa struttura a sezioni/unità,
+stesso registro), selezionabili a mano in setup quando un livello ne ha
+più di una. Servono a separare il vero miglioramento clinico
+dall'apprendimento specifico del materiale nel confronto RCI
+baseline/finale (Crawford): usando forme diverse a sessioni diverse, un
+recupero maggiore non può essere spiegato dalla semplice esposizione
+ripetuta allo stesso testo. La forma usata è tracciata nello storico
+sessione e nel CSV (`memoria_forma`). Il selettore forma in setup
+segnala con un tag "✓ già usata" le forme già impiegate con quel
+paziente a quel livello/tecnica (letto dallo storico sessioni, caricato
+in background all'apertura del setup se non già in cache) — puramente
+informativo, non impedisce la scelta: resta sempre l'operatore a
+decidere se ripetere una forma è appropriato per quel caso. I livelli
+3-16 restano per ora a forma singola — l'estensione delle forme
+parallele è un lavoro di contenuto da proseguire gradualmente, non un
+limite del meccanismo.
+
 **Chunking** (sempre su lista, 16 liste di parole graduate) —
 **multi-metodo**: in setup l'operatore sceglie fino a 2 tecniche fra
 cinque, mai in automatico:
@@ -758,6 +802,28 @@ combinazione utile dipende dal singolo paziente, non è deducibile a
 priori dal livello. Le liste crescono per lunghezza (4→14 parole),
 presenza di categorie semantiche raggruppabili, concretezza/immaginabilità
 delle parole, frequenza d'uso.
+
+**Struttura a sotto-gruppi (ai livelli 1-2, popolata finora)** — la lista
+non è più un blocco indifferenziato di parole con un'unica etichetta di
+categoria: è composta da più sotto-gruppi (2-3 categorie diverse, es.
+"frutta" + "animali"), ciascuno mostrato come box separato con la sua
+etichetta. Salendo di livello crescono **insieme** numero di sotto-gruppi
+e dimensione di ciascuno (mai uno dei due a scapito dell'altro), così il
+carico di raggruppamento aumenta in modo graduale invece che con un
+salto di lunghezza secco. Fino al livello 10 i gruppi sono mostrati
+esplicitamente; dal livello 11 in su la struttura resta nel dato (usata
+per osservare il clustering in fase di richiamo) ma **non viene
+mostrata** — il paziente deve organizzare il materiale con una tecnica
+propria fra quelle già esistenti (compresa "personale", per una
+strategia del tutto autogenerata), riusando lo stesso confine 1-10/11-16
+già in uso per il numero di tecniche combinabili, invece di introdurre
+una seconda soglia indipendente. È la stessa logica delle **forme
+parallele** del PQRST: 3 forme equivalenti disponibili ai livelli 1-2,
+selezionabili a mano in setup, tracciate nello storico sessione e nel
+CSV (`memoria_forma`) per lo stesso motivo di equivalenza RCI. I livelli
+3-16 restano nella forma "lista flat" storica (singola categoria o
+acategorica) finché non vengono anch'essi riscritti con la stessa
+struttura — lavoro di contenuto da proseguire gradualmente.
 
 Le tre tecniche seguenti sono selezionabili **sia su lista di parole sia
 su brano** (campo `memoriaMateriale` in setup — su PQRST/Chunking resta

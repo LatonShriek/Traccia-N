@@ -775,8 +775,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2520,10 +2520,7 @@
     card.appendChild(el('h2',{},['Imposta la sessione']));
     card.appendChild(el('p',{class:'hint'},['Scegli il tipo di stimolo, il livello n-back e i parametri temporali. I valori restano impostati per la prossima sessione.']));
 
-    // (la sezione preset è stata rimossa da qui — i profili paziente ora
-    // svolgono lo stesso ruolo, in modo più diretto. Il meccanismo dei
-    // preset resta usato internamente per assegnare programmi ai pazienti
-    // remoti, vedi "Gestisci programma".)
+    card.appendChild(presetSection());
 
     const grid = el('div',{class:'grid'});
     const ex = EXERCISES[cfg.taskMode];

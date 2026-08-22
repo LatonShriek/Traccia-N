@@ -775,8 +775,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -791,6 +791,8 @@
   let cloudLoginMode = 'operatore'; // 'operatore' | 'paziente' — quale form di accesso mostrare
   let editingPatient = null; // riga paziente correntemente aperta in "Gestisci programma"
   let editingPatientKind = 'remote'; // 'remote' | 'local' — quale tipo di profilo è editingPatient
+  let buildingProgramFor = null; // {kind:'local'|'remote', id, nome} — se impostato, Setup aggiunge l'esercizio configurato direttamente al programma di questo paziente invece di avviare una sessione
+  let programAddConfirmation = null; // messaggio transitorio mostrato dopo "+ Aggiungi al programma", azzerato al cambio di esercizio
   let activeLocalPatientId = null; // profilo paziente locale selezionato per la sessione in presenza
   let historyFilterPatientId = null; // se impostato, lo storico mostra solo le sessioni di questo profilo (locale o remoto)
   let historyFilterKind = 'local'; // 'local' | 'remote' — quale tipo di id è historyFilterPatientId
@@ -2514,13 +2516,18 @@
     ]));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
-    if(!patientProfile){
+    if(buildingProgramFor){
+      card.appendChild(el('div',{style:'background:var(--paper-dim); border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between;'},[
+        el('div',{style:'font-size:13px; font-weight:600;'},['Aggiungendo esercizio al programma di '+buildingProgramFor.nome]),
+        el('button',{style:'background:none; border:none; color:var(--ink-soft); text-decoration:underline; font-size:12.5px; cursor:pointer; font-family:Inter;', onclick:()=>{ buildingProgramFor=null; programAddConfirmation=null; view='patientProgram'; render(); }},['Annulla'])
+      ]));
+    } else if(!patientProfile){
       card.appendChild(contextStatusLine());
     }
     card.appendChild(el('h2',{},['Imposta la sessione']));
     card.appendChild(el('p',{class:'hint'},['Scegli il tipo di stimolo, il livello n-back e i parametri temporali. I valori restano impostati per la prossima sessione.']));
 
-    card.appendChild(presetSection());
+    if(!buildingProgramFor) card.appendChild(presetSection());
 
     const grid = el('div',{class:'grid'});
     const ex = EXERCISES[cfg.taskMode];
@@ -2528,6 +2535,7 @@
     // exercise selector (comes first: it determines which other fields apply)
     grid.appendChild(field('Esercizio', segButtons(Object.keys(EXERCISES), cfg.taskMode, v=>{
       cfg.taskMode=v;
+      programAddConfirmation=null;
       const nv = EXERCISES[v];
       if(nv.usesTargetSeq){
         if(v==='neglect' || v==='gonogo'){ if(!cfg.targetSeq) cfg.targetSeq=[]; if(cfg.targetSeq.length>(v==='gonogo'?6:4)) cfg.targetSeq=cfg.targetSeq.slice(0,2); }
@@ -2863,12 +2871,30 @@
     function updateDurEst(){ if(isGoalTask || isMemoria) return; durEstP.textContent = 'Durata stimata della sessione: '+fmtTime(cfg.isi*cfg.trials)+'.'; }
     card.appendChild(durEstP);
 
-    card.appendChild(el('button',{class:'primary', onclick:()=>{
-      if(cfg.taskMode==='sequenza' && cfg.targetSeq.length<2){ alert('Costruisci prima la sequenza bersaglio (almeno 2 elementi).'); return; }
-      if(cfg.taskMode==='gonogo' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima l\'elemento no-go.'); return; }
-      if(cfg.taskMode==='neglect' && cfg.neglectMode==='classico' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima almeno un elemento bersaglio da cancellare.'); return; }
-      view='instructions'; render();
-    }},['Avvia sessione']));
+    if(buildingProgramFor){
+      card.appendChild(el('button',{class:'primary', onclick: async ()=>{
+        if(cfg.taskMode==='sequenza' && cfg.targetSeq.length<2){ alert('Costruisci prima la sequenza bersaglio (almeno 2 elementi).'); return; }
+        if(cfg.taskMode==='gonogo' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima l\'elemento no-go.'); return; }
+        if(cfg.taskMode==='neglect' && cfg.neglectMode==='classico' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima almeno un elemento bersaglio da cancellare.'); return; }
+        const entry = { nome: autoNameFor(cfg), cfg: presetCfgOf(cfg) };
+        const ok = await appendProgramEntry(buildingProgramFor.kind, buildingProgramFor.id, entry);
+        if(ok){ programAddConfirmation = '✓ "'+entry.nome+'" aggiunto — configura il prossimo, o "Fatto" per tornare al programma.'; render(); }
+      }},['+ Aggiungi al programma di '+buildingProgramFor.nome]));
+      if(programAddConfirmation) card.appendChild(el('p',{class:'hint', style:'color:var(--signal); font-weight:600;'},[programAddConfirmation]));
+      card.appendChild(el('button',{class:'ghost', style:'margin-top:8px;', onclick:()=>{
+        const kind = buildingProgramFor.kind;
+        buildingProgramFor=null; programAddConfirmation=null;
+        view = kind==='local' ? 'localPatientPicker' : 'patients';
+        render();
+      }},['Fatto — torna al programma']));
+    } else {
+      card.appendChild(el('button',{class:'primary', onclick:()=>{
+        if(cfg.taskMode==='sequenza' && cfg.targetSeq.length<2){ alert('Costruisci prima la sequenza bersaglio (almeno 2 elementi).'); return; }
+        if(cfg.taskMode==='gonogo' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima l\'elemento no-go.'); return; }
+        if(cfg.taskMode==='neglect' && cfg.neglectMode==='classico' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima almeno un elemento bersaglio da cancellare.'); return; }
+        view='instructions'; render();
+      }},['Avvia sessione']));
+    }
 
     const nav = el('div',{class:'navlinks'});
     nav.appendChild(el('button',{class:'link', onclick:()=>{ view='history'; render(); }},['Storico sessioni →']));
@@ -4350,6 +4376,44 @@
     const label = f.suggestLabel || f.label;
     return { nome: label+' (da screening)', cfg: cfgOut };
   }
+  // Nome leggibile generato automaticamente da una configurazione, per le
+  // voci di programma aggiunte da Setup mentre si costruisce il programma
+  // di un paziente — evita di dover scegliere un nome a mano per ognuna.
+  function autoNameFor(c){
+    const exl = EXERCISES[c.taskMode] ? EXERCISES[c.taskMode].label : c.taskMode;
+    const stimPart = (EXERCISES[c.taskMode] && EXERCISES[c.taskMode].usesStimType) ? STIM_LABELS[c.stimType]+' — ' : '';
+    const levelPart = c.taskMode==='nback' ? ' livello '+c.nLevel : c.taskMode==='categorizzazione' ? ' livello '+c.categLivello : '';
+    return stimPart+exl+levelPart;
+  }
+  // Aggiunge una voce al programma di un paziente (locale o remoto),
+  // preservando quello che c'era già — usata sia dal flusso "Aggiungi
+  // esercizio" in Setup sia da qualunque altro punto che debba appendere
+  // una voce senza passare dalle checkbox di "Gestisci programma".
+  async function appendProgramEntry(kind, id, entry){
+    if(kind==='local'){
+      try{
+        const raw = localStorage.getItem('traccian:localpatient:'+id);
+        if(!raw) return false;
+        const pp = JSON.parse(raw);
+        pp.programma = (pp.programma||[]).concat([entry]);
+        localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(pp));
+        syncLocalPatientToCloud(pp);
+        if(editingPatient && editingPatient.id===id) editingPatient.programma = pp.programma;
+        return true;
+      }catch(e){ return false; }
+    }
+    if(!sb || !cloudUser) return false;
+    try{
+      const existing = (cachedRemotePatients||[]).find(x=>x.id===id) || (editingPatient&&editingPatient.id===id ? editingPatient : null);
+      const programmaAttuale = patientProgram(existing) || [];
+      const nuovoProgramma = programmaAttuale.concat([entry]);
+      const { error } = await sb.from('pazienti').update({programma_assegnato:nuovoProgramma}).eq('id', id).eq('operatore_id', cloudUser.id);
+      if(error) throw error;
+      if(editingPatient && editingPatient.id===id) editingPatient.programma_assegnato = nuovoProgramma;
+      cachedRemotePatients = null;
+      return true;
+    }catch(e){ alert('Errore: '+e.message); return false; }
+  }
   // `flagged`: solo i domini sotto soglia (per i flag/programma).
   // `fullSummary`: TUTTI i domini testati, flaggati o no (per il quadro
   // completo mostrato in "Gestisci programma" — solo l'ultimo screening è
@@ -5534,47 +5598,75 @@
     card.appendChild(el('h2',{},['Programma di '+displayName]));
     card.appendChild(el('p',{class:'hint'},[
       isLocal
-        ? 'Seleziona uno o più preset salvati su questo dispositivo: da quel momento, quando selezioni questo paziente in presenza, li trovi come scorciatoia di avvio rapido — resta comunque libero di lanciare qualunque altro esercizio, non è un vincolo.'
-        : 'Seleziona uno o più preset salvati su questo dispositivo da assegnare. Il paziente vedrà l\'elenco e potrà avviare quello che vuole a ogni accesso — non serve un ordine fisso.'
+        ? 'Aggiungi esercizi uno alla volta, ciascuno con le sue impostazioni — quando selezioni questo paziente in presenza li trovi come scorciatoia di avvio rapido, non è un vincolo.'
+        : 'Aggiungi esercizi uno alla volta, ciascuno con le sue impostazioni. Il paziente vedrà l\'elenco e potrà avviare quello che vuole a ogni accesso — non serve un ordine fisso.'
     ]));
 
-    const presets = listPresets();
-    const already = new Set(patientProgram(editingPatient).map(x=>x.nome));
-    const selected = new Set(presets.filter(p=>already.has(p.name)).map(p=>p.id));
-
-    if(!presets.length){
-      card.appendChild(el('p',{class:'hint'},['Non hai ancora preset salvati su questo dispositivo. Torna al setup, configura un esercizio e usa "Salva impostazioni attuali come preset", poi torna qui.']));
+    // Elenco del programma attuale, con rimozione riga per riga (persiste
+    // subito, non serve un pulsante "salva" separato) — sostituisce il
+    // vecchio flusso a checkbox che rimpiazzava l'intero programma in blocco
+    // (rischiava di perdere le voci aggiunte da Setup nel frattempo).
+    const programmaAttuale = patientProgram(editingPatient);
+    card.appendChild(el('label',{style:'display:block;'},['Programma attuale ('+programmaAttuale.length+(programmaAttuale.length===1?' esercizio':' esercizi')+')']));
+    if(!programmaAttuale.length){
+      card.appendChild(el('p',{class:'hint'},['Ancora nessun esercizio assegnato.']));
     } else {
-      presets.forEach(p=>{
-        const row = el('label',{style:'display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid var(--line); cursor:pointer;'});
-        const cb = el('input',{type:'checkbox'});
-        if(selected.has(p.id)) cb.setAttribute('checked','checked');
-        cb.addEventListener('change', ()=>{ if(cb.checked) selected.add(p.id); else selected.delete(p.id); });
-        const exLabel = EXERCISES[p.cfg.taskMode] ? EXERCISES[p.cfg.taskMode].label : p.cfg.taskMode;
-        row.appendChild(cb);
-        row.appendChild(el('div',{},[el('div',{},[p.name]), el('div',{class:'l'},[exLabel])]));
+      programmaAttuale.forEach((entry,idx)=>{
+        const exLabel = EXERCISES[entry.cfg.taskMode] ? EXERCISES[entry.cfg.taskMode].label : entry.cfg.taskMode;
+        const row = el('div',{class:'histrow'},[
+          el('div',{},[el('div',{},[entry.nome]), el('div',{class:'l'},[exLabel])]),
+          el('button',{class:'ghost', onclick: async ()=>{
+            const rimasti = programmaAttuale.slice(0,idx).concat(programmaAttuale.slice(idx+1));
+            if(isLocal){
+              try{
+                const raw = localStorage.getItem('traccian:localpatient:'+editingPatient.id);
+                if(!raw) return;
+                const pp = JSON.parse(raw);
+                pp.programma = rimasti;
+                localStorage.setItem('traccian:localpatient:'+editingPatient.id, JSON.stringify(pp));
+                syncLocalPatientToCloud(pp);
+                editingPatient.programma = rimasti;
+                render();
+              }catch(e){}
+            } else {
+              try{
+                const { error } = await sb.from('pazienti').update({programma_assegnato:rimasti}).eq('id', editingPatient.id).eq('operatore_id', cloudUser.id);
+                if(error) throw error;
+                editingPatient.programma_assegnato = rimasti;
+                cachedRemotePatients = null;
+                render();
+              }catch(e){ alert('Errore: '+e.message); }
+            }
+          }},['✕ Rimuovi'])
+        ]);
         card.appendChild(row);
       });
     }
 
-    card.appendChild(el('button',{class:'primary', style:'margin-top:16px;', onclick: async ()=>{
-      const program = presets.filter(p=>selected.has(p.id)).map(p=>({nome:p.name, cfg:p.cfg}));
-      if(!program.length){ alert('Seleziona almeno un preset, oppure annulla.'); return; }
-      if(isLocal){
-        try{
-          const raw = localStorage.getItem('traccian:localpatient:'+editingPatient.id);
-          if(!raw) throw new Error('profilo non trovato');
-          const pp = JSON.parse(raw);
-          pp.programma = program;
-          localStorage.setItem('traccian:localpatient:'+editingPatient.id, JSON.stringify(pp));
-          syncLocalPatientToCloud(pp);
-          editingPatient=null; view='localPatientPicker'; render();
-        }catch(e){ alert('Errore: '+e.message); }
-      } else {
-        const ok = await assignProgramToPatient(editingPatient.id, program);
-        if(ok){ editingPatient=null; view='patients'; render(); }
-      }
-    }},['Salva programma ('+selected.size+' selezionati)']));
+    // Libreria preset salvati su questo dispositivo, non ancora nel
+    // programma di questo paziente — un tocco per aggiungerli.
+    const presets = listPresets();
+    const already = new Set(programmaAttuale.map(x=>x.nome));
+    const disponibili = presets.filter(p=>!already.has(p.name));
+    if(disponibili.length){
+      card.appendChild(el('label',{style:'display:block; margin-top:18px;'},['Aggiungi dalla libreria preset']));
+      disponibili.forEach(p=>{
+        const exLabel = EXERCISES[p.cfg.taskMode] ? EXERCISES[p.cfg.taskMode].label : p.cfg.taskMode;
+        card.appendChild(el('div',{class:'histrow'},[
+          el('div',{},[el('div',{},[p.name]), el('div',{class:'l'},[exLabel])]),
+          el('button',{class:'ghost', onclick: async ()=>{
+            const ok = await appendProgramEntry(isLocal?'local':'remote', editingPatient.id, {nome:p.name, cfg:p.cfg});
+            if(ok) render();
+          }},['+ Aggiungi'])
+        ]));
+      });
+    }
+
+    card.appendChild(el('button',{class:'primary', style:'margin-top:16px;', onclick:()=>{
+      buildingProgramFor = {kind: isLocal?'local':'remote', id:editingPatient.id, nome:displayName};
+      view='setup'; render();
+    }},['+ Aggiungi esercizio personalizzato →']));
+    card.appendChild(el('p',{class:'hint'},['Configuralo come vuoi in Setup — livello, materiale, parametri — e aggiungilo direttamente al programma, senza doverlo nominare a mano. Puoi aggiungerne più di uno di seguito prima di tornare qui.']));
 
     // ---- Risultati screening: quadro completo (tutti i domini testati),
     // non solo i suggerimenti — con azione di modulazione manuale accanto

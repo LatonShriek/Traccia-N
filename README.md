@@ -638,11 +638,20 @@ in circa un minuto. Lo storico salvato sul tablet non viene toccato.
 
 **Programma assegnato** — dalla schermata "Gestisci programma" (pazienti
 remoti) o "Assegna programma" (pazienti in presenza) l'operatore
-seleziona uno o più preset salvati sul dispositivo. Per un paziente
-remoto è ciò che vede e può avviare da solo a ogni accesso. Per un
-paziente in presenza è solo una **scorciatoia di avvio rapido** quando
-l'operatore lo seleziona per la seduta — non è vincolante: resta libero
-di lanciare qualunque altro esercizio in qualsiasi momento.
+costruisce il programma un esercizio alla volta: **"+ Aggiungi esercizio
+personalizzato"** porta dritto a Setup, dove si configura l'esercizio
+(livello, materiale, parametri) e si preme "+ Aggiungi al programma" —
+il nome viene generato automaticamente, senza doverlo scrivere a mano, e
+si resta su Setup pronti a configurare il successivo prima di tornare al
+programma. In alternativa, se sul dispositivo esistono già preset
+salvati non ancora assegnati a questo paziente, compaiono in una
+"libreria" con un tocco per aggiungerli così come sono. Ogni voce del
+programma si rimuove singolarmente, senza toccare le altre. Per un
+paziente remoto il programma è ciò che vede e può avviare da solo a ogni
+accesso. Per un paziente in presenza è solo una **scorciatoia di avvio
+rapido** quando l'operatore lo seleziona per la seduta — non è
+vincolante: resta libero di lanciare qualunque altro esercizio in
+qualsiasi momento.
 
 **Modalità di accesso** (solo pazienti remoti) — scelta alla creazione
 del profilo, modificabile in seguito da "Gestisci programma":

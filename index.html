@@ -528,7 +528,7 @@
         localPatientsCloudCache = [];
         sb.from('pazienti_locali').select('*').eq('operatore_id', cloudUser.id).then(({data,error})=>{
           if(!error && data){
-            localPatientsCloudCache = data.map(r=>({id:r.id, nome:r.nome, createdAt:r.creato_il?Date.parse(r.creato_il):Date.now(), lastConfig:r.ultima_config||null, screeningFlags:r.screening_flags||null, programma:r.programma_assegnato||null}));
+            localPatientsCloudCache = data.map(r=>({id:r.id, nome:r.nome, createdAt:r.creato_il?Date.parse(r.creato_il):Date.now(), lastConfig:r.ultima_config||null, screeningFlags:r.screening_flags||null, programma:r.programma_assegnato||null, screeningRisultati:r.screening_risultati||null}));
             // porta in locale anche i profili creati altrove, per uso offline
             localPatientsCloudCache.forEach(p=>{
               try{ if(!localStorage.getItem('traccian:localpatient:'+p.id)) localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(p)); }catch(e){}
@@ -546,7 +546,7 @@
     if(!sb || !cloudUser || patientProfile) return;
     try{
       await sb.from('pazienti_locali').upsert({
-        id:p.id, operatore_id:cloudUser.id, nome:p.nome, ultima_config:p.lastConfig||null, screening_flags:p.screeningFlags||null, programma_assegnato:p.programma||null
+        id:p.id, operatore_id:cloudUser.id, nome:p.nome, ultima_config:p.lastConfig||null, screening_flags:p.screeningFlags||null, programma_assegnato:p.programma||null, screening_risultati:p.screeningRisultati||null
       });
       localPatientsCloudCache = null; // forza un refresco al prossimo listLocalPatients()
     }catch(e){ console.error('sync paziente locale fallita', e); }
@@ -775,8 +775,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -4320,7 +4320,7 @@
     const summary = computeScreeningFlags(results);
     cfg.respMode = screeningState.respModeBefore;
     screeningState.summary = summary;
-    await persistScreeningFlags(summary.filter(s=>s.flagged));
+    await persistScreeningFlags(summary.filter(s=>s.flagged), summary);
     view='screeningResults'; render();
   }
   // Salva i flag "consigliato" sul profilo del paziente attivo (locale o
@@ -4350,12 +4350,18 @@
     const label = f.suggestLabel || f.label;
     return { nome: label+' (da screening)', cfg: cfgOut };
   }
-  async function persistScreeningFlags(flagged){
+  // `flagged`: solo i domini sotto soglia (per i flag/programma).
+  // `fullSummary`: TUTTI i domini testati, flaggati o no (per il quadro
+  // completo mostrato in "Gestisci programma" — solo l'ultimo screening è
+  // conservato, non uno storico di tutti quelli fatti).
+  async function persistScreeningFlags(flagged, fullSummary){
+    const risultati = fullSummary ? { ts: Date.now(), summary: fullSummary } : null;
     if(patientProfile){
       // Il paziente sta facendo lo screening da solo, da remoto.
       try{
         const merged = mergeScreeningFlags(patientProfile.screening_flags, flagged);
         const patch = { screening_flags: merged };
+        if(risultati) patch.screening_risultati = risultati;
         const isFirstGateCompletion = patientProfile.modalita_accesso==='screening_poi_suggeriti' && !patientProfile.screening_completato_il;
         if(isFirstGateCompletion){
           // Autorizzazione automatica una tantum: i domini flaggati in
@@ -4373,21 +4379,23 @@
       }catch(e){ console.error('salvataggio flag screening fallito', e); }
       return;
     }
-    if(!flagged.length) return;
     if(!patientProfile && activeLocalPatientId){
       try{
         const raw = localStorage.getItem('traccian:localpatient:'+activeLocalPatientId);
         if(!raw) return;
         const p = JSON.parse(raw);
-        p.screeningFlags = mergeScreeningFlags(p.screeningFlags, flagged);
+        if(flagged.length) p.screeningFlags = mergeScreeningFlags(p.screeningFlags, flagged);
+        if(risultati) p.screeningRisultati = risultati;
         localStorage.setItem('traccian:localpatient:'+activeLocalPatientId, JSON.stringify(p));
         syncLocalPatientToCloud(p);
       }catch(e){}
     } else if(!patientProfile && activeRemotePatientId && sb && cloudUser){
       try{
         const existing = (cachedRemotePatients||[]).find(x=>x.id===activeRemotePatientId);
-        const merged = mergeScreeningFlags(existing && existing.screening_flags, flagged);
-        await sb.from('pazienti').update({screening_flags:merged}).eq('id', activeRemotePatientId).eq('operatore_id', cloudUser.id);
+        const patch = {};
+        if(flagged.length) patch.screening_flags = mergeScreeningFlags(existing && existing.screening_flags, flagged);
+        if(risultati) patch.screening_risultati = risultati;
+        if(Object.keys(patch).length) await sb.from('pazienti').update(patch).eq('id', activeRemotePatientId).eq('operatore_id', cloudUser.id);
         cachedRemotePatients = null;
       }catch(e){ console.error('salvataggio flag screening fallito', e); }
     }
@@ -5268,38 +5276,9 @@
         card.appendChild(row);
         const activeFlags = (p.screeningFlags||[]).filter(f=>f.attivo);
         if(activeFlags.length){
-          const flagsWrap = el('div',{style:'padding:4px 4px 10px; font-size:12.5px; display:flex; flex-wrap:wrap; gap:6px;'});
-          activeFlags.forEach(f=>{
-            flagsWrap.appendChild(el('span',{style:'background:var(--paper-dim); border-radius:999px; padding:3px 10px; display:inline-flex; align-items:center; gap:6px;'},[
-              '⭐ '+f.label,
-              el('button',{style:'border:none; background:none; cursor:pointer; color:var(--signal); padding:0; font-size:12px; font-weight:600;', title:'Aggiungi al programma assegnato', onclick:()=>{
-                if(!f.cfg){ alert('Questo suggerimento è di una versione precedente e non ha una configurazione salvata — rilancia lo screening per rigenerarlo.'); return; }
-                try{
-                  const raw = localStorage.getItem('traccian:localpatient:'+p.id);
-                  if(!raw) return;
-                  const pp = JSON.parse(raw);
-                  const nuovaVoce = programEntryFromFlag(f);
-                  pp.programma = (pp.programma||[]).concat([nuovaVoce]);
-                  (pp.screeningFlags||[]).forEach(x=>{ if(x.taskMode===f.taskMode) x.attivo=false; });
-                  localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(pp));
-                  syncLocalPatientToCloud(pp);
-                  render();
-                }catch(e){}
-              }},['+ Aggiungi']),
-              el('button',{style:'border:none; background:none; cursor:pointer; color:var(--ink-soft); padding:0; font-size:12px;', title:'Rimuovi suggerimento', onclick:()=>{
-                try{
-                  const raw = localStorage.getItem('traccian:localpatient:'+p.id);
-                  if(!raw) return;
-                  const pp = JSON.parse(raw);
-                  (pp.screeningFlags||[]).forEach(x=>{ if(x.taskMode===f.taskMode) x.attivo=false; });
-                  localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(pp));
-                  syncLocalPatientToCloud(pp);
-                  render();
-                }catch(e){}
-              }},['✕'])
-            ]));
-          });
-          card.appendChild(flagsWrap);
+          card.appendChild(el('div',{style:'padding:0 4px 10px; font-size:12.5px; color:var(--ink-soft);'},[
+            '⭐ '+activeFlags.length+(activeFlags.length===1?' suggerimento':' suggerimenti')+' da screening — gestiscili da "Assegna programma".'
+          ]));
         }
       });
     }
@@ -5532,33 +5511,9 @@
         listWrap.appendChild(row);
         const activeFlags = (p.screening_flags||[]).filter(f=>f.attivo);
         if(activeFlags.length){
-          const flagsWrap = el('div',{style:'padding:4px 4px 12px; font-size:12.5px; display:flex; flex-wrap:wrap; gap:6px;'});
-          activeFlags.forEach(f=>{
-            flagsWrap.appendChild(el('span',{style:'background:var(--paper-dim); border-radius:999px; padding:3px 10px; display:inline-flex; align-items:center; gap:6px;'},[
-              '⭐ '+f.label,
-              el('button',{style:'border:none; background:none; cursor:pointer; color:var(--signal); padding:0; font-size:12px; font-weight:600;', title:'Aggiungi al programma assegnato', onclick: async ()=>{
-                if(!f.cfg){ alert('Questo suggerimento è di una versione precedente e non ha una configurazione salvata — rilancia lo screening per rigenerarlo.'); return; }
-                const nuovaVoce = programEntryFromFlag(f);
-                const programmaAttuale = patientProgram(p);
-                const ok = await assignProgramToPatient(p.id, programmaAttuale.concat([nuovaVoce]));
-                if(ok){
-                  const merged = (p.screening_flags||[]).map(x=> x.taskMode===f.taskMode ? Object.assign({}, x, {attivo:false}) : x);
-                  try{ await sb.from('pazienti').update({screening_flags:merged}).eq('id', p.id).eq('operatore_id', cloudUser.id); }catch(e){}
-                  cachedRemotePatients = null;
-                  render();
-                }
-              }},['+ Aggiungi']),
-              el('button',{style:'border:none; background:none; cursor:pointer; color:var(--ink-soft); padding:0; font-size:12px;', title:'Rimuovi suggerimento', onclick: async ()=>{
-                const merged = (p.screening_flags||[]).map(x=> x.taskMode===f.taskMode ? Object.assign({}, x, {attivo:false}) : x);
-                try{
-                  await sb.from('pazienti').update({screening_flags:merged}).eq('id', p.id).eq('operatore_id', cloudUser.id);
-                  cachedRemotePatients = null;
-                  render();
-                }catch(e){ alert('Errore: '+e.message); }
-              }},['✕'])
-            ]));
-          });
-          listWrap.appendChild(flagsWrap);
+          listWrap.appendChild(el('div',{style:'padding:0 4px 12px; font-size:12.5px; color:var(--ink-soft);'},[
+            '⭐ '+activeFlags.length+(activeFlags.length===1?' suggerimento':' suggerimenti')+' da screening — gestiscili da "Gestisci programma".'
+          ]));
         }
       });
     });
@@ -5620,6 +5575,92 @@
         if(ok){ editingPatient=null; view='patients'; render(); }
       }
     }},['Salva programma ('+selected.size+' selezionati)']));
+
+    // ---- Risultati screening: quadro completo (tutti i domini testati),
+    // non solo i suggerimenti — con azione di modulazione manuale accanto
+    // a ciascun suggerimento attivo, stessa leva usata dall'autorizzazione
+    // automatica del gate.
+    const risultati = isLocal ? editingPatient.screeningRisultati : editingPatient.screening_risultati;
+    const flagsRaw = (isLocal ? editingPatient.screeningFlags : editingPatient.screening_flags) || [];
+    card.appendChild(el('label',{style:'display:block; margin-top:24px;'},['Risultati screening']));
+    if(!risultati){
+      card.appendChild(el('p',{class:'hint'},['Nessuno screening ancora fatto per questo paziente.']));
+    } else {
+      card.appendChild(el('p',{class:'hint'},['Ultimo screening: '+new Date(risultati.ts).toLocaleString('it-IT')+'. Confronto base/caricato per dominio — i domini evidenziati sono risultati sotto soglia con base nella norma.']));
+      risultati.summary.forEach(row=>{
+        const bp = row.baseAcc!=null ? Math.round(row.baseAcc*100)+'%' : '—';
+        const cp = row.carAcc!=null ? Math.round(row.carAcc*100)+'%' : '—';
+        const wrap = el('div',{style:'padding:8px 4px; border-bottom:1px solid var(--line);'+(row.flagged?' background:var(--paper-dim);':'')});
+        wrap.appendChild(el('div',{style:'font-weight:600; font-size:14px;'},[row.domainLabel+(row.flagged?' — consigliato: '+row.suggestLabel:'')]));
+        wrap.appendChild(el('div',{style:'font-size:12.5px; color:var(--ink-soft);'},['base '+bp+' · caricato '+cp]));
+        card.appendChild(wrap);
+      });
+    }
+    const activeFlags = flagsRaw.filter(f=>f.attivo);
+    if(activeFlags.length){
+      const flagsWrap = el('div',{style:'padding:10px 4px; display:flex; flex-wrap:wrap; gap:6px;'});
+      activeFlags.forEach(f=>{
+        flagsWrap.appendChild(el('span',{style:'background:var(--paper-dim); border-radius:999px; padding:3px 10px; display:inline-flex; align-items:center; gap:6px;'},[
+          '⭐ '+f.label,
+          el('button',{style:'border:none; background:none; cursor:pointer; color:var(--signal); padding:0; font-size:12px; font-weight:600;', title:'Aggiungi al programma assegnato', onclick: async ()=>{
+            if(!f.cfg){ alert('Questo suggerimento è di una versione precedente e non ha una configurazione salvata — rilancia lo screening per rigenerarlo.'); return; }
+            const nuovaVoce = programEntryFromFlag(f);
+            if(isLocal){
+              try{
+                const raw = localStorage.getItem('traccian:localpatient:'+editingPatient.id);
+                if(!raw) return;
+                const pp = JSON.parse(raw);
+                pp.programma = (pp.programma||[]).concat([nuovaVoce]);
+                (pp.screeningFlags||[]).forEach(x=>{ if(x.taskMode===f.taskMode) x.attivo=false; });
+                localStorage.setItem('traccian:localpatient:'+editingPatient.id, JSON.stringify(pp));
+                syncLocalPatientToCloud(pp);
+                editingPatient.programma = pp.programma; editingPatient.screeningFlags = pp.screeningFlags;
+                render();
+              }catch(e){}
+            } else {
+              const programmaAttuale = patientProgram(editingPatient);
+              const ok = await assignProgramToPatient(editingPatient.id, programmaAttuale.concat([nuovaVoce]));
+              if(ok){
+                const merged = (editingPatient.screening_flags||[]).map(x=> x.taskMode===f.taskMode ? Object.assign({}, x, {attivo:false}) : x);
+                try{ await sb.from('pazienti').update({screening_flags:merged}).eq('id', editingPatient.id).eq('operatore_id', cloudUser.id); }catch(e){}
+                editingPatient.programma_assegnato = programmaAttuale.concat([nuovaVoce]);
+                editingPatient.screening_flags = merged;
+                cachedRemotePatients = null;
+                render();
+              }
+            }
+          }},['+ Aggiungi']),
+          el('button',{style:'border:none; background:none; cursor:pointer; color:var(--ink-soft); padding:0; font-size:12px;', title:'Rimuovi suggerimento', onclick: async ()=>{
+            if(isLocal){
+              try{
+                const raw = localStorage.getItem('traccian:localpatient:'+editingPatient.id);
+                if(!raw) return;
+                const pp = JSON.parse(raw);
+                (pp.screeningFlags||[]).forEach(x=>{ if(x.taskMode===f.taskMode) x.attivo=false; });
+                localStorage.setItem('traccian:localpatient:'+editingPatient.id, JSON.stringify(pp));
+                syncLocalPatientToCloud(pp);
+                editingPatient.screeningFlags = pp.screeningFlags;
+                render();
+              }catch(e){}
+            } else {
+              const merged = (editingPatient.screening_flags||[]).map(x=> x.taskMode===f.taskMode ? Object.assign({}, x, {attivo:false}) : x);
+              try{
+                await sb.from('pazienti').update({screening_flags:merged}).eq('id', editingPatient.id).eq('operatore_id', cloudUser.id);
+                editingPatient.screening_flags = merged;
+                cachedRemotePatients = null;
+                render();
+              }catch(e){ alert('Errore: '+e.message); }
+            }
+          }},['✕'])
+        ]));
+      });
+      card.appendChild(flagsWrap);
+    }
+    card.appendChild(el('button',{class:'ghost', onclick:()=>{
+      if(isLocal){ activeLocalPatientId=editingPatient.id; activeRemotePatientId=null; cfg.patientCode=editingPatient.nome; }
+      else { activeRemotePatientId=editingPatient.id; activeLocalPatientId=null; cfg.patientCode=editingPatient.codice_paziente; }
+      startScreeningSession();
+    }},[risultati ? 'Rifai lo screening' : 'Fai lo screening ora']));
 
     if(isLocal){
       const nav = el('div',{class:'navlinks'});

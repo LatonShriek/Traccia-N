@@ -322,6 +322,7 @@ create table if not exists pazienti (
   screening_flags jsonb,              -- array di esercizi "consigliati" (automatico da screening, sempre sovrascrivibile a mano) — vedi sezione Batteria di screening
   modalita_accesso text default 'diretto', -- 'diretto' | 'screening_poi_suggeriti' — vedi sezione Programma paziente
   screening_completato_il timestamptz,-- prima volta che il gate screening_poi_suggeriti è stato superato
+  screening_risultati jsonb,          -- ultimo screening completo (tutti i domini) — vedi sopra
   creato_il timestamptz default now()
 );
 alter table pazienti add column if not exists preset_assegnato jsonb;
@@ -333,6 +334,7 @@ alter table pazienti add column if not exists attivo boolean default true;
 alter table pazienti add column if not exists screening_flags jsonb;
 alter table pazienti add column if not exists modalita_accesso text default 'diretto'; -- 'diretto' (vede subito il programma assegnato) | 'screening_poi_suggeriti' (vede solo lo screening finché non lo completa una prima volta)
 alter table pazienti add column if not exists screening_completato_il timestamptz; -- valorizzato la prima volta che il paziente completa lo screening in modalita_accesso='screening_poi_suggeriti' — il gate scatta una sola volta
+alter table pazienti add column if not exists screening_risultati jsonb; -- ultimo screening completo (tutti i domini, non solo quelli flaggati) — {ts, summary:[...]}, mostrato in "Gestisci programma"
 alter table pazienti enable row level security;
 drop policy if exists "operatore vede e gestisce i propri pazienti" on pazienti;
 create policy "operatore vede e gestisce i propri pazienti" on pazienti for all
@@ -396,11 +398,13 @@ create table if not exists pazienti_locali (
   nome text not null,
   ultima_config jsonb,
   screening_flags jsonb, -- vedi sezione Batteria di screening
+  screening_risultati jsonb, -- ultimo screening completo (tutti i domini) — vedi sopra
   programma_assegnato jsonb, -- elenco di esercizi assegnati come scorciatoia di avvio rapido in presenza (non vincolante)
   creato_il timestamptz default now()
 );
 alter table pazienti_locali add column if not exists screening_flags jsonb;
 alter table pazienti_locali add column if not exists programma_assegnato jsonb;
+alter table pazienti_locali add column if not exists screening_risultati jsonb;
 alter table pazienti_locali enable row level security;
 drop policy if exists "operatore vede e gestisce i propri pazienti locali" on pazienti_locali;
 create policy "operatore vede e gestisce i propri pazienti locali" on pazienti_locali for all
@@ -652,16 +656,26 @@ del profilo, modificabile in seguito da "Gestisci programma":
   una volta superato, il paziente vede sempre il programma direttamente,
   anche se l'operatore lancia altri screening in seguito.
 
-**Suggerimenti da screening → programma** — ogni volta che uno screening
-(lanciato dall'operatore, o dal paziente stesso nel flusso "solo
-screening all'inizio") flagga un dominio, il suggerimento compare come
-etichetta ⭐ accanto al nome del paziente, con due azioni: **"+ Aggiungi"**
-lo trasforma subito in una voce reale del programma (con una
-configurazione di partenza già tarata su quel dominio, adattiva), **"✕"**
-lo scarta. Questa è la stessa leva usata dall'autorizzazione automatica
-del gate — la differenza è solo se scatta da sola alla prima valutazione
-o se la usa l'operatore a mano in qualsiasi momento successivo, anche
-ripetutamente.
+**Risultati screening e suggerimenti → programma** — tutto accessibile da
+un unico posto: "Gestisci programma" (pazienti remoti) o "Assegna
+programma" (pazienti in presenza). Lì trovi, oltre alla selezione multipla
+dei preset:
+- il **quadro completo dell'ultimo screening** — tutti i domini testati,
+  non solo quelli flaggati, con accuratezza base/caricato per ciascuno;
+- i **suggerimenti attivi** (⭐), con due azioni: **"+ Aggiungi"** li
+  trasforma subito in una voce reale del programma (con una
+  configurazione di partenza già tarata su quel dominio, adattiva),
+  **"✕"** li scarta. È la stessa leva usata dall'autorizzazione
+  automatica del gate — la differenza è solo se scatta da sola alla
+  prima valutazione o se la usa l'operatore a mano, anche ripetutamente;
+- un pulsante per **fare (o rifare) lo screening** direttamente da qui.
+
+Solo l'ultimo screening completo resta consultabile (non uno storico di
+tutti quelli fatti); i suggerimenti invece si accumulano nel tempo tra
+uno screening e l'altro, a meno di essere scartati a mano. Le liste
+pazienti (remoti e in presenza) mostrano solo un conteggio dei
+suggerimenti attivi, come promemoria — la gestione vera è sempre nel
+profilo.
 
 **Eredità da un profilo in presenza** — il pulsante "Trasforma in
 account remoto" (disponibile ovunque sia selezionato un paziente in

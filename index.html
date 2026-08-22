@@ -313,6 +313,23 @@
       instructions:c=>{
         if(c.switchMaterial==='bivalente') return 'Vedrai un carattere che può essere un numero o una lettera, scritto in bianco o in rosso. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere, ignora il colore) oppure "Bianco / Rosso" (rispondi in base al colore, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
         const rs=SWITCH_RULESETS[c.switchMaterial]; const matName = c.switchMaterial==='numeri'?'un numero':c.switchMaterial==='lettere'?'una lettera':c.switchMaterial==='simboli'?'un simbolo':'un colore'; return 'Vedrai '+matName+', con accanto un\'indicazione che cambia: a volte devi classificarlo come "'+rs.ruleA.label+'", altre volte come "'+rs.ruleB.label+'". Segui l\'indicazione mostrata in quel momento.'; }},
+    categorizzazione: {label:'Categorizzazione condizionale', usesStimType:false, usesTargetSeq:false, family:'choice',
+      domini:['Funzioni esecutive','Categorizzazione','Memoria di lavoro'],
+      instructions:c=>{
+        const liv = c.categLivello;
+        const matLabel = c.categMateriale==='colori' ? 'un cerchio colorato' : 'un simbolo';
+        if(liv===1){
+          const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
+          return 'Vedrai '+matLabel+': classificalo come "'+rs.labelA+'" o "'+rs.labelB+'", toccando il pulsante corrispondente. La regola resta sempre la stessa, non cambia da una prova all\'altra.';
+        }
+        if(liv===2) return 'Vedrai una lettera o un numero, nero o rosso. Tocca "A" se è una lettera nera, "B" se è un numero rosso, "C" se è un numero nero. Se è una lettera rossa, non toccare nulla — è l\'unico caso in cui non si risponde.';
+        if(liv===3) return 'Vedrai una lettera o un numero, nero o rosso. Tocca "A" se vedi una lettera nera oppure un numero rosso. Tocca "B" se vedi una lettera rossa oppure un numero nero.';
+        if(liv===4){
+          const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
+          return 'Vedrai una serie di '+(c.categMateriale==='colori'?'cerchi colorati':'simboli')+', uno alla volta. Ciascuno appartiene alla categoria "'+rs.labelA+'" o "'+rs.labelB+'". Tocca il pulsante ogni volta che la categoria è la stessa di quella dello stimolo appena precedente.';
+        }
+        return 'Vedrai una lettera o un numero, nero o rosso. Tocca A per lettera nera, L per lettera rossa, Z per numero nero, M per numero rosso.';
+      }},
     dualtask:   {label:'Doppio compito',          usesStimType:false, usesTargetSeq:false, family:'dual',
       domini:['Attenzione divisa','Funzioni esecutive'],
       instructions:c=>{
@@ -354,7 +371,11 @@
     memoria:    {label:'Strategie di memoria',      usesStimType:false, usesTargetSeq:false, family:'memoria',
       domini:['Memoria episodica/verbale (strategie compensative)'],
       instructions:c=>{
-        if(c.memoriaModo==='chunking') return 'Ti verrà mostrata una lista di parole per un tempo limitato: prova a ricordarle raggruppandole in categorie o creando associazioni, invece di ripeterle una per una. Dopo, l\'operatore ti chiederà di richiamarle a voce e segnerà quelle corrette.';
+        if(c.memoriaModo==='chunking'){
+          const metodi = (c.chunkingMetodi&&c.chunkingMetodi.length)?c.chunkingMetodi:['categoria'];
+          const nomiMetodi = metodi.map(k=>CHUNKING_METODI_LABELS[k].toLowerCase()).join(' + ');
+          return 'Ti verrà mostrata una lista di parole per un tempo limitato: prova a ricordarle usando questa tecnica (o queste tecniche): '+nomiMetodi+', invece di ripeterle una per una. Dopo, l\'operatore ti chiederà di richiamarle a voce e segnerà quelle corrette.';
+        }
         if(c.memoriaModo==='pqrst') return 'Ti verrà mostrato (o letto) un breve testo: leggilo con attenzione, individuando le idee principali (è la tecnica PQRST — prevedi le domande, leggi, ripeti a te stesso, ripassa, verifica). Dopo, l\'operatore ti chiederà di raccontarlo a voce e segnerà le idee che hai recuperato.';
         const materiale = c.memoriaModo==='chunking' ? 'lista' : (c.memoriaMateriale||'lista');
         const cosa = materiale==='lista' ? 'ogni parola della lista' : 'ogni idea principale del brano';
@@ -390,6 +411,8 @@
     goaltaskScenario:'sei_compiti_classico', goaltaskLivello:2, // solo per Scenari ecologici (1-5, crescente)
     memoriaModo:'pqrst', memoriaLivello:1, memoriaMateriale:'lista', // solo per Strategie di memoria — memoriaMateriale usato solo da loci/errorless/vanishing (pqrst è sempre brano, chunking è sempre lista)
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
+    chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
+    categLivello:1, categMateriale:'colori', // solo per Categorizzazione condizionale — livello 1-5 (struttura fissa, non adattiva); categMateriale usato solo ai livelli 1 e 4 ('colori'|'simboli')
     sequenzaMista:false, // solo per Sequenza bersaglio: mescola codici diversi (lettere/numeri/colori/suoni/simboli) nella stessa sequenza invece di un solo tipo
     nbackMista:false // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
   };
@@ -425,7 +448,9 @@
       neglectGradient:c.neglectGradient, neglectLayout:c.neglectLayout, neglectTimeLimit:c.neglectTimeLimit, neglectBoardSize:c.neglectBoardSize,
       neglectMode:c.neglectMode, neglectRuleLevel:c.neglectRuleLevel,
       goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale,
-      memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom
+      memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
+      chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
+      categLivello:c.categLivello, categMateriale:c.categMateriale
     };
   }
   function listPresets(){
@@ -462,6 +487,8 @@
     cfg.goaltaskLivello = pc.goaltaskLivello || 2;
     cfg.memoriaModo = pc.memoriaModo || 'pqrst'; cfg.memoriaLivello = pc.memoriaLivello || 1; cfg.memoriaMateriale = pc.memoriaMateriale || 'lista';
     cfg.memoriaLociTipo = pc.memoriaLociTipo || 'casa'; cfg.memoriaLociCustom = pc.memoriaLociCustom || '';
+    cfg.chunkingMetodi = (pc.chunkingMetodi && pc.chunkingMetodi.length) ? pc.chunkingMetodi : ['categoria']; cfg.chunkingNota = pc.chunkingNota || '';
+    cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'colori';
     cfg.sequenzaMista = !!pc.sequenzaMista; cfg.nbackMista = !!pc.nbackMista;
     cfg.targetSeq = (EXERCISES[pc.taskMode] && EXERCISES[pc.taskMode].usesTargetSeq && pc.targetSeq && pc.targetSeq.length)
       ? (pc.taskMode==='sequenza' && pc.sequenzaMista
@@ -731,8 +758,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -868,6 +895,7 @@
       case 'stopsignal': return buildStopSignal();
       case 'ant': return buildANT();
       case 'switching': return buildSwitching();
+      case 'categorizzazione': return buildCategorizzazione();
       case 'dualtask': return buildDualTask();
       default: return buildSequenceNback();
     }
@@ -1102,6 +1130,76 @@
         congruency = ansTipo===ansColore ? 'congruent' : 'incongruent';
       }
       seq.push({val:item, rule:activeRule, ruleDef, correctAnswer, sizeVariant, congruency, isSwitch, valid:true});
+    }
+    return seq;
+  }
+  // ---------- Categorizzazione condizionale ----------
+  // Esercizio separato dal Task-switching: qui la regola resta fissa per
+  // tutta la sessione (non si misura il costo di cambiare regola, ma il
+  // carico di applicarne una di complessità crescente). 5 livelli fissi,
+  // struttura confermata da Rodrigo — non adattivo (a differenza di
+  // switching/nback/ecc.), il livello si sceglie a mano come per il
+  // neglect a regola.
+  // Livelli 2/3/5 condividono lo stesso item a due dimensioni indipendenti
+  // (tipo: lettera/numero; colore: nero/rosso) usato dal bivalente dello
+  // switching, ma con mappature diverse sulla risposta:
+  //  - L2: doppia dimensione con no-go (3 risposte attive + un caso di non risposta)
+  //  - L3: stessa doppia dimensione, ricombinata in una regola disgiuntiva a 2 risposte
+  //  - L5: stessa doppia dimensione, mappatura diretta a 4 risposte (nessun no-go, nessuna disgiunzione)
+  // I livelli 1/4 restano invece a singola dimensione (colore o simbolo,
+  // scelta dall'operatore) — L4 aggiunge il confronto con lo stimolo
+  // precedente (n-back sulla categoria, n=1 fisso).
+  const CATEG_LETTERE = ['B','D','F','G','H','J','K','L','M','P']; // consonanti, come nel bivalente dello switching
+  const CATEG_NUMERI = ['1','2','3','4','6','7','8','9'];
+  function genCategItem(){
+    const isLettera = Math.random()<0.5;
+    const valore = isLettera
+      ? CATEG_LETTERE[Math.floor(Math.random()*CATEG_LETTERE.length)]
+      : CATEG_NUMERI[Math.floor(Math.random()*CATEG_NUMERI.length)];
+    return { tipo: isLettera?'lettera':'numero', valore, colore: Math.random()<0.5?'nero':'rosso' };
+  }
+  function categL2Outcome(item){
+    if(item.tipo==='lettera' && item.colore==='nero') return 'a';
+    if(item.tipo==='lettera' && item.colore==='rosso') return 'nogo';
+    if(item.tipo==='numero' && item.colore==='rosso') return 'b';
+    return 'c'; // numero nero
+  }
+  function categL3Outcome(item){
+    const isA = (item.tipo==='lettera' && item.colore==='nero') || (item.tipo==='numero' && item.colore==='rosso');
+    return isA ? 'a' : 'b';
+  }
+  function categL5Outcome(item){
+    if(item.tipo==='lettera') return item.colore==='nero' ? 'a' : 'l';
+    return item.colore==='nero' ? 'z' : 'm';
+  }
+  function buildCategorizzazione(){
+    const liv = cfg.categLivello;
+    const seq = [];
+    if(liv===1){
+      const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
+      const pool = POOLS[cfg.categMateriale];
+      for(let i=0;i<cfg.trials;i++){
+        const val = pool[Math.floor(Math.random()*pool.length)];
+        seq.push({val, correctAnswer: rs.classify(val)?'a':'b', valid:true, categMateriale:cfg.categMateriale});
+      }
+    } else if(liv===4){
+      const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
+      const pool = POOLS[cfg.categMateriale];
+      let prevCat = null;
+      for(let i=0;i<cfg.trials;i++){
+        const val = pool[Math.floor(Math.random()*pool.length)];
+        const cat = rs.classify(val) ? 'a' : 'b';
+        const valid = i>0; // il primo stimolo non ha un precedente con cui confrontarsi
+        const correctAnswer = (valid && cat===prevCat) ? 'match' : 'nogo';
+        seq.push({val, correctAnswer, valid, categMateriale:cfg.categMateriale});
+        prevCat = cat;
+      }
+    } else {
+      for(let i=0;i<cfg.trials;i++){
+        const item = genCategItem();
+        const correctAnswer = liv===2 ? categL2Outcome(item) : liv===3 ? categL3Outcome(item) : categL5Outcome(item);
+        seq.push({val:item, correctAnswer, valid:true, categBivalente:true});
+      }
     }
     return seq;
   }
@@ -2311,6 +2409,29 @@
       if(cfg.memoriaModo==='loci' || cfg.memoriaModo==='errorless' || cfg.memoriaModo==='vanishing'){
         grid.appendChild(field('Materiale', segButtons(['lista','brano'], cfg.memoriaMateriale||'lista', v=>{cfg.memoriaMateriale=v; render();}, {lista:'Lista di parole', brano:'Brano'})));
       }
+      if(cfg.memoriaModo==='chunking'){
+        const maxMetodi = cfg.memoriaLivello>=11 ? 2 : 1;
+        if(cfg.chunkingMetodi.length>maxMetodi) cfg.chunkingMetodi = cfg.chunkingMetodi.slice(0,maxMetodi);
+        const wrap = el('div',{class:'seg'});
+        ['categoria','acronimo','narrazione','immagine','personale'].forEach(k=>{
+          const on = cfg.chunkingMetodi.includes(k);
+          const b = el('button',{class:on?'on':'', onclick:()=>{
+            if(on){ if(cfg.chunkingMetodi.length>1) cfg.chunkingMetodi = cfg.chunkingMetodi.filter(x=>x!==k); }
+            else {
+              cfg.chunkingMetodi = cfg.chunkingMetodi.length>=maxMetodi ? cfg.chunkingMetodi.slice(1).concat([k]) : cfg.chunkingMetodi.concat([k]);
+            }
+            render();
+          }},[CHUNKING_METODI_LABELS[k]]);
+          wrap.appendChild(b);
+        });
+        grid.appendChild(field('Metodo/i (tocca per attivare/disattivare — max '+maxMetodi+(maxMetodi>1?' dal livello 11':'')+')', wrap));
+        if(cfg.chunkingMetodi.includes('personale')){
+          const ta = el('textarea',{rows:3, style:'width:100%; font:inherit; padding:8px; border-radius:8px; border:1px solid var(--line, #ccc);', placeholder:'Descrivi la tecnica concordata con questo paziente (es. una strategia sua, non codificata).'},[cfg.chunkingNota||'']);
+          ta.value = cfg.chunkingNota||'';
+          ta.addEventListener('change', ()=>{ cfg.chunkingNota = ta.value; });
+          grid.appendChild(field('Nota tecnica personale', ta));
+        }
+      }
       if(cfg.memoriaModo==='loci'){
         grid.appendChild(field('Percorso', segButtons(['casa','corpo','personalizzato'], cfg.memoriaLociTipo||'casa', v=>{cfg.memoriaLociTipo=v; render();}, {casa:'Casa tipo (16 tappe)', corpo:'Corpo (16 tappe)', personalizzato:'Personalizzato'})));
         if(cfg.memoriaLociTipo==='personalizzato'){
@@ -2436,6 +2557,20 @@
       if(cfg.switchMaterial==='bivalente'){
         card.appendChild(el('p',{class:'hint'},['Modalità a doppia dimensione (tipo di carattere + colore, assegnati indipendentemente): su metà delle prove le due dimensioni indicano la stessa risposta ("congruenti"), sull\'altra metà indicano risposte opposte ("incongruenti") — genera un indice di conflitto in stile Stroop, oltre allo switch cost. Consigliate almeno 60 prove per un indice di conflitto stabile.']));
       }
+    }
+    if(cfg.taskMode==='categorizzazione'){
+      card.appendChild(field('Livello (1-5)', stepper(cfg.categLivello,1,5,v=>{cfg.categLivello=v; render();},1)));
+      if(cfg.categLivello===1 || cfg.categLivello===4){
+        card.appendChild(field('Materiale', segButtons(['colori','simboli'], cfg.categMateriale, v=>{cfg.categMateriale=v; render();}, {colori:'Colori', simboli:'Simboli'})));
+      }
+      const CATEG_LEVEL_HINTS = {
+        1:'Singola dimensione, regola fissa per tutta la sessione (nessun costo di switch, a differenza del Task-switching).',
+        2:'Doppia dimensione con no-go: 3 risposte attive più un caso in cui non si deve rispondere.',
+        3:'Stessa doppia dimensione, ricombinata in una regola disgiuntiva a 2 risposte ("A se... oppure...").',
+        4:'Stessa singola dimensione del livello 1, con l\'aggiunta del confronto con lo stimolo precedente (1-back sulla categoria).',
+        5:'Stessa doppia dimensione, mappata direttamente su 4 risposte — nessun no-go, nessuna disgiunzione.'
+      };
+      card.appendChild(el('p',{class:'hint'},[CATEG_LEVEL_HINTS[cfg.categLivello]]));
     }
     if(cfg.taskMode==='dualtask'){
       card.appendChild(field('Accoppiamento canali', segButtons(['vis-aud','vis-vis','aud-aud'], cfg.dualPairing, v=>{ cfg.dualPairing=v; render(); }, {'vis-aud':'Visivo + Uditivo', 'vis-vis':'Visivo + Visivo', 'aud-aud':'Uditivo + Uditivo'})));
@@ -3280,6 +3415,7 @@
     switch(cfg.taskMode){
       case 'gonogo': case 'stopsignal': outcome = resolveSignal(trial); break;
       case 'ant': case 'switching': outcome = resolveChoice(trial); break;
+      case 'categorizzazione': outcome = resolveCategorization(trial); break;
       case 'dualtask': outcome = resolveDualTask(trial); break;
       default: outcome = resolveSignal(trial); // nback / sequenza
     }
@@ -3355,7 +3491,26 @@
     }
     return correct ? 'hit' : 'err';
   }
-  // Doppio compito: due canali indipendenti, ciascuno con proprio target.
+  // Categorizzazione condizionale: come resolveChoice, ma con un caso in
+  // più — trial.correctAnswer può essere 'nogo' (L2: lettera rossa; L4:
+  // categoria diversa dalla precedente), nel qual caso la risposta corretta
+  // è NON toccare nulla. 'omitted' conta solo le mancate risposte vere
+  // (dove serviva un tocco), non i corretti "non rispondere" — altrimenti
+  // il conteggio "risposte omesse" nello storico sarebbe fuorviante per
+  // questi livelli. Nessun adattamento automatico: il livello 1-5 si sceglie
+  // a mano, come per la Cancellazione a regola.
+  function resolveCategorization(trial){
+    if(!trial.valid) return null;
+    if(cfg.respMode==='manuale') return 'pend';
+    const given = [...session.responses][0] || null;
+    const isNogo = trial.correctAnswer==='nogo';
+    const correct = isNogo ? given===null : given===trial.correctAnswer;
+    session.choiceLog.push({
+      correct, rt: (correct && !isNogo) ? session.respTime : null,
+      omitted: given===null && !isNogo
+    });
+    return correct ? 'hit' : 'err';
+  }
   function resolveDualTask(trial){
     if(!trial.valid) return null;
     if(cfg.respMode==='manuale') return 'pend';
@@ -3498,6 +3653,17 @@
       }
       case 'switching':
         return [{action:'a', label:'—', cls:'match'}, {action:'b', label:'—', cls:'nomatch'}];
+      case 'categorizzazione': {
+        const liv = cfg.categLivello;
+        if(liv===1){
+          const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
+          return [{action:'a', label:rs.labelA, cls:'match'}, {action:'b', label:rs.labelB, cls:'nomatch'}];
+        }
+        if(liv===2) return [{action:'a', label:'A', cls:'match'}, {action:'b', label:'B', cls:'nomatch'}, {action:'c', label:'C', cls:'nomatch'}];
+        if(liv===3) return [{action:'a', label:'A', cls:'match'}, {action:'b', label:'B', cls:'nomatch'}];
+        if(liv===4) return [{action:'match', label: cfg.respMode==='operatore' ? 'Il paziente indica corrispondenza' : 'Corrispondenza (stessa categoria di prima)', cls:'match', full:true}];
+        return [{action:'a', label:'A — lettera nera', cls:'match'}, {action:'l', label:'L — lettera rossa', cls:'nomatch'}, {action:'z', label:'Z — numero nero', cls:'match'}, {action:'m', label:'M — numero rosso', cls:'nomatch'}];
+      }
       case 'dualtask': {
         const pairing = cfg.dualPairing || 'vis-aud';
         if(pairing==='vis-vis') return [{action:'vis', label:'Ripetuto a sinistra ('+STIM_LABELS[cfg.dualVisual]+')', cls:'match'}, {action:'aud', label:'Ripetuto a destra ('+STIM_LABELS[cfg.dualVisual2]+')', cls:'nomatch'}];
@@ -3583,6 +3749,7 @@
       : (cfg.taskMode==='ant' && cfg.antMode==='tapat' && trial) ? 'TAPAT — blocco '+(trial.block==='tonic'?'tonico':'fasico')+' · livello '+session.tapatLevel+(cfg.adaptive?' (adattivo)':'')
       : (cfg.taskMode==='ant' && cfg.antMode==='classico') ? 'ANT'+(cfg.adaptive?' · livello '+session.adaptLevel:'')
       : (cfg.taskMode==='switching' || cfg.taskMode==='dualtask') && cfg.adaptive ? EXERCISES[cfg.taskMode].label+' · livello '+session.adaptLevel
+      : cfg.taskMode==='categorizzazione' ? EXERCISES[cfg.taskMode].label+' · livello '+cfg.categLivello
       : EXERCISES[cfg.taskMode].label;
     d.infoSpan.textContent = 'prova '+(Math.min(session.idx+1,cfg.trials))+' / '+cfg.trials+' · '+modeLabel+
       ((EXERCISES[cfg.taskMode].usesStimType && !(cfg.taskMode==='ant' && cfg.antMode==='classico')) ? ' · '+(cfg.taskMode==='sequenza' && cfg.sequenzaMista ? 'Mista' : STIM_LABELS[cfg.stimType]) : '');
@@ -3670,6 +3837,15 @@
         wrap.appendChild(el('div',{class:'stimulus'},[seqLabel(trial.val)]));
       }
       return wrap;
+    }
+    if(cfg.taskMode==='categorizzazione'){
+      if(trial.categMateriale){ // livelli 1 e 4: singola dimensione, colore o simbolo
+        if(cfg.categMateriale==='colori') return el('div',{class:'colorcircle', style:'width:140px; height:140px; background:'+trial.val.hex+';'},[]);
+        return el('div',{class:'stimulus symbolwrap'},[trial.val]);
+      }
+      // livelli 2/3/5: stesso stile del bivalente dello switching — testo
+      // bianco o rosso su sfondo scuro, a seconda della dimensione colore.
+      return el('div',{class:'stimulus', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]);
     }
     if(cfg.taskMode==='dualtask'){
       const pairing = cfg.dualPairing || 'vis-aud';
@@ -3845,6 +4021,34 @@
     return {infoSpan, content};
   }
   const MEMORIA_MODO_LABELS = {pqrst:'PQRST', chunking:'chunking', loci:'metodo dei loci', errorless:'errorless learning', vanishing:'vanishing cues'};
+  const CHUNKING_METODI_LABELS = {categoria:'Categorizzazione semantica', acronimo:'Acronimo/acrostico', narrazione:'Narrazione/concatenamento', immagine:'Immagine associativa', personale:'Personale (nota libera)'};
+  // Un box di suggerimento per metodo attivo — generico per i metodi
+  // generativi (acronimo/narrazione/immagine): non c'è contenuto scriptato
+  // da mostrare, solo l'istruzione della tecnica, applicata insieme
+  // dall'operatore e dal paziente sulla lista mostrata sopra.
+  function chunkingStratBox(metodo, m, cfg){
+    if(metodo==='categoria'){
+      if(m.categorizzata) return {titolo:'Suggerimento — chunking per categoria', testo:'Queste parole appartengono tutte alla categoria "'+m.categoria+'": raggruppale mentalmente in un unico blocco invece di ricordarle una per una — ricorda "un gruppo di '+m.categoria+'", non '+m.parole.length+' parole slegate.'};
+      return {titolo:'Suggerimento — costruisci tu il raggruppamento', testo:'Queste parole non condividono una categoria ovvia: prova a creare tu piccoli gruppi (2-3 parole) legandole con un\'immagine mentale o una breve storia che le colleghi, invece di ripeterle in ordine.'};
+    }
+    if(metodo==='acronimo') return {titolo:'Suggerimento — acronimo/acrostico', testo:'Le iniziali sono evidenziate qui sopra: costruite insieme una parola o una breve frase che le usi tutte, in ordine, come aggancio per richiamare l\'intera lista.'};
+    if(metodo==='narrazione') return {titolo:'Suggerimento — narrazione/concatenamento', testo:'Costruite insieme una breve storia che colleghi le parole in sequenza, una che porta alla successiva — più è vivida o assurda, meglio si ricorda.'};
+    if(metodo==='immagine') return {titolo:'Suggerimento — immagine associativa', testo:'Per ogni parola (o per coppie consecutive), crea un\'immagine mentale vivida che la colleghi alla successiva — nessun percorso fisso, solo l\'associazione tra le immagini.'};
+    if(metodo==='personale') return {titolo:'Tecnica personale', testo: cfg.chunkingNota && cfg.chunkingNota.trim() ? cfg.chunkingNota : '(nessuna nota inserita dall\'operatore per questo paziente)'};
+    return null;
+  }
+  // Evidenzia la prima lettera di ogni parola, in maiuscolo — usata solo
+  // quando il metodo 'acronimo' è tra quelli attivi, per rendere visibili
+  // le iniziali su cui costruire l'acronimo/acrostico.
+  function wordsWithInitialsHighlighted(parole){
+    return el('div',{},parole.map((w,i)=>{
+      const span = el('span',{},[
+        el('span',{style:'font-weight:800; text-decoration:underline; color:var(--signal);'},[w.charAt(0).toUpperCase()]),
+        w.slice(1)
+      ]);
+      return i<parole.length-1 ? el('span',{},[span, '  ·  ']) : span;
+    }));
+  }
   function updateMemoriaScreen(){
     const {infoSpan, content} = taskDom;
     const m = session.material;
@@ -3855,16 +4059,20 @@
     if(session.phase==='studio'){
       infoSpan.textContent = 'Livello '+m.livello+' · '+MEMORIA_MODO_LABELS[modo]+' · fase di studio';
       if(modo==='chunking'){
-        content.appendChild(el('div',{style:'font-size:22px; line-height:1.8; text-align:center; padding:24px; background:var(--paper-dim); border-radius:12px;'},[m.parole.join('  ·  ')]));
-        const stratBox = el('div',{style:'background:var(--paper-dim2, var(--paper-dim)); border-left:3px solid var(--signal); border-radius:8px; padding:12px 16px; margin-top:14px; font-size:14px; line-height:1.5;'});
-        if(m.categorizzata){
-          stratBox.appendChild(el('div',{style:'font-weight:600; margin-bottom:4px;'},['Suggerimento — chunking per categoria']));
-          stratBox.appendChild(el('div',{},['Queste parole appartengono tutte alla categoria "'+m.categoria+'": raggruppale mentalmente in un unico blocco invece di ricordarle una per una — ricorda "un gruppo di '+m.categoria+'", non '+m.parole.length+' parole slegate.']));
+        const metodi = (cfg.chunkingMetodi && cfg.chunkingMetodi.length) ? cfg.chunkingMetodi : ['categoria'];
+        if(metodi.includes('acronimo')){
+          content.appendChild(el('div',{style:'font-size:22px; line-height:1.8; text-align:center; padding:24px; background:var(--paper-dim); border-radius:12px;'},[wordsWithInitialsHighlighted(m.parole)]));
         } else {
-          stratBox.appendChild(el('div',{style:'font-weight:600; margin-bottom:4px;'},['Suggerimento — costruisci tu il raggruppamento']));
-          stratBox.appendChild(el('div',{},['Queste parole non condividono una categoria ovvia: prova a creare tu piccoli gruppi (2-3 parole) legandole con un\'immagine mentale o una breve storia che le colleghi, invece di ripeterle in ordine.']));
+          content.appendChild(el('div',{style:'font-size:22px; line-height:1.8; text-align:center; padding:24px; background:var(--paper-dim); border-radius:12px;'},[m.parole.join('  ·  ')]));
         }
-        content.appendChild(stratBox);
+        metodi.forEach(metodo=>{
+          const box = chunkingStratBox(metodo, m, cfg);
+          if(!box) return;
+          const stratBox = el('div',{style:'background:var(--paper-dim2, var(--paper-dim)); border-left:3px solid var(--signal); border-radius:8px; padding:12px 16px; margin-top:14px; font-size:14px; line-height:1.5;'});
+          stratBox.appendChild(el('div',{style:'font-weight:600; margin-bottom:4px;'},[box.titolo]));
+          stratBox.appendChild(el('div',{},[box.testo]));
+          content.appendChild(stratBox);
+        });
         content.appendChild(speakControls(()=>m.parole.join(', ')));
         content.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{
           try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
@@ -4145,7 +4353,9 @@
         modo: cfg.memoriaModo, materiale, livello: m.livello,
         titolo: materiale==='brano' ? m.titolo : null,
         recuperati, totale, percentuale: totale ? Math.round((recuperati/totale)*100) : 0,
-        dettaglioRichiamo: session.recall
+        dettaglioRichiamo: session.recall,
+        chunkingMetodi: cfg.memoriaModo==='chunking' ? cfg.chunkingMetodi : undefined,
+        chunkingNota: (cfg.memoriaModo==='chunking' && cfg.chunkingMetodi.includes('personale')) ? cfg.chunkingNota : undefined
       };
     }
     lastResult = rec;

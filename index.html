@@ -432,12 +432,18 @@
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
     categLivello:1, categMateriale:'colori', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('colori'|'simboli')
     sequenzaMista:false, // solo per Sequenza bersaglio: mescola codici diversi (lettere/numeri/colori/suoni/simboli) nella stessa sequenza invece di un solo tipo
-    nbackMista:false // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
+    nbackMista:false, // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
+    gonogoMista:false, // solo per Go/No-Go: stesso principio — il/i bersaglio/i no-go possono essere di tipi diversi fra loro, non solo lo stesso cfg.stimType
   };
   // Tipi di stimolo utilizzabili insieme in una sequenza bersaglio mista.
   // Escluse le parole: la lunghezza variabile complicherebbe la costruzione
   // e la lettura rapida della sequenza da parte del paziente.
-  const SEQUENZA_MISTA_TYPES = ['lettere','numeri','colori','suoni','simboli'];
+  const SEQUENZA_MISTA_TYPES = ['lettere','numeri','colori','suoni','simboli','lettereVoce','numeriVoce'];
+  function randMistaStim(){
+    const t = SEQUENZA_MISTA_TYPES[Math.floor(Math.random()*SEQUENZA_MISTA_TYPES.length)];
+    const pool = POOLS[t];
+    return {stimType:t, item: pool[Math.floor(Math.random()*pool.length)]};
+  }
   function defaultTargetSeq(stimType, len){
     len = len || (cfg.targetSeq ? cfg.targetSeq.length : 3);
     const pool = POOLS[stimType];
@@ -459,7 +465,7 @@
             ? c.targetSeq.map(e=>({stimType:e.stimType, label:seqLabel(e)}))
             : c.targetSeq.map(seqLabel))
         : null,
-      sequenzaMista: !!c.sequenzaMista, nbackMista: !!c.nbackMista,
+      sequenzaMista: !!c.sequenzaMista, nbackMista: !!c.nbackMista, gonogoMista: !!c.gonogoMista,
       trials:c.trials, isi:c.isi, stimDuration:c.stimDuration, targetRate:c.targetRate,
       respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, adaptive:c.adaptive,
       switchMaterial:c.switchMaterial, dualVisual:c.dualVisual, dualVisual2:c.dualVisual2, dualPairing:c.dualPairing, antMode:c.antMode,
@@ -569,7 +575,7 @@
     cfg.memoriaLociTipo = pc.memoriaLociTipo || 'casa'; cfg.memoriaLociCustom = pc.memoriaLociCustom || '';
     cfg.chunkingMetodi = (pc.chunkingMetodi && pc.chunkingMetodi.length) ? pc.chunkingMetodi : ['categoria']; cfg.chunkingNota = pc.chunkingNota || '';
     cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'colori';
-    cfg.sequenzaMista = !!pc.sequenzaMista; cfg.nbackMista = !!pc.nbackMista;
+    cfg.sequenzaMista = !!pc.sequenzaMista; cfg.nbackMista = !!pc.nbackMista; cfg.gonogoMista = !!pc.gonogoMista;
     cfg.targetSeq = (EXERCISES[pc.taskMode] && EXERCISES[pc.taskMode].usesTargetSeq && pc.targetSeq && pc.targetSeq.length)
       ? (pc.taskMode==='sequenza' && pc.sequenzaMista
           ? pc.targetSeq.map(e=>{ const pool = POOLS[e.stimType]||[]; return {stimType:e.stimType, item: pool.find(it=>seqLabel(it)===e.label) || e.label}; })
@@ -911,8 +917,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1493,6 +1499,17 @@
   function seqLabel(v){
     if(v && typeof v==='object' && Object.prototype.hasOwnProperty.call(v,'stimType') && Object.prototype.hasOwnProperty.call(v,'item')) return seqLabel(v.item);
     return (v && typeof v==='object') ? v.icon : v;
+  }
+  // A differenza di seqLabel (pensato per l'etichetta da mostrare), questo
+  // serve per l'IDENTITÀ: due stimoli con lo stesso valore ma tipo diverso
+  // (es. lettera "A" vista vs "A" pronunciata) non sono lo stesso stimolo —
+  // serve quando il materiale può essere misto (vedi cfg.*Mista) e il
+  // confronto va fatto su stimType+item, non solo sul valore visualizzato.
+  function sameStim(a,b){
+    const aObj = a && typeof a==='object' && Object.prototype.hasOwnProperty.call(a,'stimType');
+    const bObj = b && typeof b==='object' && Object.prototype.hasOwnProperty.call(b,'stimType');
+    if(aObj || bObj) return aObj && bObj && a.stimType===b.stimType && a.item===b.item;
+    return seqLabel(a)===seqLabel(b);
   }
   function describeTargetSeq(){ return cfg.targetSeq.map(seqLabel).join(' → '); }
 
@@ -2782,6 +2799,7 @@
     const isClassicAnt = cfg.taskMode==='ant' && cfg.antMode==='classico';
     const isSequenzaMista = cfg.taskMode==='sequenza' && cfg.sequenzaMista;
     const isNbackMista = cfg.taskMode==='nback' && cfg.nbackMista;
+    const isGonogoMista = cfg.taskMode==='gonogo' && cfg.gonogoMista;
     const neglectIntruso = cfg.taskMode==='neglect' && cfg.neglectMode==='intruso'; // pool fisso di glifi, nessuna scelta di materiale
     const neglectRegola = cfg.taskMode==='neglect' && cfg.neglectMode==='regola'; // solo numeri/lettere, servono proprietà classificabili (pari/dispari, vocale/consonante)
     if(cfg.taskMode==='sequenza'){
@@ -2797,7 +2815,14 @@
         render();
       }, {no:'Un solo tipo', si:'Mescolati (lettere/numeri/colori/suoni/simboli)'})));
     }
-    if(ex.usesStimType && !isClassicAnt && !isSequenzaMista && !isNbackMista && !neglectIntruso){
+    if(cfg.taskMode==='gonogo'){
+      grid.appendChild(field('Materiale', segButtons(['no','si'], cfg.gonogoMista?'si':'no', v=>{
+        cfg.gonogoMista = v==='si';
+        cfg.targetSeq = [];
+        render();
+      }, {no:'Un solo tipo', si:'Mescolati (lettere/numeri/colori/suoni/simboli)'})));
+    }
+    if(ex.usesStimType && !isClassicAnt && !isSequenzaMista && !isNbackMista && !isGonogoMista && !neglectIntruso){
       grid.appendChild(field('Tipo di stimolo', segButtons(
         neglectRegola ? ['numeri','lettere'] : Object.keys(STIM_LABELS).filter(k=> !((cfg.taskMode==='stopsignal' || cfg.taskMode==='neglect') && isAudioOnlyStim(k))),
         cfg.stimType, v=>{
@@ -3167,7 +3192,7 @@
   function sequenceEditor(){
     const isGoNoGo = cfg.taskMode==='gonogo';
     const isNeglect = cfg.taskMode==='neglect';
-    const isMista = cfg.taskMode==='sequenza' && cfg.sequenzaMista;
+    const isMista = (cfg.taskMode==='sequenza' && cfg.sequenzaMista) || (cfg.taskMode==='gonogo' && cfg.gonogoMista);
     const wrap = el('div',{class:'field'});
     const label = isGoNoGo ? 'Elementi no-go (1–6, su cui NON si deve rispondere — con l\'adattivo attivo ne verranno usati progressivamente di più)'
       : isNeglect ? 'Elementi bersaglio da cancellare (1–4, l\'ordine non conta)'
@@ -3192,7 +3217,10 @@
           const itemLabel = seqLabel(item);
           const attrs = {onclick:()=>{
             if(t==='suoni' || isSpokenStim(t)) playStimulusAudio(t, item, 350);
-            if(cfg.targetSeq.length < 6){ cfg.targetSeq = cfg.targetSeq.concat([{stimType:t, item}]); render(); }
+            if(isGoNoGo){
+              if(cfg.targetSeq.some(x=>sameStim(x,{stimType:t,item}))) return; // già presente
+              if(cfg.targetSeq.length < 6){ cfg.targetSeq = cfg.targetSeq.concat([{stimType:t, item}]); render(); }
+            } else if(cfg.targetSeq.length < 6){ cfg.targetSeq = cfg.targetSeq.concat([{stimType:t, item}]); render(); }
           }};
           if(t==='colori') attrs.style = 'background:'+item.hex+'; color:#fff; border-color:'+item.hex+';';
           chips.appendChild(el('button',attrs,[itemLabel]));
@@ -3692,15 +3720,19 @@
   // Go/No-Go: generazione incrementale, necessaria perché con l'adattivo
   // attivo la frequenza no-go cambia durante la sessione.
   function genGoNoGoTrial(){
-    const pool = POOLS[cfg.stimType];
+    const isMista = cfg.gonogoMista;
+    const pool = isMista ? null : POOLS[cfg.stimType];
     const fullSet = cfg.targetSeq;
     const count = cfg.adaptive ? Math.min(fullSet.length, ADAPT_GONOGO_COUNT[session.adaptLevel]||1) : fullSet.length;
     const activeNoGo = fullSet.slice(0, Math.max(1,count));
     const freq = cfg.adaptive ? (ADAPT_GONOGO_FREQ[session.adaptLevel] || cfg.targetRate) : cfg.targetRate;
     let val;
     if(Math.random() < freq){ val = activeNoGo[Math.floor(Math.random()*activeNoGo.length)]; }
+    else if(isMista){
+      do{ val = randMistaStim(); } while(activeNoGo.some(x=>sameStim(x,val)));
+    }
     else { do{ val = pool[Math.floor(Math.random()*pool.length)]; } while(activeNoGo.some(x=>seqLabel(x)===seqLabel(val)) && pool.length>activeNoGo.length); }
-    const isNoGo = activeNoGo.some(x=>seqLabel(x)===seqLabel(val));
+    const isNoGo = activeNoGo.some(x=>sameStim(x,val));
     const trial = {val, isTarget: !isNoGo, valid:true};
     session.seq.push(trial);
     return trial;
@@ -3987,6 +4019,11 @@
       return;
     }
     if(cfg.taskMode==='sequenza' && cfg.sequenzaMista){
+      if(trial.val.stimType==='suoni' || isSpokenStim(trial.val.stimType)) playStimulusAudio(trial.val.stimType, trial.val.item, cfg.stimDuration);
+      else if(cfg.voice && trial.val.stimType==='lettere') speak(String(trial.val.item));
+      return;
+    }
+    if((cfg.taskMode==='nback' && cfg.nbackMista) || (cfg.taskMode==='gonogo' && cfg.gonogoMista)){
       if(trial.val.stimType==='suoni' || isSpokenStim(trial.val.stimType)) playStimulusAudio(trial.val.stimType, trial.val.item, cfg.stimDuration);
       else if(cfg.voice && trial.val.stimType==='lettere') speak(String(trial.val.item));
       return;
@@ -4475,6 +4512,9 @@
       return renderTypedStimulus(trial.val.stimType, trial.val.item);
     }
     if(cfg.taskMode==='nback' && cfg.nbackMista){
+      return renderTypedStimulus(trial.val.stimType, trial.val.item);
+    }
+    if(cfg.taskMode==='gonogo' && cfg.gonogoMista){
       return renderTypedStimulus(trial.val.stimType, trial.val.item);
     }
     if(cfg.stimType==='simboli'){
@@ -6023,7 +6063,28 @@
               }},['✕ Rimuovi'])
             ])
           ]),
-          levelChanged ? el('div',{style:'font-size:12px; color:var(--ink-soft); margin-top:4px;'},['Suggerito dallo screening: livello '+origLevel+' — oggi: livello '+curLevel]) : null
+          levelChanged ? el('div',{style:'font-size:12px; color:var(--ink-soft); margin-top:4px;'},['Suggerito dallo screening: livello '+origLevel+' — oggi: livello '+curLevel]) : null,
+          el('div',{style:'display:flex; align-items:center; gap:8px; margin-top:6px;'},[
+            el('span',{style:'font-size:12px; color:var(--ink-soft);'},[
+              entry.tempoConsigliato ? 'Tempo consigliato: '+entry.tempoConsigliato.minuti+' min/'+(entry.tempoConsigliato.periodo==='giorno'?'giorno':'totale') : 'Nessun tempo consigliato impostato'
+            ]),
+            el('button',{style:'background:none; border:none; color:var(--signal); text-decoration:underline; font-size:12px; cursor:pointer; font-family:Inter;', onclick: async ()=>{
+              const minStr = prompt('Minuti consigliati per questo esercizio (lascia vuoto per rimuovere):', entry.tempoConsigliato ? entry.tempoConsigliato.minuti : '');
+              if(minStr===null) return;
+              if(minStr.trim()===''){
+                const ok = await replaceProgramEntry(isLocal?'local':'remote', editingPatient.id, idx, {tempoConsigliato:null});
+                if(ok) render();
+                return;
+              }
+              const minuti = parseInt(minStr,10);
+              if(!minuti || minuti<1){ alert('Inserisci un numero di minuti valido.'); return; }
+              const periodoScelta = prompt('1) al giorno\n2) totale (una tantum)', '1');
+              if(periodoScelta===null) return;
+              const periodo = periodoScelta.trim()==='2' ? 'totale' : 'giorno';
+              const ok = await replaceProgramEntry(isLocal?'local':'remote', editingPatient.id, idx, {tempoConsigliato:{minuti, periodo}});
+              if(ok) render();
+            }},[entry.tempoConsigliato ? 'Modifica' : 'Imposta tempo'])
+          ])
         ].filter(Boolean));
         card.appendChild(row);
       });
@@ -6409,8 +6470,10 @@
       card.appendChild(el('p',{class:'hint'},['Il tuo operatore ti ha assegnato '+program.length+(program.length>1?' allenamenti':' allenamento')+':']));
       program.forEach(item=>{
         const exLabel = EXERCISES[item.cfg.taskMode] ? EXERCISES[item.cfg.taskMode].label : item.cfg.taskMode;
+        const tempo = item.tempoConsigliato;
+        const tempoLabel = tempo ? tempo.minuti+' minuti'+(tempo.periodo==='giorno'?' al giorno':' in totale') : null;
         const row = el('div',{class:'histrow'},[
-          el('div',{},[ el('div',{},[item.nome||exLabel]), el('div',{class:'l'},[exLabel]) ]),
+          el('div',{},[ el('div',{},[exLabel]), tempoLabel ? el('div',{class:'l'},[tempoLabel]) : null ].filter(Boolean)),
           el('button',{class:'primary', style:'padding:10px 16px;', onclick:()=>{
             const own = configForExercise(patientProfile, item.cfg.taskMode);
             loadPreset({cfg: own || item.cfg});
@@ -6486,12 +6549,22 @@
         // ancora localPatientId: distinguerle rende leggibile lo storico
         // combinato, invece di farle sembrare tutte fatte da remoto.
         const origineTag = (filterKind==='remote' && filterId) ? (r.localPatientId ? ' · in presenza' : ' · da remoto') : '';
+        const forPatientView = !!patientProfile;
+        const rowLine1 = forPatientView
+          ? detail
+          : ((EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && !(r.taskMode==='ant' && r.antMode==='classico')) ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ':'')+detail+' · '+r.trials+' prove'+(r.patientCode?' · '+r.patientCode:'')+origineTag;
+        const rowScore = forPatientView
+          ? (family==='choice' ? fmtPct(r.choice.accuracy)+' corr.'
+            : family==='dual' ? fmtPct(r.metrics.acc)+' vis · '+fmtPct(r.metricsAud.acc)+' ud.'
+            : family==='spatial' ? fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des'
+            : fmtPct(r.metrics.acc)) // niente d′ nella vista del paziente: non aggiunge nulla di leggibile senza spiegazione
+          : scoreLabel;
         const row = el('div',{class:'histrow'},[
           el('div',{},[
-            el('div',{},[((EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && !(r.taskMode==='ant' && r.antMode==='classico')) ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ':'')+detail+' · '+r.trials+' prove'+(r.patientCode?' · '+r.patientCode:'')+origineTag]),
+            el('div',{},[rowLine1]),
             el('div',{class:'l'},[r.dateLabel])
           ]),
-          el('div',{},[scoreLabel])
+          el('div',{},[rowScore])
         ]);
         listWrap.appendChild(row);
       });

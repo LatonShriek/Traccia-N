@@ -81,6 +81,17 @@ i pulsanti +/– nella barra in alto per forzare il livello manualmente in
 qualunque momento; se la titolazione automatica è attiva riprende dal
 valore impostato manualmente.
 
+**Materiali uditivi e "materiale misto".** Oltre ai materiali visivi
+(lettere, numeri, simboli, colori), sono disponibili toni puri ("Suoni")
+e lettere/numeri pronunciati dal sintetizzatore vocale ("Lettere
+pronunciate"/"Numeri pronunciati") — nessuna rivelazione visiva, solo un
+indicatore audio generico. In N-back, Sequenza bersaglio e Go/No-Go è
+anche possibile scegliere "Materiale: Mescolati", che pesca casualmente
+prova per prova fra tutti i materiali disponibili (visivi e uditivi
+insieme) invece di restare fissi su un solo tipo — utile per
+un'attenzione meno prevedibile e più selettiva. Non ancora estesa a
+TAPAT/ANT né a Task-switching.
+
 **Il numero di livelli varia per esercizio.** La scala non è uniforme
 perché il numero di livelli riflette quanti step distinti i parametri di
 un compito possono effettivamente sostenere con significato clinico, non
@@ -658,7 +669,12 @@ paziente remoto il programma è ciò che vede e può avviare da solo a ogni
 accesso. Per un paziente in presenza è solo una **scorciatoia di avvio
 rapido** quando l'operatore lo seleziona per la seduta — non è
 vincolante: resta libero di lanciare qualunque altro esercizio in
-qualsiasi momento.
+qualsiasi momento. Ogni voce può anche portare un **"Modifica"** (riapre
+Setup con quella configurazione, sostituisce la voce invece di
+aggiungerne una — preserva la provenienza da screening se presente, con
+una nota che confronta il livello suggerito originariamente con quello
+attuale) e un **tempo consigliato** opzionale (minuti al giorno o
+totali), mostrato al paziente accanto all'esercizio.
 
 **Modalità di accesso** (solo pazienti remoti) — scelta alla creazione
 del profilo, modificabile in seguito da "Gestisci programma":

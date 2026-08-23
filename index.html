@@ -969,8 +969,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1001,17 +1001,19 @@
   const root = document.getElementById('app');
   let taskDom = null; // persistent DOM refs while view==='task', so buttons never get torn down mid-tap
   let suppressHistoryPush = false;
-  // Schermate per cui ha senso ricostruire lo stato (tasto indietro del
-  // browser E refresh/F5): non stati a metà flusso (sessione in corso,
-  // screening in corso, codice appena generato) per cui non c'è nulla di
-  // sicuro da ricostruire — un refresh o un "indietro" da lì torna a una
-  // schermata stabile invece di lasciare l'app in uno stato rotto.
-  // "patientProgram" resta fuori apposta: dipende da un oggetto paziente
-  // intero (editingPatient), non da un id — ricostruirlo richiederebbe una
-  // fetch remota nel mezzo del boot; un refresh da lì torna alla lista.
-  const SAFE_RESTORE_VIEWS = new Set(['setup','patients','localPatientPicker','history','archive','cloud','accessLog','operatorHome','patientHome']);
+  // Il tasto indietro/avanti del browser, finché la pagina resta aperta
+  // (nessun reload), si comporta come su un sito qualunque: ogni
+  // navigazione è una voce di history, tornare indietro ripristina
+  // esattamente la schermata precedente — nessun filtro, nessun salto a
+  // una sezione diversa. Il caso diverso è il refresh (F5): lì la sessione
+  // di lavoro in memoria (session, screeningState, ecc.) sparisce
+  // davvero, quindi alcune schermate non sono ricostruibili — vedi
+  // RELOAD_SAFE_VIEWS più sotto, usato solo da decideInitialView().
   function navSnapshot(){
-    return { view, activeLocalPatientId, activeRemotePatientId, historyFilterPatientId, historyFilterKind };
+    return {
+      view, activeLocalPatientId, activeRemotePatientId, historyFilterPatientId, historyFilterKind,
+      editingPatientId: editingPatient ? editingPatient.id : null, editingPatientKind
+    };
   }
   function restoreNavSnapshot(snap){
     view = snap.view;
@@ -1019,6 +1021,20 @@
     activeRemotePatientId = snap.activeRemotePatientId || null;
     historyFilterPatientId = snap.historyFilterPatientId || null;
     historyFilterKind = snap.historyFilterKind || 'local';
+    editingPatientKind = snap.editingPatientKind || 'remote';
+    if(snap.editingPatientId){
+      if(editingPatientKind==='local'){
+        try{ const raw = localStorage.getItem('traccian:localpatient:'+snap.editingPatientId); editingPatient = raw?JSON.parse(raw):null; }catch(e){ editingPatient=null; }
+      } else {
+        const id = snap.editingPatientId;
+        editingPatient = (cachedRemotePatients||[]).find(p=>p.id===id) || {id, codice_paziente:'—'};
+        if(sb && cloudUser && !patientProfile){
+          listMyPatients().then(list=>{ cachedRemotePatients=list; const p=list.find(x=>x.id===id); if(p){ editingPatient=p; render(); } });
+        }
+      }
+    } else {
+      editingPatient = null;
+    }
     // Se il refresh/indietro riporta su un paziente remoto, l'elenco
     // completo (nomi/codici) non è ancora in cache: lo recupera in
     // background così contextStatusLine e simili si aggiornano da soli.
@@ -1045,7 +1061,6 @@
   }
   function pushHistoryIfNeeded(){
     if(suppressHistoryPush) return;
-    if(!SAFE_RESTORE_VIEWS.has(view)) return;
     try{
       const snap = navSnapshot();
       if(!history.state || history.state.view !== view) history.pushState(snap, '', '');
@@ -1058,7 +1073,7 @@
     // girare in background su una schermata che non si vede più
     if(view==='task' && session && session.timer){ clearTimeout(session.timer); session.timer=null; }
     suppressHistoryPush = true;
-    if(e.state && e.state.view && SAFE_RESTORE_VIEWS.has(e.state.view)){
+    if(e.state && e.state.view){
       restoreNavSnapshot(e.state);
     } else {
       view = patientProfile ? 'patientHome' : (cloudUser ? 'operatorHome' : 'cloud');
@@ -6826,16 +6841,27 @@
   regenerateNumeriPool();
   regenerateParolePool();
   initSupabase();
+  // Schermate ricostruibili appieno dopo un refresh vero (F5): non
+  // dipendono da un oggetto di sessione in memoria che il reload cancella
+  // (session, screeningState, pendingAccessCode...) — solo da id di
+  // paziente/filtro, tutti ricostruibili da localStorage/Supabase.
+  const RELOAD_SAFE_VIEWS = new Set(['setup','patients','localPatientPicker','history','archive','cloud','accessLog','operatorHome','patientHome','patientProgram']);
   function decideInitialView(){
     if(patientProfile) return 'patientHome'; // per il paziente, l'unica vista sensata resta la sua home
     if(cloudUser){
       try{
-        if(history.state && history.state.view && SAFE_RESTORE_VIEWS.has(history.state.view) && history.state.view!=='patientHome' && history.state.view!=='cloud'){
-          restoreNavSnapshot(history.state);
+        if(history.state && history.state.view){
+          restoreNavSnapshot(history.state); // ripristina comunque il contesto (paziente attivo, filtri) anche quando la schermata esatta non è ricostruibile
+          if(RELOAD_SAFE_VIEWS.has(view) && view!=='patientHome' && view!=='cloud') return view;
+          // Stato a metà flusso (sessione in corso, screening in corso,
+          // codice appena generato...) perso per forza col reload: resta
+          // nella stessa area — stesso paziente, schermata Setup — invece
+          // di saltare a una sezione diversa.
+          view = 'setup';
           return view;
         }
       }catch(e){}
-      return 'operatorHome'; // operatore già collegato: prima la scelta esercizi liberi/in presenza/remoto
+      return 'operatorHome'; // nessuno stato precedente (prima apertura): schermata di scelta esercizi liberi/in presenza/remoto
     }
     return 'cloud'; // non collegato: schermata di accesso
   }

@@ -323,6 +323,7 @@ create table if not exists pazienti (
   modalita_accesso text default 'diretto', -- 'diretto' | 'screening_poi_suggeriti' — vedi sezione Programma paziente
   screening_completato_il timestamptz,-- prima volta che il gate screening_poi_suggeriti è stato superato
   screening_risultati jsonb,          -- ultimo screening completo (tutti i domini) — vedi sopra
+  livelli_esercizi jsonb,             -- vedi sopra
   creato_il timestamptz default now()
 );
 alter table pazienti add column if not exists preset_assegnato jsonb;
@@ -335,6 +336,7 @@ alter table pazienti add column if not exists screening_flags jsonb;
 alter table pazienti add column if not exists modalita_accesso text default 'diretto'; -- 'diretto' (vede subito il programma assegnato) | 'screening_poi_suggeriti' (vede solo lo screening finché non lo completa una prima volta)
 alter table pazienti add column if not exists screening_completato_il timestamptz; -- valorizzato la prima volta che il paziente completa lo screening in modalita_accesso='screening_poi_suggeriti' — il gate scatta una sola volta
 alter table pazienti add column if not exists screening_risultati jsonb; -- ultimo screening completo (tutti i domini, non solo quelli flaggati) — {ts, summary:[...]}, mostrato in "Gestisci programma"
+alter table pazienti add column if not exists livelli_esercizi jsonb; -- {taskMode: configurazione+livello raggiunto in quell'esercizio}, aggiornato dopo ogni sessione — un paziente con più esercizi assegnati ritrova il proprio livello in ciascuno, non solo nell'ultimo usato (che resta in ultima_config)
 alter table pazienti enable row level security;
 drop policy if exists "operatore vede e gestisce i propri pazienti" on pazienti;
 create policy "operatore vede e gestisce i propri pazienti" on pazienti for all
@@ -407,6 +409,7 @@ create table if not exists pazienti_locali (
 alter table pazienti_locali add column if not exists screening_flags jsonb;
 alter table pazienti_locali add column if not exists programma_assegnato jsonb;
 alter table pazienti_locali add column if not exists screening_risultati jsonb;
+alter table pazienti_locali add column if not exists livelli_esercizi jsonb;
 alter table pazienti_locali add column if not exists attivo boolean default true; -- come pazienti.attivo — nasconde il profilo dalla lista principale, spostandolo in Archivio
 alter table pazienti_locali add column if not exists remote_paziente_id uuid references pazienti(id); -- valorizzato da "Trasforma in account remoto": collega il profilo in presenza superato al nuovo account remoto
 alter table pazienti_locali enable row level security;

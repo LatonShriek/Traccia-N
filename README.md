@@ -120,11 +120,21 @@ elementi no-go — anche quando il materiale è misto fra più tipologie
 (visivo/uditivo) — l'app propone subito una selezione casuale, mai
 vuota, senza duplicati; resta interamente modificabile dopo con "←
 Rimuovi ultimo", "Reimposta", o aggiungendo/togliendo elementi a mano.
-Stesso principio nel Doppio compito: scegliendo l'abbinamento canali
-(Visivo+Uditivo, Visivo+Visivo, Uditivo+Uditivo) il materiale dei canali
-visivi viene proposto a caso — nel caso Visivo+Visivo, sempre due
-materiali diversi fra i due canali, per restare visivamente
-distinguibili — e resta modificabile subito dopo dai selettori.
+La quantità proposta non è arbitraria: per il Go/No-Go sono **6**
+elementi, non un numero più piccolo, perché l'adattivo può richiedere
+fino a 6 elementi no-go attivi contemporaneamente ai livelli alti
+(tabella sotto) — proporne meno avrebbe tappato il livello massimo
+raggiungibile finché l'operatore non ne aggiungeva altri a mano; ai
+livelli bassi gli elementi in eccesso restano semplicemente inattivi.
+Per la Sequenza bersaglio bastano **3** elementi, perché lì il
+meccanismo è diverso: la sequenza configurata viene riciclata/ripetuta
+per raggiungere la lunghezza richiesta dal livello (fino a 5), non
+"tagliata" da un pool più ampio come nel Go/No-Go. Stesso principio nel
+Doppio compito: scegliendo l'abbinamento canali (Visivo+Uditivo,
+Visivo+Visivo, Uditivo+Uditivo) il materiale dei canali visivi viene
+proposto a caso — nel caso Visivo+Visivo, sempre due materiali diversi
+fra i due canali, per restare visivamente distinguibili — e resta
+modificabile subito dopo dai selettori.
 
 **Accessibilità.** Tutti i controlli dell'app sono elementi `<button>`
 nativi, riconoscibili e navigabili dai lettori di schermo (VoiceOver,
@@ -419,6 +429,7 @@ create table if not exists sessioni (
   target_seq jsonb, family text, counts jsonb, metrics jsonb, avg_rt numeric,
   duration_ms bigint, counts_aud jsonb, metrics_aud jsonb, choice jsonb,
   ssrt numeric, mean_ssd numeric,
+  final_level text, -- livello raggiunto a fine sessione, per ogni esercizio (non solo N-back) — testo perché il Doppio compito lo scrive come "3/4" (due canali)
   neglect jsonb,     -- dati esercizio Cancellazione
   goaltask jsonb,    -- dati esercizio Scenari ecologici
   memoria jsonb,     -- dati esercizio Strategie di memoria
@@ -430,6 +441,7 @@ alter table sessioni add column if not exists local_patient_id text;
 alter table sessioni add column if not exists neglect jsonb;
 alter table sessioni add column if not exists goaltask jsonb;
 alter table sessioni add column if not exists memoria jsonb;
+alter table sessioni add column if not exists final_level text;
 update sessioni set operatore_id = user_id where operatore_id is null;
 alter table sessioni alter column operatore_id set not null;
 alter table sessioni enable row level security;

@@ -561,8 +561,10 @@
     if(taskMode==='neglect') cfg.neglectRuleLevel=1;
   }
   // Estrae un valore di livello leggibile da una cfg, per confronti (es. "il
-  // suggerimento originale dello screening diceva livello X, oggi è Y").
+  // suggerimento originale dello screening diceva livello X, oggi è Y") e
+  // per mostrarlo ovunque serva (nome proposto, "già nel programma"...).
   function levelOfCfg(c){
+    if(c.taskMode==='ant' && c.antMode==='tapat') return c.tapatStartLevel;
     const field = LEVEL_FIELD_OF_TASKMODE[c.taskMode];
     if(!field) return null;
     if(Array.isArray(field)) return field.map(k=>c[k]).join('/');
@@ -936,7 +938,9 @@
         const pMista = p.cfg.taskMode==='sequenza' ? p.cfg.sequenzaMista : p.cfg.taskMode==='nback' ? p.cfg.nbackMista : p.cfg.taskMode==='gonogo' ? p.cfg.gonogoMista : null;
         const stimPart = (pMista && pMista!=='no') ? MISTA_LABELS_SHORT[pMista]+' · '
           : (EXERCISES[p.cfg.taskMode] && EXERCISES[p.cfg.taskMode].usesStimType) ? STIM_LABELS[p.cfg.stimType]+' · ' : '';
-        const desc = stimPart+exl+(p.cfg.taskMode==='nback' ? ' livello '+p.cfg.nLevel+' (n='+nbackParamsForLevel(p.cfg.nLevel).n+')' : '')+' · '+p.cfg.trials+' prove';
+        const pLevel = levelOfCfg(p.cfg);
+        const levelDesc = p.cfg.taskMode==='nback' ? ' livello '+p.cfg.nLevel+' (n='+nbackParamsForLevel(p.cfg.nLevel).n+')' : pLevel!=null ? ' livello '+pLevel : '';
+        const desc = stimPart+exl+levelDesc+' · '+p.cfg.trials+' prove';
         const row = el('div',{class:'histrow'},[
           el('div',{style:'cursor:pointer; flex:1;', onclick:()=>loadPreset(p)},[
             el('div',{},[p.name]),
@@ -969,8 +973,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2452,7 +2456,7 @@
       const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
       return [
         r.dateLabel, r.patientCode||'', (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : (STIM_LABELS[r.stimType]||'')), exLabel,
-        r.taskMode==='nback'?r.nLevel:'', (r.targetSeq||[]).join('-'),
+        r.taskMode==='nback'?r.nLevel:(r.finalLevel!=null?r.finalLevel:''), (r.targetSeq||[]).join('-'),
         r.trials, r.isi, r.stimDuration, r.respMode,
         family==='signal'||family==='dual' ? r.counts.hits : '',
         family==='signal'||family==='dual' ? r.counts.misses : '',
@@ -2722,7 +2726,10 @@
       try{
         let existing = null;
         if(patientProfile && patientProfile.id===id) existing = patientProfile.livelli_esercizi;
-        else existing = ((cachedRemotePatients||[]).find(p=>p.id===id)||{}).livelli_esercizi;
+        else{
+          const cached = (cachedRemotePatients||[]).find(p=>p.id===id);
+          existing = cached ? cached.livelli_esercizi : (await fetchRemotePatientFresh(id) || {}).livelli_esercizi;
+        }
         const merged = Object.assign({}, existing||{}, {[taskMode]:snap});
         await sb.from('pazienti').update({livelli_esercizi:merged}).eq('id', id);
         if(patientProfile && patientProfile.id===id) patientProfile.livelli_esercizi = merged;
@@ -2765,6 +2772,7 @@
       stim_type: rec.stimType, n_level: rec.nLevel, trials: rec.trials, isi: rec.isi,
       stim_duration: rec.stimDuration, resp_mode: rec.respMode, patient_code: rec.patientCode,
       notes: rec.notes, task_mode: rec.taskMode, target_seq: rec.targetSeq,
+      final_level: rec.finalLevel!=null ? String(rec.finalLevel) : null,
       counts: rec.counts, metrics: rec.metrics, avg_rt: rec.avgRT, duration_ms: rec.durationMs,
       family: rec.family || null, counts_aud: rec.countsAud || null, metrics_aud: rec.metricsAud || null,
       choice: rec.choice || null, ssrt: rec.ssrt!=null?rec.ssrt:null, mean_ssd: rec.meanSSD!=null?rec.meanSSD:null,
@@ -2776,6 +2784,7 @@
       id: row.id, ts: row.ts, dateLabel: row.date_label, stimType: row.stim_type, nLevel: row.n_level,
       trials: row.trials, isi: row.isi, stimDuration: row.stim_duration, respMode: row.resp_mode,
       patientCode: row.patient_code, notes: row.notes, taskMode: row.task_mode, targetSeq: row.target_seq,
+      finalLevel: row.final_level!=null ? (row.final_level.includes && row.final_level.includes('/') ? row.final_level : Number(row.final_level)) : null,
       counts: row.counts, metrics: row.metrics, avgRT: row.avg_rt, durationMs: row.duration_ms,
       family: row.family || 'signal', countsAud: row.counts_aud, metricsAud: row.metrics_aud,
       choice: row.choice, ssrt: row.ssrt, meanSSD: row.mean_ssd, neglect: row.neglect, goaltask: row.goaltask, memoria: row.memoria,
@@ -2887,7 +2896,13 @@
     if(cfg.taskMode==='gonogo'){
       grid.appendChild(field('Materiale', segButtons(['no','visivo','uditivo','misto'], cfg.gonogoMista||'no', v=>{
         cfg.gonogoMista = v;
-        cfg.targetSeq = v!=='no' ? randomMistaTargetSeq(2, mistaTypesFor(v)) : [];
+        // 6, non 2: la difficoltà adattiva del Go/No-Go può richiedere fino
+        // a 6 elementi no-go attivi contemporaneamente ai livelli alti
+        // (ADAPT_GONOGO_COUNT) — proporne solo 2 avrebbe tappato il
+        // livello massimo raggiungibile finché l'operatore non ne
+        // aggiungeva altri a mano. Ai livelli bassi gli elementi in più
+        // restano semplicemente inattivi, non creano difficoltà indesiderata.
+        cfg.targetSeq = v!=='no' ? randomMistaTargetSeq(6, mistaTypesFor(v)) : [];
         render();
       }, MISTA_LABELS)));
     }
@@ -3880,16 +3895,16 @@
     if(cfg.taskMode==='nback') return 'liveNLevel';
     if(cfg.taskMode==='ant' && cfg.antMode==='tapat') return 'tapatLevel';
     if(cfg.taskMode==='neglect') return 'liveBoardLevel';
+    if(cfg.taskMode==='dualtask') return null; // gestito a parte da bumpDualLevel/maybeAdaptDualChannel — mai session.adaptLevel, anche se ADAPT_ISI['dualtask'] esiste (usata solo per l'ISI condiviso, non per il livello)
     if(ADAPT_ISI[cfg.taskMode] || cfg.taskMode==='gonogo' || cfg.taskMode==='switching') return 'adaptLevel';
     return null;
   }
-  // Tetto della scala per l'esercizio corrente — non è più uguale per
-  // tutti: gonogo/sequenza/stopsignal/ant(classico)/TAPAT/switching/
-  // cancellazione(liveBoardLevel) sono a 10 livelli; n-back resta a 6
-  // (esteso in una sessione precedente); dualtask ha una scala separata
-  // per canale, gestita da bumpDualLevel/maybeAdaptDualChannel, non da
-  // questa funzione (adaptLevelKey non restituisce 'adaptLevel' per
-  // dualtask — vedi sotto).
+  // Tetto della scala per l'esercizio corrente: tutti gli esercizi con
+  // titolazione live (n-back, TAPAT, cancellazione, gonogo/sequenza/
+  // stopsignal/ant classico/switching) sono a 10 livelli. Dualtask ha una
+  // scala separata per canale, gestita da bumpDualLevel/
+  // maybeAdaptDualChannel, non da questa funzione (adaptLevelKey non
+  // restituisce 'adaptLevel' per dualtask — vedi sotto).
   function currentLevelMax(){
     const key = adaptLevelKey();
     if(key==='liveNLevel') return 10;
@@ -4494,13 +4509,14 @@
     const d = taskDom;
     const trial = session.idx>=0 && session.idx<session.seq.length ? session.seq[session.idx] : null;
     const genericLevelKey = adaptLevelKey();
-    const modeLabel = cfg.taskMode==='sequenza' ? 'sequenza bersaglio'+(cfg.adaptive?' · livello '+session.adaptLevel:'')
+    const modeLabel = cfg.taskMode==='sequenza' ? 'sequenza bersaglio · livello '+session.adaptLevel
       : cfg.taskMode==='nback' ? 'livello '+session.liveNLevel+' · n='+nbackParamsForLevel(session.liveNLevel).n+(cfg.adaptive?' (adattivo)':'')
-      : cfg.taskMode==='gonogo' ? 'go/no-go'+(cfg.adaptive?' · livello '+session.adaptLevel:'')
-      : cfg.taskMode==='stopsignal' ? 'SSD '+Math.round(session.currentSSD)+'ms'+(cfg.adaptive?' · ritmo livello '+session.adaptLevel:'')
+      : cfg.taskMode==='gonogo' ? 'go/no-go · livello '+session.adaptLevel
+      : cfg.taskMode==='stopsignal' ? 'SSD '+Math.round(session.currentSSD)+'ms · ritmo livello '+session.adaptLevel
       : (cfg.taskMode==='ant' && cfg.antMode==='tapat' && trial) ? 'TAPAT — blocco '+(trial.block==='tonic'?'tonico':'fasico')+' · livello '+session.tapatLevel+(cfg.adaptive?' (adattivo)':'')
-      : (cfg.taskMode==='ant' && cfg.antMode==='classico') ? 'ANT'+(cfg.adaptive?' · livello '+session.adaptLevel:'')
-      : (cfg.taskMode==='switching' || cfg.taskMode==='dualtask') && cfg.adaptive ? EXERCISES[cfg.taskMode].label+' · livello '+session.adaptLevel
+      : (cfg.taskMode==='ant' && cfg.antMode==='classico') ? 'ANT · livello '+session.adaptLevel
+      : cfg.taskMode==='switching' ? EXERCISES[cfg.taskMode].label+' · livello '+session.adaptLevel
+      : cfg.taskMode==='dualtask' ? 'doppio compito · C1 livello '+session.dualLevel1+' · C2 livello '+session.dualLevel2
       : cfg.taskMode==='categorizzazione' ? EXERCISES[cfg.taskMode].label+' · livello '+cfg.categLivello
       : EXERCISES[cfg.taskMode].label;
     const curMista = cfg.taskMode==='sequenza' ? cfg.sequenzaMista : cfg.taskMode==='nback' ? cfg.nbackMista : cfg.taskMode==='gonogo' ? cfg.gonogoMista : 'no';
@@ -4776,13 +4792,29 @@
     const isMista = !!mistaMode && mistaMode!=='no';
     const stimPart = isMista ? MISTA_LABELS_SHORT[mistaMode]+' — '
       : (EXERCISES[c.taskMode] && EXERCISES[c.taskMode].usesStimType) ? STIM_LABELS[c.stimType]+' — ' : '';
-    const levelPart = c.taskMode==='nback' ? ' livello '+c.nLevel : c.taskMode==='categorizzazione' ? ' livello '+c.categLivello : '';
+    const lv = levelOfCfg(c);
+    const levelPart = lv!=null ? ' livello '+lv : '';
     return stimPart+exl+levelPart;
   }
   // Aggiunge una voce al programma di un paziente (locale o remoto),
   // preservando quello che c'era già — usata sia dal flusso "Aggiungi
   // esercizio" in Setup sia da qualunque altro punto che debba appendere
   // una voce senza passare dalle checkbox di "Gestisci programma".
+  // Va usata ogni volta che si sta per scrivere il programma di un
+  // paziente remoto partendo da un oggetto che potrebbe essere solo un
+  // segnaposto incompleto (es. subito dopo un ripristino da refresh/tasto
+  // indietro, mentre il fetch vero è ancora in corso) — senza questa
+  // guardia, scrivere basandosi su un oggetto incompleto rischierebbe di
+  // SOVRASCRIVERE l'intero programma reale con uno vuoto.
+  async function fetchRemotePatientFresh(id){
+    if(!sb || !cloudUser) return null;
+    try{
+      const { data, error } = await sb.from('pazienti').select('*').eq('id', id).eq('operatore_id', cloudUser.id).maybeSingle();
+      if(error) throw error;
+      return data;
+    }catch(e){ return null; }
+  }
+  function isThinPatientStub(p){ return !p || !('programma_assegnato' in p); }
   async function appendProgramEntry(kind, id, entry){
     if(kind==='local'){
       try{
@@ -4798,7 +4830,8 @@
     }
     if(!sb || !cloudUser) return false;
     try{
-      const existing = (cachedRemotePatients||[]).find(x=>x.id===id) || (editingPatient&&editingPatient.id===id ? editingPatient : null);
+      let existing = (cachedRemotePatients||[]).find(x=>x.id===id) || (editingPatient&&editingPatient.id===id ? editingPatient : null);
+      if(isThinPatientStub(existing)) existing = await fetchRemotePatientFresh(id) || existing;
       const programmaAttuale = patientProgram(existing) || [];
       const nuovoProgramma = programmaAttuale.concat([entry]);
       const { error } = await sb.from('pazienti').update({programma_assegnato:nuovoProgramma}).eq('id', id).eq('operatore_id', cloudUser.id);
@@ -4830,7 +4863,8 @@
     }
     if(!sb || !cloudUser) return false;
     try{
-      const existing = (cachedRemotePatients||[]).find(x=>x.id===id) || (editingPatient&&editingPatient.id===id ? editingPatient : null);
+      let existing = (cachedRemotePatients||[]).find(x=>x.id===id) || (editingPatient&&editingPatient.id===id ? editingPatient : null);
+      if(isThinPatientStub(existing)) existing = await fetchRemotePatientFresh(id) || existing;
       const programma = (patientProgram(existing) || []).slice();
       if(!programma[idx]) return false;
       programma[idx] = Object.assign({}, programma[idx], patch);
@@ -5331,6 +5365,21 @@
       taskMode: cfg.taskMode, targetSeq: EXERCISES[cfg.taskMode].usesTargetSeq ? cfg.targetSeq.map(seqLabel) : null,
       sequenzaMista: (cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no') ? cfg.sequenzaMista : null,
       antMode: cfg.taskMode==='ant' ? cfg.antMode : null,
+      // Livello raggiunto a fine sessione, in un unico campo generico —
+      // prima esisteva solo per l'N-back (finalNLevel sotto): senza
+      // questo, lo storico non poteva mostrare il livello per nessun
+      // altro esercizio, perché il dato non veniva proprio registrato.
+      finalLevel: (()=>{
+        if(cfg.taskMode==='nback') return session.liveNLevel;
+        if(cfg.taskMode==='categorizzazione') return cfg.categLivello;
+        if(cfg.taskMode==='ant' && cfg.antMode==='tapat') return session.tapatLevel;
+        if(cfg.taskMode==='neglect') return session.liveBoardLevel;
+        if(cfg.taskMode==='dualtask') return session.dualLevel1+'/'+session.dualLevel2;
+        if(cfg.taskMode==='goaltask') return cfg.goaltaskLivello;
+        if(cfg.taskMode==='memoria') return session.material ? session.material.livello : null;
+        if(adaptLevelKey()==='adaptLevel') return session.adaptLevel;
+        return null;
+      })(),
       localPatientId: patientProfile ? null : (activeLocalPatientId || null),
       pazienteId: (!patientProfile && activeRemotePatientId) ? activeRemotePatientId : null,
       durationMs, family
@@ -6654,15 +6703,18 @@
       items.forEach(r=>{
         const family = r.family || 'signal';
         const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
-        const detail = family==='choice' ? exLabel
-          : (r.taskMode==='nback' ? exLabel+' livello '+r.nLevel : exLabel);
+        const detail = (r.finalLevel!=null ? exLabel+' livello '+r.finalLevel : (r.taskMode==='nback' ? exLabel+' livello '+r.nLevel : exLabel));
         const scoreLabel = family==='choice'
           ? fmtPct(r.choice.accuracy)+' corr.'
           : family==='dual'
             ? fmtPct(r.metrics.acc)+' vis · '+fmtPct(r.metricsAud.acc)+' ud.'
             : family==='spatial'
               ? fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des'
-              : fmtPct(r.metrics.acc)+(r.metrics.dprime!=null? ' · d′ '+r.metrics.dprime.toFixed(2):'');
+              : family==='goaltask'
+                ? r.goaltask.percentualeCompletamento+'% completato'+(r.goaltask.violazioniCount?' · '+r.goaltask.violazioniCount+' viol.':'')
+                : family==='memoria'
+                  ? r.memoria.recuperati+'/'+r.memoria.totale+' ('+r.memoria.percentuale+'%)'
+                  : fmtPct(r.metrics.acc)+(r.metrics.dprime!=null? ' · d′ '+r.metrics.dprime.toFixed(2):'');
         // Se la vista è filtrata su un paziente remoto che in passato è
         // stato un profilo in presenza migrato (vedi
         // migrateLocalPatientSessions), le sessioni pre-migrazione portano
@@ -6677,6 +6729,8 @@
           ? (family==='choice' ? fmtPct(r.choice.accuracy)+' corr.'
             : family==='dual' ? fmtPct(r.metrics.acc)+' vis · '+fmtPct(r.metricsAud.acc)+' ud.'
             : family==='spatial' ? fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des'
+            : family==='goaltask' ? r.goaltask.percentualeCompletamento+'% completato'
+            : family==='memoria' ? r.memoria.recuperati+'/'+r.memoria.totale
             : fmtPct(r.metrics.acc)) // niente d′ nella vista del paziente: non aggiunge nulla di leggibile senza spiegazione
           : scoreLabel;
         const row = el('div',{class:'histrow'},[

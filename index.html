@@ -301,10 +301,12 @@
     nback:      {label:'N-back classico',        usesStimType:true,  usesTargetSeq:false, family:'signal',
       domini:['Memoria di lavoro','Attenzione sostenuta'],
       instructions:c=>{
-        const f = stimGender(c.stimType)==='f';
-        const verboVis = isAudioOnlyStim(c.stimType) ? 'Sentirai' : 'Vedrai';
+        const isMista = c.nbackMista && c.nbackMista!=='no';
+        const f = isMista ? false : stimGender(c.stimType)==='f';
+        const verboVis = isMista ? (c.nbackMista==='visivo' ? 'Vedrai' : c.nbackMista==='uditivo' ? 'Sentirai' : 'Vedrai o sentirai') : (isAudioOnlyStim(c.stimType) ? 'Sentirai' : 'Vedrai');
         const n = nbackParamsForLevel(c.nLevel).n;
-        return verboVis+' una serie di '+STIM_LABELS[c.stimType].toLowerCase()+', '+(f?'una':'uno')+' alla volta. Tocca il pulsante dorato ogni volta che '+(f?'è uguale a quella':'è uguale a quello')+' di '+n+(n===1?' posizione prima':' posizioni prima')+'. Se non lo è, non toccare nulla.';
+        const matLabel = isMista ? 'stimoli di tipo diverso ogni volta ('+MISTA_LABELS_SHORT[c.nbackMista].toLowerCase()+')' : STIM_LABELS[c.stimType].toLowerCase();
+        return verboVis+' una serie di '+matLabel+', '+(f?'una':'uno')+' alla volta. Tocca il pulsante dorato ogni volta che '+(f?'è uguale a quella':'è uguale a quello')+' di '+n+(n===1?' posizione prima':' posizioni prima')+'. Se non lo è, non toccare nulla.';
       }},
     sequenza:   {label:'Sequenza bersaglio',      usesStimType:true,  usesTargetSeq:true,  family:'signal',
       domini:['Memoria di lavoro','Attenzione sostenuta'],
@@ -931,7 +933,9 @@
     } else {
       list.forEach(p=>{
         const exl = EXERCISES[p.cfg.taskMode] ? EXERCISES[p.cfg.taskMode].label : p.cfg.taskMode;
-        const stimPart = (EXERCISES[p.cfg.taskMode] && EXERCISES[p.cfg.taskMode].usesStimType) ? STIM_LABELS[p.cfg.stimType]+' · ' : '';
+        const pMista = p.cfg.taskMode==='sequenza' ? p.cfg.sequenzaMista : p.cfg.taskMode==='nback' ? p.cfg.nbackMista : p.cfg.taskMode==='gonogo' ? p.cfg.gonogoMista : null;
+        const stimPart = (pMista && pMista!=='no') ? MISTA_LABELS_SHORT[pMista]+' · '
+          : (EXERCISES[p.cfg.taskMode] && EXERCISES[p.cfg.taskMode].usesStimType) ? STIM_LABELS[p.cfg.stimType]+' · ' : '';
         const desc = stimPart+exl+(p.cfg.taskMode==='nback' ? ' livello '+p.cfg.nLevel+' (n='+nbackParamsForLevel(p.cfg.nLevel).n+')' : '')+' · '+p.cfg.trials+' prove';
         const row = el('div',{class:'histrow'},[
           el('div',{style:'cursor:pointer; flex:1;', onclick:()=>loadPreset(p)},[
@@ -944,7 +948,7 @@
       });
     }
     wrap.appendChild(el('button',{class:'ghost', onclick:()=>{
-      const suggested = (EXERCISES[cfg.taskMode].usesStimType?STIM_LABELS[cfg.stimType]+' — ':'')+EXERCISES[cfg.taskMode].label+(cfg.taskMode==='nback'?' livello '+cfg.nLevel:'');
+      const suggested = autoNameFor(cfg);
       const name = prompt('Nome per questo preset:', suggested);
       if(name && name.trim()){ savePreset(name.trim()); render(); }
     }},['+ Salva impostazioni attuali come preset']));
@@ -965,8 +969,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2901,6 +2905,19 @@
       grid.appendChild(field('Livello', stepper(cfg.nLevel,1,10,v=>{cfg.nLevel=v; render();})));
       grid.appendChild(el('p',{class:'hint'},['n='+nbackParamsForLevel(cfg.nLevel).n+' a questo livello. Il livello combina n (1-3, cresce solo ai passaggi di banda) con frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso).']));
     }
+    if(cfg.taskMode==='sequenza' || cfg.taskMode==='switching' || cfg.taskMode==='gonogo' || cfg.taskMode==='stopsignal' || (cfg.taskMode==='ant' && cfg.antMode==='classico')){
+      grid.appendChild(field('Livello', stepper(cfg.adaptStartLevel,1,10,v=>{cfg.adaptStartLevel=v; render();})));
+    }
+    if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+      grid.appendChild(field('Livello', stepper(cfg.tapatStartLevel,1,10,v=>{cfg.tapatStartLevel=v; render();})));
+    }
+    if(cfg.taskMode==='neglect' && (cfg.neglectMode==='classico' || cfg.neglectMode==='intruso')){
+      grid.appendChild(field('Livello', stepper(cfg.neglectStartLevel,1,10,v=>{cfg.neglectStartLevel=v; render();})));
+    }
+    if(cfg.taskMode==='dualtask'){
+      grid.appendChild(field('Livello canale 1', stepper(cfg.dualStartLevel1,1,10,v=>{cfg.dualStartLevel1=v; render();})));
+      grid.appendChild(field('Livello canale 2', stepper(cfg.dualStartLevel2,1,10,v=>{cfg.dualStartLevel2=v; render();})));
+    }
     if(cfg.taskMode==='nback' || cfg.taskMode==='sequenza' || cfg.taskMode==='gonogo' || cfg.taskMode==='switching' || cfg.taskMode==='dualtask' || cfg.taskMode==='ant' || cfg.taskMode==='stopsignal'){
       grid.appendChild(field('Difficoltà adattiva', segButtons(['no','si'], cfg.adaptive?'si':'no', v=>{ cfg.adaptive = v==='si'; render(); }, {no:'Fissa (manuale)', si:'Adattiva automatica'})));
     }
@@ -4740,7 +4757,10 @@
   // di un paziente — evita di dover scegliere un nome a mano per ognuna.
   function autoNameFor(c){
     const exl = EXERCISES[c.taskMode] ? EXERCISES[c.taskMode].label : c.taskMode;
-    const stimPart = (EXERCISES[c.taskMode] && EXERCISES[c.taskMode].usesStimType) ? STIM_LABELS[c.stimType]+' — ' : '';
+    const mistaMode = c.taskMode==='sequenza' ? c.sequenzaMista : c.taskMode==='nback' ? c.nbackMista : c.taskMode==='gonogo' ? c.gonogoMista : null;
+    const isMista = !!mistaMode && mistaMode!=='no';
+    const stimPart = isMista ? MISTA_LABELS_SHORT[mistaMode]+' — '
+      : (EXERCISES[c.taskMode] && EXERCISES[c.taskMode].usesStimType) ? STIM_LABELS[c.stimType]+' — ' : '';
     const levelPart = c.taskMode==='nback' ? ' livello '+c.nLevel : c.taskMode==='categorizzazione' ? ' livello '+c.categLivello : '';
     return stimPart+exl+levelPart;
   }

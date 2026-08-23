@@ -79,7 +79,11 @@ coerente sia con la letteratura sul training adattivo sia con la
 ottimale per l'apprendimento. Durante la sessione sono sempre disponibili
 i pulsanti +/– nella barra in alto per forzare il livello manualmente in
 qualunque momento; se la titolazione automatica è attiva riprende dal
-valore impostato manualmente.
+valore impostato manualmente. In Setup, un campo **"Livello"** (o
+"Livello canale 1/2" per il Doppio compito) imposta il livello di
+partenza prima di iniziare — separato dall'interruttore "Difficoltà
+adattiva/fissa", che decide solo se quel livello resta fisso o evolve
+durante la sessione.
 
 **Materiali uditivi.** Oltre ai materiali visivi (lettere, numeri,
 simboli, colori), sono disponibili toni puri ("Suoni") e lettere/numeri/

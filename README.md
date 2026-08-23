@@ -110,6 +110,18 @@ lettere/numeri pronunciati) e **"Mescolato visivo + uditivo"** (tutti
 insieme) — non più un'unica modalità indifferenziata. Non ancora estesa
 a TAPAT/ANT né a Task-switching.
 
+**Proposta automatica per sequenze/materiali personalizzati.** Ovunque
+l'operatore debba comporre a mano una sequenza bersaglio o un insieme di
+elementi no-go — anche quando il materiale è misto fra più tipologie
+(visivo/uditivo) — l'app propone subito una selezione casuale, mai
+vuota, senza duplicati; resta interamente modificabile dopo con "←
+Rimuovi ultimo", "Reimposta", o aggiungendo/togliendo elementi a mano.
+Stesso principio nel Doppio compito: scegliendo l'abbinamento canali
+(Visivo+Uditivo, Visivo+Visivo, Uditivo+Uditivo) il materiale dei canali
+visivi viene proposto a caso — nel caso Visivo+Visivo, sempre due
+materiali diversi fra i due canali, per restare visivamente
+distinguibili — e resta modificabile subito dopo dai selettori.
+
 **Accessibilità.** Tutti i controlli dell'app sono elementi `<button>`
 nativi, riconoscibili e navigabili dai lettori di schermo (VoiceOver,
 TalkBack) senza bisogno di attributi aggiuntivi. Da computer, oltre alla

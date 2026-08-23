@@ -85,6 +85,45 @@ partenza prima di iniziare — separato dall'interruttore "Difficoltà
 adattiva/fissa", che decide solo se quel livello resta fisso o evolve
 durante la sessione.
 
+**Vincolo di fascia strutturale — nessun cambio di regola a metà seduta.**
+Per un sottoinsieme di esercizi il livello non cambia solo un parametro
+continuo (ISI, frequenza) ma la REGOLA stessa del compito — quanti
+elementi indietro confrontare nell'N-back (n), quanti elementi no-go sono
+noti nel Go/No-Go, quale struttura di categorizzazione, quale
+sotto-modalità di Cancellazione, quali condizioni della regola composta.
+Un cambio di questo tipo richiede che il paziente ne sia stato informato
+in anticipo (istruzioni lette/ascoltate in Setup prima di iniziare) — non
+può mai comparire per la prima volta a sorpresa a metà di una sessione
+già in corso, indipendentemente da quanto bene stia andando.
+
+Per questo, la titolazione automatica di questi esercizi resta vincolata
+dentro la **fascia strutturale del livello di partenza** per l'intera
+durata della seduta, in entrambe le direzioni (non sale oltre il
+soffitto della fascia anche a punteggio pieno, non scende sotto il
+pavimento della fascia anche a punteggio nullo):
+
+| Esercizio | Fasce (stessa regola dentro ogni fascia) |
+|---|---|
+| N-back | 1-4 (n=1) · 5-9 (n=2) · 10 (n=3) |
+| Go/No-Go | 1-4 (1 elemento noto) · 5-7 (2) · 8-9 (3) · 10 (4) |
+| Categorizzazione condizionale | 1-2 · 3-4 · 5-6 · 7-8 · 9-10 (una struttura per fascia) |
+| Cancellazione — Progressiva | 1-10 Classico · 11-20 Trova l'intruso · 21-30 Conteggio a regola |
+| Cancellazione — Conteggio a regola | 1-2 · 3-4 · 5-6 · 7-10 (una condizione in più per fascia) |
+
+Il superamento di una fascia resta comunque possibile — solo non nella
+stessa seduta: il livello raggiunto a fine sessione diventa il punto di
+partenza della sessione successiva (stesso meccanismo di continuità già
+usato per tutti gli esercizi), e le istruzioni della nuova fascia vengono
+mostrate/lette di nuovo in Setup prima che quella sessione inizi. Il
+forzamento manuale del livello (pulsanti +/– durante la sessione) resta
+invece libero di attraversare le fasce: è una decisione esplicita
+dell'operatore, non un salto silenzioso dell'algoritmo.
+
+Gli esercizi non elencati in tabella (Sequenza bersaglio, Stop-Signal,
+ANT/TAPAT, Task-switching, Doppio compito) non hanno questo vincolo
+perché il loro livello cambia solo parametri continui — la regola di
+risposta resta identica a ogni livello.
+
 **Materiali uditivi.** Oltre ai materiali visivi (lettere, numeri,
 simboli, colori), sono disponibili toni puri ("Suoni") e lettere/numeri/
 parole pronunciati dal sintetizzatore vocale ("Lettere pronunciate" /
@@ -173,8 +212,8 @@ forti):
 | TAPAT | 1-10 | Intervallo tra stimoli, da prevedibile e ravvicinato (0.9-1.8s) a lungo e imprevedibile (12-25s) |
 | Task-switching | 1-10 | Intervallo cue→stimolo (CSI, 900→150ms) insieme allo sbilanciamento fra le due regole (50%→97%) — due parametri combinati |
 | Doppio compito | 1-10 (per canale, indipendenti) | Frequenza target per canale (40%→5%) insieme all'ISI condiviso fra i due canali (3000→700ms, derivato dalla media dei due livelli canale); ciascun canale ha anche una propria frequenza di trial lure (foil identico a quello di 2 prove fa invece che 1 — stessa logica del lure nell'N-back), assente ai due livelli più bassi e crescente fino al livello 10 |
-| Categorizzazione condizionale | 1-10 (non adattivo, scelto in setup) | Banda doppia delle 5 strutture originarie (dimensione singola → doppia dimensione+no-go → regola disgiuntiva → 1-back sulla categoria → doppia dimensione a 4 risposte), ordinate per complessità relazionale (Halford, Wilson & Phillips, 1998) non per numero di mappature stimolo-risposta; dentro ogni banda l'ISI si stringe, tranne nella banda del 1-back (livelli 7-8) dove il secondo parametro è la frequenza di trial lure (stessa categoria di 2 prove fa invece che 1) |
-| Cancellazione (neglect) | 1-10 | Elementi per tavola (14→85) insieme al tempo limite per tavola (nessun limite ai livelli 1-2, poi 110→18s) |
+| Categorizzazione condizionale | 1-10 (manuale o adattivo) | Banda doppia delle 5 strutture originarie (dimensione singola → doppia dimensione+no-go → regola disgiuntiva → 1-back sulla categoria → doppia dimensione a 4 risposte), ordinate per complessità relazionale (Halford, Wilson & Phillips, 1998) non per numero di mappature stimolo-risposta; dentro ogni banda l'ISI si stringe, tranne nella banda del 1-back (livelli 7-8) dove il secondo parametro è la frequenza di trial lure (stessa categoria di 2 prove fa invece che 1). Con l'adattivo attivo, la titolazione (ISI/lure) resta vincolata dentro la struttura di partenza per tutta la seduta — non attraversa mai un confine di struttura (= un cambio di regola) a metà sessione, vedi sezione "Vincolo di fascia strutturale" più sotto |
+| Cancellazione (neglect) | Classico/Trova l'intruso: 1-10. Conteggio a regola: 1-10 (unificato, non più separato dalla dimensione tavola). Progressiva: 1-30 | Elementi per tavola (14→85) insieme al tempo limite per tavola (nessun limite ai livelli 1-2, poi 110→18s). In "Conteggio a regola" la complessità della regola scala insieme, 2 livelli per condizione, ordine colore→sfondo→riga (percettivo prima, posizionale per ultimo — Treisman & Gelade, 1980). "Progressiva" incolla i tre in sequenza (1-10 Classico, 11-20 Intruso, 21-30 Regola), ciascuno con la propria scala 1-10 completa. Tutti i cambi di sotto-modalità (progressiva) o di condizione (regola) sono vincolati a non attraversare la seduta in corso, vedi sotto |
 
 Fa eccezione lo **Stop-Signal**, che usa una titolazione propria e
 indipendente dal "livello" per la sua misura principale: lo staircase del
@@ -199,11 +238,17 @@ livelli di difficoltà del materiale, anch'essi scelti manualmente.
 
 ## Categorizzazione condizionale
 
-Esercizio distinto dal Task-switching: qui la regola resta **fissa** per
-tutta la sessione — non si misura il costo di cambiare regola, ma il
-carico di applicarne una via via più complessa. Per questo non è
-adattivo in tempo reale: il livello (1-10) si sceglie a mano in setup,
-come per la Cancellazione a regola.
+Esercizio distinto dal Task-switching: qui la regola resta **fissa**
+dentro ogni struttura — non si misura il costo di cambiare regola, ma il
+carico di applicarne una via via più complessa. Il livello (1-10) si può
+scegliere a mano in Setup (come prima), oppure lasciare che l'ISI (o la
+frequenza lure alle bande 7-8) si titoli da solo in base all'accuratezza
+— ma la STRUTTURA (quale delle 5 regole sotto) non cambia mai a metà
+seduta nemmeno con l'adattivo attivo: la titolazione resta vincolata
+dentro la banda di struttura di partenza, esattamente come per la
+Cancellazione a regola (vedi "Vincolo di fascia strutturale" più sopra).
+Un cambio di struttura richiede sempre una seduta nuova, con le
+istruzioni della struttura successiva lette/mostrate prima di iniziare.
 
 I 10 livelli sono una banda doppia delle 5 strutture qualitativamente
 distinte descritte sotto — non un'unica scala continua, perché non

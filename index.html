@@ -973,8 +973,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2896,13 +2896,13 @@
     if(cfg.taskMode==='gonogo'){
       grid.appendChild(field('Materiale', segButtons(['no','visivo','uditivo','misto'], cfg.gonogoMista||'no', v=>{
         cfg.gonogoMista = v;
-        // 6, non 2: la difficoltà adattiva del Go/No-Go può richiedere fino
-        // a 6 elementi no-go attivi contemporaneamente ai livelli alti
+        // 4, non 2: la difficoltà adattiva del Go/No-Go può richiedere fino
+        // a 4 elementi no-go attivi contemporaneamente al livello massimo
         // (ADAPT_GONOGO_COUNT) — proporne solo 2 avrebbe tappato il
         // livello massimo raggiungibile finché l'operatore non ne
         // aggiungeva altri a mano. Ai livelli bassi gli elementi in più
         // restano semplicemente inattivi, non creano difficoltà indesiderata.
-        cfg.targetSeq = v!=='no' ? randomMistaTargetSeq(6, mistaTypesFor(v)) : [];
+        cfg.targetSeq = v!=='no' ? randomMistaTargetSeq(4, mistaTypesFor(v)) : [];
         render();
       }, MISTA_LABELS)));
     }
@@ -3313,7 +3313,7 @@
     const isMista = !!mistaMode && mistaMode!=='no';
     const mistaTypes = isMista ? mistaTypesFor(mistaMode) : null;
     const wrap = el('div',{class:'field'});
-    const label = isGoNoGo ? 'Elementi no-go (1–6, su cui NON si deve rispondere — con l\'adattivo attivo ne verranno usati progressivamente di più)'
+    const label = isGoNoGo ? 'Elementi no-go (1–4, su cui NON si deve rispondere — con l\'adattivo attivo ne verranno usati progressivamente di più)'
       : isNeglect ? 'Elementi bersaglio da cancellare (1–4, l\'ordine non conta)'
       : isMista ? 'Sequenza bersaglio mista (tocca gli elementi, da tipi diversi, nell\'ordine desiderato — 2–6 elementi)'
       : 'Sequenza bersaglio (tocca gli elementi nell\'ordine desiderato, 2–6 elementi)';
@@ -3339,7 +3339,7 @@
             if(t==='suoni' || isSpokenStim(t)) playStimulusAudio(t, item, 350);
             if(isGoNoGo){
               if(cfg.targetSeq.some(x=>sameStim(x,{stimType:t,item}))) return; // già presente
-              if(cfg.targetSeq.length < 6){ cfg.targetSeq = cfg.targetSeq.concat([{stimType:t, item}]); render(); }
+              if(cfg.targetSeq.length < 4){ cfg.targetSeq = cfg.targetSeq.concat([{stimType:t, item}]); render(); }
             } else if(cfg.targetSeq.length < 6){ cfg.targetSeq = cfg.targetSeq.concat([{stimType:t, item}]); render(); }
           }};
           if(t==='colori') attrs.style = 'background:'+item.hex+'; color:#fff; border-color:'+item.hex+';';
@@ -3357,7 +3357,7 @@
           if(isAudioOnlyStim(cfg.stimType)) playStimulusAudio(cfg.stimType, item, 350);
           if(isGoNoGo || isNeglect){
             if(cfg.targetSeq.some(t=>seqLabel(t)===itemLabel)) return; // già presente
-            const cap = isGoNoGo ? 6 : 4; // go/no-go esteso a 10 livelli può usare fino a 6 elementi no-go al soffitto; neglect resta a 4
+            const cap = 4; // go/no-go: tetto 4 elementi no-go, raggiunto solo al livello 10 (vedi ADAPT_GONOGO_COUNT); neglect resta a 4
             if(cfg.targetSeq.length < cap){ cfg.targetSeq = cfg.targetSeq.concat([item]); render(); }
           }
           else if(cfg.targetSeq.length < 6){ cfg.targetSeq = cfg.targetSeq.concat([item]); render(); }
@@ -3377,6 +3377,11 @@
     }
     if((isNeglect||isGoNoGo) && cfg.targetSeq.length < 1){
       wrap.appendChild(el('p',{class:'hint'},['Seleziona almeno 1 elemento.']));
+    }
+    if(isGoNoGo && cfg.adaptive && cfg.targetSeq.length){
+      const activeN = Math.min(cfg.targetSeq.length, ADAPT_GONOGO_COUNT[cfg.adaptStartLevel]||1);
+      const activeFreq = Math.round((ADAPT_GONOGO_FREQ[cfg.adaptStartLevel]||cfg.targetRate)*100);
+      wrap.appendChild(el('p',{class:'hint'},['A livello '+cfg.adaptStartLevel+': '+activeN+' element'+(activeN===1?'o':'i')+' attiv'+(activeN===1?'o':'i')+' su '+cfg.targetSeq.length+' nel pool, frequenza '+activeFreq+'% — il campo "Frequenza no-go" sotto è ignorato in modalità adattiva.']));
     }
     return wrap;
   }
@@ -4051,7 +4056,7 @@
   const CATEG_LURE = {7:0, 8:0.30};
   function categStructureOfLevel(level){ return CATEG_STRUCTURE_OF_LEVEL[level] || 1; }
   const DUAL_DOUBLE_TARGET_GRACE_MS = 500; // proroga concessa quando un trial richiede due tocchi e ne è arrivato solo uno alla scadenza
-  const ADAPT_GONOGO_COUNT = {1:1,2:1,3:1,4:2,5:2,6:3,7:3,8:4,9:5,10:6}; // quanti elementi no-go attivi (dal set configurato) — di più = più difficile; ai livelli 9-10 richiede un pool di stimoli di almeno 5-6 elementi
+  const ADAPT_GONOGO_COUNT = {1:1,2:1,3:1,4:1,5:2,6:2,7:2,8:3,9:3,10:4}; // quanti elementi no-go attivi (dal set configurato) — di più = più difficile; tetto a 4 (richiede un pool di almeno 4 elementi), raggiunto solo al livello 10 — la risoluzione nella fascia media viene soprattutto da ADAPT_GONOGO_FREQ
   const ADAPT_SWITCH_CSI  = {1:900,2:750,3:600,4:480,5:380,6:300,7:230,8:170,9:120,10:80}; // intervallo cue→stimolo — più corto = più difficile
   const ADAPT_NEGLECT_SIZE = {1:14,2:20,3:26,4:34,5:42,6:50,7:58,8:66,9:75,10:85}; // elementi per tavola — più alto = più difficile; pavimento abbassato e soffitto alzato rispetto alla vecchia scala 1-5
   // Sequenza bersaglio: la lunghezza della sequenza cresce da 2 (pavimento,

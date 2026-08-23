@@ -120,12 +120,16 @@ elementi no-go — anche quando il materiale è misto fra più tipologie
 (visivo/uditivo) — l'app propone subito una selezione casuale, mai
 vuota, senza duplicati; resta interamente modificabile dopo con "←
 Rimuovi ultimo", "Reimposta", o aggiungendo/togliendo elementi a mano.
-La quantità proposta non è arbitraria: per il Go/No-Go sono **6**
+La quantità proposta non è arbitraria: per il Go/No-Go sono **4**
 elementi, non un numero più piccolo, perché l'adattivo può richiedere
-fino a 6 elementi no-go attivi contemporaneamente ai livelli alti
+fino a 4 elementi no-go attivi contemporaneamente al livello massimo
 (tabella sotto) — proporne meno avrebbe tappato il livello massimo
 raggiungibile finché l'operatore non ne aggiungeva altri a mano; ai
 livelli bassi gli elementi in eccesso restano semplicemente inattivi.
+Il pool selezionabile in Setup ha lo stesso tetto di 4 (non 6): il
+numero di elementi *nel pool* non va confuso con il numero *attivo* a
+un dato livello — quest'ultimo segue la tabella sotto e viene mostrato
+in anteprima in Setup quando l'adattivo è acceso.
 Per la Sequenza bersaglio bastano **3** elementi, perché lì il
 meccanismo è diverso: la sequenza configurata viene riciclata/ripetuta
 per raggiungere la lunghezza richiesta dal livello (fino a 5), non
@@ -162,7 +166,7 @@ forti):
 | Esercizio | Livelli | Cosa varia col livello |
 |---|---|---|
 | N-back | 1-10 | n cresce solo a cambio di banda — 1 ai livelli 1-4, 2 ai livelli 5-9, 3 al solo livello 10 (il carico "puro" resta clinicamente vincolato: la letteratura su cui si basa l'n-back mostra un calo netto di accuratezza già a n=3) — dentro ogni banda scalano frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso: aumentano il carico di controllo dell'interferenza senza alzare n, cfr. Kane, Conway, Miura & Colflesh, 2007) |
-| Go/No-Go | 1-10 | Frequenza no-go (48%→5%), numero di elementi no-go attivi (1→6), ISI (che scala col livello) |
+| Go/No-Go | 1-10 | Frequenza no-go (48%→5%) e numero di elementi no-go attivi (1→4, tetto raggiunto solo al livello 10); l'ISI resta fisso (impostato manualmente in Setup), non è adattivo per questo esercizio |
 | Sequenza bersaglio | 1-10 | ISI (4500→900ms) e, solo in modalità adattiva, lunghezza della sequenza bersaglio (2→5 elementi) |
 | Stop-Signal | 1-10 (leva secondaria) + staircase SSD continuo | ISI secondario (3600→750ms); lo SSD resta un meccanismo indipendente e continuo, non a livelli (vedi sotto) |
 | ANT (classico) | 1-10 | ISI (3200→650ms) |

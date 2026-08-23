@@ -158,6 +158,12 @@
   .tapbtn.match{background:var(--accent); color:var(--ink);}
   .tapbtn.nomatch{background:rgba(255,255,255,.1); color:var(--white); border:1.5px solid rgba(255,255,255,.25);}
   .tapbtn.full{flex:1 1 100%;}
+  /* Zone di risposta grandi (accessibilità, bassa vista): le due zone
+     occupano gran parte dell'altezza disponibile, non solo una fascia in
+     basso — pensate per essere trovabili "a tastoni" o con vista molto
+     ridotta, senza dover mirare a un bersaglio piccolo. */
+  .respond-large{min-height:38vh;}
+  .tapbtn-large{min-height:38vh; font-size:28px !important; font-weight:700;}
   .tapbtn:active, .tapbtn.tapped{transform:scale(.96); filter:brightness(1.18);}
   .stopcue-full{width:min(70vw,320px); height:min(70vw,320px); border-radius:50%; background:var(--alert);
     display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Space Grotesk',sans-serif;
@@ -209,7 +215,7 @@
 
   /* ---------- data pools ---------- */
   const POOLS = {
-    lettere: ['B','C','D','F','G','H','L','M','N','P','R','S','T','V'],
+    lettere: ['A','B','C','D','E','F','G','H','I','L','M','N','O','P','R','S','T','U','V'],
     numeri:  ['1','2','3','4','5','6','7','8','9'], // rigenerato per sessione da regenerateNumeriPool(), in base a cfg.numDigits
     simboli: ['●','■','▲','◆','★','✚','⬟','⬤'],
     parole:  [], // rigenerato da regenerateParolePool(), in base a cfg.wordComplexity
@@ -229,12 +235,12 @@
   };
   POOLS.lettereVoce = POOLS.lettere; // stessi contenuti di 'lettere', letti dal sintetizzatore invece che mostrati
   POOLS.numeriVoce = POOLS.numeri;   // tenuto sincronizzato con POOLS.numeri in regenerateNumeriPool()
-  const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati'};
+  const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati', paroleVoce:'Parole pronunciate'};
   // Stimoli uditivi puri: 'suoni' (toni) e le due varianti "voce" (lettere o
   // numeri letti dal sintetizzatore vocale, nessuna rivelazione visiva) —
   // stessa idea del canale acustico del Doppio compito, ma come tipo di
   // stimolo autonomo utilizzabile in qualunque esercizio con usesStimType.
-  function isSpokenStim(t){ return t==='lettereVoce' || t==='numeriVoce'; }
+  function isSpokenStim(t){ return t==='lettereVoce' || t==='numeriVoce' || t==='paroleVoce'; }
   function isAudioOnlyStim(t){ return t==='suoni' || isSpokenStim(t); }
   // Riproduce lo stimolo per il tipo corrente — un'unica chiamata invece di
   // ripetere ovunque il branch toni/voce.
@@ -247,7 +253,7 @@
   // "lettere"/"parole" sono femminili, gli altri materiali sono maschili —
   // serve per costruire istruzioni con l'accordo di genere corretto
   // (es. "una alla volta" vs "uno alla volta", "molte" vs "molti").
-  function stimGender(stimType){ return (stimType==='lettere' || stimType==='lettereVoce' || stimType==='parole') ? 'f' : 'm'; }
+  function stimGender(stimType){ return (stimType==='lettere' || stimType==='lettereVoce' || stimType==='parole' || stimType==='paroleVoce') ? 'f' : 'm'; }
 
   // Banca di parole concrete italiane, divisa per lunghezza/complessità.
   // "mista" pesca da tutte e tre in proporzioni uguali.
@@ -269,6 +275,7 @@
     const c = cfg.wordComplexity || 'breve';
     let bank = c==='mista' ? WORD_BANK.breve.concat(WORD_BANK.media, WORD_BANK.lunga) : (WORD_BANK[c] || WORD_BANK.breve);
     POOLS.parole = bank;
+    POOLS.paroleVoce = bank;
   }
   // Numeri a 1-6 cifre, personalizzabile (cfg.numDigits). Rigenera un
   // sottoinsieme casuale ad ogni sessione per varietà, tenendo il pool a
@@ -334,16 +341,19 @@
       domini:['Funzioni esecutive','Categorizzazione','Memoria di lavoro'],
       instructions:c=>{
         const liv = categStructureOfLevel(c.categLivello);
-        const matLabel = c.categMateriale==='colori' ? 'un cerchio colorato' : 'un simbolo';
+        const matSpoken = isSpokenStim(c.categMateriale);
+        const matLabel = c.categMateriale==='colori' ? 'un cerchio colorato' : c.categMateriale==='simboli' ? 'un simbolo' : c.categMateriale==='lettereVoce' ? 'una lettera pronunciata' : 'un numero pronunciato';
+        const verboVis = matSpoken ? 'Sentirai' : 'Vedrai';
         if(liv===1){
           const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
-          return 'Vedrai '+matLabel+': classificalo come "'+rs.labelA+'" o "'+rs.labelB+'", toccando il pulsante corrispondente. La regola resta sempre la stessa, non cambia da una prova all\'altra.';
+          return verboVis+' '+matLabel+': classificalo come "'+rs.labelA+'" o "'+rs.labelB+'", toccando il pulsante corrispondente. La regola resta sempre la stessa, non cambia da una prova all\'altra.';
         }
         if(liv===2) return 'Vedrai una lettera o un numero, nero o rosso. Tocca "A" se è una lettera nera, "B" se è un numero rosso, "C" se è un numero nero. Se è una lettera rossa, non toccare nulla — è l\'unico caso in cui non si risponde.';
         if(liv===3) return 'Vedrai una lettera o un numero, nero o rosso. Tocca "A" se vedi una lettera nera oppure un numero rosso. Tocca "B" se vedi una lettera rossa oppure un numero nero.';
         if(liv===4){
           const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
-          return 'Vedrai una serie di '+(c.categMateriale==='colori'?'cerchi colorati':'simboli')+', uno alla volta. Ciascuno appartiene alla categoria "'+rs.labelA+'" o "'+rs.labelB+'". Tocca il pulsante ogni volta che la categoria è la stessa di quella dello stimolo appena precedente.';
+          const matPlur = c.categMateriale==='colori' ? 'cerchi colorati' : c.categMateriale==='simboli' ? 'simboli' : c.categMateriale==='lettereVoce' ? 'lettere pronunciate' : 'numeri pronunciati';
+          return verboVis+' una serie di '+matPlur+', uno alla volta. Ciascuno appartiene alla categoria "'+rs.labelA+'" o "'+rs.labelB+'". Tocca il pulsante ogni volta che la categoria è la stessa di quella dello stimolo appena precedente.';
         }
         return 'Vedrai una lettera o un numero, nero o rosso. Tocca A per lettera nera, L per lettera rossa, Z per numero nero, M per numero rosso.';
       }},
@@ -431,19 +441,32 @@
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
     categLivello:1, categMateriale:'colori', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('colori'|'simboli')
-    sequenzaMista:false, // solo per Sequenza bersaglio: mescola codici diversi (lettere/numeri/colori/suoni/simboli) nella stessa sequenza invece di un solo tipo
-    nbackMista:false, // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
-    gonogoMista:false, // solo per Go/No-Go: stesso principio — il/i bersaglio/i no-go possono essere di tipi diversi fra loro, non solo lo stesso cfg.stimType
+    zoneGrandi:false, // accessibilità: zone di risposta molto più grandi (metà schermo per 2 risposte) invece di pulsanti piccoli — utile su tablet/smartphone per bassa vista
+    sequenzaMista:'no', // solo per Sequenza bersaglio: 'no'|'visivo'|'uditivo'|'misto' — mescola codici diversi nella stessa sequenza invece di un solo tipo
+    nbackMista:'no', // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
+    gonogoMista:'no', // solo per Go/No-Go: stesso principio — il/i bersaglio/i no-go possono essere di tipi diversi fra loro, non solo lo stesso cfg.stimType
   };
   // Tipi di stimolo utilizzabili insieme in una sequenza bersaglio mista.
   // Escluse le parole: la lunghezza variabile complicherebbe la costruzione
   // e la lettura rapida della sequenza da parte del paziente.
-  const SEQUENZA_MISTA_TYPES = ['lettere','numeri','colori','suoni','simboli','lettereVoce','numeriVoce'];
-  function randMistaStim(){
-    const t = SEQUENZA_MISTA_TYPES[Math.floor(Math.random()*SEQUENZA_MISTA_TYPES.length)];
+  const VISUAL_MISTA_TYPES = ['lettere','numeri','colori','simboli'];
+  const AUDIO_MISTA_TYPES = ['suoni','lettereVoce','numeriVoce'];
+  const SEQUENZA_MISTA_TYPES = VISUAL_MISTA_TYPES.concat(AUDIO_MISTA_TYPES);
+  // cfg.sequenzaMista/nbackMista/gonogoMista: 'no' | 'visivo' | 'uditivo' | 'misto'
+  // (visivo+uditivo insieme) — quali tipi di stimolo entrano nel "mescolati".
+  function mistaTypesFor(mode){
+    if(mode==='visivo') return VISUAL_MISTA_TYPES;
+    if(mode==='uditivo') return AUDIO_MISTA_TYPES;
+    if(mode==='misto') return SEQUENZA_MISTA_TYPES;
+    return null; // 'no' o non impostato: non mista
+  }
+  function randMistaStim(types){
+    const list = types || SEQUENZA_MISTA_TYPES;
+    const t = list[Math.floor(Math.random()*list.length)];
     const pool = POOLS[t];
     return {stimType:t, item: pool[Math.floor(Math.random()*pool.length)]};
   }
+  const MISTA_LABELS_SHORT = {visivo:'Mista (visivo)', uditivo:'Mista (uditivo)', misto:'Mista (visivo+uditivo)'};
   function defaultTargetSeq(stimType, len){
     len = len || (cfg.targetSeq ? cfg.targetSeq.length : 3);
     const pool = POOLS[stimType];
@@ -465,7 +488,7 @@
             ? c.targetSeq.map(e=>({stimType:e.stimType, label:seqLabel(e)}))
             : c.targetSeq.map(seqLabel))
         : null,
-      sequenzaMista: !!c.sequenzaMista, nbackMista: !!c.nbackMista, gonogoMista: !!c.gonogoMista,
+      sequenzaMista: c.sequenzaMista||'no', nbackMista: c.nbackMista||'no', gonogoMista: c.gonogoMista||'no',
       trials:c.trials, isi:c.isi, stimDuration:c.stimDuration, targetRate:c.targetRate,
       respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, adaptive:c.adaptive,
       switchMaterial:c.switchMaterial, dualVisual:c.dualVisual, dualVisual2:c.dualVisual2, dualPairing:c.dualPairing, antMode:c.antMode,
@@ -476,7 +499,7 @@
       goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
-      categLivello:c.categLivello, categMateriale:c.categMateriale
+      categLivello:c.categLivello, categMateriale:c.categMateriale, zoneGrandi: !!c.zoneGrandi
     };
   }
   function listPresets(){
@@ -574,8 +597,12 @@
     cfg.memoriaFormaIdx = pc.memoriaFormaIdx || 0;
     cfg.memoriaLociTipo = pc.memoriaLociTipo || 'casa'; cfg.memoriaLociCustom = pc.memoriaLociCustom || '';
     cfg.chunkingMetodi = (pc.chunkingMetodi && pc.chunkingMetodi.length) ? pc.chunkingMetodi : ['categoria']; cfg.chunkingNota = pc.chunkingNota || '';
-    cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'colori';
-    cfg.sequenzaMista = !!pc.sequenzaMista; cfg.nbackMista = !!pc.nbackMista; cfg.gonogoMista = !!pc.gonogoMista;
+    cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'colori'; cfg.zoneGrandi = !!pc.zoneGrandi;
+    // Retrocompatibilità: preset/programmi salvati prima di questa versione
+    // avevano sequenzaMista/nbackMista/gonogoMista come booleano — true
+    // equivaleva a "tutti i tipi mescolati insieme", oggi 'misto'.
+    const normMista = v => v===true ? 'misto' : (v || 'no');
+    cfg.sequenzaMista = normMista(pc.sequenzaMista); cfg.nbackMista = normMista(pc.nbackMista); cfg.gonogoMista = normMista(pc.gonogoMista);
     cfg.targetSeq = (EXERCISES[pc.taskMode] && EXERCISES[pc.taskMode].usesTargetSeq && pc.targetSeq && pc.targetSeq.length)
       ? (pc.taskMode==='sequenza' && pc.sequenzaMista
           ? pc.targetSeq.map(e=>{ const pool = POOLS[e.stimType]||[]; return {stimType:e.stimType, item: pool.find(it=>seqLabel(it)===e.label) || e.label}; })
@@ -917,8 +944,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1129,7 +1156,7 @@
   // match a fixed, custom-built sequence (e.g. 1 → 2 → 3). Everything else
   // is a non-target, regardless of how "close" it looks.
   function sameSeqItem(a,b){
-    if(cfg.taskMode==='sequenza' && cfg.sequenzaMista) return a && b && a.stimType===b.stimType && a.item===b.item;
+    if(cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no') return a && b && a.stimType===b.stimType && a.item===b.item;
     return a===b;
   }
   // In modalità adattiva, la lunghezza della sequenza bersaglio segue
@@ -1140,7 +1167,7 @@
     if(!cfg.adaptive) return cfg.targetSeq;
     const desiredLen = ADAPT_SEQ_LEN[cfg.adaptStartLevel] || cfg.targetSeq.length;
     if(cfg.targetSeq.length===desiredLen) return cfg.targetSeq;
-    if(cfg.sequenzaMista){
+    if(cfg.sequenzaMista && cfg.sequenzaMista!=='no'){
       const base = cfg.targetSeq.length ? cfg.targetSeq : [{stimType:SEQUENZA_MISTA_TYPES[0], item:POOLS[SEQUENZA_MISTA_TYPES[0]][0]}];
       const out = [];
       for(let i=0;i<desiredLen;i++) out.push(base[i % base.length]);
@@ -1149,17 +1176,13 @@
     return defaultTargetSeq(cfg.stimType, desiredLen);
   }
   function buildSequenceTarget(){
-    const isMista = cfg.taskMode==='sequenza' && cfg.sequenzaMista;
+    const isMista = cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no';
+    const mistaTypes = isMista ? mistaTypesFor(cfg.sequenzaMista) : null;
     const target = sequenceTargetForBuild();
     const len = target.length;
     const raw = [];
-    const randMista = ()=>{
-      const t = SEQUENZA_MISTA_TYPES[Math.floor(Math.random()*SEQUENZA_MISTA_TYPES.length)];
-      const p = POOLS[t];
-      return {stimType:t, item:p[Math.floor(Math.random()*p.length)]};
-    };
     const pool = isMista ? null : POOLS[cfg.stimType];
-    for(let i=0;i<cfg.trials;i++) raw.push(isMista ? randMista() : pool[Math.floor(Math.random()*pool.length)]);
+    for(let i=0;i<cfg.trials;i++) raw.push(isMista ? randMistaStim(mistaTypes) : pool[Math.floor(Math.random()*pool.length)]);
     for(let i=len-1;i<cfg.trials;i++){
       if(Math.random() < cfg.targetRate){
         for(let j=0;j<len;j++) raw[i-len+1+j] = target[j];
@@ -1302,8 +1325,13 @@
       ruleB:{label:'Bianco / Rosso', labelA:'Bianco', labelB:'Rosso', classify:v=> v.colore==='nero'}
     }
   };
+  // Materiale pronunciato: stessa regola di classificazione di lettere/numeri
+  // (stessi valori, POOLS.lettereVoce/numeriVoce sono lo stesso array) — usato
+  // dalla Categorizzazione condizionale ai livelli a dimensione singola.
+  SWITCH_RULESETS.lettereVoce = SWITCH_RULESETS.lettere;
+  SWITCH_RULESETS.numeriVoce = SWITCH_RULESETS.numeri;
   const SWITCH_BIVALENTE_NUM_POOL = ['1','2','3','4','6','7','8','9'];
-  const SWITCH_BIVALENTE_LETTERE = ['B','D','F','G','H','J','K','L','M','P']; // consonanti: evita sovrapposizioni con eventuali altre regole vocale/consonante
+  const SWITCH_BIVALENTE_LETTERE = ['A','B','D','E','F','G','H','I','J','K','L','M','O','P','U']; // identità della lettera irrilevante per entrambe le regole bivalenti (Numero/Lettera, Bianco/Rosso) — include vocali e consonanti, nessuna ragione per escluderle
   function buildSwitching(){
     const material = cfg.switchMaterial;
     const rs = SWITCH_RULESETS[material];
@@ -2771,7 +2799,7 @@
       const nv = EXERCISES[v];
       if(nv.usesTargetSeq){
         if(v==='neglect' || v==='gonogo'){ if(!cfg.targetSeq) cfg.targetSeq=[]; if(cfg.targetSeq.length>(v==='gonogo'?6:4)) cfg.targetSeq=cfg.targetSeq.slice(0,2); }
-        else if(v==='sequenza' && cfg.sequenzaMista){
+        else if(v==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no'){
           if(!cfg.targetSeq || !cfg.targetSeq.length || !cfg.targetSeq[0] || !cfg.targetSeq[0].stimType) cfg.targetSeq = [];
         }
         else {
@@ -2797,34 +2825,35 @@
     // stimulus type — solo per gli esercizi che ne hanno uno configurabile
     // (l'ANT classico usa sempre frecce fisse, il TAPAT invece sceglie il materiale)
     const isClassicAnt = cfg.taskMode==='ant' && cfg.antMode==='classico';
-    const isSequenzaMista = cfg.taskMode==='sequenza' && cfg.sequenzaMista;
-    const isNbackMista = cfg.taskMode==='nback' && cfg.nbackMista;
-    const isGonogoMista = cfg.taskMode==='gonogo' && cfg.gonogoMista;
+    const MISTA_LABELS = {no:'Un solo tipo', visivo:'Mescolato visivo (lettere/numeri/colori/simboli)', uditivo:'Mescolato uditivo (suoni/lettere e numeri pronunciati)', misto:'Mescolato visivo + uditivo (tutti insieme)'};
+    const isSequenzaMista = cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no';
+    const isNbackMista = cfg.taskMode==='nback' && cfg.nbackMista && cfg.nbackMista!=='no';
+    const isGonogoMista = cfg.taskMode==='gonogo' && cfg.gonogoMista && cfg.gonogoMista!=='no';
     const neglectIntruso = cfg.taskMode==='neglect' && cfg.neglectMode==='intruso'; // pool fisso di glifi, nessuna scelta di materiale
     const neglectRegola = cfg.taskMode==='neglect' && cfg.neglectMode==='regola'; // solo numeri/lettere, servono proprietà classificabili (pari/dispari, vocale/consonante)
     if(cfg.taskMode==='sequenza'){
-      grid.appendChild(field('Codici della sequenza', segButtons(['no','si'], cfg.sequenzaMista?'si':'no', v=>{
-        cfg.sequenzaMista = v==='si';
-        cfg.targetSeq = cfg.sequenzaMista ? [] : defaultTargetSeq(cfg.stimType, 3);
+      grid.appendChild(field('Codici della sequenza', segButtons(['no','visivo','uditivo','misto'], cfg.sequenzaMista||'no', v=>{
+        cfg.sequenzaMista = v;
+        cfg.targetSeq = v!=='no' ? [] : defaultTargetSeq(cfg.stimType, 3);
         render();
-      }, {no:'Un solo tipo', si:'Mescolati (lettere/numeri/colori/suoni/simboli)'})));
+      }, MISTA_LABELS)));
     }
     if(cfg.taskMode==='nback'){
-      grid.appendChild(field('Materiale', segButtons(['no','si'], cfg.nbackMista?'si':'no', v=>{
-        cfg.nbackMista = v==='si';
+      grid.appendChild(field('Materiale', segButtons(['no','visivo','uditivo','misto'], cfg.nbackMista||'no', v=>{
+        cfg.nbackMista = v;
         render();
-      }, {no:'Un solo tipo', si:'Mescolati (lettere/numeri/colori/suoni/simboli)'})));
+      }, MISTA_LABELS)));
     }
     if(cfg.taskMode==='gonogo'){
-      grid.appendChild(field('Materiale', segButtons(['no','si'], cfg.gonogoMista?'si':'no', v=>{
-        cfg.gonogoMista = v==='si';
+      grid.appendChild(field('Materiale', segButtons(['no','visivo','uditivo','misto'], cfg.gonogoMista||'no', v=>{
+        cfg.gonogoMista = v;
         cfg.targetSeq = [];
         render();
-      }, {no:'Un solo tipo', si:'Mescolati (lettere/numeri/colori/suoni/simboli)'})));
+      }, MISTA_LABELS)));
     }
     if(ex.usesStimType && !isClassicAnt && !isSequenzaMista && !isNbackMista && !isGonogoMista && !neglectIntruso){
       grid.appendChild(field('Tipo di stimolo', segButtons(
-        neglectRegola ? ['numeri','lettere'] : Object.keys(STIM_LABELS).filter(k=> !((cfg.taskMode==='stopsignal' || cfg.taskMode==='neglect') && isAudioOnlyStim(k))),
+        neglectRegola ? ['numeri','lettere'] : Object.keys(STIM_LABELS).filter(k=> !(cfg.taskMode==='neglect' && isAudioOnlyStim(k)) && !(cfg.taskMode==='stopsignal' && isSpokenStim(k))),
         cfg.stimType, v=>{
         cfg.stimType=v;
         regenerateNumeriPool(); regenerateParolePool();
@@ -3040,7 +3069,7 @@
       card.appendChild(field('Livello (1-10)', stepper(cfg.categLivello,1,10,v=>{cfg.categLivello=v; render();},1)));
       const cStruct = categStructureOfLevel(cfg.categLivello);
       if(cStruct===1 || cStruct===4){
-        card.appendChild(field('Materiale', segButtons(['colori','simboli'], cfg.categMateriale, v=>{cfg.categMateriale=v; render();}, {colori:'Colori', simboli:'Simboli'})));
+        card.appendChild(field('Materiale', segButtons(['colori','simboli','lettereVoce','numeriVoce'], cfg.categMateriale, v=>{cfg.categMateriale=v; render();}, {colori:'Colori', simboli:'Simboli', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati'})));
       }
       const CATEG_LEVEL_HINTS = {
         1:'Singola dimensione, regola fissa per tutta la sessione (nessun costo di switch, a differenza del Task-switching) — ISI ampio.',
@@ -3082,6 +3111,13 @@
         paziente:'Touch (chi tocca lo schermo)', manuale:'Inserimento manuale a fine sessione'
       }));
       card.appendChild(respWrap);
+      if(cfg.respMode!=='manuale'){
+        card.appendChild(field('Zone di risposta grandi', segButtons(['no','si'], cfg.zoneGrandi?'si':'no', v=>{
+          cfg.zoneGrandi = v==='si';
+          render();
+        }, {no:'Normali', si:'Metà schermo (per bassa vista)'})));
+        if(cfg.zoneGrandi) card.appendChild(el('p',{class:'hint'},['Utile su tablet/smartphone per chi vede poco: le zone toccabili diventano molto più grandi (metà schermo ciascuna quando ci sono due risposte), invece di piccoli pulsanti da individuare con precisione. Non cambia nulla su computer, dove esiste già la tastiera come alternativa.']));
+      }
     }
     if(isMemoria){
       card.appendChild(el('p',{class:'hint'},['Il richiamo viene valutato dall\'operatore, non in automatico: dopo la fase di studio, il paziente racconta/richiama a voce, e tu spunti sullo schermo cosa ha effettivamente recuperato.']));
@@ -3192,7 +3228,9 @@
   function sequenceEditor(){
     const isGoNoGo = cfg.taskMode==='gonogo';
     const isNeglect = cfg.taskMode==='neglect';
-    const isMista = (cfg.taskMode==='sequenza' && cfg.sequenzaMista) || (cfg.taskMode==='gonogo' && cfg.gonogoMista);
+    const mistaMode = cfg.taskMode==='sequenza' ? cfg.sequenzaMista : cfg.taskMode==='gonogo' ? cfg.gonogoMista : null;
+    const isMista = !!mistaMode && mistaMode!=='no';
+    const mistaTypes = isMista ? mistaTypesFor(mistaMode) : null;
     const wrap = el('div',{class:'field'});
     const label = isGoNoGo ? 'Elementi no-go (1–6, su cui NON si deve rispondere — con l\'adattivo attivo ne verranno usati progressivamente di più)'
       : isNeglect ? 'Elementi bersaglio da cancellare (1–4, l\'ordine non conta)'
@@ -3206,10 +3244,11 @@
     wrap.appendChild(preview);
 
     if(isMista){
-      // un gruppo di chip per ciascun tipo di stimolo mescolabile, con
+      // un gruppo di chip per ciascun tipo di stimolo mescolabile (solo
+      // quelli della modalità scelta — visivo/uditivo/misto), con
       // etichetta del tipo — così il paziente/operatore vede da subito che
       // gli elementi vengono da codici diversi, non solo la loro identità.
-      SEQUENZA_MISTA_TYPES.forEach(t=>{
+      mistaTypes.forEach(t=>{
         const groupWrap = el('div',{style:'margin-bottom:10px;'});
         groupWrap.appendChild(el('div',{style:'font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;'},[STIM_LABELS[t]]));
         const chips = el('div',{class:'seg'});
@@ -3276,13 +3315,20 @@
     const textBox = el('p',{style:'font-size:16px; line-height:1.6; background:var(--paper-dim); border-radius:12px; padding:16px 18px; margin:0 0 18px;'},[text]);
     card.appendChild(textBox);
 
-    card.appendChild(speakControls(text));
-
     const nBtns = respondSpec().length;
-    if(cfg.respMode!=='manuale' && (nBtns===2 || nBtns===4)){
-      const keys = nBtns===2 ? 'A / L' : 'A / L / Z / M';
-      card.appendChild(el('p',{class:'hint', style:'margin-top:10px;'},['Da computer puoi rispondere anche da tastiera: '+keys+' (nell\'ordine dei pulsanti mostrati a schermo).']));
+    // La scorciatoia da tastiera fa parte di quello che serve sapere prima
+    // di iniziare — va detta insieme alle istruzioni quando si usa
+    // "Ascolta", non lasciata come paragrafo silenzioso a parte: altrimenti
+    // chi si affida solo all'audio (bassa vista, o materiale uditivo senza
+    // nulla da guardare) non la sente mai.
+    let keyHint = null;
+    if(cfg.respMode!=='manuale' && (nBtns===1 || nBtns===2 || nBtns===4)){
+      keyHint = nBtns===1 ? 'Da computer puoi rispondere anche premendo la barra spaziatrice.'
+        : nBtns===2 ? 'Da computer puoi rispondere anche da tastiera: A / L (nell\'ordine dei pulsanti mostrati a schermo).'
+        : 'Da computer puoi rispondere anche da tastiera: A / L / Z / M (nell\'ordine dei pulsanti mostrati a schermo).';
     }
+    card.appendChild(speakControls(keyHint ? text+'. '+keyHint : text));
+    if(keyHint) card.appendChild(el('p',{class:'hint', style:'margin-top:10px;'},[keyHint]));
 
     card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ view='countdown'; render(); }},['Ho capito, inizia']));
     const nav = el('div',{class:'navlinks'});
@@ -3668,17 +3714,14 @@
   // 'sequenza'), per la modalità mista che riusa la stessa forma {stimType,
   // item} già usata dalla Sequenza bersaglio mista.
   function nbackSameVal(a,b){
-    if(cfg.taskMode==='nback' && cfg.nbackMista) return a && b && a.stimType===b.stimType && a.item===b.item;
+    if(cfg.taskMode==='nback' && cfg.nbackMista && cfg.nbackMista!=='no') return a && b && a.stimType===b.stimType && a.item===b.item;
     return a===b;
   }
   function genNbackTrial(){
-    const isMista = cfg.nbackMista;
+    const isMista = cfg.nbackMista && cfg.nbackMista!=='no';
     const pool = isMista ? null : POOLS[cfg.stimType];
-    const randMista = ()=>{
-      const t = SEQUENZA_MISTA_TYPES[Math.floor(Math.random()*SEQUENZA_MISTA_TYPES.length)];
-      const p = POOLS[t];
-      return {stimType:t, item:p[Math.floor(Math.random()*p.length)]};
-    };
+    const mistaTypes = isMista ? mistaTypesFor(cfg.nbackMista) : null;
+    const randMista = ()=> randMistaStim(mistaTypes);
     const i = session.seq.length;
     const level = session.liveNLevel;
     const params = nbackParamsForLevel(level);
@@ -3720,7 +3763,8 @@
   // Go/No-Go: generazione incrementale, necessaria perché con l'adattivo
   // attivo la frequenza no-go cambia durante la sessione.
   function genGoNoGoTrial(){
-    const isMista = cfg.gonogoMista;
+    const isMista = cfg.gonogoMista && cfg.gonogoMista!=='no';
+    const mistaTypes = isMista ? mistaTypesFor(cfg.gonogoMista) : null;
     const pool = isMista ? null : POOLS[cfg.stimType];
     const fullSet = cfg.targetSeq;
     const count = cfg.adaptive ? Math.min(fullSet.length, ADAPT_GONOGO_COUNT[session.adaptLevel]||1) : fullSet.length;
@@ -3729,7 +3773,7 @@
     let val;
     if(Math.random() < freq){ val = activeNoGo[Math.floor(Math.random()*activeNoGo.length)]; }
     else if(isMista){
-      do{ val = randMistaStim(); } while(activeNoGo.some(x=>sameStim(x,val)));
+      do{ val = randMistaStim(mistaTypes); } while(activeNoGo.some(x=>sameStim(x,val)));
     }
     else { do{ val = pool[Math.floor(Math.random()*pool.length)]; } while(activeNoGo.some(x=>seqLabel(x)===seqLabel(val)) && pool.length>activeNoGo.length); }
     const isNoGo = activeNoGo.some(x=>sameStim(x,val));
@@ -4014,16 +4058,20 @@
       return;
     }
     if((cfg.taskMode==='ant' && cfg.antMode!=='tapat') || cfg.taskMode==='switching') return; // solo visivi
+    if(cfg.taskMode==='categorizzazione' && isSpokenStim(cfg.categMateriale)){
+      speak(String(trial.val));
+      return;
+    }
     if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
       if(trial.cueType==='center') playTone(TAPAT_CUE_TONE, 150); // cue acustico, in aggiunta al simbolo visivo già mostrato in renderStimulusNode
       return;
     }
-    if(cfg.taskMode==='sequenza' && cfg.sequenzaMista){
+    if(cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no'){
       if(trial.val.stimType==='suoni' || isSpokenStim(trial.val.stimType)) playStimulusAudio(trial.val.stimType, trial.val.item, cfg.stimDuration);
       else if(cfg.voice && trial.val.stimType==='lettere') speak(String(trial.val.item));
       return;
     }
-    if((cfg.taskMode==='nback' && cfg.nbackMista) || (cfg.taskMode==='gonogo' && cfg.gonogoMista)){
+    if((cfg.taskMode==='nback' && cfg.nbackMista && cfg.nbackMista!=='no') || (cfg.taskMode==='gonogo' && cfg.gonogoMista && cfg.gonogoMista!=='no')){
       if(trial.val.stimType==='suoni' || isSpokenStim(trial.val.stimType)) playStimulusAudio(trial.val.stimType, trial.val.item, cfg.stimDuration);
       else if(cfg.voice && trial.val.stimType==='lettere') speak(String(trial.val.item));
       return;
@@ -4355,10 +4403,11 @@
 
     const btns = [];
     if(cfg.respMode!=='manuale'){
-      const resp = el('div',{class:'respond'});
-      respondSpec().forEach(spec=>{
-        const b = el('button',{class:'tapbtn '+spec.cls+(spec.full?' full':''), onclick:()=>{ registerTap(spec.action); flashTap(b); }},[spec.label]);
-        b.dataset.action = spec.action;
+      const spec = respondSpec();
+      const resp = el('div',{class:'respond'+(cfg.zoneGrandi && spec.length===2 ? ' respond-large' : '')});
+      spec.forEach(s=>{
+        const b = el('button',{class:'tapbtn '+s.cls+(s.full?' full':'')+(cfg.zoneGrandi && spec.length===2 ? ' tapbtn-large' : ''), onclick:()=>{ registerTap(s.action); flashTap(b); }},[s.label]);
+        b.dataset.action = s.action;
         resp.appendChild(b);
         btns.push(b);
       });
@@ -4388,8 +4437,9 @@
       : (cfg.taskMode==='switching' || cfg.taskMode==='dualtask') && cfg.adaptive ? EXERCISES[cfg.taskMode].label+' · livello '+session.adaptLevel
       : cfg.taskMode==='categorizzazione' ? EXERCISES[cfg.taskMode].label+' · livello '+cfg.categLivello
       : EXERCISES[cfg.taskMode].label;
+    const curMista = cfg.taskMode==='sequenza' ? cfg.sequenzaMista : cfg.taskMode==='nback' ? cfg.nbackMista : cfg.taskMode==='gonogo' ? cfg.gonogoMista : 'no';
     d.infoSpan.textContent = 'prova '+(Math.min(session.idx+1,cfg.trials))+' / '+cfg.trials+' · '+modeLabel+
-      ((EXERCISES[cfg.taskMode].usesStimType && !(cfg.taskMode==='ant' && cfg.antMode==='classico')) ? ' · '+(cfg.taskMode==='sequenza' && cfg.sequenzaMista ? 'Mista' : STIM_LABELS[cfg.stimType]) : '');
+      ((EXERCISES[cfg.taskMode].usesStimType && !(cfg.taskMode==='ant' && cfg.antMode==='classico')) ? ' · '+((curMista && curMista!=='no') ? MISTA_LABELS_SHORT[curMista] : STIM_LABELS[cfg.stimType]) : '');
     d.pauseBtn.textContent = session.paused ? '▶ Riprendi' : '❚❚ Pausa';
 
     // switching: le etichette dei pulsanti dipendono dalla regola del trial corrente
@@ -4476,8 +4526,9 @@
       return wrap;
     }
     if(cfg.taskMode==='categorizzazione'){
-      if(trial.categMateriale){ // livelli 1 e 4: singola dimensione, colore o simbolo
+      if(trial.categMateriale){ // livelli 1 e 4: singola dimensione
         if(cfg.categMateriale==='colori') return el('div',{class:'colorcircle', style:'width:140px; height:140px; background:'+trial.val.hex+';'},[]);
+        if(isSpokenStim(cfg.categMateriale)) return el('div',{class:'audio-pulse active'},['♪']);
         return el('div',{class:'stimulus symbolwrap'},[trial.val]);
       }
       // livelli 2/3/5: stesso stile del bivalente dello switching — testo
@@ -4508,13 +4559,13 @@
       wrap.appendChild(el('div',{class:'audio-pulse active', style:'width:64px;height:64px;font-size:24px;'},['♪']));
       return wrap;
     }
-    if(cfg.taskMode==='sequenza' && cfg.sequenzaMista){
+    if(cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no'){
       return renderTypedStimulus(trial.val.stimType, trial.val.item);
     }
-    if(cfg.taskMode==='nback' && cfg.nbackMista){
+    if(cfg.taskMode==='nback' && cfg.nbackMista && cfg.nbackMista!=='no'){
       return renderTypedStimulus(trial.val.stimType, trial.val.item);
     }
-    if(cfg.taskMode==='gonogo' && cfg.gonogoMista){
+    if(cfg.taskMode==='gonogo' && cfg.gonogoMista && cfg.gonogoMista!=='no'){
       return renderTypedStimulus(trial.val.stimType, trial.val.item);
     }
     if(cfg.stimType==='simboli'){
@@ -5209,7 +5260,7 @@
       stimType: cfg.stimType, nLevel: cfg.nLevel, trials: cfg.trials, isi: cfg.isi, stimDuration: cfg.stimDuration,
       respMode: cfg.respMode, patientCode: cfg.patientCode, notes: cfg.notes,
       taskMode: cfg.taskMode, targetSeq: EXERCISES[cfg.taskMode].usesTargetSeq ? cfg.targetSeq.map(seqLabel) : null,
-      sequenzaMista: (cfg.taskMode==='sequenza') ? !!cfg.sequenzaMista : null,
+      sequenzaMista: (cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no') ? cfg.sequenzaMista : null,
       antMode: cfg.taskMode==='ant' ? cfg.antMode : null,
       localPatientId: patientProfile ? null : (activeLocalPatientId || null),
       pazienteId: (!patientProfile && activeRemotePatientId) ? activeRemotePatientId : null,
@@ -6692,14 +6743,24 @@
   // (4 scelte, per esercizi futuri) sull'ordine dei pulsanti così come
   // vengono renderizzati — mai attiva fuori da view==='task', per non
   // creare scorciatoie accidentali nei menu.
+  // Barra spaziatrice per gli esercizi a un solo pulsante (N-back,
+  // categorizzazione 1-back...): prima non avevano NESSUNA scorciatoia da
+  // tastiera, un vuoto reale per chi non può individuare il pulsante a
+  // schermo (basso vedente, o in generale su materiale uditivo dove non
+  // c'è nulla da guardare) — Tab+Invio funzionava già ma è più lento.
   const KEY_MAP_2 = {'a':0, 'l':1};
   const KEY_MAP_4 = {'a':0, 'l':1, 'z':2, 'm':3};
   document.addEventListener('keydown', function(ev){
     if(view!=='task' || !taskDom || !taskDom.btns || session.paused) return;
     const tag = (document.activeElement && document.activeElement.tagName) || '';
     if(tag==='INPUT' || tag==='TEXTAREA') return;
-    const key = ev.key.toLowerCase();
     const n = taskDom.btns.length;
+    if(n===1 && ev.key===' '){
+      ev.preventDefault();
+      taskDom.btns[0].click();
+      return;
+    }
+    const key = ev.key.toLowerCase();
     const map = n===2 ? KEY_MAP_2 : (n===4 ? KEY_MAP_4 : null);
     if(!map || !(key in map)) return;
     const idx = map[key];

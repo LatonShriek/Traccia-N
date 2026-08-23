@@ -81,16 +81,49 @@ i pulsanti +/– nella barra in alto per forzare il livello manualmente in
 qualunque momento; se la titolazione automatica è attiva riprende dal
 valore impostato manualmente.
 
-**Materiali uditivi e "materiale misto".** Oltre ai materiali visivi
-(lettere, numeri, simboli, colori), sono disponibili toni puri ("Suoni")
-e lettere/numeri pronunciati dal sintetizzatore vocale ("Lettere
-pronunciate"/"Numeri pronunciati") — nessuna rivelazione visiva, solo un
-indicatore audio generico. In N-back, Sequenza bersaglio e Go/No-Go è
-anche possibile scegliere "Materiale: Mescolati", che pesca casualmente
-prova per prova fra tutti i materiali disponibili (visivi e uditivi
-insieme) invece di restare fissi su un solo tipo — utile per
-un'attenzione meno prevedibile e più selettiva. Non ancora estesa a
-TAPAT/ANT né a Task-switching.
+**Materiali uditivi.** Oltre ai materiali visivi (lettere, numeri,
+simboli, colori), sono disponibili toni puri ("Suoni") e lettere/numeri/
+parole pronunciati dal sintetizzatore vocale ("Lettere pronunciate" /
+"Numeri pronunciati" / "Parole pronunciate") — nessuna rivelazione
+visiva, solo un indicatore audio generico. Disponibili in N-back,
+Sequenza bersaglio, Go/No-Go, TAPAT, Doppio compito (abbinamento
+uditivo-uditivo) e, per i livelli a dimensione singola (1-2, 7-8), nella
+Categorizzazione condizionale. Lo Stop-Signal accetta i toni puri
+("Suoni") ma non ancora le varianti pronunciate: il segnale di stop è
+già un tono fisso e distinto da qualunque stimolo (140Hz, diverso dai
+toni del pool principale), ma se lo stimolo primario fosse una parola
+pronunciata non c'è oggi un modo per interromperla quando scatta lo
+stop — da risolvere prima di abilitarla anche lì. Non ancora disponibili
+per ANT classico (materiale spaziale/direzionale intrinsecamente
+visivo), Task-switching e Categorizzazione condizionale ai livelli a
+doppia dimensione (3-6, 9-10) — richiedono uno stimolo uditivo che porti
+due dimensioni classificabili insieme, non un semplice collegamento a un
+materiale già esistente. Cancellazione (neglect) resta esclusa per
+costruzione: è ricerca visiva su tutta una tavola, non ha un equivalente
+uditivo dello stesso compito.
+
+**"Materiale misto".** In N-back, Sequenza bersaglio e Go/No-Go è
+possibile scegliere fra "Un solo tipo" e tre varianti di mescolamento
+casuale prova per prova: **"Mescolato visivo"** (solo fra lettere,
+numeri, colori, simboli), **"Mescolato uditivo"** (solo fra suoni,
+lettere/numeri pronunciati) e **"Mescolato visivo + uditivo"** (tutti
+insieme) — non più un'unica modalità indifferenziata. Non ancora estesa
+a TAPAT/ANT né a Task-switching.
+
+**Accessibilità.** Tutti i controlli dell'app sono elementi `<button>`
+nativi, riconoscibili e navigabili dai lettori di schermo (VoiceOver,
+TalkBack) senza bisogno di attributi aggiuntivi. Da computer, oltre alla
+mappatura A/L (2 scelte) e A/L/Z/M (4 scelte) già esistente, la barra
+spaziatrice risponde negli esercizi a un solo pulsante (N-back,
+1-back...) — prima non avevano nessuna scorciatoia. Le istruzioni
+lette a voce ("🔊 Ascolta") includono ora anche il promemoria della
+scorciatoia da tastiera, non solo il testo dell'esercizio: prima chi si
+affidava solo all'audio non la sentiva mai. Su tablet/smartphone, il
+toggle **"Zone di risposta grandi"** in Setup (visibile quando la
+risposta è a due scelte) ingrandisce le zone toccabili a gran parte
+dello schermo — pensato per bassa vista, dove individuare un pulsante
+piccolo con precisione è difficile; non cambia nulla su computer, dove
+la tastiera resta l'alternativa.
 
 **Il numero di livelli varia per esercizio.** La scala non è uniforme
 perché il numero di livelli riflette quanti step distinti i parametri di

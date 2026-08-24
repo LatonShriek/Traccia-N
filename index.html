@@ -97,10 +97,12 @@
     min-height:44px; font-family:'Inter'; font-weight:600; font-size:14px; cursor:pointer;}
   .rowbtns{display:flex; gap:12px; margin-top:6px;}
 
-  .topbar{display:flex; align-items:center; justify-content:space-between; padding:14px 22px; background:var(--focus); color:var(--white);}
-  .topbar .info{font-family:'JetBrains Mono',monospace; font-size:12.5px; opacity:.85;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; padding:14px 22px; background:var(--focus); color:var(--white);
+    flex-wrap:wrap; row-gap:8px;}
+  .topbar .info{font-family:'JetBrains Mono',monospace; font-size:12.5px; opacity:.85; flex:1 1 180px; min-width:0; overflow-wrap:anywhere;}
   .topbar button{background:rgba(255,255,255,.12); color:var(--white); border:1px solid rgba(255,255,255,.25);
     border-radius:8px; padding:8px 12px; font-size:12.5px; cursor:pointer;}
+  .topbar-actions{display:flex; gap:8px; flex-wrap:wrap;}
 
   .stage{flex:1; background:var(--focus); background:linear-gradient(180deg,var(--focus),var(--focus-2));
     display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; min-height:60vh;}
@@ -134,7 +136,7 @@
   .trail .chip.err{border-color:var(--alert); background:rgba(181,84,74,.5);}
   .trail .chip.pend{border-color:rgba(255,255,255,.3);}
 
-  .respond{padding:18px 22px 26px; background:var(--focus-2); display:flex; gap:14px;}
+  .respond{padding:18px 22px 26px; background:var(--focus-2); display:flex; flex-wrap:wrap; gap:14px;}
   button{touch-action:manipulation; cursor:pointer;}
   @media (hover:hover){
     .seg button:hover{border-color:var(--ink-soft);}
@@ -153,8 +155,9 @@
     .topbar, .stage, .respond{max-width:960px; margin-left:auto; margin-right:auto; width:100%; box-sizing:border-box;}
     .grid{grid-template-columns:repeat(auto-fit, minmax(240px,1fr));}
   }
-  .tapbtn{flex:1; padding:22px; border-radius:16px; border:none; font-family:'Space Grotesk',sans-serif;
-    font-weight:700; font-size:18px; cursor:pointer; letter-spacing:.01em; transition:transform .08s, filter .08s;}
+  .tapbtn{flex:1 1 130px; padding:22px; border-radius:16px; border:none; font-family:'Space Grotesk',sans-serif;
+    font-weight:700; font-size:18px; cursor:pointer; letter-spacing:.01em; transition:transform .08s, filter .08s;
+    min-width:0; overflow-wrap:break-word;}
   .tapbtn.match{background:var(--accent); color:var(--ink);}
   .tapbtn.nomatch{background:rgba(255,255,255,.1); color:var(--white); border:1.5px solid rgba(255,255,255,.25);}
   .tapbtn.full{flex:1 1 100%;}
@@ -604,7 +607,13 @@
     const flags = p ? (p.screening_flags || p.screeningFlags || []) : [];
     const match = flags.find(f=>f.attivo && f.taskMode===taskMode && f.cfg);
     if(match){ Object.assign(cfg, match.cfg); cfg.taskMode = taskMode; }
-    else { resetLevelField(taskMode); }
+    else {
+      resetLevelField(taskMode);
+      // Go/No-Go partito da zero (nessun livello già raggiunto, nessun
+      // suggerimento da screening): propone subito gli elementi no-go
+      // giusti per il livello 1, invece di lasciare il pool vuoto.
+      if(taskMode==='gonogo') suggestGoNoGoTargets(cfg.adaptStartLevel||1);
+    }
   }
   function loadPreset(p){
     const pc = p.cfg;
@@ -637,6 +646,14 @@
           ? pc.targetSeq.map(e=>{ const pool = POOLS[e.stimType]||[]; return {stimType:e.stimType, item: pool.find(it=>seqLabel(it)===e.label) || e.label}; })
           : pc.targetSeq.map(v=> POOLS[pc.stimType].find(item=> seqLabel(item)===v) || v))
       : defaultTargetSeq(pc.stimType, pc.taskMode==='gonogo' ? 1 : 3);
+    // La lunghezza salvata nel preset/voce di programma può non
+    // corrispondere più a quella richiesta dal livello adattivo (es. preset
+    // costruito a mano più lungo, o salvato prima di un cambio di livello):
+    // riallinea subito, così anteprima/istruzioni/durata mostrate
+    // all'apertura corrispondono sempre a ciò che verrà davvero giocato,
+    // invece di restare quelle vecchie finché l'operatore non tocca a mano
+    // lo stepper del livello (vedi discussione con Rodrigo, punto 1).
+    if(cfg.taskMode==='sequenza' && cfg.adaptive) adjustTargetSeqToLength(ADAPT_SEQ_LEN[cfg.adaptStartLevel]);
     render();
   }
   /* ---------- profili paziente locali (in presenza, senza account remoto) ---------- */
@@ -977,8 +994,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1075,7 +1092,21 @@
       else history.replaceState(snap, '', ''); // stessa "schermata" ma contesto aggiornato (es. paziente diverso, filtro diverso) — non impila una voce nuova
     }catch(e){}
   }
+  // Sentinella anti-uscita: spinta una sola volta all'avvio (vedi in fondo
+  // al file, prima di decideInitialView), sotto la prima schermata vera.
+  // Quando il tasto indietro del browser arriva fin lì, invece di lasciar
+  // proseguire l'uscita dal sito senza preavviso chiediamo conferma — e se
+  // l'operatore/paziente annulla, si ripristina lo stato corrente così il
+  // tasto indietro torna a funzionare normalmente al prossimo tocco.
   window.addEventListener('popstate', (e)=>{
+    if(e.state && e.state.exitGuard){
+      if(confirm('Vuoi uscire da TracciaN?')){
+        history.back(); // prosegue oltre la sentinella: esce davvero
+      } else {
+        try{ history.pushState(navSnapshot(), '', ''); }catch(err){}
+      }
+      return;
+    }
     // se si stava abbandonando una sessione attiva col tasto indietro,
     // ripulisci i timer come farebbe "Interrompi" — evita che continui a
     // girare in background su una schermata che non si vede più
@@ -1227,6 +1258,27 @@
     const out = [];
     for(let i=0;i<desiredLen;i++) out.push(base[i % base.length]);
     cfg.targetSeq = out;
+  }
+  // Go/No-Go: propone automaticamente gli elementi no-go coerenti col
+  // livello scelto (ADAPT_GONOGO_COUNT), invece di lasciare all'operatore
+  // il compito di indovinare quanti elementi servano — riusa quelli già
+  // selezionati (in ordine) e ne pesca di nuovi a caso dal pool/materiale
+  // attivo per completare il numero richiesto, oppure accorcia se il nuovo
+  // livello ne richiede di meno. Resta comunque modificabile a mano subito
+  // dopo (chip "← Rimuovi ultimo"/aggiungi), come già per gli altri
+  // esercizi — un suggerimento di partenza, non un vincolo.
+  function suggestGoNoGoTargets(level){
+    const count = Math.max(1, ADAPT_GONOGO_COUNT[level] || 1);
+    const isMista = cfg.gonogoMista && cfg.gonogoMista!=='no';
+    const cur = (cfg.targetSeq||[]).slice(0, count);
+    let guard = 0;
+    while(cur.length < count && guard < 200){
+      guard++;
+      const candidate = isMista ? randMistaStim(mistaTypesFor(cfg.gonogoMista)) : POOLS[cfg.stimType][Math.floor(Math.random()*POOLS[cfg.stimType].length)];
+      const already = isMista ? cur.some(x=>sameStim(x,candidate)) : cur.some(x=>seqLabel(x)===seqLabel(candidate));
+      if(!already) cur.push(candidate);
+    }
+    cfg.targetSeq = cur;
   }
   function sequenceTargetForBuild(){
     if(!cfg.adaptive) return cfg.targetSeq;
@@ -2926,13 +2978,12 @@
     if(cfg.taskMode==='gonogo'){
       grid.appendChild(field('Materiale', segButtons(['no','visivo','uditivo','misto'], cfg.gonogoMista||'no', v=>{
         cfg.gonogoMista = v;
-        // 4, non 2: la difficoltà adattiva del Go/No-Go può richiedere fino
-        // a 4 elementi no-go attivi contemporaneamente al livello massimo
-        // (ADAPT_GONOGO_COUNT) — proporne solo 2 avrebbe tappato il
-        // livello massimo raggiungibile finché l'operatore non ne
-        // aggiungeva altri a mano. Ai livelli bassi gli elementi in più
-        // restano semplicemente inattivi, non creano difficoltà indesiderata.
-        cfg.targetSeq = v!=='no' ? randomMistaTargetSeq(4, mistaTypesFor(v)) : [];
+        // Il pool è cambiato: risuggerisce gli elementi no-go per il
+        // livello corrente nel materiale appena scelto, invece di
+        // lasciare 4 elementi fissi (che eccedevano quanto richiesto ai
+        // livelli bassi) o un pool vuoto.
+        cfg.targetSeq = [];
+        suggestGoNoGoTargets(cfg.adaptStartLevel||1);
         render();
       }, MISTA_LABELS)));
     }
@@ -2942,7 +2993,11 @@
         cfg.stimType, v=>{
         cfg.stimType=v;
         regenerateNumeriPool(); regenerateParolePool();
-        if(ex.usesTargetSeq) cfg.targetSeq = (cfg.taskMode==='neglect'||cfg.taskMode==='gonogo') ? [] : defaultTargetSeq(v, 3);
+        if(ex.usesTargetSeq){
+          cfg.targetSeq = [];
+          if(cfg.taskMode==='gonogo') suggestGoNoGoTargets(cfg.adaptStartLevel||1);
+          else if(cfg.taskMode!=='neglect') cfg.targetSeq = defaultTargetSeq(v, 3);
+        }
         render();
       }, STIM_LABELS)));
       if(cfg.stimType==='numeri'){
@@ -2969,6 +3024,7 @@
       grid.appendChild(field('Livello', stepper(cfg.adaptStartLevel,1,10,v=>{
         cfg.adaptStartLevel=v;
         if(cfg.taskMode==='sequenza' && cfg.adaptive) adjustTargetSeqToLength(ADAPT_SEQ_LEN[v]);
+        if(cfg.taskMode==='gonogo') suggestGoNoGoTargets(v);
         render();
       })));
     }
@@ -3305,8 +3361,8 @@
           }
         } else {
           const entry = { nome: autoNameFor(cfg), cfg: presetCfgOf(cfg) };
-          const ok = await appendProgramEntry(buildingProgramFor.kind, buildingProgramFor.id, entry);
-          if(ok){ programAddConfirmation = '✓ "'+entry.nome+'" aggiunto — configura il prossimo, o "Fatto" per tornare al programma.'; render(); }
+          const saved = await appendProgramEntry(buildingProgramFor.kind, buildingProgramFor.id, entry);
+          if(saved){ programAddConfirmation = '✓ "'+saved.nome+'" aggiunto — configura il prossimo, o "Fatto" per tornare al programma.'; render(); }
         }
       }},[isEditing ? 'Salva modifica' : '+ Aggiungi al programma di '+buildingProgramFor.nome]));
       if(programAddConfirmation) card.appendChild(el('p',{class:'hint', style:'color:var(--signal); font-weight:600;'},[programAddConfirmation]));
@@ -3674,18 +3730,27 @@
     positions = shuffleArr(positions).slice(0,n);
     const scattered = cfg.neglectLayout==='sparsa';
     const MIN_DIST = 10, MAX_TRIES = 40;
+    // Margine dai bordi dello stage: gli elementi sono posizionati per il
+    // CENTRO (transform:translate(-50%,-50%) in CSS) con larghezza fino al
+    // 9% del container — un centro troppo vicino al bordo (visto in
+    // modalità "sparsa", e ai bordi della griglia su schermi stretti dove
+    // il tetto in pixel non scatta) lascia sporgere metà elemento fuori
+    // dallo schermo. 6 tiene margine anche per il caso più grande.
+    const EDGE_MARGIN = 6;
+    const clamp = v => Math.max(EDGE_MARGIN, Math.min(100-EDGE_MARGIN, v));
     const placedPos = [];
     function candidatePos(p, side){
       if(scattered){
-        return { x: side==='left' ? Math.random()*45+2 : Math.random()*45+53, y: Math.random()*90+5 };
+        return { x: clamp(side==='left' ? Math.random()*45+2 : Math.random()*45+53), y: clamp(Math.random()*90+5) };
       }
-      return { x: p.c*cellW + cellW*(0.2+Math.random()*0.6), y: p.r*cellH + cellH*(0.2+Math.random()*0.6) };
+      return { x: clamp(p.c*cellW + cellW*(0.2+Math.random()*0.6)), y: clamp(p.r*cellH + cellH*(0.2+Math.random()*0.6)) };
     }
     return positions.map(p=>{
       const side = p.c < cols/2 ? 'left':'right';
       let pos, tries=0;
       do{ pos = candidatePos(p, side); tries++; }
       while(tries<MAX_TRIES && placedPos.some(o=> Math.hypot(o.x-pos.x, o.y-pos.y) < MIN_DIST));
+      pos = {x:clamp(pos.x), y:clamp(pos.y)};
       placedPos.push(pos);
       return {x:pos.x, y:pos.y, side, row:p.r, rigaPari: p.r%2===0};
     });
@@ -3977,7 +4042,14 @@
     let val;
     if(Math.random() < freq){ val = activeNoGo[Math.floor(Math.random()*activeNoGo.length)]; }
     else if(isMista){
-      do{ val = randMistaStim(mistaTypes); } while(activeNoGo.some(x=>sameStim(x,val)));
+      // Rete di sicurezza: senza un tetto ai tentativi, un pool misto
+      // ristretto (o un set no-go che arriva a coprirlo quasi per intero
+      // con l'adattivo) può far girare il rejection-sampling all'infinito,
+      // bloccando la scheda (bug segnalato da Rodrigo: schermo che si
+      // ferma dopo pochi elementi in Go/No-Go misto adattivo). Stessa
+      // soglia di guardia già usata in randomMistaTargetSeq.
+      let guard = 0;
+      do{ val = randMistaStim(mistaTypes); guard++; } while(activeNoGo.some(x=>sameStim(x,val)) && guard<200);
     }
     else { do{ val = pool[Math.floor(Math.random()*pool.length)]; } while(activeNoGo.some(x=>seqLabel(x)===seqLabel(val)) && pool.length>activeNoGo.length); }
     const isNoGo = activeNoGo.some(x=>sameStim(x,val));
@@ -4501,7 +4573,7 @@
     }
     root.appendChild(el('div',{class:'topbar'},[
       infoSpan,
-      el('div',{style:'display:flex; gap:8px;'},[
+      el('div',{class:'topbar-actions'},[
         ...topRight,
         el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); view=homeView(); render(); } }},['Interrompi'])
       ])
@@ -4641,7 +4713,7 @@
     }
     root.appendChild(el('div',{class:'topbar'},[
       infoSpan,
-      el('div',{style:'display:flex; gap:8px;'},[
+      el('div',{class:'topbar-actions'},[
         ...topRight,
         el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); if(session.stopCueTimer) clearTimeout(session.stopCueTimer); view=homeView(); render(); } }},['Interrompi'])
       ])
@@ -4979,7 +5051,12 @@
       if(c.neglectMode==='intruso') return 'Trova l\'intruso';
       if(c.neglectMode==='regola') return 'Conteggio a regola · '+STIM_LABELS[c.stimType==='numeri'?'numeri':'lettere'];
       if(c.neglectMode==='progressiva') return 'Progressiva (1-30)';
-      return STIM_LABELS[c.stimType];
+      // "classico" esplicito (non solo il materiale): senza questa parola,
+      // due voci di programma con la stessa combinazione materiale+livello
+      // ma modalità diverse (raro ma possibile) risultavano indistinguibili
+      // a colpo d'occhio — vedi anche il controllo duplicati in
+      // appendProgramEntry.
+      return 'Classico · '+STIM_LABELS[c.stimType];
     }
     const mistaMode = c.taskMode==='sequenza' ? c.sequenzaMista : c.taskMode==='nback' ? c.nbackMista : c.taskMode==='gonogo' ? c.gonogoMista : null;
     if(mistaMode && mistaMode!=='no') return MISTA_LABELS_SHORT[mistaMode];
@@ -5033,31 +5110,48 @@
     }catch(e){ return null; }
   }
   function isThinPatientStub(p){ return !p || !('programma_assegnato' in p); }
+  // Se il nome proposto per la nuova voce coincide con uno già presente nel
+  // programma, aggiunge un contatore leggibile (" (2)", " (3)"...) invece
+  // di lasciare due voci identiche in elenco — capitava soprattutto
+  // aggiungendo più varianti di Cancellazione (neglect) una dopo l'altra
+  // da Setup, quando materiale/livello coincidevano e il nome restava lo
+  // stesso: l'operatore non aveva modo di distinguerle nell'elenco del
+  // programma. Non tocca il caso di nomi già diversi.
+  function dedupeEntryName(nome, programmaEsistente){
+    const nomiEsistenti = new Set((programmaEsistente||[]).map(x=>x.nome));
+    if(!nomiEsistenti.has(nome)) return nome;
+    let n = 2;
+    while(nomiEsistenti.has(nome+' ('+n+')')) n++;
+    return nome+' ('+n+')';
+  }
   async function appendProgramEntry(kind, id, entry){
     if(kind==='local'){
       try{
         const raw = localStorage.getItem('traccian:localpatient:'+id);
         if(!raw) return false;
         const pp = JSON.parse(raw);
-        pp.programma = (pp.programma||[]).concat([entry]);
+        const programmaEsistente = pp.programma||[];
+        const voce = Object.assign({}, entry, {nome: dedupeEntryName(entry.nome, programmaEsistente)});
+        pp.programma = programmaEsistente.concat([voce]);
         localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(pp));
         syncLocalPatientToCloud(pp);
         if(editingPatient && editingPatient.id===id) editingPatient.programma = pp.programma;
-        return true;
-      }catch(e){ return false; }
+        return voce;
+      }catch(e){ return null; }
     }
-    if(!sb || !cloudUser) return false;
+    if(!sb || !cloudUser) return null;
     try{
       let existing = (cachedRemotePatients||[]).find(x=>x.id===id) || (editingPatient&&editingPatient.id===id ? editingPatient : null);
       if(isThinPatientStub(existing)) existing = await fetchRemotePatientFresh(id) || existing;
       const programmaAttuale = patientProgram(existing) || [];
-      const nuovoProgramma = programmaAttuale.concat([entry]);
+      const voce = Object.assign({}, entry, {nome: dedupeEntryName(entry.nome, programmaAttuale)});
+      const nuovoProgramma = programmaAttuale.concat([voce]);
       const { error } = await sb.from('pazienti').update({programma_assegnato:nuovoProgramma}).eq('id', id).eq('operatore_id', cloudUser.id);
       if(error) throw error;
       if(editingPatient && editingPatient.id===id) editingPatient.programma_assegnato = nuovoProgramma;
       cachedRemotePatients = null;
-      return true;
-    }catch(e){ alert('Errore: '+e.message); return false; }
+      return voce;
+    }catch(e){ alert('Errore: '+e.message); return null; }
   }
   // Sostituisce la voce all'indice `idx` con una nuova cfg/nome, ma
   // preservando fonte/suggerito della voce originale — usata quando si
@@ -6400,6 +6494,8 @@
     }
     const isLocal = editingPatientKind==='local';
     const displayName = isLocal ? editingPatient.nome : editingPatient.codice_paziente;
+    const backTop = el('button',{class:'link', style:'margin-bottom:10px; padding:0;', onclick:()=>{ editingPatient=null; view= isLocal ? 'localPatientPicker' : 'patients'; render(); }},[isLocal ? '← Torna ai pazienti in presenza' : '← Torna ai pazienti']);
+    card.appendChild(backTop);
     card.appendChild(el('h2',{},['Programma di '+displayName]));
     card.appendChild(el('p',{class:'hint'},[
       isLocal
@@ -6601,7 +6697,7 @@
 
     if(isLocal){
       const nav = el('div',{class:'navlinks'});
-      nav.appendChild(el('button',{class:'link', onclick:()=>{ editingPatient=null; view='localPatientPicker'; render(); }},['← Annulla']));
+      nav.appendChild(el('button',{class:'link', onclick:()=>{ editingPatient=null; view='localPatientPicker'; render(); }},['← Torna ai pazienti in presenza']));
       card.appendChild(nav);
       s.appendChild(card); root.appendChild(s); return;
     }
@@ -6720,7 +6816,11 @@
     }},['Genera report RCI (stampa/PDF)']));
 
     const nav = el('div',{class:'navlinks'});
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ editingPatient=null; view='patients'; render(); }},['← Annulla']));
+    // Non "Annulla": ogni sezione di questa schermata (programma, modalità
+    // di accesso, obiettivi...) salva già da sola a ogni tocco, non c'è
+    // nulla da scartare — vedi anche il link identico in cima alla
+    // schermata, per non dover scorrere fino in fondo per tornare indietro.
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ editingPatient=null; view='patients'; render(); }},['← Torna ai pazienti']));
     card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
   }
@@ -7128,12 +7228,31 @@
   // (session, screeningState, pendingAccessCode...) — solo da id di
   // paziente/filtro, tutti ricostruibili da localStorage/Supabase.
   const RELOAD_SAFE_VIEWS = new Set(['setup','patients','localPatientPicker','history','archive','cloud','accessLog','operatorHome','patientHome','patientProgram']);
-  function decideInitialView(){
-    if(patientProfile) return 'patientHome'; // per il paziente, l'unica vista sensata resta la sua home
+  // priorState: lo stato di history.state COM'ERA prima di spingere la
+  // sentinella anti-uscita qui sotto — deve essere catturato subito
+  // all'avvio, perché dopo il pushState della sentinella history.state
+  // punterebbe alla sentinella stessa, non più alla schermata da cui
+  // riprendere dopo un refresh vero.
+  function decideInitialView(priorState){
+    if(patientProfile){
+      // Come per l'operatore sotto: se il refresh riporta su una schermata
+      // ricostruibile (es. patientProgram, history), resta lì invece di
+      // saltare sempre alla home del paziente — la home resta comunque la
+      // scelta di sicurezza per tutto il resto (sessione in corso,
+      // screening in corso...), che dopo un refresh vero non è
+      // ricostruibile.
+      try{
+        if(priorState && priorState.view){
+          restoreNavSnapshot(priorState);
+          if(RELOAD_SAFE_VIEWS.has(view)) return view;
+        }
+      }catch(e){}
+      return 'patientHome';
+    }
     if(cloudUser){
       try{
-        if(history.state && history.state.view){
-          restoreNavSnapshot(history.state); // ripristina comunque il contesto (paziente attivo, filtri) anche quando la schermata esatta non è ricostruibile
+        if(priorState && priorState.view){
+          restoreNavSnapshot(priorState); // ripristina comunque il contesto (paziente attivo, filtri) anche quando la schermata esatta non è ricostruibile
           if(RELOAD_SAFE_VIEWS.has(view) && view!=='patientHome' && view!=='cloud') return view;
           // Stato a metà flusso (sessione in corso, screening in corso,
           // codice appena generato...) perso per forza col reload: resta
@@ -7147,7 +7266,13 @@
     }
     return 'cloud'; // non collegato: schermata di accesso
   }
-  restoreCloudSession().finally(()=>{ view = decideInitialView(); render(); });
+  // Cattura lo stato reale PRIMA di spingere la sentinella anti-uscita (vedi
+  // popstate sopra): la sentinella va comunque spinta subito, sotto la
+  // prima schermata vera, così un indietro ripetuto atterra su di essa
+  // invece di uscire dal sito senza preavviso.
+  const priorHistoryState = history.state;
+  try{ history.pushState({exitGuard:true}, '', ''); }catch(e){}
+  restoreCloudSession().finally(()=>{ view = decideInitialView(priorHistoryState); render(); });
 })();
 
 if('serviceWorker' in navigator){

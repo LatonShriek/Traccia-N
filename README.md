@@ -159,16 +159,14 @@ elementi no-go — anche quando il materiale è misto fra più tipologie
 (visivo/uditivo) — l'app propone subito una selezione casuale, mai
 vuota, senza duplicati; resta interamente modificabile dopo con "←
 Rimuovi ultimo", "Reimposta", o aggiungendo/togliendo elementi a mano.
-La quantità proposta non è arbitraria: per il Go/No-Go sono **4**
-elementi, non un numero più piccolo, perché l'adattivo può richiedere
-fino a 4 elementi no-go attivi contemporaneamente al livello massimo
-(tabella sotto) — proporne meno avrebbe tappato il livello massimo
-raggiungibile finché l'operatore non ne aggiungeva altri a mano; ai
-livelli bassi gli elementi in eccesso restano semplicemente inattivi.
-Il pool selezionabile in Setup ha lo stesso tetto di 4 (non 6): il
-numero di elementi *nel pool* non va confuso con il numero *attivo* a
-un dato livello — quest'ultimo segue la tabella sotto e viene mostrato
-in anteprima in Setup quando l'adattivo è acceso.
+Per il Go/No-Go la quantità proposta segue direttamente il livello
+impostato (tabella sotto, 1→4 elementi attivi): cambiare lo stepper del
+livello, o il materiale, ripropone automaticamente il numero corretto di
+elementi no-go, riusando quelli già scelti dall'operatore quando
+possibile invece di ricominciare da zero. Il pool selezionabile in Setup
+ha comunque un tetto di 4 (non 6): il numero di elementi *nel pool* non
+va confuso con il numero *attivo* a un dato livello quando l'adattivo è
+acceso — quest'ultimo segue la tabella sotto.
 Per la Sequenza bersaglio bastano **3** elementi, perché lì il
 meccanismo è diverso: la sequenza configurata viene riciclata/ripetuta
 per raggiungere la lunghezza richiesta dal livello (fino a 5), non
@@ -382,6 +380,18 @@ puoi ignorare del tutto quella cartella.
 3. Da quel momento l'icona TracciaN si apre come un'app a schermo intero,
    senza barra del browser, e funziona anche offline (il service worker
    mette in cache i file dopo il primo caricamento).
+
+**Navigazione e refresh.** Il tasto/gesto "indietro" del dispositivo
+scorre la history interna dell'app (schermata precedente), non esce dal
+sito — se lo si preme fino a superare la prima schermata aperta, compare
+una richiesta di conferma prima di lasciare davvero TracciaN, invece di
+uscire senza preavviso. Un refresh vero (F5, o pull-to-refresh) riporta
+alla stessa schermata quando è ricostruibile da soli identificativi
+salvati (programma paziente, storico, elenco pazienti...); le schermate
+che dipendono da uno stato di sessione in corso (una prova/tavola
+attiva, uno screening a metà, un codice appena generato) non sono
+ricostruibili per natura e riportano l'operatore/paziente al punto
+sicuro più vicino (Setup per l'operatore, home per il paziente).
 
 ## Dati e privacy
 
@@ -771,7 +781,12 @@ personalizzato"** porta dritto a Setup, dove si configura l'esercizio
 (livello, materiale, parametri) e si preme "+ Aggiungi al programma" —
 il nome viene generato automaticamente, senza doverlo scrivere a mano, e
 si resta su Setup pronti a configurare il successivo prima di tornare al
-programma. In alternativa, se sul dispositivo esistono già preset
+programma. Se il nome proposto coincide con una voce già presente nel
+programma (es. due varianti di Cancellazione con stesso materiale e
+livello, o due voci aggiunte senza cambiare i parametri fra l'una e
+l'altra), l'app aggiunge da sola un contatore leggibile ("(2)", "(3)"...)
+invece di lasciare due voci identiche indistinguibili nell'elenco. In
+alternativa, se sul dispositivo esistono già preset
 salvati non ancora assegnati a questo paziente, compaiono in una
 "libreria" con un tocco per aggiungerli così come sono. Ogni voce del
 programma si rimuove singolarmente, senza toccare le altre. Per un

@@ -685,7 +685,7 @@
         localPatientsCloudCache = [];
         sb.from('pazienti_locali').select('*').eq('operatore_id', cloudUser.id).then(({data,error})=>{
           if(!error && data){
-            localPatientsCloudCache = data.map(r=>({id:r.id, nome:r.nome, createdAt:r.creato_il?Date.parse(r.creato_il):Date.now(), lastConfig:r.ultima_config||null, screeningFlags:r.screening_flags||null, programma:r.programma_assegnato||null, screeningRisultati:r.screening_risultati||null, attivo: r.attivo!==false, remotePazienteId: r.remote_paziente_id||null, livelliEsercizi: r.livelli_esercizi||null}));
+            localPatientsCloudCache = data.map(r=>({id:r.id, nome:r.nome, createdAt:r.creato_il?Date.parse(r.creato_il):Date.now(), lastConfig:r.ultima_config||null, screeningFlags:r.screening_flags||null, programma:r.programma_assegnato||null, screeningRisultati:r.screening_risultati||null, attivo: r.attivo!==false, remotePazienteId: r.remote_paziente_id||null, livelliEsercizi: r.livelli_esercizi||null, obiettivo: r.obiettivo||null}));
             // porta in locale anche i profili creati altrove, per uso offline
             localPatientsCloudCache.forEach(p=>{
               try{ if(!localStorage.getItem('traccian:localpatient:'+p.id)) localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(p)); }catch(e){}
@@ -703,7 +703,7 @@
     if(!sb || !cloudUser || patientProfile) return;
     try{
       await sb.from('pazienti_locali').upsert({
-        id:p.id, operatore_id:cloudUser.id, nome:p.nome, ultima_config:p.lastConfig||null, screening_flags:p.screeningFlags||null, programma_assegnato:p.programma||null, screening_risultati:p.screeningRisultati||null, attivo: p.attivo!==false, remote_paziente_id: p.remotePazienteId||null, livelli_esercizi: p.livelliEsercizi||null
+        id:p.id, operatore_id:cloudUser.id, nome:p.nome, ultima_config:p.lastConfig||null, screening_flags:p.screeningFlags||null, programma_assegnato:p.programma||null, screening_risultati:p.screeningRisultati||null, attivo: p.attivo!==false, remote_paziente_id: p.remotePazienteId||null, livelli_esercizi: p.livelliEsercizi||null, obiettivo: p.obiettivo||null
       });
       localPatientsCloudCache = null; // forza un refresco al prossimo listLocalPatients()
     }catch(e){ console.error('sync paziente locale fallita', e); }
@@ -799,6 +799,7 @@
     if(p.programma_assegnato && p.programma_assegnato.length) localP.programma = p.programma_assegnato;
     if(p.screening_flags && p.screening_flags.length) localP.screeningFlags = p.screening_flags;
     if(p.livelli_esercizi) localP.livelliEsercizi = p.livelli_esercizi;
+    if(p.obiettivo) localP.obiettivo = p.obiettivo;
     try{ localStorage.setItem('traccian:localpatient:'+localP.id, JSON.stringify(localP)); }catch(e){}
     syncLocalPatientToCloud(localP);
     await migrateRemoteSessionsToLocal(p.id, localP.id);
@@ -994,8 +995,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1010,6 +1011,7 @@
   let cloudLoginMode = 'operatore'; // 'operatore' | 'paziente' — quale form di accesso mostrare
   let editingPatient = null; // riga paziente correntemente aperta in "Gestisci programma"
   let editingPatientKind = 'remote'; // 'remote' | 'local' — quale tipo di profilo è editingPatient
+  let localPatientChoiceFor = null; // id del paziente in presenza il cui nome è stato appena toccato: mostra "Setup libero" / "Programma" invece di saltare diretto a uno dei due
   let buildingProgramFor = null; // {kind:'local'|'remote', id, nome} — se impostato, Setup aggiunge l'esercizio configurato direttamente al programma di questo paziente invece di avviare una sessione
   let editingProgramEntryIndex = null; // se impostato insieme a buildingProgramFor, "+ Aggiungi al programma" SOSTITUISCE questa voce invece di aggiungerne una nuova — preserva fonte/suggerito della voce originale
   let programAddConfirmation = null; // messaggio transitorio mostrato dopo "+ Aggiungi al programma", azzerato al cambio di esercizio
@@ -5901,21 +5903,31 @@
     const r = lastResult;
     const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : r.taskMode;
     card.appendChild(el('h2',{},['Risultati sessione']));
-    // Messaggio di chiusura per il paziente (solo in sessioni auto-somministrate
-    // da remoto — patientProfile è valorizzato solo in quel caso, mai quando è
-    // l'operatore a guardare lo storico/i risultati di una sessione in presenza).
-    // Tono deliberatamente neutro e adulto: nessun aggettivo di merito, nessun
-    // confronto con sessioni precedenti, nessuna esclamazione — un dato di
-    // fatto (durata) più, se esiste un obiettivo di tempo impostato per questo
-    // paziente, il progresso verso quello (riusa computeTimeGoalProgress, già
-    // usata nella scheda paziente dell'operatore, per restare coerenti).
-    if(patientProfile){
+    // Messaggio di chiusura per il paziente: mostrato dopo QUALUNQUE seduta
+    // legata a un paziente (autosomministrata da remoto, o in presenza
+    // condotta dall'operatore sullo stesso schermo) — non per "esercizi
+    // liberi" senza paziente selezionato. Tono deliberatamente neutro e
+    // adulto: nessun aggettivo di merito, nessun confronto con sessioni
+    // precedenti, nessuna esclamazione — un dato di fatto (durata) più,
+    // se ci sono obiettivi impostati per questo paziente, il progresso
+    // verso quelli.
+    const activePL = activePatientLike();
+    if(activePL){
+      const isSelfAdmin = !!patientProfile;
+      const isLocalCtx = !isSelfAdmin && !!activeLocalPatientId;
       const minuti = Math.max(1, Math.round((r.durationMs||0)/60000));
-      const timeGoal = normalizeGoals(patientProfile.obiettivo).find(g=>g.tipo==='tempo');
+      const goals = normalizeGoals(activePL.obiettivo);
       let msg = 'Sessione di '+minuti+' minut'+(minuti===1?'o':'i')+' completata.';
+      const timeGoal = goals.find(g=>g.tipo==='tempo');
       if(timeGoal){
-        const prog = computeTimeGoalProgress(timeGoal);
-        if(prog && prog.percentuale!=null) msg += ' '+prog.etichetta+' verso il tuo obiettivo di tempo.';
+        const prog = isSelfAdmin ? computeTimeGoalProgress(timeGoal) : computeTimeGoalProgressOperator(timeGoal, isLocalCtx, activePL.id);
+        if(prog && prog.percentuale!=null) msg += ' '+prog.etichetta+' verso l\'obiettivo di tempo.';
+      }
+      const levelGoal = goals.find(g=> g.tipo==='livello' && g.taskMode===r.taskMode);
+      if(levelGoal){
+        const ucFallback = isSelfAdmin ? activePL.ultima_config : (isLocalCtx ? activePL.lastConfig : activePL.ultima_config);
+        const progL = computeLevelGoalProgress(levelGoal, configForExercise(activePL, levelGoal.taskMode) || ucFallback);
+        if(progL) msg += ' '+progL.etichetta+' verso l\'obiettivo di livello su questo esercizio.';
       }
       card.appendChild(el('p',{class:'hint', style:'font-size:15px; margin-top:-4px;'},[msg]));
     }
@@ -6183,11 +6195,27 @@
       patients.forEach(p=>{
         const row = el('div',{style:'padding:14px 4px; border-bottom:1px solid var(--line);'},[
           el('div',{style:'cursor:pointer; font-size:14.5px; font-weight:600; margin-bottom:10px;', onclick:()=>{
-            activeLocalPatientId=p.id; activeRemotePatientId=null; cfg.patientCode=p.nome;
-            if(p.lastConfig) loadPreset({cfg:p.lastConfig});
-            else applyLevelBaselineOrSuggestion(cfg.taskMode);
-            view='setup'; render();
+            // Il tocco sul nome non salta più diretto a Setup: chiede ogni
+            // volta se l'operatore vuole un esercizio libero o riprendere
+            // il programma assegnato — un secondo tocco sul nome richiude
+            // la scelta senza fare nulla.
+            localPatientChoiceFor = (localPatientChoiceFor===p.id) ? null : p.id;
+            render();
           }},[p.nome]),
+          (localPatientChoiceFor===p.id) ? el('div',{style:'display:flex; gap:8px; flex-wrap:wrap; margin:-4px 0 10px;'},[
+            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
+              activeLocalPatientId=p.id; activeRemotePatientId=null; cfg.patientCode=p.nome;
+              if(p.lastConfig) loadPreset({cfg:p.lastConfig});
+              else applyLevelBaselineOrSuggestion(cfg.taskMode);
+              localPatientChoiceFor=null;
+              view='setup'; render();
+            }},['Setup libero']),
+            el('button',{class:'primary', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
+              editingPatient=p; editingPatientKind='local';
+              localPatientChoiceFor=null;
+              view='patientProgram'; render();
+            }},['Programma'])
+          ]) : null,
           el('div',{style:'display:flex; gap:8px; flex-wrap:wrap;'},[
             el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
               activeLocalPatientId=p.id; activeRemotePatientId=null; cfg.patientCode=p.nome;
@@ -6221,7 +6249,7 @@
               render();
             }},['Elimina'])
           ])
-        ]);
+        ].filter(Boolean));
         card.appendChild(row);
         const badgeLine = programBadgeLine(p.programma);
         if(badgeLine){
@@ -6525,6 +6553,18 @@
               el('div',{class:'l'},[exLabel])
             ]),
             el('div',{style:'display:flex; gap:8px; flex-wrap:wrap;'},[
+              el('button',{class:'primary', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
+                // Riprende l'esercizio al livello adattivo corrente (stesso
+                // configForExercise usato per il paziente remoto autonomo),
+                // saltando Setup — non è "modificare il programma", è avviare
+                // subito una seduta con quello che c'è già.
+                buildingProgramFor = null; editingProgramEntryIndex = null;
+                const own = configForExercise(editingPatient, entry.cfg.taskMode);
+                loadPreset({cfg: own || entry.cfg});
+                if(isLocal){ activeLocalPatientId=editingPatient.id; activeRemotePatientId=null; cfg.patientCode=editingPatient.nome; }
+                else { activeRemotePatientId=editingPatient.id; activeLocalPatientId=null; cfg.patientCode=editingPatient.codice_paziente; }
+                view='instructions'; render();
+              }},['▶ Avvia']),
               el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
                 buildingProgramFor = {kind: isLocal?'local':'remote', id:editingPatient.id, nome:displayName};
                 editingProgramEntryIndex = idx;
@@ -6695,29 +6735,13 @@
       startScreeningSession();
     }},[risultati ? 'Rifai lo screening' : 'Fai lo screening ora']));
 
-    if(isLocal){
-      const nav = el('div',{class:'navlinks'});
-      nav.appendChild(el('button',{class:'link', onclick:()=>{ editingPatient=null; view='localPatientPicker'; render(); }},['← Torna ai pazienti in presenza']));
-      card.appendChild(nav);
-      s.appendChild(card); root.appendChild(s); return;
-    }
-
-    card.appendChild(el('label',{style:'display:block; margin-top:24px;'},['Modalità di accesso remoto']));
-    card.appendChild(el('p',{class:'hint'},['"Diretto": il paziente vede subito il programma assegnato sopra. "Solo screening all\'inizio": al primo accesso vede solo una breve valutazione iniziale; al termine, i domini risultati deboli vengono aggiunti automaticamente al programma (resti comunque libero di modificarlo a mano, anche prima o dopo). Il gate scatta una sola volta.']));
-    card.appendChild(segButtons(['diretto','screening_poi_suggeriti'], editingPatient.modalita_accesso||'diretto', async v=>{
-      try{
-        const { error } = await sb.from('pazienti').update({modalita_accesso:v}).eq('id', editingPatient.id).eq('operatore_id', cloudUser.id);
-        if(error) throw error;
-        editingPatient.modalita_accesso = v;
-        cachedRemotePatients = null;
-        render();
-      }catch(e){ alert('Errore: '+e.message); }
-    }, {diretto:'Diretto', screening_poi_suggeriti:'Solo screening all\'inizio'}));
-    if(editingPatient.modalita_accesso==='screening_poi_suggeriti'){
-      card.appendChild(el('p',{class:'hint'},[editingPatient.screening_completato_il ? 'Gate già superato il '+new Date(editingPatient.screening_completato_il).toLocaleDateString('it-IT')+' — il paziente vede ora il programma normalmente.' : 'Il paziente non ha ancora completato la valutazione iniziale: vedrà solo quella al prossimo accesso.']));
-    }
-
-    card.appendChild(el('label',{style:'display:block; margin-top:24px;'},['Obiettivi (mostrati al paziente come barre di avanzamento — facoltativi: si può procedere anche senza. Se ne può impostare più di uno, anche di tipo diverso.']));
+    // Obiettivi: sezione comune a pazienti in presenza e remoti (stessa
+    // struttura dati, normalizeGoals/saveGoalsForPatient astraggono dove
+    // viene persistita). Mostrati come barre di avanzamento anche al
+    // paziente in presenza, a fine seduta (vedi ScreenResults) — per
+    // questo la sezione sta PRIMA del ritorno anticipato dei pazienti
+    // locali qui sotto, non dopo come in precedenza.
+    card.appendChild(el('label',{style:'display:block; margin-top:24px;'},['Obiettivi (mostrati anche al paziente come barre di avanzamento — facoltativi: si può procedere anche senza. Se ne può impostare più di uno, anche di tipo diverso.']));
     const currentGoals = normalizeGoals(editingPatient.obiettivo);
     if(!currentGoals.length){
       card.appendChild(el('p',{class:'hint'},['Nessun obiettivo impostato — il paziente si allena normalmente, senza barre.']));
@@ -6726,19 +6750,14 @@
         const label = g.tipo==='tempo'
           ? 'Tempo di allenamento: '+g.minutiTarget+' minuti '+(g.periodo==='settimana'?'a settimana':'in totale')
           : 'Livello '+g.livelloTarget+' su '+(EXERCISES[g.taskMode]?EXERCISES[g.taskMode].label:g.taskMode);
-        const progress = g.tipo==='tempo' ? computeTimeGoalProgress(g) : computeLevelGoalProgress(g, configForExercise(editingPatient, g.taskMode) || editingPatient.ultima_config);
+        const ucFallback = isLocal ? editingPatient.lastConfig : editingPatient.ultima_config;
+        const progress = g.tipo==='tempo' ? computeTimeGoalProgressOperator(g, isLocal, editingPatient.id) : computeLevelGoalProgress(g, configForExercise(editingPatient, g.taskMode) || ucFallback);
         const rowWrap = el('div',{style:'padding:10px 4px; border-bottom:1px solid var(--line);'});
         rowWrap.appendChild(el('div',{class:'histrow', style:'border:none; padding:0; margin-bottom:8px;'},[
           el('div',{},[label]),
           el('button',{class:'ghost', onclick: async ()=>{
             const nextGoals = currentGoals.slice(); nextGoals.splice(i,1);
-            try{
-              const { error } = await sb.from('pazienti').update({obiettivo:nextGoals}).eq('id', editingPatient.id).eq('operatore_id', cloudUser.id);
-              if(error) throw error;
-              editingPatient.obiettivo = nextGoals;
-              cachedRemotePatients = null;
-              render();
-            }catch(e){ alert('Errore: '+e.message); }
+            if(await saveGoalsForPatient(isLocal, editingPatient, nextGoals)) render();
           }},['Rimuovi'])
         ]));
         const pct = Math.max(0, Math.min(100, (progress&&progress.percentuale)||0));
@@ -6760,24 +6779,44 @@
         if(isNaN(minuti) || minuti<1){ alert('Valore non valido.'); return; }
         nuovoGoal = {tipo:'tempo', periodo: periodoScelta.trim()==='2'?'totale':'settimana', minutiTarget:minuti, id: Date.now()+'-'+Math.random().toString(36).slice(2,6)};
       } else {
-        const opts = Object.keys(EXERCISES).map((k,i)=> (i+1)+') '+EXERCISES[k].label).join('\n');
+        // Doppio compito escluso: due canali/livelli indipendenti non sono
+        // riducibili a un singolo numero obiettivo (vedi computeLevelGoalProgress).
+        const keys = Object.keys(EXERCISES).filter(k=>k!=='dualtask');
+        const opts = keys.map((k,i)=> (i+1)+') '+EXERCISES[k].label).join('\n');
         const scelta = prompt('Su quale esercizio impostare l\'obiettivo? Scrivi il numero:\n'+opts);
         const idx = parseInt(scelta,10)-1;
-        const keys = Object.keys(EXERCISES);
         if(isNaN(idx) || !keys[idx]) return;
-        const livello = parseInt(prompt('Livello obiettivo (1-5):','4'),10);
-        if(isNaN(livello) || livello<1 || livello>5) { alert('Livello non valido.'); return; }
-        nuovoGoal = {tipo:'livello', taskMode:keys[idx], livelloTarget:livello, id: Date.now()+'-'+Math.random().toString(36).slice(2,6)};
+        const taskMode = keys[idx];
+        const tetto = MAX_LEVEL_BY_TASKMODE[taskMode] || 10;
+        const livello = parseInt(prompt('Livello obiettivo (1-'+tetto+'):', String(Math.min(4,tetto))),10);
+        if(isNaN(livello) || livello<1 || livello>tetto) { alert('Livello non valido: inserisci un numero fra 1 e '+tetto+'.'); return; }
+        nuovoGoal = {tipo:'livello', taskMode, livelloTarget:livello, id: Date.now()+'-'+Math.random().toString(36).slice(2,6)};
       }
       const nextGoals = currentGoals.concat([nuovoGoal]);
+      if(await saveGoalsForPatient(isLocal, editingPatient, nextGoals)) render();
+    }},['+ Aggiungi obiettivo']));
+
+    if(isLocal){
+      const nav = el('div',{class:'navlinks'});
+      nav.appendChild(el('button',{class:'link', onclick:()=>{ editingPatient=null; view='localPatientPicker'; render(); }},['← Torna ai pazienti in presenza']));
+      card.appendChild(nav);
+      s.appendChild(card); root.appendChild(s); return;
+    }
+
+    card.appendChild(el('label',{style:'display:block; margin-top:24px;'},['Modalità di accesso remoto']));
+    card.appendChild(el('p',{class:'hint'},['"Diretto": il paziente vede subito il programma assegnato sopra. "Solo screening all\'inizio": al primo accesso vede solo una breve valutazione iniziale; al termine, i domini risultati deboli vengono aggiunti automaticamente al programma (resti comunque libero di modificarlo a mano, anche prima o dopo). Il gate scatta una sola volta.']));
+    card.appendChild(segButtons(['diretto','screening_poi_suggeriti'], editingPatient.modalita_accesso||'diretto', async v=>{
       try{
-        const { error } = await sb.from('pazienti').update({obiettivo:nextGoals}).eq('id', editingPatient.id).eq('operatore_id', cloudUser.id);
+        const { error } = await sb.from('pazienti').update({modalita_accesso:v}).eq('id', editingPatient.id).eq('operatore_id', cloudUser.id);
         if(error) throw error;
-        editingPatient.obiettivo = nextGoals;
+        editingPatient.modalita_accesso = v;
         cachedRemotePatients = null;
         render();
       }catch(e){ alert('Errore: '+e.message); }
-    }},['+ Aggiungi obiettivo']));
+    }, {diretto:'Diretto', screening_poi_suggeriti:'Solo screening all\'inizio'}));
+    if(editingPatient.modalita_accesso==='screening_poi_suggeriti'){
+      card.appendChild(el('p',{class:'hint'},[editingPatient.screening_completato_il ? 'Gate già superato il '+new Date(editingPatient.screening_completato_il).toLocaleDateString('it-IT')+' — il paziente vede ora il programma normalmente.' : 'Il paziente non ha ancora completato la valutazione iniziale: vedrà solo quella al prossimo accesso.']));
+    }
 
     card.appendChild(el('label',{style:'display:block; margin-top:24px;'},['Limiti giornalieri']));
     const currentLimiti = editingPatient.limiti;
@@ -6838,15 +6877,51 @@
     const arr = Array.isArray(raw) ? raw : [raw];
     return arr.map(g=> g.tipo ? g : Object.assign({tipo:'livello'}, g)); // formato vecchio senza 'tipo' esplicito
   }
+  // Tetto della scala obiettivo-livello per esercizio — usato solo per
+  // validare l'inserimento di un nuovo obiettivo (non per la titolazione
+  // vera e propria, che ha i suoi tetti in ADAPT_*/currentLevelMax). Il
+  // doppio compito è escluso: due canali con livelli indipendenti non
+  // sono riducibili a un singolo numero obiettivo.
+  const MAX_LEVEL_BY_TASKMODE = {
+    nback:10, categorizzazione:10, sequenza:10, switching:10, gonogo:10, stopsignal:10, ant:10,
+    neglect:30, // copre la modalità Progressiva (1-30); classico/intruso sono 1-10, ma un tetto più largo non è vincolante
+    goaltask:5, memoria:16
+  };
+  // Salva la lista obiettivi per un paziente, locale o remoto — stessa
+  // struttura dati in entrambi i casi (vedi normalizeGoals), cambia solo
+  // dove viene persistita: localStorage+sync cloud per i profili in
+  // presenza, update diretto su 'pazienti' per i remoti.
+  async function saveGoalsForPatient(isLocal, patient, nextGoals){
+    if(isLocal){
+      try{
+        const raw = localStorage.getItem('traccian:localpatient:'+patient.id);
+        if(!raw) return false;
+        const pp = JSON.parse(raw);
+        pp.obiettivo = nextGoals;
+        localStorage.setItem('traccian:localpatient:'+patient.id, JSON.stringify(pp));
+        syncLocalPatientToCloud(pp);
+        patient.obiettivo = nextGoals;
+        return true;
+      }catch(e){ return false; }
+    }
+    try{
+      const { error } = await sb.from('pazienti').update({obiettivo:nextGoals}).eq('id', patient.id).eq('operatore_id', cloudUser.id);
+      if(error) throw error;
+      patient.obiettivo = nextGoals;
+      cachedRemotePatients = null;
+      return true;
+    }catch(e){ alert('Errore: '+e.message); return false; }
+  }
   function computeLevelGoalProgress(g, uc){
     const exLabel = EXERCISES[g.taskMode] ? EXERCISES[g.taskMode].label : g.taskMode;
     if(!uc || uc.taskMode !== g.taskMode) return {percentuale:0, etichetta:'Livello '+g.livelloTarget+' su '+exLabel+' (non ancora iniziato)'};
-    let livelloAttuale;
-    if(g.taskMode==='nback') livelloAttuale = uc.nLevel;
-    else if(g.taskMode==='ant' && uc.antMode==='tapat') livelloAttuale = uc.tapatStartLevel;
-    else if(g.taskMode==='neglect') livelloAttuale = uc.neglectStartLevel;
-    else livelloAttuale = uc.adaptStartLevel;
-    livelloAttuale = livelloAttuale || 1;
+    // Riusa LEVEL_FIELD_OF_TASKMODE (via levelOfCfg) invece del vecchio
+    // if/else dedicato: quello copriva solo nback/ant-tapat/neglect e
+    // faceva ricadere categorizzazione, memoria (chunking/PQRST) e
+    // scenari ecologici su un campo inesistente (adaptStartLevel),
+    // restando sempre bloccato a "livello 1" indipendentemente da dove
+    // fosse arrivato il paziente.
+    let livelloAttuale = (g.taskMode==='dualtask') ? 1 : (levelOfCfg(uc) || 1);
     // Posizione continua all'interno del livello, invece di un salto secco
     // ogni 20%: usa l'accuratezza dell'ultima sessione rispetto alle stesse
     // soglie 70-85% (Wilson et al., 2019) che già guidano la titolazione
@@ -6884,6 +6959,39 @@
       return {percentuale:0, etichetta:'Tempo di allenamento '+periodoLabel+' — caricamento…'};
     }
     const minuti = cachedGoalTimeUsage[g.id] || 0;
+    const pct = Math.round(Math.max(0, Math.min(100, (minuti/g.minutiTarget)*100)));
+    return {percentuale:pct, etichetta:minuti+' di '+g.minutiTarget+' minuti '+periodoLabel};
+  }
+  // Versione di computeTimeGoalProgress per quando è l'OPERATORE a guardare
+  // il progresso di un paziente (locale o remoto) in "Gestisci programma" —
+  // computeTimeGoalProgress normale usa cloudUser.id, corretto quando è il
+  // paziente remoto a guardare la propria scheda (lì cloudUser è il suo
+  // stesso account), ma sbagliato quando è l'operatore a guardare: in quel
+  // contesto cloudUser.id è l'ID dell'operatore, non del paziente, quindi la
+  // query filtrava sessioni che non esistono. Qui si passa esplicitamente id
+  // e tipo di paziente e si passa da loadHistory() (locale+cloud, funziona
+  // anche offline), filtrando per localPatientId o pazienteId a seconda dei
+  // casi — stessa logica già usata per i report RCI.
+  let cachedGoalTimeUsageOperator = {}; // { 'goalId:patientId': minuti, o null mentre carica }
+  async function loadGoalTimeUsageOperator(g, isLocal, patientId){
+    const key = g.id+':'+patientId;
+    try{
+      const items = await loadHistory();
+      const cutoff = g.periodo==='settimana' ? (Date.now() - 7*24*60*60*1000) : 0;
+      const mine = items.filter(r=> (isLocal ? r.localPatientId===patientId : r.pazienteId===patientId) && (r.ts||0) >= cutoff);
+      cachedGoalTimeUsageOperator[key] = Math.round(mine.reduce((s,r)=> s+(r.durationMs||0),0)/60000);
+    }catch(e){ cachedGoalTimeUsageOperator[key] = 0; }
+  }
+  function computeTimeGoalProgressOperator(g, isLocal, patientId){
+    const periodoLabel = g.periodo==='settimana' ? 'questa settimana' : 'in totale';
+    const key = g.id+':'+patientId;
+    if(cachedGoalTimeUsageOperator[key]===undefined){
+      cachedGoalTimeUsageOperator[key] = null;
+      loadGoalTimeUsageOperator(g, isLocal, patientId).then(()=> render());
+      return {percentuale:0, etichetta:'Tempo di allenamento '+periodoLabel+' — caricamento…'};
+    }
+    if(cachedGoalTimeUsageOperator[key]===null) return {percentuale:0, etichetta:'Tempo di allenamento '+periodoLabel+' — caricamento…'};
+    const minuti = cachedGoalTimeUsageOperator[key] || 0;
     const pct = Math.round(Math.max(0, Math.min(100, (minuti/g.minutiTarget)*100)));
     return {percentuale:pct, etichetta:minuti+' di '+g.minutiTarget+' minuti '+periodoLabel};
   }

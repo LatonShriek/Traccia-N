@@ -541,6 +541,7 @@ alter table pazienti_locali add column if not exists screening_flags jsonb;
 alter table pazienti_locali add column if not exists programma_assegnato jsonb;
 alter table pazienti_locali add column if not exists screening_risultati jsonb;
 alter table pazienti_locali add column if not exists livelli_esercizi jsonb;
+alter table pazienti_locali add column if not exists obiettivo jsonb; -- stessa struttura di pazienti.obiettivo (array di {tipo:'livello'|'tempo', ...}) — obiettivi per i pazienti seguiti solo in presenza, gestiti da "Gestisci programma" esattamente come per i remoti
 alter table pazienti_locali add column if not exists attivo boolean default true; -- come pazienti.attivo — nasconde il profilo dalla lista principale, spostandolo in Archivio
 alter table pazienti_locali add column if not exists remote_paziente_id uuid references pazienti(id); -- valorizzato da "Trasforma in account remoto": collega il profilo in presenza superato al nuovo account remoto
 alter table pazienti_locali enable row level security;
@@ -774,32 +775,38 @@ in circa un minuto. Lo storico salvato sul tablet non viene toccato.
 
 ## Gestione pazienti: programma, modalità di accesso, obiettivi, limiti, RCI, archiviazione
 
-**Programma assegnato** — dalla schermata "Gestisci programma" (pazienti
-remoti) o "Assegna programma" (pazienti in presenza) l'operatore
-costruisce il programma un esercizio alla volta: **"+ Aggiungi esercizio
-personalizzato"** porta dritto a Setup, dove si configura l'esercizio
-(livello, materiale, parametri) e si preme "+ Aggiungi al programma" —
-il nome viene generato automaticamente, senza doverlo scrivere a mano, e
-si resta su Setup pronti a configurare il successivo prima di tornare al
-programma. Se il nome proposto coincide con una voce già presente nel
-programma (es. due varianti di Cancellazione con stesso materiale e
-livello, o due voci aggiunte senza cambiare i parametri fra l'una e
-l'altra), l'app aggiunge da sola un contatore leggibile ("(2)", "(3)"...)
-invece di lasciare due voci identiche indistinguibili nell'elenco. In
-alternativa, se sul dispositivo esistono già preset
-salvati non ancora assegnati a questo paziente, compaiono in una
-"libreria" con un tocco per aggiungerli così come sono. Ogni voce del
-programma si rimuove singolarmente, senza toccare le altre. Per un
-paziente remoto il programma è ciò che vede e può avviare da solo a ogni
-accesso. Per un paziente in presenza è solo una **scorciatoia di avvio
-rapido** quando l'operatore lo seleziona per la seduta — non è
-vincolante: resta libero di lanciare qualunque altro esercizio in
-qualsiasi momento. Ogni voce può anche portare un **"Modifica"** (riapre
-Setup con quella configurazione, sostituisce la voce invece di
-aggiungerne una — preserva la provenienza da screening se presente, con
-una nota che confronta il livello suggerito originariamente con quello
-attuale) e un **tempo consigliato** opzionale (minuti al giorno o
-totali), mostrato al paziente accanto all'esercizio.
+**Programma assegnato** — dalla schermata "Gestisci programma", identica
+per pazienti remoti e in presenza, l'operatore costruisce il programma un
+esercizio alla volta: **"+ Aggiungi esercizio personalizzato"** porta
+dritto a Setup, dove si configura l'esercizio (livello, materiale,
+parametri) e si preme "+ Aggiungi al programma" — il nome viene generato
+automaticamente, senza doverlo scrivere a mano, e si resta su Setup
+pronti a configurare il successivo prima di tornare al programma. Se il
+nome proposto coincide con una voce già presente nel programma (es. due
+varianti di Cancellazione con stesso materiale e livello, o due voci
+aggiunte senza cambiare i parametri fra l'una e l'altra), l'app aggiunge
+da sola un contatore leggibile ("(2)", "(3)"...) invece di lasciare due
+voci identiche indistinguibili nell'elenco. In alternativa, se sul
+dispositivo esistono già preset salvati non ancora assegnati a questo
+paziente, compaiono in una "libreria" con un tocco per aggiungerli così
+come sono. Ogni voce del programma si rimuove singolarmente, senza
+toccare le altre. Per un paziente remoto il programma è ciò che vede e
+può avviare da solo a ogni accesso. Per un paziente in presenza è una
+scorciatoia di continuazione: toccando il nome del paziente nell'elenco
+"Paziente in presenza", l'operatore sceglie ogni volta fra **"Setup
+libero"** (esercizio estemporaneo, come prima) e **"Programma"** (apre
+"Gestisci programma") — nessuna delle due è un vincolo, resta libero di
+lanciare qualunque altro esercizio in qualsiasi momento. Ogni voce del
+programma ha tre azioni: **"▶ Avvia"** (riprende l'esercizio subito, al
+livello adattivo raggiunto in QUELLA voce — non l'ultimo esercizio fatto
+in assoluto — saltando Setup e andando dritto alle istruzioni: stessa
+logica di "Inizia" nella scheda del paziente remoto autonomo),
+**"Modifica"** (riapre Setup con quella configurazione, sostituisce la
+voce invece di aggiungerne una — preserva la provenienza da screening se
+presente, con una nota che confronta il livello suggerito originariamente
+con quello attuale) e **"✕ Rimuovi"**. Un **tempo consigliato** opzionale
+(minuti al giorno o totali) è impostabile per ciascuna voce, mostrato al
+paziente accanto all'esercizio.
 
 **Modalità di accesso** (solo pazienti remoti) — scelta alla creazione
 del profilo, modificabile in seguito da "Gestisci programma":
@@ -840,17 +847,35 @@ presenza) porta con sé, oltre allo storico già registrato, anche il
 programma assegnato e i suggerimenti da screening del profilo locale,
 se presenti. Il nuovo account remoto parte in modalità "Diretto".
 
-**Obiettivi** — un paziente può averne più di uno contemporaneamente, di
-due tipi: **livello** (un livello target su un esercizio specifico) o
-**tempo** (minuti di allenamento accumulati, a settimana o in totale,
-indipendentemente dall'esercizio). Facoltativi: senza obiettivi impostati
-il paziente si allena normalmente. Il paziente vede solo una barra
-percentuale per ciascuno, senza etichetta; l'operatore vede la stessa
-barra con l'etichetta completa. Per un obiettivo di livello, il progresso
-non salta a scatti del 20% per livello: usa l'accuratezza dell'ultima
-sessione confrontata con le soglie 70-85% per dare una posizione continua
-dentro il livello corrente (eccezione: lo Stop-Signal resta a gradino
-secco, essendo guidato dallo staircase SSD e non dalla regola 70-85%).
+**Obiettivi** — disponibili sia per pazienti remoti sia per pazienti in
+presenza, stessa struttura dati e stessa sezione in "Gestisci programma"
+per entrambi (persistita su `pazienti.obiettivo` o
+`pazienti_locali.obiettivo` a seconda del tipo). Un paziente può averne
+più di uno contemporaneamente, di due tipi: **livello** (un livello
+target su un esercizio specifico, tetto massimo coerente con la scala
+reale di quell'esercizio — 10 per la maggior parte, 16 per Chunking/
+PQRST, 30 per Cancellazione in modalità Progressiva, 5 per gli Scenari
+ecologici; il Doppio compito è escluso, avendo due canali/livelli
+indipendenti non riducibili a un solo numero) o **tempo** (minuti di
+allenamento accumulati, a settimana o in totale, indipendentemente
+dall'esercizio). Facoltativi: senza obiettivi impostati il paziente si
+allena normalmente. Per un paziente remoto autosomministrato, la barra è
+mostrata nella sua scheda e a fine sessione; per un paziente in presenza,
+la barra è mostrata all'operatore in "Gestisci programma" e — visto che
+lo schermo è condiviso durante la seduta — anche al termine di ogni
+esercizio nella schermata Risultati, esattamente come per il remoto. Il
+paziente vede solo una barra percentuale per ciascuno, senza etichetta;
+l'operatore vede la stessa barra con l'etichetta completa. Per un
+obiettivo di livello, il progresso non salta a scatti del 20% per
+livello: usa l'accuratezza dell'ultima sessione confrontata con le soglie
+70-85% per dare una posizione continua dentro il livello corrente
+(eccezione: lo Stop-Signal resta a gradino secco, essendo guidato dallo
+staircase SSD e non dalla regola 70-85%). Il progresso di un obiettivo di
+livello legge il livello raggiunto dal campo corretto per ciascun
+esercizio (lo stesso usato dalla titolazione adattiva) — Categorizzazione
+condizionale, Chunking/PQRST e Scenari ecologici hanno ciascuno il
+proprio campo dedicato, distinto da quello usato da N-back/Cancellazione/
+Go-No-Go/ecc.
 
 **Limiti giornalieri** — numero massimo di sessioni e/o minuti al giorno,
 impostabili indipendentemente.

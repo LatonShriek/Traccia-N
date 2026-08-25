@@ -36,19 +36,31 @@ secondo una logica di copertura piuttosto che di ripetizione — l'obiettivo
 è un profilo multidimensionale del controllo attentivo-esecutivo, non
 dieci varianti dello stesso compito.
 
-| Esercizio | Costrutto | Rete/meccanismo principale |
-|---|---|---|
-| N-back | Aggiornamento della memoria di lavoro (updating) | Fronto-parietale, DLPFC |
-| Sequenza bersaglio | Context processing, controllo proattivo/reattivo (ispirato all'AX-CPT) | DLPFC (proattivo) + ACC (reattivo) |
-| Go/No-Go | Inibizione di un'azione non ancora iniziata (action restraint) | Giro frontale inferiore sinistro + parietale |
-| Stop-Signal | Cancellazione di un'azione già in corso (action cancellation), con stima di SSRT | Via fronto-striatale destra (RIFG–preSMA–STN) |
-| Attenzione (ANT / TAPAT) | Allerta (tonica/fasica), orienting spaziale, conflitto percettivo | Locus coeruleus-NA; reti dorsale/ventrale; ACC-DLPFC |
-| Task-switching | Flessibilità cognitiva (shifting), switch cost | Rete fronto-parietale dominio-generale, solco frontale inferiore |
-| Categorizzazione condizionale | Applicazione di regole di classificazione di complessità crescente (fissa, non a costo di switch) | Corteccia prefrontale dorsolaterale, striato (apprendimento di regole condizionali) |
-| Doppio compito | Attenzione divisa, coordinamento di due compiti concorrenti | Corteccia frontopolare (BA10), colli di bottiglia prefrontali laterali |
-| Cancellazione (neglect) | Ricerca visiva ed esplorazione spaziale simmetrica/asimmetrica | Rete attentiva parietale destra; asimmetria sinistra/destra come indice di neglect |
-| Scenari ecologici | Pianificazione, multitasking, autogestione sotto vincoli (Six Elements/Multiple Errands) | Corteccia prefrontale dorsolaterale e frontopolare (BA10), monitoraggio prospettico |
-| Strategie di memoria | Memoria a lungo termine, apprendimento strategico | Ippocampo/lobo temporale mediale (codifica); prefrontale per il controllo strategico |
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
+| N-back | Aggiornamento della memoria di lavoro (updating) | Fronto-parietale, DLPFC | Owen, McMillan, Laird & Bullmore (2005), *Human Brain Mapping*, 25(1), 46-59 |
+| Sequenza bersaglio | Context processing, controllo proattivo/reattivo (ispirato all'AX-CPT) | DLPFC (proattivo) + ACC (reattivo) | Cohen, Barch, Carter & Servan-Schreiber (1999), *Journal of Abnormal Psychology*, 108(1), 120-133 |
+| Go/No-Go | Inibizione di un'azione non ancora iniziata (action restraint) | Giro frontale inferiore sinistro + parietale | Eagle, Bari & Robbins (2008), *Psychopharmacology*, 199(3), 439-456 |
+| Stop-Signal | Cancellazione di un'azione già in corso (action cancellation), con stima di SSRT | Via fronto-striatale destra (RIFG–preSMA–STN) | Eagle, Bari & Robbins (2008), come sopra; Aron, Fletcher, Bullmore, Sahakian & Robbins (2003), *Nature Neuroscience*, 6(2), 115-116 |
+| Attenzione (ANT / TAPAT) | Allerta (tonica/fasica), orienting spaziale, conflitto percettivo | Locus coeruleus-NA; reti dorsale/ventrale; ACC-DLPFC | Fan, McCandliss, Sommer, Raz & Posner (2002), *Journal of Cognitive Neuroscience*, 14(3), 340-347 (ANT); DeGutis & Van Vleet (2010), *Frontiers in Human Neuroscience*, 4:60 (TAPAT) |
+| Task-switching | Flessibilità cognitiva (shifting), switch cost | Rete fronto-parietale dominio-generale, solco frontale inferiore | Monsell (2003), *Trends in Cognitive Sciences*, 7(3), 134-140 |
+| Categorizzazione condizionale | Applicazione di regole di classificazione di complessità crescente (fissa, non a costo di switch) | Corteccia prefrontale dorsolaterale, striato (apprendimento di regole condizionali) | Halford, Wilson & Phillips (1998), *Behavioral and Brain Sciences*, 21(6), 803-831 |
+| Doppio compito | Attenzione divisa, coordinamento di due compiti concorrenti | Corteccia frontopolare (BA10), colli di bottiglia prefrontali laterali | Pashler (1994), *Psychological Bulletin*, 116(2), 220-244 |
+| Cancellazione (neglect) | Ricerca visiva ed esplorazione spaziale simmetrica/asimmetrica | Rete attentiva parietale destra; asimmetria sinistra/destra come indice di neglect | Mesulam (1981), *Annals of Neurology*, 10(4), 309-325 |
+| Scenari ecologici | Pianificazione, multitasking, autogestione sotto vincoli (Six Elements/Multiple Errands) | Corteccia prefrontale dorsolaterale e frontopolare (BA10), monitoraggio prospettico | Shallice & Burgess (1991), *Brain*, 114(2), 727-741 |
+| Strategie di memoria | Memoria a lungo termine, apprendimento strategico | Ippocampo/lobo temporale mediale (codifica); prefrontale per il controllo strategico | Glisky, Schacter & Tulving (1986), *Journal of Clinical and Experimental Neuropsychology*, 8(3), 292-312 (vanishing cues); Baddeley & Wilson (1994), *Neuropsychologia*, 32(1), 53-68 (errorless learning) |
+
+Ogni citazione qui sopra è stata verificata singolarmente (autori, anno,
+rivista, volume, pagine) prima di essere inserita — nessuna a memoria,
+nessuna approssimata. Per Doppio compito e Cancellazione, i riferimenti
+coprono il fenomeno generale (interferenza a doppio compito; rete
+attentiva parietale del neglect), non uno studio che validi questa
+specifica implementazione — coerente con quanto già dichiarato sopra sui
+limiti dell'app rispetto a strumenti normati. Chunking multi-metodo e
+metodo dei loci (le altre due modalità di Strategie di memoria, oltre a
+PQRST/errorless/vanishing cues) non hanno qui una citazione dedicata:
+prima di aggiungerne una, va verificata con la stessa cura delle altre,
+non approssimata per completare la tabella.
 
 **Limiti dichiarati, non nascosti:** l'AX-CPT qui implementato (la
 "sequenza bersaglio") è semplificato — non distingue i quattro tipi di
@@ -240,6 +252,25 @@ forti):
 | Categorizzazione condizionale | 1-10 (manuale o adattivo) | Banda doppia delle 5 strutture originarie (dimensione singola → doppia dimensione+no-go → regola disgiuntiva → 1-back sulla categoria → doppia dimensione a 4 risposte), ordinate per complessità relazionale (Halford, Wilson & Phillips, 1998) non per numero di mappature stimolo-risposta; dentro ogni banda l'ISI si stringe, tranne nella banda del 1-back (livelli 7-8) dove il secondo parametro è la frequenza di trial lure (stessa categoria di 2 prove fa invece che 1). Con l'adattivo attivo, la titolazione (ISI/lure) resta vincolata dentro la struttura di partenza per tutta la seduta — non attraversa mai un confine di struttura (= un cambio di regola) a metà sessione, vedi sezione "Vincolo di fascia strutturale" più sotto |
 | Cancellazione (neglect) | Classico/Trova l'intruso: 1-10. Conteggio a regola: 1-10 (unificato, non più separato dalla dimensione tavola). Progressiva: 1-30 | Elementi per tavola (14→85) insieme al tempo limite per tavola (nessun limite ai livelli 1-2, poi 110→18s). In "Conteggio a regola" la complessità della regola scala insieme, 2 livelli per condizione, ordine colore→sfondo→riga (percettivo prima, posizionale per ultimo — Treisman & Gelade, 1980). "Progressiva" incolla i tre in sequenza (1-10 Classico, 11-20 Intruso, 21-30 Regola), ciascuno con la propria scala 1-10 completa. Tutti i cambi di sotto-modalità (progressiva) o di condizione (regola) sono vincolati a non attraversare la seduta in corso, vedi sotto |
 
+**Conteggio a regola — risposta a conteggio mentale, non a tocco.** A
+differenza di Classico/Trova l'intruso/Progressiva, qui il paziente NON
+tocca gli elementi: guarda la tavola, conta a mente quanti rispettano la
+regola attiva, e — allo scadere del tempo limite (impostabile in Setup,
+automatico e decrescente in modalità adattiva, stessa infrastruttura già
+usata dalle altre modalità) o al tocco di "Fatto" — la tavola sparisce e
+compare un campo numerico dove digitare il conteggio. La titolazione
+adattiva usa una risposta binaria (numero esatto sì/no), sempre dentro i
+limiti della fascia strutturale di partenza, come le altre modalità.
+Conseguenza di costrutto dichiarata, non un effetto collaterale
+nascosto: un singolo numero riportato non permette di ricostruire quanti
+elementi siano stati "trovati" a sinistra rispetto a destra, quindi
+questa modalità **non produce l'indice di asimmetria** che è invece il
+cuore delle altre tre modalità di Cancellazione — storico, CSV e report
+RCI mostrano al suo posto un'accuratezza sul conteggio complessivo
+(quante tavole con numero esatto) e un errore assoluto medio. Chi cerca
+specificamente l'asimmetria sinistra/destra del neglect classico deve
+usare Classico, Trova l'intruso o Progressiva (fasi 1-20).
+
 Fa eccezione lo **Stop-Signal**, che usa una titolazione propria e
 indipendente dal "livello" per la sua misura principale: lo staircase del
 ritardo SSD (Stop Signal Delay), sempre attivo, che converge verso il
@@ -403,6 +434,27 @@ paziente" più sotto. Se non ti serve il sistema multi-operatore/paziente,
 puoi ignorare del tutto quella cartella.
 
 ## Uso sul dispositivo
+
+**Adattabilità mobile — stato dell'audit.** Corretto un problema
+sistemico: la riga generica usata per quasi ogni elenco dell'app
+(programma paziente, home del paziente remoto, storico sessioni,
+suggerimenti da screening) non andava mai a capo — un'etichetta lunga
+(es. "Scenari ecologici (pianificazione/multitasking)") insieme al
+pulsante accanto rischiava di spingerlo fuori dallo schermo su un
+telefono stretto, invece di andare a capo in modo leggibile. Corretto
+alla radice (`.histrow`), quindi il beneficio si applica automaticamente
+ovunque quella riga è usata, non schermata per schermata.
+
+Punto aperto, non ancora deciso: gli elementi di Cancellazione
+(neglect) sono dimensionati al 9% della larghezza della tavola (fino a
+64px) — con tavole dense (fino a 85 elementi, ai livelli più alti) su
+uno schermo stretto il singolo elemento può scendere sotto i 44px
+generalmente consigliati come bersaglio tattile minimo. Non l'ho
+corretto unilateralmente perché la dimensione degli elementi è anche un
+parametro di difficoltà dell'esercizio (elementi più piccoli e più
+ravvicinati aumentano il carico di ricerca visiva) — cambiarla tocca il
+compito stesso, non solo la resa a schermo, quindi la lascio a una
+decisione esplicita piuttosto che una correzione silenziosa.
 
 1. Apri quell'indirizzo dal browser (Safari/Chrome su tablet o smartphone,
    qualunque browser su PC — l'interfaccia si adatta alla larghezza dello
@@ -1066,10 +1118,16 @@ segnala con un tag "✓ già usata" le forme già impiegate con quel
 paziente a quel livello/tecnica (letto dallo storico sessioni, caricato
 in background all'apertura del setup se non già in cache) — puramente
 informativo, non impedisce la scelta: resta sempre l'operatore a
-decidere se ripetere una forma è appropriato per quel caso. I livelli
-3-16 restano per ora a forma singola — l'estensione delle forme
-parallele è un lavoro di contenuto da proseguire gradualmente, non un
-limite del meccanismo.
+decidere se ripetere una forma è appropriato per quel caso. Popolati con
+3 forme anche i livelli 3-5 (PQRST e Chunking) — stessa lunghezza,
+stesso numero di unità/parole, stesso registro della forma A originale.
+I livelli 6-16 restano per ora a forma singola — l'estensione è un
+lavoro di contenuto da proseguire gradualmente, non un limite del
+meccanismo: `memoriaListaResolve()` supporta forme parallele sia per
+liste a sotto-gruppi (livelli 1-2) sia per liste "flat" a categoria
+singola o non categorizzate (livelli 3+), quindi l'estensione ai livelli
+successivi (incluse le liste non categorizzate, 6 in su) è già
+tecnicamente pronta quando arriverà il contenuto.
 
 **Chunking** (sempre su lista, 16 liste di parole graduate) —
 **multi-metodo**: in setup l'operatore sceglie fino a 2 tecniche fra

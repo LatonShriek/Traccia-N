@@ -184,7 +184,9 @@
   .metric .n{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:24px;}
   .metric .l{font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; margin-top:2px;}
 
-  .histrow{display:flex; justify-content:space-between; align-items:center; padding:12px 4px; border-bottom:1px solid var(--line); font-size:13.5px;}
+  .histrow{display:flex; flex-wrap:wrap; gap:6px 10px; justify-content:space-between; align-items:center; padding:12px 4px; border-bottom:1px solid var(--line); font-size:13.5px;}
+  .histrow > *:first-child{flex:1 1 160px; min-width:0;}
+  .histrow > *:first-child *{overflow-wrap:break-word;}
   .histrow .l{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-soft);}
   .empty{color:var(--ink-soft); font-size:13.5px; padding:20px 4px; text-align:center;}
   @media (min-width:820px){
@@ -403,9 +405,16 @@
         if(c.neglectMode==='intruso') return 'Sullo schermo compariranno molti simboli, alcuni ripetuti più volte, tranne uno solo: quello non ha nessun doppione da nessuna parte sulla tavola. Esplora tutto lo schermo per individuarlo, poi toccalo. Quando sei sicuro di aver esplorato tutta la tavola, tocca "Fatto".';
         if(c.neglectMode==='regola'){
           const rule = neglectRuleFor((c.stimType==='numeri'?'numeri':'lettere'), c.neglectRuleLevel, c.neglectRuleClauses);
-          return 'Sullo schermo compariranno molti '+(c.stimType==='numeri'?'numeri':'lettere')+', alcuni neri e alcuni rossi. Tocca solo quelli che rispettano questa regola: '+rule.label+'. Ignora tutti gli altri, ed esplora tutta la tavola prima di dire di aver finito.';
+          const timeNote = c.neglectTimeLimit>0 ? ' Hai un tempo limitato per guardare la tavola — quando scade (o quando tocchi "Fatto"), la tavola sparisce e ti verrà chiesto di digitare il numero.' : ' Quando sei sicuro di aver contato tutta la tavola, tocca "Fatto": la tavola sparirà e ti verrà chiesto di digitare il numero.';
+          return 'Sullo schermo compariranno molti '+(c.stimType==='numeri'?'numeri':'lettere')+', alcuni neri e alcuni rossi. NON toccarli: guarda tutta la tavola e conta a mente quanti rispettano questa regola: '+rule.label+'.'+timeNote;
         }
         if(c.neglectMode==='progressiva'){
+          const phase = neglectProgressivaPhase(c.neglectStartLevel);
+          if(phase.mode==='intruso') return 'Questo esercizio cambia da solo compito durante la seduta. In questa fase: sullo schermo compariranno molti simboli, alcuni ripetuti più volte, tranne uno solo, senza doppioni da nessuna parte — esplora tutta la tavola per individuarlo, poi toccalo. Più avanti (in una seduta successiva) ti spiegherò il nuovo compito quando cambia.';
+          if(phase.mode==='regola'){
+            const rule = neglectRuleFor((c.stimType==='numeri'?'numeri':'lettere'), phase.subLevel, c.neglectRuleClauses);
+            return 'Questo esercizio cambia da solo compito durante la seduta. In questa fase: sullo schermo compariranno molti '+(c.stimType==='numeri'?'numeri':'lettere')+', alcuni neri e alcuni rossi. NON toccarli: guarda tutta la tavola e conta a mente quanti rispettano questa regola: '+rule.label+'. Quando il tempo scade (o tocchi "Fatto"), la tavola sparirà e ti verrà chiesto di digitare il numero.';
+          }
           const f2 = stimGender(c.stimType)==='f';
           return 'Questo esercizio cambia da solo compito durante la seduta. All\'inizio: sullo schermo compariranno '+(f2?'molte':'molti')+' '+STIM_LABELS[c.stimType].toLowerCase()+'. Tocca solo '+(f2?'quelle uguali':'quelli uguali')+' a: '+c.targetSeq.map(seqLabel).join(', ')+'. Più avanti ti spiegherò il nuovo compito quando cambia.';
         }
@@ -1023,8 +1032,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1097,7 +1106,30 @@
       listMyPatients().then(list=>{ cachedRemotePatients=list; render(); });
     }
   }
+  // Titolo di pagina dinamico per schermata — aiuta a distinguere schede/
+  // cronologia browser quando l'app resta aperta a lungo o su più schede.
+  // Deliberatamente SENZA nome/codice paziente: il titolo di pagina finisce
+  // comunque nella cronologia del browser (stesso problema di esposizione
+  // dati clinici già sollevato a proposito del routing per indirizzo) — solo
+  // il tipo di schermata, mai un identificativo del paziente.
+  const PAGE_TITLES = {
+    setup:'Setup', instructions:'Istruzioni', countdown:'Si parte', task:null, // 'task' gestito a parte (nome esercizio)
+    manualEntry:'Inserimento manuale', results:'Risultati', history:'Storico',
+    cloud:'Account', patients:'Pazienti', patientHome:'I miei esercizi', patientProgram:'Programma',
+    operatorHome:'Home operatore', localPatientPicker:'Paziente in presenza', accessCode:'Codice di accesso', accessLog:'Registro accessi',
+    screeningIntro:'Screening', screeningResults:'Risultati screening', archive:'Archivio'
+  };
+  function updatePageTitle(){
+    try{
+      let suffix = PAGE_TITLES[view];
+      if(view==='task' || view==='countdown' || view==='instructions'){
+        suffix = (EXERCISES[cfg.taskMode] ? EXERCISES[cfg.taskMode].label : suffix) || suffix;
+      }
+      document.title = suffix ? ('TracciaN — '+suffix) : 'TracciaN — batteria di training cognitivo';
+    }catch(e){}
+  }
   function render(){
+    updatePageTitle();
     if(view==='task'){
       const isNeglect = cfg.taskMode==='neglect';
       const isGoalTask = cfg.taskMode==='goaltask';
@@ -1775,6 +1807,7 @@
     const family = rec.family || 'signal';
     if((family==='signal' || family==='dual') && rec.metrics && rec.metrics.acc!=null) return rec.metrics.acc;
     if(family==='choice' && rec.choice && rec.choice.total) return rec.choice.correct/rec.choice.total;
+    if(family==='spatial' && rec.neglect && rec.neglect.modalitaConteggio) return rec.neglect.accuratezzaConteggio;
     if(family==='spatial' && rec.neglect && rec.neglect.pctLeft!=null && rec.neglect.pctRight!=null) return (rec.neglect.pctLeft+rec.neglect.pctRight)/2;
     return null;
   }
@@ -1798,6 +1831,12 @@
       return {value: vals.reduce((a,b)=>a+b,0)/vals.length, higherIsBetter:true};
     }
     if(family==='spatial'){
+      // 'Conteggio a regola': niente asimmetria misurabile con un unico
+      // numero riportato (vedi nota sopra) — l'RCI per queste sedute usa
+      // invece l'accuratezza del conteggio, una misura scalare pulita come
+      // quella già usata per le famiglie 'choice'/'signal', non un
+      // ripiego di fortuna.
+      if(r.neglect && r.neglect.modalitaConteggio) return (r.neglect.accuratezzaConteggio!=null) ? {value:r.neglect.accuratezzaConteggio, higherIsBetter:true} : null;
       if(r.neglect && r.neglect.asymmetry!=null) return {value:Math.abs(r.neglect.asymmetry), higherIsBetter:false};
       return null;
     }
@@ -1837,7 +1876,22 @@
       const higherIsBetter = list[0].metric.higherIsBetter;
       const baselineMean = mean(baselineVals), finalMean = mean(finalVals);
       const baselineSD = sd(baselineVals);
-      const reliability = RCI_RELIABILITY[taskMode] != null ? RCI_RELIABILITY[taskMode] : 0.70;
+      const rawReliability = RCI_RELIABILITY[taskMode] != null ? RCI_RELIABILITY[taskMode] : 0.70;
+      // Correzione di Spearman-Brown: baseline e punto finale non sono una
+      // singola misurazione ciascuno, sono già la media di 'half' sedute (2
+      // o 3, a seconda di quante sedute totali sono disponibili per questo
+      // paziente/esercizio) — una media è più affidabile di una singola
+      // seduta, e va trattata come tale. Usare il coefficiente di
+      // affidabilità di una singola seduta quando si sta in realtà
+      // confrontando due medie rendeva il test sistematicamente più
+      // conservativo del dovuto (una differenza reale aveva meno probabilità
+      // di essere segnalata come significativa di quanto sarebbe corretto),
+      // mai nella direzione opposta — non è un allentamento arbitrario del
+      // criterio, è smettere di sottostimare l'affidabilità reale della
+      // misura. reliability_k = k·r / (1 + (k-1)·r); con k=half=1 (caso
+      // limite, non dovrebbe presentarsi dato il minimo di 4 sessioni sopra)
+      // la formula si riduce identicamente al coefficiente originale.
+      const reliability = (half*rawReliability) / (1 + (half-1)*rawReliability);
       if(!baselineSD) return;
       const seDiff = baselineSD * Math.sqrt(2*(1-reliability));
       if(!seDiff) return;
@@ -1898,7 +1952,8 @@
       +'<div class="note">RCI calcolato secondo Crawford &amp; Howell — |RCI| ≥ 1.96 indica un cambiamento '
       +'statisticamente affidabile (p&lt;.05), non attribuibile a variabilità di misura tra sessioni. '
       +'Baseline e punto finale sono la media delle prime/ultime sessioni disponibili per ciascun esercizio '
-      +'(fino a '+RCI_BASELINE_N+' per gruppo). Documento generato da TracciaN, uso clinico.</div>'
+      +'(fino a '+RCI_BASELINE_N+' per gruppo) — l\'affidabilità usata nel calcolo è corretta con la formula '
+      +'di Spearman-Brown per riflettere che si confrontano due medie, non due sedute singole. Documento generato da TracciaN, uso clinico.</div>'
       +'</body></html>';
     w.document.open(); w.document.write(html); w.document.close();
   }
@@ -2346,12 +2401,30 @@
         {testo:'Si siede vicino alla finestra e legge il giornale per qualche minuto.', unita:['si siede vicino alla finestra','legge il giornale per qualche minuto']}
       ]}
     ]},
-    {livello:3, titolo:'Il temporale', testo:'Nel pomeriggio il cielo si scurisce improvvisamente. Arriva un forte temporale con tuoni e pioggia battente. I bambini corrono a ripararsi sotto un portico, ridendo per lo spavento appena passato.',
-      unita:['il cielo si scurisce nel pomeriggio','arriva un forte temporale','ci sono tuoni e pioggia battente','i bambini corrono sotto un portico','ridono per lo spavento passato']},
-    {livello:4, titolo:'Il mercato', testo:'Ogni giovedì mattina, in piazza, si tiene il mercato del paese. I banchi vendono frutta, verdura, formaggi e fiori. Un anziano contadino offre assaggi del suo miele a chi passa, raccontando volentieri come lo produce.',
-      unita:['il giovedì mattina c\'è il mercato in piazza','i banchi vendono frutta, verdura, formaggi e fiori','un contadino offre assaggi di miele','racconta come lo produce a chi passa']},
-    {livello:5, titolo:'La biblioteca', testo:'La biblioteca comunale ha aperto una nuova sala lettura al primo piano. È dotata di grandi finestre e tavoli in legno chiaro. Gli studenti la preferiscono al pomeriggio perché è silenziosa, mentre la mattina la frequentano soprattutto pensionati in cerca di quotidiani.',
-      unita:['la biblioteca ha una nuova sala lettura al primo piano','ha grandi finestre e tavoli in legno','gli studenti la preferiscono al pomeriggio','è silenziosa nel pomeriggio','la mattina la frequentano pensionati per i quotidiani']},
+    {livello:3, forme:[
+      {titolo:'Il temporale', sezioni:[{testo:'Nel pomeriggio il cielo si scurisce improvvisamente. Arriva un forte temporale con tuoni e pioggia battente. I bambini corrono a ripararsi sotto un portico, ridendo per lo spavento appena passato.',
+        unita:['il cielo si scurisce nel pomeriggio','arriva un forte temporale','ci sono tuoni e pioggia battente','i bambini corrono sotto un portico','ridono per lo spavento passato']}]},
+      {titolo:'Il vento forte', sezioni:[{testo:'In tarda mattinata si alza un vento molto forte. Fa cadere alcuni rami secchi dagli alberi del viale. Un uomo rincorre il proprio cappello, portato via da una raffica, tra le risate di due passanti.',
+        unita:['in tarda mattinata si alza un vento forte','fa cadere rami secchi dagli alberi','un uomo rincorre il proprio cappello','portato via da una raffica','due passanti ridono della scena']}]},
+      {titolo:'La nevicata improvvisa', sezioni:[{testo:'Verso sera comincia a nevicare senza preavviso. I fiocchi si posano rapidamente sulle auto parcheggiate in strada. Due ragazzi escono di corsa a fare una foto, scivolando quasi sul marciapiede già bianco.',
+        unita:['verso sera comincia a nevicare senza preavviso','i fiocchi si posano sulle auto parcheggiate','due ragazzi escono a fare una foto','scivolano quasi sul marciapiede','il marciapiede è già bianco']}]}
+    ]},
+    {livello:4, forme:[
+      {titolo:'Il mercato', sezioni:[{testo:'Ogni giovedì mattina, in piazza, si tiene il mercato del paese. I banchi vendono frutta, verdura, formaggi e fiori. Un anziano contadino offre assaggi del suo miele a chi passa, raccontando volentieri come lo produce.',
+        unita:['il giovedì mattina c\'è il mercato in piazza','i banchi vendono frutta, verdura, formaggi e fiori','un contadino offre assaggi di miele','racconta come lo produce a chi passa']}]},
+      {titolo:'La fiera del paese', sezioni:[{testo:'Ogni terza domenica del mese, sul lungofiume, si svolge la piccola fiera dell\'artigianato. Le bancarelle espongono ceramiche, tessuti e oggetti in legno lavorato. Una giovane artigiana mostra come intreccia i cesti di vimini a chi si ferma a guardare.',
+        unita:['la terza domenica del mese c\'è la fiera sul lungofiume','le bancarelle espongono ceramiche, tessuti e oggetti in legno','un\'artigiana mostra come intreccia i cesti di vimini','a chi si ferma a guardare']}]},
+      {titolo:'Il mercatino dell\'usato', sezioni:[{testo:'Ogni primo sabato del mese, nel cortile della scuola, si tiene il mercatino dell\'usato. Le famiglie portano libri, giocattoli e vestiti non più utilizzati. Un ragazzo spiega volentieri la storia della sua vecchia bicicletta a chi si mostra interessato.',
+        unita:['il primo sabato del mese c\'è il mercatino dell\'usato','si tiene nel cortile della scuola','le famiglie portano libri, giocattoli e vestiti','un ragazzo racconta la storia della sua vecchia bicicletta']}]}
+    ]},
+    {livello:5, forme:[
+      {titolo:'La biblioteca', sezioni:[{testo:'La biblioteca comunale ha aperto una nuova sala lettura al primo piano. È dotata di grandi finestre e tavoli in legno chiaro. Gli studenti la preferiscono al pomeriggio perché è silenziosa, mentre la mattina la frequentano soprattutto pensionati in cerca di quotidiani.',
+        unita:['la biblioteca ha una nuova sala lettura al primo piano','ha grandi finestre e tavoli in legno','gli studenti la preferiscono al pomeriggio','è silenziosa nel pomeriggio','la mattina la frequentano pensionati per i quotidiani']}]},
+      {titolo:'Il centro sportivo', sezioni:[{testo:'Il centro sportivo comunale ha inaugurato una nuova palestra al piano interrato. È attrezzata con macchinari moderni e ampi spogliatoi. I ragazzi la preferiscono nel tardo pomeriggio perché è più libera, mentre la mattina la frequentano soprattutto persone anziane per la ginnastica dolce.',
+        unita:['il centro sportivo ha una nuova palestra al piano interrato','ha macchinari moderni e ampi spogliatoi','i ragazzi la preferiscono nel tardo pomeriggio','è più libera nel tardo pomeriggio','la mattina la frequentano anziani per la ginnastica dolce']}]},
+      {titolo:'Il centro anziani', sezioni:[{testo:'Il centro anziani del quartiere ha aperto una nuova sala giochi al piano terra. È arredata con tavoli larghi e poltrone comode. I soci la preferiscono al mattino perché è più tranquilla, mentre nel pomeriggio la frequentano soprattutto i nipoti in visita dopo la scuola.',
+        unita:['il centro anziani ha una nuova sala giochi al piano terra','è arredata con tavoli larghi e poltrone comode','i soci la preferiscono al mattino','è più tranquilla al mattino','nel pomeriggio la frequentano i nipoti dopo la scuola']}]}
+    ]},
     {livello:6, titolo:'Il trasloco', testo:'La famiglia Rossi ha traslocato in un appartamento più piccolo vicino al centro. Hanno dovuto lasciare alcuni mobili grandi, ma hanno guadagnato una posizione comoda per andare al lavoro a piedi. I bambini si sono dispiaciuti di lasciare il giardino, ma si sono presto abituati al nuovo cortile condiviso con i vicini.',
       unita:['la famiglia Rossi ha traslocato in un appartamento più piccolo','è vicino al centro','hanno lasciato alcuni mobili grandi','ora vanno al lavoro a piedi','i bambini si sono dispiaciuti per il giardino','si sono abituati al cortile condiviso']},
     {livello:7, titolo:'Il corso di cucina', testo:'Un ristorante del centro ha iniziato a offrire corsi serali di cucina una volta al mese. Il primo incontro, dedicato alla pasta fresca, ha avuto un buon successo: si sono iscritte diciotto persone, più del doppio di quanto previsto. Lo chef ha promesso un secondo incontro dedicato ai dolci, se l\'interesse resterà alto.',
@@ -2396,9 +2469,21 @@
       {gruppi:[{categoria:'elettrodomestici', parole:['frigorifero','lavatrice']}, {categoria:'strumenti musicali', parole:['chitarra','tamburo']}, {categoria:'parti della casa', parole:['cucina','bagno','camera']}]},
       {gruppi:[{categoria:'professioni', parole:['medico','cuoco']}, {categoria:'stagioni', parole:['estate','inverno']}, {categoria:'fiori', parole:['rosa','tulipano','girasole']}]}
     ]},
-    {livello:3, parole:['sedia','tavolo','letto','armadio','divano'], categorizzata:true, categoria:'mobili'},
-    {livello:4, parole:['rosso','blu','verde','giallo','viola','arancione'], categorizzata:true, categoria:'colori'},
-    {livello:5, parole:['martello','cacciavite','chiodo','vite','pinza','sega'], categorizzata:true, categoria:'utensili'},
+    {livello:3, forme:[
+      {parole:['sedia','tavolo','letto','armadio','divano'], categorizzata:true, categoria:'mobili'},
+      {parole:['forchetta','coltello','piatto','bicchiere','pentola'], categorizzata:true, categoria:'utensili da cucina'},
+      {parole:['cane','gatto','coniglio','criceto','pesce'], categorizzata:true, categoria:'animali domestici'}
+    ]},
+    {livello:4, forme:[
+      {parole:['rosso','blu','verde','giallo','viola','arancione'], categorizzata:true, categoria:'colori'},
+      {parole:['mela','pera','banana','arancia','uva','fragola'], categorizzata:true, categoria:'frutta'},
+      {parole:['scarpe','cappotto','maglione','pantaloni','cappello','sciarpa'], categorizzata:true, categoria:'vestiti'}
+    ]},
+    {livello:5, forme:[
+      {parole:['martello','cacciavite','chiodo','vite','pinza','sega'], categorizzata:true, categoria:'utensili'},
+      {parole:['chitarra','violino','tamburo','flauto','tromba','pianoforte'], categorizzata:true, categoria:'strumenti musicali'},
+      {parole:['treno','autobus','bicicletta','aereo','nave','moto'], categorizzata:true, categoria:'mezzi di trasporto'}
+    ]},
     {livello:6, parole:['cane','martello','mela','sedia','rosso','uva','tavolo'], categorizzata:false},
     {livello:7, parole:['gatto','cacciavite','pera','armadio','blu','vite','banana','divano'], categorizzata:false},
     {livello:8, parole:['nave','montagna','biblioteca','ombrello','fiume','candela','scarpa','orologio'], categorizzata:false},
@@ -2475,12 +2560,24 @@
     if(entry.forme && entry.forme.length){
       const idx = ((formaIdx||0) % entry.forme.length + entry.forme.length) % entry.forme.length;
       const forma = entry.forme[idx];
-      const parole = [].concat(...forma.gruppi.map(g=>g.parole));
-      const groupsVisible = chunkingGroupsVisible(entry.livello);
+      if(forma.gruppi){
+        const parole = [].concat(...forma.gruppi.map(g=>g.parole));
+        const groupsVisible = chunkingGroupsVisible(entry.livello);
+        return {
+          livello:entry.livello, parole, categorizzata:true,
+          gruppi: groupsVisible ? forma.gruppi : null, // nascosti dal livello 11 in su — restano nel dato solo per lo scoring, non passati al rendering
+          nForme:entry.forme.length, formaIdx:idx
+        };
+      }
+      // Forma "flat": lista a categoria singola (categorizzata:true, senza
+      // sotto-gruppi — livelli 3-5) o non categorizzata (livelli 6+). Prima
+      // di questa generalizzazione il ramo 'forme' assumeva sempre gruppi e
+      // forzava categorizzata:true — corretto qui perché aggiungere forme
+      // parallele a un livello non categorizzato non deve etichettarlo
+      // come categorizzato per sbaglio.
       return {
-        livello:entry.livello, parole, categorizzata:true,
-        gruppi: groupsVisible ? forma.gruppi : null, // nascosti dal livello 11 in su — restano nel dato solo per lo scoring, non passati al rendering
-        nForme:entry.forme.length, formaIdx:idx
+        livello:entry.livello, parole:forma.parole, categorizzata:!!forma.categorizzata, categoria:forma.categoria||null,
+        gruppi:null, nForme:entry.forme.length, formaIdx:idx
       };
     }
     return {livello:entry.livello, parole:entry.parole, categorizzata:entry.categorizzata, categoria:entry.categoria, gruppi:null, nForme:1, formaIdx:0};
@@ -2562,7 +2659,8 @@
       'doppio_compito_accoppiamento','acc_canale2','dprime_canale2','risposte_corrette','risposte_omesse','indice_allerta','indice_orienting','indice_conflitto','switch_cost',
       'neglect_pct_sinistra','neglect_pct_destra','neglect_omessi_sin','neglect_omessi_des','neglect_asimmetria','neglect_falsi_allarmi',
       'goaltask_scenario','goaltask_livello','goaltask_completati','goaltask_totale','goaltask_percentuale','goaltask_violazioni','goaltask_tempo_sec','goaltask_budget_rispettato',
-      'memoria_modo','memoria_livello','memoria_forma','memoria_recuperati','memoria_totale','memoria_percentuale','calo_intra_sessione','note'];
+      'memoria_modo','memoria_livello','memoria_forma','memoria_recuperati','memoria_totale','memoria_percentuale','calo_intra_sessione',
+      'neglect_conteggio_accuratezza','neglect_conteggio_errore_medio','note'];
     const rows = items.map(r=>{
       const family = r.family || 'signal'; // record salvati prima di questa versione
       const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
@@ -2589,10 +2687,10 @@
         family==='choice' && r.choice.switchCost!=null ? r.choice.switchCost : '',
         family==='spatial' && r.neglect.pctLeft!=null ? (r.neglect.pctLeft*100).toFixed(1)+'%':'',
         family==='spatial' && r.neglect.pctRight!=null ? (r.neglect.pctRight*100).toFixed(1)+'%':'',
-        family==='spatial' ? r.neglect.omittedLeft : '',
-        family==='spatial' ? r.neglect.omittedRight : '',
+        family==='spatial' && r.neglect.omittedLeft!=null ? r.neglect.omittedLeft : '',
+        family==='spatial' && r.neglect.omittedRight!=null ? r.neglect.omittedRight : '',
         family==='spatial' && r.neglect.asymmetry!=null ? r.neglect.asymmetry : '',
-        family==='spatial' ? r.neglect.falseAlarms : '',
+        family==='spatial' && r.neglect.falseAlarms!=null ? r.neglect.falseAlarms : '',
         family==='goaltask' ? r.goaltask.scenarioLabel : '',
         family==='goaltask' ? r.goaltask.livello : '',
         family==='goaltask' ? r.goaltask.completatiCount : '',
@@ -2608,6 +2706,8 @@
         family==='memoria' ? r.memoria.totale : '',
         family==='memoria' ? r.memoria.percentuale+'%' : '',
         r.fatigueNote ? (r.fatigueNote.flag?'Sì':'No')+' ('+(r.fatigueNote.accFirst*100).toFixed(0)+'%→'+(r.fatigueNote.accLast*100).toFixed(0)+'%)' : '',
+        family==='spatial' && r.neglect.modalitaConteggio && r.neglect.accuratezzaConteggio!=null ? (r.neglect.accuratezzaConteggio*100).toFixed(1)+'%' : '',
+        family==='spatial' && r.neglect.modalitaConteggio && r.neglect.erroreAssolutoMedio!=null ? r.neglect.erroreAssolutoMedio.toFixed(2) : '',
         (r.notes||'').replace(/[\n,]/g,' ')
       ];
     });
@@ -3825,6 +3925,15 @@
     if(lvl<=20) return {mode:'intruso', subLevel:lvl-10};
     return {mode:'regola', subLevel:lvl-20};
   }
+  // Modalità effettiva in questo momento — per 'progressiva' dipende dalla
+  // fase corrente (classico/intruso/regola), per le altre coincide con
+  // cfg.neglectMode. Usata ovunque la logica del conteggio a regola deve
+  // attivarsi anche dentro una fase di Progressiva, non solo quando
+  // neglectMode==='regola' esplicitamente — un controllo diretto su
+  // cfg.neglectMode da solo perdeva questo caso.
+  function currentNeglectEffMode(){
+    return cfg.neglectMode==='progressiva' ? neglectProgressivaPhase(session ? session.liveBoardLevel : cfg.neglectStartLevel).mode : cfg.neglectMode;
+  }
   // Sotto-livello 1-10 da usare per QUALUNQUE lookup di dimensione/tempo/
   // regola — nella modalità progressiva traduce il contatore assoluto,
   // altrimenti restituisce il livello così com'è (comportamento invariato
@@ -3961,7 +4070,8 @@
     session = {
       boardIdx:0, totalBoards:cfg.trials, board:[], boardStartTime:0, startedAt:Date.now(),
       timer:null, timerInfo:null, paused:false, pausedAt:null, liveBoardLevel:cfg.neglectStartLevel, liveGradient:cfg.neglectGradient, levelChanges:[],
-      results:[] // {targetsLeft,targetsRight,foundLeft,foundRight,falseAlarms,timeMs,reason}
+      awaitingCount:false, countReason:null, // solo per la fase/modalità 'regola': in attesa dell'inserimento del conteggio mentale
+      results:[] // {targetsLeft,targetsRight,foundLeft,foundRight,falseAlarms,timeMs,reason} — o, per 'regola', {modalitaConteggio,conteggioAtteso,conteggioDato,corretto,targetsLeft,targetsRight,timeMs,reason}
     };
     view='task'; render();
     nextBoard();
@@ -3970,21 +4080,79 @@
     if(session.boardIdx >= session.totalBoards){ finishNeglectSession(); return; }
     session.board = buildNeglectBoard();
     session.boardStartTime = performance.now();
+    session.awaitingCount = false;
     render();
     const timeLimit = cfg.adaptive ? (ADAPT_NEGLECT_TIME[neglectBoardSubLevel()] ?? cfg.neglectTimeLimit) : cfg.neglectTimeLimit;
     if(timeLimit>0){
-      scheduleStep(()=> finishBoard('tempo scaduto'), timeLimit*1000);
+      const onTimeUp = ()=> currentNeglectEffMode()==='regola' ? beginRegolaCountEntry('tempo scaduto') : finishBoard('tempo scaduto');
+      scheduleStep(onTimeUp, timeLimit*1000);
     }
   }
   function tapNeglectItem(item){
     if(!session || session.paused || item.found || item.falseTap) return;
     if(cfg.respMode==='manuale') return;
+    // 'Conteggio a regola' (standalone o come fase di Progressiva) non usa
+    // più il tocco per elemento — il paziente conta a mente, il tocco non
+    // fa nulla: la tavola resta solo da guardare, mai da segnare.
+    if(currentNeglectEffMode()==='regola') return;
     if(item.isTarget) item.found = true; else item.falseTap = true;
     updateNeglectScreen();
     // Nota: la tavola NON avanza da sola nemmeno quando tutti i bersagli
     // sono stati trovati — deve essere il paziente/operatore a riconoscerlo
     // e toccare "Fatto", cosa che lo costringe a monitorare attivamente il
     // proprio avanzamento invece di procedere in automatico.
+  }
+  // Avvia l'attesa del conteggio mentale: ferma il timer, nasconde la
+  // tavola (vedi updateNeglectScreen) e mostra un campo numerico. Chiamata
+  // sia allo scadere del tempo sia dal pulsante "Fatto" quando la modalità
+  // effettiva è 'regola' — mai finishBoard direttamente in quel caso.
+  function beginRegolaCountEntry(reason){
+    if(!session || session.awaitingCount) return; // idempotente: non riapre l'attesa se già in corso
+    if(session.timer){ clearTimeout(session.timer); session.timer=null; session.timerInfo=null; }
+    session.awaitingCount = true;
+    session.countReason = reason;
+    updateNeglectScreen();
+  }
+  // Conclude la tavola in modalità 'regola' con il numero inserito dal
+  // paziente/operatore — sostituisce interamente la logica a tocco di
+  // finishBoard per questa modalità: un'unica risposta binaria (numero
+  // esatto sì/no) invece di un conteggio per lato. Nota di costrutto: si
+  // perde così la scomposizione sinistra/destra (l'indice di asimmetria
+  // classico del neglect), sostituita da un'unica misura di accuratezza
+  // sul conteggio complessivo — scelta esplicita di Rodrigo, non un
+  // effetto collaterale non dichiarato.
+  function submitRegolaCount(rawValue){
+    if(!session) return;
+    const val = parseInt(rawValue, 10);
+    if(isNaN(val) || val<0){ alert('Inserisci un numero valido (0 o più).'); return; }
+    const atteso = session.board.filter(b=>b.isTarget).length;
+    const timeMs = performance.now()-session.boardStartTime;
+    session.results.push({
+      modalitaConteggio:true, conteggioAtteso:atteso, conteggioDato:val, corretto: val===atteso,
+      targetsLeft: session.board.filter(b=>b.side==='left'&&b.isTarget).length,
+      targetsRight: session.board.filter(b=>b.side==='right'&&b.isTarget).length,
+      timeMs, reason: session.countReason
+    });
+    if(cfg.adaptive){
+      // Stessa regola di fascia strutturale già in vigore per neglect —
+      // qui il segnale è binario (esatto/non esatto) invece di una
+      // proporzione, perché non esiste altro dato su cui basarsi con un
+      //'unico numero riportato.
+      const bandKey = cfg.neglectMode==='progressiva' ? 'neglectProgressiva' : 'neglectRegola';
+      const startLevel = cfg.neglectMode==='progressiva' ? cfg.neglectStartLevel : cfg.neglectRuleLevel;
+      const bounds = structuralBandBounds(bandKey, startLevel) || {min:1, max:currentLevelMax()};
+      const corretto = val===atteso;
+      if(corretto && session.liveBoardLevel < bounds.max){
+        session.liveBoardLevel++;
+        session.levelChanges.push({board:session.boardIdx, level:session.liveBoardLevel, how:'auto'});
+      } else if(!corretto && session.liveBoardLevel > bounds.min){
+        session.liveBoardLevel--;
+        session.levelChanges.push({board:session.boardIdx, level:session.liveBoardLevel, how:'auto'});
+      }
+    }
+    session.awaitingCount = false;
+    session.boardIdx++;
+    nextBoard();
   }
   function finishBoard(reason){
     if(session.timer){ clearTimeout(session.timer); session.timer=null; session.timerInfo=null; }
@@ -4644,7 +4812,10 @@
     const resp = el('div',{class:'respond'},[]);
     let doneBtn = null, manualNote = null;
     if(cfg.respMode!=='manuale'){
-      doneBtn = el('button',{class:'tapbtn nomatch full', onclick:()=>{ if(session.timer) clearTimeout(session.timer); finishBoard('interrotta dall\'operatore'); }},['Fatto con questa tavola']);
+      doneBtn = el('button',{class:'tapbtn nomatch full', onclick:()=>{
+        if(currentNeglectEffMode()==='regola'){ beginRegolaCountEntry('interrotta dall\'operatore'); return; }
+        if(session.timer) clearTimeout(session.timer); finishBoard('interrotta dall\'operatore');
+      }},['Fatto con questa tavola']);
       resp.appendChild(doneBtn);
     } else {
       manualNote = el('div',{style:'color:#fff; font-size:13px; opacity:.8; align-self:center;'},['Modalità manuale: conta a voce/carta i bersagli trovati per lato, poi registra il risultato.']);
@@ -4652,9 +4823,22 @@
       resp.appendChild(manualNote); resp.appendChild(regBtn);
     }
     root.appendChild(resp);
-    return {infoSpan, pauseBtn, board};
+    return {infoSpan, pauseBtn, board, resp};
   }
   function manualRegisterBoard(){
+    if(currentNeglectEffMode()==='regola'){
+      const atteso = session.board.filter(b=>b.isTarget).length;
+      const val = parseInt(prompt('Conteggio riportato dal paziente (quanti elementi corrispondevano alla regola):','0'),10) || 0;
+      session.results.push({
+        modalitaConteggio:true, conteggioAtteso:atteso, conteggioDato:val, corretto: val===atteso,
+        targetsLeft: session.board.filter(b=>b.side==='left'&&b.isTarget).length,
+        targetsRight: session.board.filter(b=>b.side==='right'&&b.isTarget).length,
+        timeMs:performance.now()-session.boardStartTime, reason:'manuale'
+      });
+      session.boardIdx++;
+      nextBoard();
+      return;
+    }
     const tL = session.board.filter(b=>b.side==='left'&&b.isTarget).length;
     const tR = session.board.filter(b=>b.side==='right'&&b.isTarget).length;
     const foundLeft = parseInt(prompt('Bersagli trovati a SINISTRA (su '+tL+'):','0'),10) || 0;
@@ -4670,7 +4854,7 @@
   }
   function updateNeglectScreen(){
     const d = taskDom;
-    const effMode = cfg.neglectMode==='progressiva' ? neglectProgressivaPhase(session.liveBoardLevel).mode : cfg.neglectMode;
+    const effMode = currentNeglectEffMode();
     const subLevel = neglectBoardSubLevel();
     const modeLabel = effMode==='intruso' ? 'trova l\'intruso (l\'unico senza doppione)'
       : effMode==='regola' ? 'conta secondo la regola: '+neglectRuleFor((cfg.stimType==='numeri'?'numeri':'lettere'), subLevel, cfg.neglectRuleClauses).label
@@ -4682,8 +4866,25 @@
     d.board.innerHTML='';
     if(session.paused){
       d.board.appendChild(el('div',{class:'blank'},['❚❚ in pausa']));
+      if(d.resp) d.resp.style.display = 'none';
       return;
     }
+    if(effMode==='regola' && session.awaitingCount){
+      // Tempo scaduto (o "Fatto" premuto): la tavola non si vede più — solo
+      // il conteggio a mente conta da qui in poi, non un'altra occhiata.
+      if(d.resp) d.resp.style.display = 'none';
+      const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:18px; padding:24px; text-align:center;'});
+      wrap.appendChild(el('div',{style:'font-size:17px; line-height:1.5;'},['Quanti elementi corrispondevano alla regola?']));
+      const input = el('input',{type:'number', inputmode:'numeric', min:'0', step:'1', style:'font-size:28px; text-align:center; width:120px; padding:10px; border-radius:10px; border:1px solid var(--line,#ccc);'},[]);
+      const submit = ()=> submitRegolaCount(input.value);
+      input.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+      const btn = el('button',{class:'tapbtn match full', style:'max-width:220px;', onclick:submit},['Conferma']);
+      wrap.appendChild(input); wrap.appendChild(btn);
+      d.board.appendChild(wrap);
+      setTimeout(()=>{ try{ input.focus(); }catch(e){} }, 0);
+      return;
+    }
+    if(d.resp) d.resp.style.display = '';
     const weakSide = neglectBottomUpWeakSide();
     session.board.forEach(item=>{
       const cueActive = weakSide && item.side===weakSide && !item.found && !item.falseTap;
@@ -5823,15 +6024,37 @@
       rec.dualPairing = cfg.dualPairing || 'vis-aud';
     } else if(family==='spatial'){
       const r = session.results;
-      const sum = k=> r.reduce((a,b)=>a+b[k],0);
-      const tL=sum('targetsLeft'), tR=sum('targetsRight'), fL=sum('foundLeft'), fR=sum('foundRight'), fa=sum('falseAlarms');
-      rec.neglect = {
-        boards:r.length, targetsLeft:tL, targetsRight:tR, foundLeft:fL, foundRight:fR,
-        omittedLeft:tL-fL, omittedRight:tR-fR,
-        pctLeft: tL? fL/tL : null, pctRight: tR? fR/tR : null,
-        falseAlarms:fa, meanTimeMs: rtMeanOf(r.map(x=>x.timeMs)),
-        asymmetry: (tL && tR) ? Math.round(((fL/tL)-(fR/tR))*100) : null // negativo = più omissioni a sinistra
-      };
+      const sum = k=> r.reduce((a,b)=>a+(b[k]||0),0);
+      const isConteggio = r.length>0 && r[0].modalitaConteggio;
+      if(isConteggio){
+        // 'Conteggio a regola': un unico numero riportato per tavola, non
+        // un conteggio per lato — niente foundLeft/foundRight/falseAlarms
+        // reali da cui derivarli (l'asimmetria classica del neglect non è
+        // misurabile con questo tipo di risposta), sostituiti da una
+        // misura di accuratezza sul conteggio complessivo.
+        const corretti = r.filter(x=>x.corretto).length;
+        const erroriAssoluti = r.map(x=>Math.abs(x.conteggioDato-x.conteggioAtteso));
+        rec.neglect = {
+          boards:r.length, modalitaConteggio:true,
+          targetsLeft:sum('targetsLeft'), targetsRight:sum('targetsRight'),
+          foundLeft:null, foundRight:null, omittedLeft:null, omittedRight:null,
+          pctLeft:null, pctRight:null, falseAlarms:null, asymmetry:null,
+          meanTimeMs: rtMeanOf(r.map(x=>x.timeMs)),
+          conteggiCorretti:corretti, conteggiTotali:r.length,
+          accuratezzaConteggio: r.length ? corretti/r.length : null,
+          erroreAssolutoMedio: erroriAssoluti.length ? mean(erroriAssoluti) : null
+        };
+      } else {
+        const tL=sum('targetsLeft'), tR=sum('targetsRight'), fL=sum('foundLeft'), fR=sum('foundRight'), fa=sum('falseAlarms');
+        rec.neglect = {
+          boards:r.length, modalitaConteggio:false,
+          targetsLeft:tL, targetsRight:tR, foundLeft:fL, foundRight:fR,
+          omittedLeft:tL-fL, omittedRight:tR-fR,
+          pctLeft: tL? fL/tL : null, pctRight: tR? fR/tR : null,
+          falseAlarms:fa, meanTimeMs: rtMeanOf(r.map(x=>x.timeMs)),
+          asymmetry: (tL && tR) ? Math.round(((fL/tL)-(fR/tR))*100) : null // negativo = più omissioni a sinistra
+        };
+      }
     } else if(family==='goaltask'){
       const score = scoreGoalTask(session);
       rec.goaltask = {
@@ -6037,12 +6260,19 @@
       mg.appendChild(metric(r.metricsAud.dprime!=null? r.metricsAud.dprime.toFixed(2):'—', "d′ "+lab2));
     } else if(r.family==='spatial'){
       const ng = r.neglect;
-      mg.appendChild(metric(fmtPct(ng.pctLeft), 'Trovati a sinistra'));
-      mg.appendChild(metric(fmtPct(ng.pctRight), 'Trovati a destra'));
-      mg.appendChild(metric(ng.omittedLeft+' / '+ng.omittedRight, 'Omessi (sin. / des.)'));
-      if(ng.asymmetry!=null) mg.appendChild(metric((ng.asymmetry>0?'+':'')+ng.asymmetry+' pt', 'Asimmetria (– = più omissioni a sin.)'));
-      mg.appendChild(metric(String(ng.falseAlarms), 'Falsi allarmi'));
-      if(ng.meanTimeMs!=null) mg.appendChild(metric(fmtTime(ng.meanTimeMs), 'Tempo medio/tavola'));
+      if(ng.modalitaConteggio){
+        mg.appendChild(metric(ng.conteggiCorretti+' / '+ng.conteggiTotali, 'Conteggi esatti'));
+        mg.appendChild(metric(fmtPct(ng.accuratezzaConteggio), 'Accuratezza conteggio'));
+        if(ng.erroreAssolutoMedio!=null) mg.appendChild(metric(ng.erroreAssolutoMedio.toFixed(1), 'Errore assoluto medio'));
+        if(ng.meanTimeMs!=null) mg.appendChild(metric(fmtTime(ng.meanTimeMs), 'Tempo medio/tavola'));
+      } else {
+        mg.appendChild(metric(fmtPct(ng.pctLeft), 'Trovati a sinistra'));
+        mg.appendChild(metric(fmtPct(ng.pctRight), 'Trovati a destra'));
+        mg.appendChild(metric(ng.omittedLeft+' / '+ng.omittedRight, 'Omessi (sin. / des.)'));
+        if(ng.asymmetry!=null) mg.appendChild(metric((ng.asymmetry>0?'+':'')+ng.asymmetry+' pt', 'Asimmetria (– = più omissioni a sin.)'));
+        mg.appendChild(metric(String(ng.falseAlarms), 'Falsi allarmi'));
+        if(ng.meanTimeMs!=null) mg.appendChild(metric(fmtTime(ng.meanTimeMs), 'Tempo medio/tavola'));
+      }
     } else if(r.family==='goaltask'){
       const g = r.goaltask;
       mg.appendChild(metric(g.completatiCount+' / '+g.totaleElementi, 'Elementi completati'));
@@ -6826,8 +7056,8 @@
         const ucFallback = isLocal ? editingPatient.lastConfig : editingPatient.ultima_config;
         const progress = g.tipo==='tempo' ? computeTimeGoalProgressOperator(g, isLocal, editingPatient.id) : computeLevelGoalProgress(g, configForExercise(editingPatient, g.taskMode) || ucFallback);
         const rowWrap = el('div',{style:'padding:10px 4px; border-bottom:1px solid var(--line);'});
-        rowWrap.appendChild(el('div',{class:'histrow', style:'border:none; padding:0; margin-bottom:8px;'},[
-          el('div',{},[label]),
+        rowWrap.appendChild(el('div',{class:'histrow', style:'border:none; padding:0; margin-bottom:8px; flex-wrap:wrap; gap:8px;'},[
+          el('div',{style:'flex:1 1 200px; min-width:0;'},[label]),
           el('button',{class:'ghost', onclick: async ()=>{
             const nextGoals = currentGoals.slice(); nextGoals.splice(i,1);
             if(await saveGoalsForPatient(isLocal, editingPatient, nextGoals)) render();
@@ -7223,7 +7453,7 @@
           : family==='dual'
             ? fmtPct(r.metrics.acc)+' vis · '+fmtPct(r.metricsAud.acc)+' ud.'
             : family==='spatial'
-              ? fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des'
+              ? (r.neglect.modalitaConteggio ? fmtPct(r.neglect.accuratezzaConteggio)+' conteggi esatti' : fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des')
               : family==='goaltask'
                 ? r.goaltask.percentualeCompletamento+'% completato'+(r.goaltask.violazioniCount?' · '+r.goaltask.violazioniCount+' viol.':'')
                 : family==='memoria'
@@ -7243,7 +7473,7 @@
         const rowScore = forPatientView
           ? (family==='choice' ? fmtPct(r.choice.accuracy)+' corr.'
             : family==='dual' ? fmtPct(r.metrics.acc)+' vis · '+fmtPct(r.metricsAud.acc)+' ud.'
-            : family==='spatial' ? fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des'
+            : family==='spatial' ? (r.neglect.modalitaConteggio ? fmtPct(r.neglect.accuratezzaConteggio) : fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des')
             : family==='goaltask' ? r.goaltask.percentualeCompletamento+'% completato'
             : family==='memoria' ? r.memoria.recuperati+'/'+r.memoria.totale
             : fmtPct(r.metrics.acc)) // niente d′ nella vista del paziente: non aggiunge nulla di leggibile senza spiegazione

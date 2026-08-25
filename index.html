@@ -1032,8 +1032,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -7581,7 +7581,7 @@
       if(!groups.length){ wrap.appendChild(el('p',{class:'hint'},['Nessun evento registrato.'])); return wrap; }
       groups.forEach(g=>{
         const row = el('div',{class:'histrow', style:'cursor:pointer; flex-direction:column; align-items:stretch;'});
-        const summary = el('div',{style:'display:flex; justify-content:space-between; gap:10px; width:100%;', onclick:()=>{ accessLogExpanded = accessLogExpanded===g.key ? null : g.key; renderBody(); }},[
+        const summary = el('div',{style:'display:flex; flex:none; justify-content:space-between; gap:10px; width:100%;', onclick:()=>{ accessLogExpanded = accessLogExpanded===g.key ? null : g.key; renderBody(); }},[
           el('div',{},[g.label]),
           el('div',{style:'text-align:right; font-size:13px; color:var(--ink-soft);'},[
             '✓ '+g.loginsOk+' · ✗ '+g.loginsFail+' · media '+fmtDuration(g.avgDurationMs)+' · totale '+fmtDuration(g.totalDurationMs)+' · ultimo: '+(g.lastTs? new Date(g.lastTs).toLocaleString('it-IT') : '—')

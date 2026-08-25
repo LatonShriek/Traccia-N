@@ -67,6 +67,33 @@ pensati per **trattamento e monitoraggio intra-soggetto nel tempo**, non
 per confronto normativo — a differenza dei protocolli di NeuroScore, non
 hanno tabelle di riferimento.
 
+**TAPAT — variante uditiva.** TAPAT (Tonic and Phasic Alertness Training)
+è un protocollo pubblicato — DeGutis & Van Vleet, *Frontiers in Human
+Neuroscience*, 2010, validato specificamente su pazienti con neglect
+emispaziale — non un nome coniato per l'app. Oltre alla modalità visiva
+originale, è disponibile una modalità interamente uditiva ("Modalità:
+Uditivo" in Setup): il bersaglio è un tono dedicato (330Hz, onda
+quadra), distinto dal tono di cue fasico già esistente (880Hz, sinusoide
+— resta invariato, non lateralizzato, uguale in entrambe le modalità),
+e nessun elemento visivo accompagna né il cue né il bersaglio — lo
+schermo mostra solo un'indicazione statica ("🔊 Ascolta"), identica su
+ogni prova, per non dare involontariamente via tempistica o posizione
+per altra via. La base per questa variante non è solo plausibile per
+analogia: Van Vleet & DeGutis, *Cortex*, 2013, hanno mostrato che un
+allenamento uditivo sostenuto produce transfer su misure di attenzione
+visiva in pazienti con neglect — un precedente diretto di cross-training
+uditivo→visivo dagli stessi autori del protocollo TAPAT.
+
+Con la componente spaziale attiva (bersaglio a sinistra/destra), la
+modalità uditiva usa panning stereo reale (Web Audio `StereoPannerNode`)
+al posto della posizione a schermo — **richiede cuffie o casse stereo
+funzionanti**: su un dispositivo con un solo altoparlante mono (es. un
+telefono appoggiato sul tavolo) il tono si sente comunque, ma senza
+alcuna informazione di lateralità, vanificando lo scopo della componente
+spaziale. Le istruzioni mostrate al paziente prima di iniziare
+avvertono esplicitamente di questo requisito quando la modalità uditiva
+è selezionata.
+
 ## Difficoltà adattiva
 
 Quasi tutti gli esercizi (N-back, Sequenza bersaglio, Go/No-Go, ANT/TAPAT,
@@ -258,8 +285,8 @@ invece dell'ISI.
 
 | Livello | Struttura | Parametro che varia | Risposte |
 |---|---|---|---|
-| 1 | Dimensione singola (colore o simbolo) | ISI ampio | 2 |
-| 2 | Dimensione singola (colore o simbolo) | ISI stretto | 2 |
+| 1 | Dimensione singola (simboli, o lettere/numeri pronunciati) | ISI ampio | 2 |
+| 2 | Dimensione singola (simboli, o lettere/numeri pronunciati) | ISI stretto | 2 |
 | 3 | Doppia dimensione + no-go: lettera nera→A, numero rosso→B, numero nero→C, lettera rossa→nessuna risposta | ISI ampio | 3 + no-go |
 | 4 | Stessa struttura del livello 3 | ISI stretto | 3 + no-go |
 | 5 | Stessa doppia dimensione, ricombinata in una regola disgiuntiva: A se lettera nera *oppure* numero rosso, B se lettera rossa *oppure* numero nero | ISI ampio | 2 |
@@ -285,10 +312,16 @@ modalità "Bivalente" del Task-switching, ma lo ricombinano in mappature
 diverse sulla risposta — a parità di stimolo, cambia solo la regola di
 classificazione, in modo da isolare il carico della regola stessa dal
 carico percettivo. I livelli 1/2 e 7/8 condividono invece un'unica
-dimensione (colore o simbolo), e sono collegati fra loro: il livello 7
+dimensione (simboli, o lettere/numeri pronunciati — materiale
+selezionabile in Setup), e sono collegati fra loro: il livello 7
 aggiunge al livello 1 il carico di memoria di lavoro di confrontare con
 lo stimolo precedente, senza cambiare la regola di classificazione di
-base.
+base. Il materiale "Colori" con regola Caldo/Freddo, disponibile in
+passato qui e nel Task-switching, è stato rimosso: la suddivisione
+caldo/freddo (e, per il Task-switching, primario/non primario) non ha
+una base sufficientemente principiata per un compito clinico — resta
+leggibile nello storico di sedute già registrate con quel materiale, ma
+non è più selezionabile per sedute nuove.
 
 Il conteggio "risposte omesse" nello storico e nel CSV per questo
 esercizio conta solo le mancate risposte vere (dove serviva un tocco),
@@ -593,8 +626,10 @@ create table if not exists accessi (
   user_type text not null,       -- 'operatore' | 'paziente'
   user_id uuid references auth.users,  -- null se il login è fallito (nessuna sessione creata)
   email_tentata text,            -- email reale (operatore) o indirizzo sintetico/codice (paziente) — anche per i tentativi falliti
+  etichetta text,                -- nickname leggibile (per ora solo per i pazienti: codice_paziente), valorizzato quando disponibile — preferito a email_tentata nel registro, per non mostrare la credenziale del paziente
   ts timestamptz default now()
 );
+alter table accessi add column if not exists etichetta text;
 alter table accessi enable row level security;
 drop policy if exists "chiunque può registrare un evento di accesso" on accessi;
 create policy "chiunque può registrare un evento di accesso" on accessi for insert
@@ -613,6 +648,22 @@ Dopo aver eseguito lo script sopra:
    on conflict (id) do update set super = true;
    ```
 3. Ricarica l'app e accedi di nuovo: nella home operatore comparirà una sezione "Solo super-operatore" con il Registro accessi. Gli altri operatori non la vedranno, e un tentativo di lettura diretto della tabella `accessi` con le loro credenziali restituirà righe vuote per via della RLS.
+
+Il registro mostra, per ciascun utente (operatore o paziente): numero di
+login riusciti/falliti, tempo **medio** e tempo **totale** sull'app (somma
+delle sessioni chiuse da un logout registrato — una sessione senza logout,
+es. scheda chiusa senza uscire, non contribuisce a nessuno dei due:
+entrambi sono quindi una stima per difetto, non un valore esatto), e
+l'ultimo accesso. Per un paziente il cui login è **riuscito** almeno una
+volta, l'etichetta mostrata è il suo **nickname** (`codice_paziente`, lo
+stesso che l'operatore vede ovunque nell'app), non il codice di accesso
+digitato — anche per i suoi eventuali tentativi falliti precedenti, dato
+che sono raggruppati sotto lo stesso account. Un tentativo **mai
+riuscito** (codice sbagliato, nessun account corrispondente) non ha
+invece un nickname da mostrare: resta raggruppato sotto il testo digitato
+stesso, l'unica informazione disponibile in quel caso. L'export CSV
+riporta comunque entrambe le colonne separate (`nickname` e
+`identificativo_digitato`), riga per riga.
 
 
 **Checklist di sicurezza per ogni nuova tabella.** La chiave "anon" incollata

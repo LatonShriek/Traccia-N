@@ -253,6 +253,28 @@
   }
   const STOP_TONE = {f:140, type:'square'}; // segnale di stop uditivo, sempre lo stesso, distinto dagli stimoli
   const TAPAT_CUE_TONE = {f:880, type:'sine'}; // segnale di allerta fasico TAPAT — acuto e breve, non lateralizzato: raggiunge il paziente indipendentemente da dove guarda (importante per la variante spaziale/neglect, dove un cue solo visivo rischierebbe di cadere nell'emicampo trascurato)
+  const TAPAT_TARGET_TONE = {f:330, type:'square'}; // bersaglio della variante uditiva del TAPAT — deliberatamente distinto dal cue (più grave, timbro diverso): il paziente deve poter distinguere "sta per arrivare qualcosa" (cue, 880Hz sine) da "è arrivato, rispondi" (bersaglio, 330Hz square), non confonderli
+  // Come playTone, ma con panning stereo opzionale (-1 tutto a sinistra,
+  // 0 centro, 1 tutto a destra) — usato solo dalla componente spaziale
+  // del TAPAT uditivo. Su un dispositivo con un solo altoparlante (mono)
+  // il panning non ha alcun effetto percettibile: il suono si sente
+  // comunque, semplicemente non lateralizzato — per questo l'app avvisa
+  // esplicitamente che la componente spaziale richiede cuffie/casse stereo.
+  function playTonePanned(tone, dur, pan){
+    try{
+      const ctx = getCtx(); const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = tone.type; o.frequency.value = tone.f;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+dur/1000);
+      let node = g;
+      if(pan!=null && ctx.createStereoPanner){
+        const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan));
+        g.connect(p); node = p;
+      }
+      o.connect(g); node.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur/1000+0.02);
+    }catch(e){}
+  }
   // "lettere"/"parole" sono femminili, gli altri materiali sono maschili —
   // serve per costruire istruzioni con l'accordo di genere corretto
   // (es. "una alla volta" vs "uno alla volta", "molte" vs "molti").
@@ -328,10 +350,15 @@
       domini:['Allerta','Orienting spaziale','Controllo esecutivo/conflitto'],
       instructions:c=>{
         if(c.antMode==='tapat'){
-          const matName = c.stimType==='suoni' ? 'il suono' : isSpokenStim(c.stimType) ? 'la lettera o il numero pronunciato' : c.stimType==='colori' ? 'il cerchio colorato' : 'lo stimolo';
-          const verbo = isAudioOnlyStim(c.stimType) ? 'senti' : 'vedi';
-          const spaziale = c.tapatSpatial ? ' Il bersaglio può comparire a sinistra o a destra invece che al centro — esplora tutto lo schermo, non fissare un punto solo.' : '';
-          return 'Nella prima parte, gli intervalli tra uno stimolo e l\'altro sono lunghi e imprevedibili: mantieni l\'attenzione anche se sembra non succedere nulla, e tocca il pulsante appena '+verbo+' '+matName+'.'+spaziale+' Nella seconda parte, gli intervalli sono più brevi e a volte un piccolo segnale ti avviserà poco prima — rispondi comunque il più velocemente possibile, ogni volta.';
+          const isUditivo = c.tapatModalita==='uditivo';
+          const matName = isUditivo ? 'il tono' : (c.stimType==='colori' ? 'il cerchio colorato' : c.stimType==='simboli' ? 'il simbolo' : 'lo stimolo');
+          const verbo = isUditivo ? 'senti' : 'vedi';
+          const spaziale = c.tapatSpatial
+            ? (isUditivo ? ' Il tono può arrivare da sinistra o da destra invece che dal centro — ascolta con attenzione da entrambi i lati, non concentrarti su uno solo.'
+              : ' Il bersaglio può comparire a sinistra o a destra invece che al centro — esplora tutto lo schermo, non fissare un punto solo.')
+            : '';
+          const cuffie = isUditivo ? ' Indossa cuffie, o siediti fra due casse: senza un vero audio stereo il tono si sente comunque, ma non da una direzione precisa.' : '';
+          return 'Nella prima parte, gli intervalli tra uno stimolo e l\'altro sono lunghi e imprevedibili: mantieni l\'attenzione anche se sembra non succedere nulla, e tocca il pulsante appena '+verbo+' '+matName+'.'+spaziale+cuffie+' Nella seconda parte, gli intervalli sono più brevi e a volte un piccolo segnale sonoro ti avviserà poco prima — rispondi comunque il più velocemente possibile, ogni volta.';
         }
         const tokens = ANT_MATERIAL_TOKENS[c.antMaterial];
         if(tokens) return 'Vedrai "'+tokens[0]+'" o "'+tokens[1]+'" al centro dello schermo, a volte circondato da altri elementi uguali o diversi. Tocca il pulsante corrispondente a quello al centro, il più velocemente possibile.';
@@ -438,6 +465,7 @@
     numDigits:1, wordComplexity:'breve', // solo per stimolo "numeri"/"parole"
     tapatStartLevel:3, adaptStartLevel:3, neglectStartLevel:3, // livello di partenza, aggiornato dopo ogni sessione adattiva
     tapatSpatial:false, tapatGradient:50, // componente spaziale del TAPAT (specifica per il neglect)
+    tapatModalita:'visivo', // 'visivo' | 'uditivo' — variante del tutto acustica del TAPAT (DeGutis & Van Vleet 2010; precedente di cross-training uditivo→visivo nel neglect: Van Vleet & DeGutis 2013, Cortex). In 'uditivo' il bersaglio è un tono dedicato, non lo stimolo visivo — niente accompagnamento visivo, nemmeno per il cue fasico, altrimenti il canale non sarebbe davvero solo uditivo.
     dualVisual:'lettere', dualVisual2:'numeri', dualPairing:'vis-aud', dualStartLevel1:3, dualStartLevel2:3, // solo per Doppio compito
     neglectGradient:50, neglectLayout:'griglia', neglectTimeLimit:60, neglectBoardSize:40, // solo per Cancellazione — gradiente 0=tutto a destra, 100=tutto a sinistra, 50=simmetrico
     neglectMode:'classico', neglectRuleLevel:1, // 'classico' (bersagli noti), 'intruso' (l'unico elemento senza doppione), 'regola' (regola composta crescente 1-10, unificata con la scala di dimensione tavola)
@@ -449,7 +477,7 @@
     memoriaFormaIdx:0, // solo per pqrst/chunking, solo sui livelli con forme parallele (1-2 al momento) — quale forma (A/B/C...) usare in questa sessione; scelta sempre manuale dall'operatore, mai casuale, per poter pilotare baseline/intermedia/finale nel confronto RCI
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
-    categLivello:1, categMateriale:'colori', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('colori'|'simboli')
+    categLivello:1, categMateriale:'simboli', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('simboli'|'lettereVoce'|'numeriVoce' — 'colori' rimosso dalla selezione, la sua unica regola era Caldo/Freddo, troppo arbitraria; resta leggibile nello storico di sedute già registrate)
     zoneGrandi:false, // accessibilità: zone di risposta molto più grandi (metà schermo per 2 risposte) invece di pulsanti piccoli — utile su tablet/smartphone per bassa vista
     sequenzaMista:'no', // solo per Sequenza bersaglio: 'no'|'visivo'|'uditivo'|'misto' — mescola codici diversi nella stessa sequenza invece di un solo tipo
     nbackMista:'no', // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
@@ -522,7 +550,7 @@
       trials:c.trials, isi:c.isi, stimDuration:c.stimDuration, targetRate:c.targetRate,
       respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, adaptive:c.adaptive,
       switchMaterial:c.switchMaterial, dualVisual:c.dualVisual, dualVisual2:c.dualVisual2, dualPairing:c.dualPairing, antMode:c.antMode,
-      tapatSpatial:c.tapatSpatial, tapatGradient:c.tapatGradient, antMaterial:c.antMaterial,
+      tapatSpatial:c.tapatSpatial, tapatGradient:c.tapatGradient, tapatModalita:c.tapatModalita, antMaterial:c.antMaterial,
       numDigits:c.numDigits, wordComplexity:c.wordComplexity, showTrail:c.showTrail,
       neglectGradient:c.neglectGradient, neglectLayout:c.neglectLayout, neglectTimeLimit:c.neglectTimeLimit, neglectBoardSize:c.neglectBoardSize,
       neglectMode:c.neglectMode, neglectRuleLevel:c.neglectRuleLevel,
@@ -625,7 +653,7 @@
     cfg.targetRate = pc.targetRate; cfg.respMode = pc.respMode; cfg.voice = pc.voice;
     cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.adaptive = !!pc.adaptive;
     cfg.switchMaterial = pc.switchMaterial || 'numeri'; cfg.dualVisual = pc.dualVisual || 'lettere'; cfg.dualVisual2 = pc.dualVisual2 || 'numeri'; cfg.dualPairing = pc.dualPairing || 'vis-aud'; cfg.antMode = pc.antMode || 'classico';
-    cfg.tapatSpatial = !!pc.tapatSpatial; cfg.tapatGradient = pc.tapatGradient!=null?pc.tapatGradient:50; cfg.antMaterial = pc.antMaterial || 'frecce';
+    cfg.tapatSpatial = !!pc.tapatSpatial; cfg.tapatGradient = pc.tapatGradient!=null?pc.tapatGradient:50; cfg.tapatModalita = pc.tapatModalita || 'visivo'; cfg.antMaterial = pc.antMaterial || 'frecce';
     cfg.numDigits = pc.numDigits || 1; cfg.wordComplexity = pc.wordComplexity || 'breve'; cfg.showTrail = pc.showTrail!==false;
     cfg.neglectGradient = pc.neglectGradient!=null?pc.neglectGradient:50; cfg.neglectLayout = pc.neglectLayout || 'griglia'; cfg.neglectTimeLimit = pc.neglectTimeLimit!=null?pc.neglectTimeLimit:60; cfg.neglectBoardSize = pc.neglectBoardSize || 40;
     cfg.neglectMode = pc.neglectMode || 'classico'; cfg.neglectRuleLevel = pc.neglectRuleLevel || 1;
@@ -635,7 +663,7 @@
     cfg.memoriaFormaIdx = pc.memoriaFormaIdx || 0;
     cfg.memoriaLociTipo = pc.memoriaLociTipo || 'casa'; cfg.memoriaLociCustom = pc.memoriaLociCustom || '';
     cfg.chunkingMetodi = (pc.chunkingMetodi && pc.chunkingMetodi.length) ? pc.chunkingMetodi : ['categoria']; cfg.chunkingNota = pc.chunkingNota || '';
-    cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'colori'; cfg.zoneGrandi = !!pc.zoneGrandi;
+    cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'simboli'; cfg.zoneGrandi = !!pc.zoneGrandi;
     // Retrocompatibilità: preset/programmi salvati prima di questa versione
     // avevano sequenzaMista/nbackMista/gonogoMista come booleano — true
     // equivaleva a "tutti i tipi mescolati insieme", oggi 'misto'.
@@ -995,8 +1023,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2631,13 +2659,21 @@
   // (chiunque può scrivere, nessuno tranne il super-operatore può leggere) —
   // stesso principio già in uso nell'app: la sicurezza sta nella RLS in
   // lettura, non nel nascondere la chiave anon.
-  async function logAccessEvent(evento, esito, userType, userId, emailTentata){
+  // email_tentata resta il testo grezzo digitato al login (per un paziente,
+  // È il codice di accesso stesso — la credenziale segreta, non un nome
+  // leggibile): serve solo per ricostruire i tentativi FALLITI, dove non
+  // esiste altro. etichetta è invece un'informazione leggibile aggiuntiva,
+  // valorizzata solo quando disponibile (nickname del paziente dopo un
+  // login riuscito) — il registro la preferisce sempre quando c'è, per non
+  // mostrare al super-operatore la credenziale del paziente inutilmente.
+  async function logAccessEvent(evento, esito, userType, userId, emailTentata, etichetta){
     if(!sb) return;
     try{
       await sb.from('accessi').insert({
         evento, esito, user_type: userType,
         user_id: userId || null,
-        email_tentata: emailTentata || null
+        email_tentata: emailTentata || null,
+        etichetta: etichetta || null
       });
     }catch(e){ /* la tabella 'accessi' potrebbe non essere ancora stata migrata: non bloccare mai login/logout per questo */ }
   }
@@ -2735,14 +2771,14 @@
     if(error){ alert('Codice non riconosciuto: '+error.message); logAccessEvent('login','fallito','paziente',null,normalized); render(); return; }
     cloudUser = data.user; await checkRole(); historyCache=null;
     if(!patientProfile){ alert('Questo account non risulta un account paziente valido.'); logAccessEvent('login','fallito','paziente',cloudUser.id,normalized); cloudUser=null; await cloudSignOut(); return; }
-    if(patientProfile.attivo === false){ alert('Questo profilo è stato archiviato dall\'operatore e non può accedere in autonomia. Contatta la struttura.'); logAccessEvent('login','fallito','paziente',cloudUser.id,normalized); cloudUser=null; await cloudSignOut(); return; }
+    if(patientProfile.attivo === false){ alert('Questo profilo è stato archiviato dall\'operatore e non può accedere in autonomia. Contatta la struttura.'); logAccessEvent('login','fallito','paziente',cloudUser.id,normalized,patientProfile.codice_paziente); cloudUser=null; await cloudSignOut(); return; }
     await claimSession();
-    logAccessEvent('login','successo','paziente',cloudUser.id,normalized);
+    logAccessEvent('login','successo','paziente',cloudUser.id,normalized,patientProfile.codice_paziente);
     view='patientHome'; render();
   }
   async function cloudSignOut(){
     stopSessionGuard();
-    if(cloudUser) logAccessEvent('logout','successo', patientProfile?'paziente':'operatore', cloudUser.id, cloudUser.email);
+    if(cloudUser) logAccessEvent('logout','successo', patientProfile?'paziente':'operatore', cloudUser.id, cloudUser.email, patientProfile?patientProfile.codice_paziente:null);
     if(sb) try{ await sb.auth.signOut(); }catch(e){}
     cloudUser = null; patientProfile = null; isSuperOperatore = false; historyCache = null;
     cachedRemotePatients = null; localPatientsCloudCache = null; accessLogCache = null;
@@ -2958,6 +2994,7 @@
     // stimulus type — solo per gli esercizi che ne hanno uno configurabile
     // (l'ANT classico usa sempre frecce fisse, il TAPAT invece sceglie il materiale)
     const isClassicAnt = cfg.taskMode==='ant' && cfg.antMode==='classico';
+    const isTapat = cfg.taskMode==='ant' && cfg.antMode==='tapat';
     const MISTA_LABELS = {no:'Un solo tipo', visivo:'Mescolato visivo (lettere/numeri/colori/simboli)', uditivo:'Mescolato uditivo (suoni/lettere e numeri pronunciati)', misto:'Mescolato visivo + uditivo (tutti insieme)'};
     const isSequenzaMista = cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no';
     const isNbackMista = cfg.taskMode==='nback' && cfg.nbackMista && cfg.nbackMista!=='no';
@@ -2989,7 +3026,7 @@
         render();
       }, MISTA_LABELS)));
     }
-    if(ex.usesStimType && !isClassicAnt && !isSequenzaMista && !isNbackMista && !isGonogoMista && !neglectIntruso){
+    if(ex.usesStimType && !isClassicAnt && !isTapat && !isSequenzaMista && !isNbackMista && !isGonogoMista && !neglectIntruso){
       grid.appendChild(field('Tipo di stimolo', segButtons(
         neglectRegola ? ['numeri','lettere'] : Object.keys(STIM_LABELS).filter(k=> !(cfg.taskMode==='neglect' && isAudioOnlyStim(k)) && !(cfg.taskMode==='stopsignal' && isSpokenStim(k))),
         cfg.stimType, v=>{
@@ -3221,10 +3258,14 @@
         if(cfg.adaptive){
           card.appendChild(el('p',{class:'hint'},['La difficoltà del blocco tonico (durata delle attese) sale se l\'accuratezza supera l\'85% negli ultimi 8 trial validi, scende sotto il 70% — 5 livelli, dalle attese brevi (2-4s) a quelle lunghe e imprevedibili (8-15s). Puoi comunque forzare il livello con i pulsanti +/– nella barra in alto durante la sessione.']));
         }
+        card.appendChild(field('Modalità', segButtons(['visivo','uditivo'], cfg.tapatModalita, v=>{cfg.tapatModalita=v; render();}, {visivo:'Visivo (bersaglio a schermo)', uditivo:'Uditivo (bersaglio sonoro)'})));
+        if(cfg.tapatModalita==='uditivo'){
+          card.appendChild(el('p',{class:'hint'},['Il bersaglio è un tono dedicato, non uno stimolo visivo — a schermo non compare nulla che anticipi comparsa o posizione del bersaglio, nemmeno il cue fasico (che resta comunque un suono, invariato). Protocollo con base in letteratura: allenamento tonico/fasico dell\'attenzione (DeGutis & Van Vleet, 2010, validato su pazienti con neglect emispaziale) e un precedente diretto di cross-training uditivo-visivo nel neglect (Van Vleet & DeGutis, 2013, Cortex). Richiede cuffie o casse stereo funzionanti — con un solo altoparlante mono (es. telefono appoggiato sul tavolo) il bersaglio si sente comunque, ma la componente spaziale sinistra/destra sotto non ha alcun effetto.']));
+        }
         card.appendChild(field('Componente spaziale (neglect)', segButtons(['no','si'], cfg.tapatSpatial?'si':'no', v=>{cfg.tapatSpatial = v==='si'; render();}, {no:'Solo centrale', si:'Bersaglio a sinistra/destra'})));
         if(cfg.tapatSpatial){
           card.appendChild(field('Gradiente sinistra/destra', stepper(cfg.tapatGradient,0,100,v=>{cfg.tapatGradient=v; render();},5,v=> v+'% sin. / '+(100-v)+'% des.')));
-          card.appendChild(el('p',{class:'hint'},['Il bersaglio compare a sinistra o a destra invece che al centro, nella proporzione impostata. Con l\'adattivo attivo, il gradiente si sposta da solo verso il lato dove l\'accuratezza è più bassa — favorendo l\'esplorazione proprio dello spazio più trascurato, seduta dopo seduta.']));
+          card.appendChild(el('p',{class:'hint'},['Il bersaglio compare a sinistra o a destra invece che al centro, nella proporzione impostata'+(cfg.tapatModalita==='uditivo'?' (in modalità uditiva, tramite panning stereo del tono invece che posizione a schermo — richiede cuffie/casse stereo, vedi sopra)':'')+'. Con l\'adattivo attivo, il gradiente si sposta da solo verso il lato dove l\'accuratezza è più bassa — favorendo l\'esplorazione proprio dello spazio più trascurato, seduta dopo seduta.']));
         }
       } else {
         card.appendChild(field('Materiale', segButtons(['frecce','lettere','simboli','misto'], cfg.antMaterial, v=>{cfg.antMaterial=v; render();}, {frecce:'Frecce (classico)', lettere:'Lettere (H/S)', simboli:'Simboli (●/■)', misto:'Mescolato (a caso ogni prova)'})));
@@ -3236,7 +3277,13 @@
       }
     }
     if(cfg.taskMode==='switching'){
-      card.appendChild(field('Materiale', segButtons(Object.keys(SWITCH_RULESETS), cfg.switchMaterial, v=>{ cfg.switchMaterial=v; render(); }, {numeri:'Numeri', lettere:'Lettere', colori:'Colori', simboli:'Simboli', bivalente:'Bivalente (conflitto)'})));
+      // Lista esplicita, non Object.keys(SWITCH_RULESETS): quell'oggetto
+      // contiene anche alias interni (lettereVoce/numeriVoce, usati da
+      // Categorizzazione condizionale) che qui comparirebbero come bottoni
+      // fantasma senza etichetta italiana — e 'colori', le cui uniche due
+      // regole (Caldo/Freddo, Primario/Non primario) sono state rimosse in
+      // quanto categorizzazioni troppo arbitrarie per un compito clinico.
+      card.appendChild(field('Materiale', segButtons(['numeri','lettere','simboli','bivalente'], cfg.switchMaterial, v=>{ cfg.switchMaterial=v; render(); }, {numeri:'Numeri', lettere:'Lettere', simboli:'Simboli', bivalente:'Bivalente (conflitto)'})));
       const rs = SWITCH_RULESETS[cfg.switchMaterial];
       card.appendChild(el('p',{class:'hint'},['Regole di questa sessione: "'+rs.ruleA.label+'" ↔ "'+rs.ruleB.label+'". Un\'etichetta prima di ogni stimolo indica quale regola è attiva in quel momento.']));
       if(cfg.switchMaterial==='bivalente'){
@@ -3247,7 +3294,7 @@
       card.appendChild(field('Livello (1-10)', stepper(cfg.categLivello,1,10,v=>{cfg.categLivello=v; render();},1)));
       const cStruct = categStructureOfLevel(cfg.categLivello);
       if(cStruct===1 || cStruct===4){
-        card.appendChild(field('Materiale', segButtons(['colori','simboli','lettereVoce','numeriVoce'], cfg.categMateriale, v=>{cfg.categMateriale=v; render();}, {colori:'Colori', simboli:'Simboli', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati'})));
+        card.appendChild(field('Materiale', segButtons(['simboli','lettereVoce','numeriVoce'], cfg.categMateriale, v=>{cfg.categMateriale=v; render();}, {simboli:'Simboli', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati'})));
         const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
         card.appendChild(el('p',{class:'hint'},['Regola di classificazione per questo materiale: "'+rs.labelA+'" vs "'+rs.labelB+'" ('+rs.label+').']));
       }
@@ -4152,6 +4199,9 @@
     if(key==='adaptLevel' && cfg.taskMode==='gonogo'){
       return structuralBandBounds('gonogo', cfg.adaptStartLevel) || {min:1, max:currentLevelMax()};
     }
+    if(key==='categLevel'){
+      return structuralBandBounds('categorizzazione', cfg.categLivello) || {min:1, max:currentLevelMax()};
+    }
     return {min:1, max:currentLevelMax()};
   }
   function maybeAdapt(){
@@ -4385,7 +4435,16 @@
       return;
     }
     if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
-      if(trial.cueType==='center') playTone(TAPAT_CUE_TONE, 150); // cue acustico, in aggiunta al simbolo visivo già mostrato in renderStimulusNode
+      if(trial.cueType==='center') playTone(TAPAT_CUE_TONE, 150); // cue acustico, non lateralizzato per costruzione — raggiunge il paziente indipendentemente da dove è rivolta l'attenzione, in entrambe le modalità
+      if(cfg.tapatModalita==='uditivo'){
+        // Il bersaglio stesso è il tono dedicato (mai lo stimolo visivo di
+        // renderStimulusNode, che in questa modalità non viene disegnato).
+        // Pan derivato dal lato del trial solo se la componente spaziale è
+        // attiva — altrimenti il bersaglio resta centrato per costruzione,
+        // come nella modalità visiva senza componente spaziale.
+        const pan = cfg.tapatSpatial ? (trial.side==='left' ? -1 : trial.side==='right' ? 1 : 0) : null;
+        playTonePanned(TAPAT_TARGET_TONE, 220, pan);
+      }
       return;
     }
     if(cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no'){
@@ -4656,7 +4715,7 @@
       case 'stopsignal':
         return [{action:'go', label: cfg.respMode==='operatore' ? 'Il paziente risponde' : 'GO — il più veloce possibile', cls:'match', full:true}];
       case 'ant': {
-        if(cfg.antMode==='tapat') return [{action:'go', label:'Rilevato — tocca appena lo vedi', cls:'match', full:true}];
+        if(cfg.antMode==='tapat') return [{action:'go', label: cfg.tapatModalita==='uditivo' ? 'Rilevato — tocca appena lo senti' : 'Rilevato — tocca appena lo vedi', cls:'match', full:true}];
         const tokens = ANT_MATERIAL_TOKENS[cfg.antMaterial];
         return tokens
           ? [{action:'left', label:'◀ '+tokens[0], cls:'match'}, {action:'right', label:tokens[1]+' ▶', cls:'nomatch'}]
@@ -4765,8 +4824,10 @@
       : cfg.taskMode==='categorizzazione' ? EXERCISES[cfg.taskMode].label+' · livello '+cfg.categLivello+' · ISI/lure livello '+session.categLevel+(cfg.adaptive?' (adattivo)':'')
       : EXERCISES[cfg.taskMode].label;
     const curMista = cfg.taskMode==='sequenza' ? cfg.sequenzaMista : cfg.taskMode==='nback' ? cfg.nbackMista : cfg.taskMode==='gonogo' ? cfg.gonogoMista : 'no';
+    const isTapatSession = cfg.taskMode==='ant' && cfg.antMode==='tapat';
     d.infoSpan.textContent = 'prova '+(Math.min(session.idx+1,cfg.trials))+' / '+cfg.trials+' · '+modeLabel+
-      ((EXERCISES[cfg.taskMode].usesStimType && !(cfg.taskMode==='ant' && cfg.antMode==='classico')) ? ' · '+((curMista && curMista!=='no') ? MISTA_LABELS_SHORT[curMista] : STIM_LABELS[cfg.stimType]) : '');
+      (isTapatSession ? (cfg.tapatModalita==='uditivo' ? ' · Uditivo' : '')
+        : (EXERCISES[cfg.taskMode].usesStimType && !(cfg.taskMode==='ant' && cfg.antMode==='classico')) ? ' · '+((curMista && curMista!=='no') ? MISTA_LABELS_SHORT[curMista] : STIM_LABELS[cfg.stimType]) : '');
     d.pauseBtn.textContent = session.paused ? '▶ Riprendi' : '❚❚ Pausa';
 
     // switching: le etichette dei pulsanti dipendono dalla regola del trial corrente
@@ -4806,6 +4867,16 @@
   }
   function renderStimulusNode(trial){
     if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+      if(cfg.tapatModalita==='uditivo'){
+        // Nessun accompagnamento visivo, nemmeno per il cue: un segnale
+        // sullo schermo (anche solo "sta per arrivare qualcosa") vanificherebbe
+        // il punto della modalità uditiva, che è allenare il canale acustico
+        // da solo. Placeholder statico, identico su ogni prova — non cambia
+        // né alla comparsa del cue né a quella del bersaglio.
+        return el('div',{style:'display:flex; width:100%; justify-content:center; padding:0 8vw;'},[
+          el('div',{style:'color:var(--ink-soft); font-size:15px; text-align:center;'},['🔊 Ascolta'])
+        ]);
+      }
       const outer = el('div',{style:'display:flex; width:100%; justify-content:'+(trial.side==='left'?'flex-start':trial.side==='right'?'flex-end':'center')+'; padding:0 8vw;'});
       const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; gap:18px;'});
       if(trial.cueType==='center') wrap.appendChild(el('div',{style:'color:var(--accent); font-size:28px;'},['✦']));
@@ -4942,7 +5013,7 @@
     { domain:'memoria', tipo:'caricato', domainLabel:'Memoria di lavoro', label:'Memoria di lavoro — blocco caricato', suggestTaskMode:'nback', suggestLabel:'N-back',
       patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:5, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}) },
     { domain:'flessibilita', tipo:'base', domainLabel:'Flessibilità cognitiva', label:'Flessibilità — blocco base',
-      patch:()=>({taskMode:'categorizzazione', categLivello:1, categMateriale:'colori', isi:1800, stimDuration:700, trials:SCREENING_TRIALS}) },
+      patch:()=>({taskMode:'categorizzazione', categLivello:1, categMateriale:'simboli', isi:1800, stimDuration:700, trials:SCREENING_TRIALS}) },
     { domain:'flessibilita', tipo:'caricato', domainLabel:'Flessibilità cognitiva', label:'Flessibilità — blocco caricato', suggestTaskMode:'switching', suggestLabel:'Task-switching',
       patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:SCREENING_TRIALS}) },
     { domain:'divisa', tipo:'caricato', domainLabel:'Attenzione divisa', label:'Attenzione divisa — blocco caricato', suggestTaskMode:'dualtask', suggestLabel:'Doppio compito', baseFrom:'attenzione',
@@ -5047,7 +5118,7 @@
       if(pairing==='vis-vis') return STIM_LABELS[c.dualVisual]+' + '+STIM_LABELS[c.dualVisual2];
       return 'Uditivo × 2';
     }
-    if(c.taskMode==='ant' && c.antMode==='tapat') return 'TAPAT · '+STIM_LABELS[c.stimType];
+    if(c.taskMode==='ant' && c.antMode==='tapat') return 'TAPAT · '+(c.tapatModalita==='uditivo'?'Uditivo':'Visivo');
     if(c.taskMode==='ant') return ANT_MATERIAL_TOKENS[c.antMaterial] ? (c.antMaterial==='lettere'?'Lettere H/S':'Simboli') : 'Frecce';
     if(c.taskMode==='neglect'){
       if(c.neglectMode==='intruso') return 'Trova l\'intruso';
@@ -5679,6 +5750,7 @@
       taskMode: cfg.taskMode, targetSeq: EXERCISES[cfg.taskMode].usesTargetSeq ? cfg.targetSeq.map(seqLabel) : null,
       sequenzaMista: (cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no') ? cfg.sequenzaMista : null,
       antMode: cfg.taskMode==='ant' ? cfg.antMode : null,
+      tapatModalita: (cfg.taskMode==='ant' && cfg.antMode==='tapat') ? cfg.tapatModalita : null,
       // Livello raggiunto a fine sessione, in un unico campo generico —
       // prima esisteva solo per l'N-back (finalNLevel sotto): senza
       // questo, lo storico non poteva mostrare il livello per nessun
@@ -5931,7 +6003,8 @@
       }
       card.appendChild(el('p',{class:'hint', style:'font-size:15px; margin-top:-4px;'},[msg]));
     }
-    const subLabel = (EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && !(r.taskMode==='ant' && r.antMode==='classico')) ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ' : '';
+    const subLabel = (r.taskMode==='ant' && r.antMode==='tapat') ? (r.tapatModalita==='uditivo' ? 'Uditivo · ' : '')
+      : (EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && !(r.taskMode==='ant' && r.antMode==='classico')) ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ' : '';
     card.appendChild(el('p',{class:'hint'},[
       (r.family==='goaltask')
         ? (r.goaltask.scenarioLabel+' · livello '+r.goaltask.livello+' · '+(r.patientCode? 'paziente '+r.patientCode+' · ':'')+r.dateLabel)
@@ -6779,9 +6852,7 @@
         if(isNaN(minuti) || minuti<1){ alert('Valore non valido.'); return; }
         nuovoGoal = {tipo:'tempo', periodo: periodoScelta.trim()==='2'?'totale':'settimana', minutiTarget:minuti, id: Date.now()+'-'+Math.random().toString(36).slice(2,6)};
       } else {
-        // Doppio compito escluso: due canali/livelli indipendenti non sono
-        // riducibili a un singolo numero obiettivo (vedi computeLevelGoalProgress).
-        const keys = Object.keys(EXERCISES).filter(k=>k!=='dualtask');
+        const keys = Object.keys(EXERCISES);
         const opts = keys.map((k,i)=> (i+1)+') '+EXERCISES[k].label).join('\n');
         const scelta = prompt('Su quale esercizio impostare l\'obiettivo? Scrivi il numero:\n'+opts);
         const idx = parseInt(scelta,10)-1;
@@ -6879,13 +6950,14 @@
   }
   // Tetto della scala obiettivo-livello per esercizio — usato solo per
   // validare l'inserimento di un nuovo obiettivo (non per la titolazione
-  // vera e propria, che ha i suoi tetti in ADAPT_*/currentLevelMax). Il
-  // doppio compito è escluso: due canali con livelli indipendenti non
-  // sono riducibili a un singolo numero obiettivo.
+  // vera e propria, che ha i suoi tetti in ADAPT_*/currentLevelMax/
+  // DUAL_LEVEL_MAX). Il doppio compito usa la media dei due canali
+  // (arrotondata per difetto in computeLevelGoalProgress), quindi il tetto
+  // resta lo stesso di un canale singolo (10).
   const MAX_LEVEL_BY_TASKMODE = {
     nback:10, categorizzazione:10, sequenza:10, switching:10, gonogo:10, stopsignal:10, ant:10,
     neglect:30, // copre la modalità Progressiva (1-30); classico/intruso sono 1-10, ma un tetto più largo non è vincolante
-    goaltask:5, memoria:16
+    goaltask:5, memoria:16, dualtask:10
   };
   // Salva la lista obiettivi per un paziente, locale o remoto — stessa
   // struttura dati in entrambi i casi (vedi normalizeGoals), cambia solo
@@ -6921,7 +6993,13 @@
     // scenari ecologici su un campo inesistente (adaptStartLevel),
     // restando sempre bloccato a "livello 1" indipendentemente da dove
     // fosse arrivato il paziente.
-    let livelloAttuale = (g.taskMode==='dualtask') ? 1 : (levelOfCfg(uc) || 1);
+    // Doppio compito: due canali con titolazione indipendente — l'obiettivo
+    // di livello usa la media dei due, arrotondata per difetto (decisione
+    // di Rodrigo: un target unico "medio" è più sensato clinicamente di
+    // uno legato a un solo canale, che finirebbe per ignorare l'altro).
+    let livelloAttuale = (g.taskMode==='dualtask')
+      ? Math.floor(((uc.dualStartLevel1||1) + (uc.dualStartLevel2||1)) / 2)
+      : (levelOfCfg(uc) || 1);
     // Posizione continua all'interno del livello, invece di un salto secco
     // ogni 20%: usa l'accuratezza dell'ultima sessione rispetto alle stesse
     // soglie 70-85% (Wilson et al., 2019) che già guidano la titolazione
@@ -7160,7 +7238,8 @@
         const forPatientView = !!patientProfile;
         const rowLine1 = forPatientView
           ? detail
-          : ((EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && !(r.taskMode==='ant' && r.antMode==='classico')) ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ':'')+detail+' · '+r.trials+' prove'+(r.patientCode?' · '+r.patientCode:'')+origineTag;
+          : ((r.taskMode==='ant' && r.antMode==='tapat') ? (r.tapatModalita==='uditivo' ? 'Uditivo · ' : '')
+            : (EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && !(r.taskMode==='ant' && r.antMode==='classico')) ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ':'')+detail+' · '+r.trials+' prove'+(r.patientCode?' · '+r.patientCode:'')+origineTag;
         const rowScore = forPatientView
           ? (family==='choice' ? fmtPct(r.choice.accuracy)+' corr.'
             : family==='dual' ? fmtPct(r.metrics.acc)+' vis · '+fmtPct(r.metricsAud.acc)+' ud.'
@@ -7182,9 +7261,9 @@
   }
 
   function exportAccessLogCSV(rows){
-    const head = ['data_ora','evento','esito','tipo_utente','identificativo','user_id'];
+    const head = ['data_ora','evento','esito','tipo_utente','nickname','identificativo_digitato','user_id'];
     const body = rows.map(r=>[
-      new Date(r.ts).toLocaleString('it-IT'), r.evento, r.esito, r.user_type||'', (r.email_tentata||'').replace(/[\n,;]/g,' '), r.user_id||''
+      new Date(r.ts).toLocaleString('it-IT'), r.evento, r.esito, r.user_type||'', (r.etichetta||'').replace(/[\n,;]/g,' '), (r.email_tentata||'').replace(/[\n,;]/g,' '), r.user_id||''
     ]);
     const csv = [head.join(';')].concat(body.map(r=>r.join(';'))).join('\n');
     const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
@@ -7203,8 +7282,15 @@
     const groups = {};
     filtered.forEach(r=>{
       const key = r.user_id || ('anon:'+(r.email_tentata||'sconosciuto'));
-      if(!groups[key]) groups[key] = {key, label: r.email_tentata || (r.user_id ? r.user_id.slice(0,8) : 'sconosciuto'), events:[]};
-      if(r.email_tentata) groups[key].label = r.email_tentata; // preferisci sempre l'ultima etichetta leggibile vista
+      if(!groups[key]) groups[key] = {key, label: r.etichetta || r.email_tentata || (r.user_id ? r.user_id.slice(0,8) : 'sconosciuto'), events:[]};
+      // Un'etichetta leggibile (nickname) è sempre preferita al testo
+      // digitato al login — per un paziente quel testo è il codice di
+      // accesso stesso, una credenziale, non un nome. Una volta vista
+      // un'etichetta per questo utente, non la si lascia più sovrascrivere
+      // da email_tentata (che resta comunque nel dettaglio evento per
+      // evento, utile solo a ricostruire i tentativi FALLITI).
+      if(r.etichetta){ groups[key].label = r.etichetta; groups[key]._hasNickname = true; }
+      else if(r.email_tentata && !groups[key]._hasNickname) groups[key].label = r.email_tentata;
       groups[key].events.push(r);
     });
     const out = Object.values(groups).map(g=>{
@@ -7219,8 +7305,13 @@
         }
         lastTs = e.ts;
       });
-      const avgDurationMs = sessions.length ? sessions.reduce((s,x)=>s+x.durationMs,0)/sessions.length : null;
-      return {key:g.key, label:g.label, loginsOk, loginsFail, logouts, lastTs, avgDurationMs, events: events.slice().reverse()};
+      // Sia la media sia il TOTALE contano solo le sessioni chiuse da un
+      // logout registrato (login senza logout corrispondente — es. scheda
+      // chiusa senza uscire — non contribuisce a nessuno dei due): è una
+      // stima per difetto del tempo reale sull'app, non un valore esatto.
+      const totalDurationMs = sessions.length ? sessions.reduce((s,x)=>s+x.durationMs,0) : null;
+      const avgDurationMs = sessions.length ? totalDurationMs/sessions.length : null;
+      return {key:g.key, label:g.label, loginsOk, loginsFail, logouts, lastTs, avgDurationMs, totalDurationMs, events: events.slice().reverse()};
     });
     out.sort((a,b)=> new Date(b.lastTs||0) - new Date(a.lastTs||0));
     return out;
@@ -7263,7 +7354,7 @@
         const summary = el('div',{style:'display:flex; justify-content:space-between; gap:10px; width:100%;', onclick:()=>{ accessLogExpanded = accessLogExpanded===g.key ? null : g.key; renderBody(); }},[
           el('div',{},[g.label]),
           el('div',{style:'text-align:right; font-size:13px; color:var(--ink-soft);'},[
-            '✓ '+g.loginsOk+' · ✗ '+g.loginsFail+' · durata media '+fmtDuration(g.avgDurationMs)+' · ultimo: '+(g.lastTs? new Date(g.lastTs).toLocaleString('it-IT') : '—')
+            '✓ '+g.loginsOk+' · ✗ '+g.loginsFail+' · media '+fmtDuration(g.avgDurationMs)+' · totale '+fmtDuration(g.totalDurationMs)+' · ultimo: '+(g.lastTs? new Date(g.lastTs).toLocaleString('it-IT') : '—')
           ])
         ]);
         row.appendChild(summary);

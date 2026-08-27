@@ -1138,8 +1138,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1361,7 +1361,6 @@
   function buildSequence(){
     switch(cfg.taskMode){
       case 'sequenza': return buildSequenceTarget();
-      case 'gonogo': return buildGoNoGo();
       case 'stopsignal': return buildStopSignal();
       case 'ant': return buildANT();
       case 'switching': return buildSwitching();
@@ -1481,20 +1480,14 @@
       return {val, isTarget, valid:i>=len-1};
     });
   }
-  // Go/No-Go: isTarget qui significa "va data risposta" (stimolo go).
-  // Lo stimolo no-go è il singolo elemento scelto in cfg.targetSeq[0].
-  function buildGoNoGo(){
-    const pool = POOLS[cfg.stimType];
-    const nogo = cfg.targetSeq[0];
-    const seq = [];
-    for(let i=0;i<cfg.trials;i++){
-      let val;
-      if(Math.random() < cfg.targetRate){ val = nogo; }
-      else { do{ val = pool[Math.floor(Math.random()*pool.length)]; } while(val===nogo && pool.length>1); }
-      seq.push({val, isTarget: val!==nogo, valid:true});
-    }
-    return seq;
-  }
+  // Go/No-Go: la generazione vera è genGoNoGoTrial() (una prova alla volta,
+  // dentro nextTrial() — serve per poter cambiare livello a metà seduta).
+  // Rimossa da qui una vecchia buildGoNoGo() (generazione "tutta insieme")
+  // rimasta orfana da quando il Go/No-Go è passato alla generazione
+  // incrementale: non era più raggiungibile da nessun punto dell'app
+  // (buildSequence() non la chiama mai per 'gonogo', che è nell'elenco
+  // isIncremental in startSession()) — codice morto, non un bug, ma
+  // proprio il tipo di residuo da togliere quando lo si nota.
   // Stop-Signal: le prove "go" sono target (va sempre data risposta); una
   // quota è designata come trial di stop (non-target, va inibita la
   // risposta), gestiti dinamicamente in sessione tramite lo staircase su

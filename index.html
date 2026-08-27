@@ -404,7 +404,7 @@
     categorizzazione: {label:'Categorizzazione condizionale', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Funzioni esecutive','Categorizzazione','Memoria di lavoro'],
       instructions:c=>{
-        const liv = categStructureOfLevel(c.categLivello);
+        const liv = categEffectiveStructure(c);
         const matSpoken = isSpokenStim(c.categMateriale);
         const matLabel = c.categMateriale==='colori' ? 'un cerchio colorato' : c.categMateriale==='simboli' ? 'un simbolo' : c.categMateriale==='lettereVoce' ? 'una lettera pronunciata' : 'un numero pronunciato';
         const verboVis = matSpoken ? 'Sentirai' : 'Vedrai';
@@ -515,6 +515,7 @@
     showTrail:true, // mostra i pallini di esito prova-per-prova durante la sessione
     numDigits:1, wordComplexity:'breve', // solo per stimolo "numeri"/"parole"
     tapatStartLevel:3, adaptStartLevel:3, neglectStartLevel:3, // livello di partenza, aggiornato dopo ogni sessione adattiva
+    tapatIsiMin:900, tapatIsiMax:1800, // blocco tonico del TAPAT, SOLO in modalità Manuale — coincide col range del livello 1 (TAPAT_LEVELS[1]) come punto di partenza ragionevole
     tapatSpatial:false, tapatGradient:50, // componente spaziale del TAPAT (specifica per il neglect)
     tapatModalita:'visivo', // 'visivo' | 'uditivo' — variante del tutto acustica del TAPAT (DeGutis & Van Vleet 2010; precedente di cross-training uditivo→visivo nel neglect: Van Vleet & DeGutis 2013, Cortex). In 'uditivo' il bersaglio è un tono dedicato, non lo stimolo visivo — niente accompagnamento visivo, nemmeno per il cue fasico, altrimenti il canale non sarebbe davvero solo uditivo.
     dualVisual:'lettere', dualVisual2:'numeri', dualPairing:'vis-aud', dualStartLevel1:3, dualStartLevel2:3, // solo per Doppio compito
@@ -529,6 +530,7 @@
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
     categLivello:1, categMateriale:'simboli', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('simboli'|'lettereVoce'|'numeriVoce' — 'colori' rimosso dalla selezione, la sua unica regola era Caldo/Freddo, troppo arbitraria; resta leggibile nello storico di sedute già registrate)
+    categStructManual:1, // solo in modalità Manuale: struttura (1-5) scelta liberamente dal clinico, indipendente da categLivello — vedi categEffectiveStructure()
     zoneGrandi:false, // accessibilità: zone di risposta molto più grandi (metà schermo per 2 risposte) invece di pulsanti piccoli — utile su tablet/smartphone per bassa vista
     inputDevice:'touch', // 'touch' | 'tastiera' — dichiarato dall'operatore prima di iniziare, usato solo per decidere COSA evidenziare (badge dei tasti sui pulsanti, promemoria nelle istruzioni), la tastiera funziona comunque sempre in background indipendentemente da questa scelta
     keyLayout:'standard', // 'standard' (A/L, A/L/Z/M) | 'ravvicinata' (B/N, V/B/N/M — tasti adiacenti sulla riga inferiore della tastiera, per chi può usare solo una mano)
@@ -598,10 +600,18 @@
   // sincronizzazione — includerli sarebbe un allargamento di perimetro non
   // richiesto.
   const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant'];
+  // Neglect e Doppio compito hanno il CONCETTO di titrationMode (e vanno
+  // quindi trattati come gli altri per persistenza/switch dal profilo) ma
+  // non fanno parte del gruppo "condiviso" sopra: hanno le proprie
+  // funzioni di risoluzione dedicate (neglectBoardSubLevel/
+  // dualTitrationModeHint), non passano mai dal blocco ISI/frequenza
+  // generico dei 6 originali.
+  const TITRATION_MODE_EXTRA = ['neglect','dualtask','categorizzazione'];
+  function hasTitrationMode(taskMode){ return TITRATION_EXERCISES.includes(taskMode) || TITRATION_MODE_EXTRA.includes(taskMode); }
   // Valore di partenza ragionevole per 'targetRate' quando si arriva su
   // ciascun esercizio da Setup (vedi commento sul reset sopra) — stessi
   // valori già usati come default storico dell'app per ciascun significato.
-  const DEFAULT_TARGET_RATE = { nback:0.32, sequenza:0.32, gonogo:0.32, stopsignal:0.25, switching:0.35 };
+  const DEFAULT_TARGET_RATE = { nback:0.32, sequenza:0.32, gonogo:0.32, stopsignal:0.25, switching:0.35, categorizzazione:0.20 };
   // Trasparenza obbligatoria: qualunque sia la modalità, il clinico deve
   // sempre vedere a cosa corrisponde esattamente ciò che sta per essere
   // lanciato — un numero di livello da solo non basta in modalità Manuale
@@ -630,6 +640,99 @@
     if(taskMode==='stopsignal') return ADAPT_ISI.stopsignal[c.adaptStartLevel];
     if(taskMode==='ant' && c.antMode==='classico') return ADAPT_ISI.ant[c.adaptStartLevel];
     return null;
+  }
+  // Trasparenza per Cancellazione (Neglect) — parametri diversi dai 6
+  // esercizi con ISI/frequenza (qui: dimensione tavola, tempo limite),
+  // quindi una funzione di trasparenza dedicata invece di riusare
+  // titrationModeHint, che non li conoscerebbe.
+  function neglectSubLevelForDisplay(c){
+    if(c.neglectMode==='progressiva') return neglectProgressivaPhase(c.neglectStartLevel).subLevel;
+    if(c.neglectMode==='regola') return c.neglectRuleLevel;
+    return c.neglectStartLevel;
+  }
+  // Struttura EFFETTIVA in uso in questo momento — mai più
+  // categStructureOfLevel(cfg.categLivello) direttamente, da nessuna
+  // parte: in modalità Manuale la struttura è una scelta indipendente del
+  // clinico (categStructManual), decisa da Rodrigo esplicitamente contro
+  // l'alternativa "solo ISI/lure dentro la struttura del livello" — più
+  // libertà, al prezzo dichiarato di rompere la corrispondenza
+  // livello↔struttura in questa sola modalità. In Livello/Adattivo,
+  // invariato: la struttura resta quella derivata dal livello.
+  function categEffectiveStructure(c){
+    return c.titrationMode==='manuale' ? (c.categStructManual||1) : categStructureOfLevel(c.categLivello);
+  }
+  const CATEG_STRUCTURE_LABELS = {
+    1:'1 — Dimensione singola', 2:'2 — Doppia dimensione + no-go',
+    3:'3 — Regola disgiuntiva', 4:'4 — Confronto 1-back', 5:'5 — Doppia dimensione, 4 risposte'
+  };
+  const CATEG_STRUCTURE_HINTS = {
+    1:'Singola dimensione, regola fissa per tutta la sessione (nessun costo di switch, a differenza del Task-switching).',
+    2:'Doppia dimensione con no-go: 3 risposte attive più un caso in cui non si deve rispondere.',
+    3:'Stessa doppia dimensione, ricombinata in una regola disgiuntiva a 2 risposte ("A se... oppure...").',
+    4:'Confronto con lo stimolo precedente (1-back sulla categoria).',
+    5:'Doppia dimensione mappata direttamente su 4 risposte — nessun no-go, nessuna disgiunzione.'
+  };
+  function categTitrationModeHint(c, mode){
+    const struct = categEffectiveStructure(c);
+    if(mode==='manuale'){
+      const isiPart = struct===4 ? ('frequenza lure '+Math.round((c.targetRate||0)*100)+'%') : ('ISI '+(c.isi/1000).toFixed(1)+'s');
+      return 'Modalità Manuale: struttura "'+CATEG_STRUCTURE_LABELS[struct]+'" scelta liberamente qui sotto, indipendente dal numero di livello — '+isiPart+', non collegati a nessuna tabella.';
+    }
+    const lvl = c.categLivello;
+    const isi = CATEG_ISI[lvl];
+    const lure = CATEG_LURE[lvl];
+    const paramTxt = isi!=null ? 'ISI '+(isi/1000).toFixed(1)+'s' : (lure!=null ? 'frequenza lure '+Math.round(lure*100)+'%' : '');
+    if(mode==='livello'){
+      return 'Modalità Livello: livello '+lvl+' → struttura "'+CATEG_STRUCTURE_LABELS[struct]+'", '+paramTxt+' — fissi per l\'intera seduta, la struttura non cambia mai durante la sessione.';
+    }
+    return 'Modalità Adattiva: si parte dal livello '+lvl+' (struttura "'+CATEG_STRUCTURE_LABELS[struct]+'"), '+paramTxt+' si stringe/allarga da solo in base all\'accuratezza — ma resta sempre dentro la stessa struttura per tutta la seduta, non la attraversa mai (vedi "Vincolo di fascia strutturale" nel README).';
+  }
+  // Trasparenza per il TAPAT — solo il blocco TONICO ha un parametro
+  // legato al livello (l'intervallo min-max fra stimoli, non un ISI
+  // singolo come altrove: qui l'imprevedibilità dell'intervallo è parte
+  // del costrutto). Il blocco FASICO usa sempre il campo ISI generico di
+  // Setup, in ogni modalità — non compare qui perché non cambia mai.
+  function tapatTitrationModeHint(c, mode){
+    if(mode==='manuale'){
+      return 'Modalità Manuale: nel blocco tonico l\'intervallo fra stimoli varia liberamente fra '+(c.tapatIsiMin/1000).toFixed(2)+'s e '+(c.tapatIsiMax/1000).toFixed(2)+'s, indipendente dal livello. Il blocco fasico usa sempre l\'ISI impostato più sotto.';
+    }
+    const range = TAPAT_LEVELS[c.tapatStartLevel] || TAPAT_LEVELS[3];
+    if(mode==='livello'){
+      return 'Modalità Livello: nel blocco tonico l\'intervallo fra stimoli segue la tabella del livello '+c.tapatStartLevel+' ('+(range[0]/1000).toFixed(2)+'-'+(range[1]/1000).toFixed(2)+'s), fisso per l\'intera seduta.';
+    }
+    return 'Modalità Adattiva: si parte dal livello '+c.tapatStartLevel+' ('+(range[0]/1000).toFixed(2)+'-'+(range[1]/1000).toFixed(2)+'s nel blocco tonico), ma il livello si sposta da solo in base all\'accuratezza.';
+  }
+  function neglectTitrationModeHint(c, mode){
+    const lvl = c.neglectMode==='progressiva' ? c.neglectStartLevel : neglectSubLevelForDisplay(c);
+    if(mode==='manuale'){
+      return 'Modalità Manuale: dimensione tavola ('+c.neglectBoardSize+' elementi) e tempo limite ('+(c.neglectTimeLimit||'nessuno')+(c.neglectTimeLimit?'s':'')+') restano quelli impostati qui sopra, indipendenti dal livello.';
+    }
+    const subLevel = neglectSubLevelForDisplay(c);
+    const size = ADAPT_NEGLECT_SIZE[subLevel];
+    const time = ADAPT_NEGLECT_TIME[subLevel];
+    const sizeTxt = size!=null ? size+' elementi' : '(non definito a questo livello)';
+    const timeTxt = time!=null ? (time===0?'nessun limite':time+'s') : (c.neglectTimeLimit||'nessuno')+(c.neglectTimeLimit?'s':'');
+    if(mode==='livello'){
+      return 'Modalità Livello: dimensione tavola ('+sizeTxt+') e tempo limite ('+timeTxt+') seguono la tabella per il livello '+lvl+', fissi per l\'intera seduta.';
+    }
+    return 'Modalità Adattiva: si parte dal livello '+lvl+' con gli stessi parametri di tabella della modalità Livello, ma il livello si sposta da solo tavola per tavola in base all\'accuratezza.';
+  }
+  // Trasparenza per il Doppio compito — un solo selettore Manuale/Livello/
+  // Adattivo condiviso (non uno per canale: cfg.adaptive è già un unico
+  // interruttore nel motore, i due canali restano indipendenti solo nei
+  // LIVELLI numerici, non nella scelta di modalità), quindi la funzione
+  // deve descrivere entrambi i canali insieme.
+  function dualTitrationModeHint(c, mode){
+    if(mode==='manuale'){
+      return 'Modalità Manuale: la frequenza target di ciascun canale resta quella impostata qui sotto, indipendente dal livello. L\'ISI resta '+(c.isi/1000).toFixed(1)+'s, non collegato al livello.';
+    }
+    const freq1 = ADAPT_DUAL_FREQ[c.dualStartLevel1], freq2 = ADAPT_DUAL_FREQ[c.dualStartLevel2];
+    const avgLevel = Math.max(1, Math.min(10, Math.round(((c.dualStartLevel1||1)+(c.dualStartLevel2||1))/2)));
+    const isi = ADAPT_ISI.dualtask[avgLevel];
+    if(mode==='livello'){
+      return 'Modalità Livello: frequenza target canale 1 ('+Math.round((freq1||0)*100)+'%) e canale 2 ('+Math.round((freq2||0)*100)+'%) seguono la tabella dei rispettivi livelli. ISI condiviso ('+(isi/1000).toFixed(1)+'s) derivato dalla media dei due livelli ('+avgLevel+') — fissi per l\'intera seduta.';
+    }
+    return 'Modalità Adattiva: si parte dai livelli '+c.dualStartLevel1+'/'+c.dualStartLevel2+' con gli stessi parametri di tabella della modalità Livello, ma ciascun canale si sposta da solo, in modo indipendente, in base alla propria accuratezza (l\'ISI condiviso segue la media dei due, aggiornata di conseguenza).';
   }
   function titrationModeHint(c, mode){
     const taskMode = c.taskMode;
@@ -661,16 +764,17 @@
       sequenzaMista: c.sequenzaMista||'no', nbackMista: c.nbackMista||'no', gonogoMista: c.gonogoMista||'no',
       trials:c.trials, isi:c.isi, stimDuration:c.stimDuration, targetRate:c.targetRate,
       respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, adaptive:c.adaptive,
-      titrationMode: TITRATION_EXERCISES.includes(c.taskMode) ? (c.titrationMode||'manuale') : undefined,
+      titrationMode: hasTitrationMode(c.taskMode) ? (c.titrationMode||'manuale') : undefined,
       switchMaterial:c.switchMaterial, dualVisual:c.dualVisual, dualVisual2:c.dualVisual2, dualPairing:c.dualPairing, antMode:c.antMode,
       tapatSpatial:c.tapatSpatial, tapatGradient:c.tapatGradient, tapatModalita:c.tapatModalita, antMaterial:c.antMaterial,
+      tapatIsiMin:c.tapatIsiMin, tapatIsiMax:c.tapatIsiMax,
       numDigits:c.numDigits, wordComplexity:c.wordComplexity, showTrail:c.showTrail,
       neglectGradient:c.neglectGradient, neglectLayout:c.neglectLayout, neglectTimeLimit:c.neglectTimeLimit, neglectBoardSize:c.neglectBoardSize,
       neglectMode:c.neglectMode, neglectRuleLevel:c.neglectRuleLevel,
       goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
-      categLivello:c.categLivello, categMateriale:c.categMateriale, zoneGrandi: !!c.zoneGrandi,
+      categLivello:c.categLivello, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
       inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'
     };
   }
@@ -768,6 +872,7 @@
     cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.adaptive = !!pc.adaptive;
     cfg.switchMaterial = pc.switchMaterial || 'numeri'; cfg.dualVisual = pc.dualVisual || 'lettere'; cfg.dualVisual2 = pc.dualVisual2 || 'numeri'; cfg.dualPairing = pc.dualPairing || 'vis-aud'; cfg.antMode = pc.antMode || 'classico';
     cfg.tapatSpatial = !!pc.tapatSpatial; cfg.tapatGradient = pc.tapatGradient!=null?pc.tapatGradient:50; cfg.tapatModalita = pc.tapatModalita || 'visivo'; cfg.antMaterial = pc.antMaterial || 'frecce';
+    cfg.tapatIsiMin = pc.tapatIsiMin || 900; cfg.tapatIsiMax = pc.tapatIsiMax || 1800;
     cfg.numDigits = pc.numDigits || 1; cfg.wordComplexity = pc.wordComplexity || 'breve'; cfg.showTrail = pc.showTrail!==false;
     cfg.neglectGradient = pc.neglectGradient!=null?pc.neglectGradient:50; cfg.neglectLayout = pc.neglectLayout || 'griglia'; cfg.neglectTimeLimit = pc.neglectTimeLimit!=null?pc.neglectTimeLimit:60; cfg.neglectBoardSize = pc.neglectBoardSize || 40;
     cfg.neglectMode = pc.neglectMode || 'classico'; cfg.neglectRuleLevel = pc.neglectRuleLevel || 1;
@@ -777,7 +882,7 @@
     cfg.memoriaFormaIdx = pc.memoriaFormaIdx || 0;
     cfg.memoriaLociTipo = pc.memoriaLociTipo || 'casa'; cfg.memoriaLociCustom = pc.memoriaLociCustom || '';
     cfg.chunkingMetodi = (pc.chunkingMetodi && pc.chunkingMetodi.length) ? pc.chunkingMetodi : ['categoria']; cfg.chunkingNota = pc.chunkingNota || '';
-    cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'simboli'; cfg.zoneGrandi = !!pc.zoneGrandi;
+    cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'simboli'; cfg.categStructManual = pc.categStructManual || 1; cfg.zoneGrandi = !!pc.zoneGrandi;
     cfg.inputDevice = pc.inputDevice || 'touch'; cfg.keyLayout = pc.keyLayout || 'standard';
     // Retrocompatibilità: preset/programmi salvati prima di questa versione
     // avevano sequenzaMista/nbackMista/gonogoMista come booleano — true
@@ -1124,6 +1229,53 @@
     return wrap;
   }
 
+  // Configurazioni nominali salvate per QUESTO paziente + QUESTO esercizio
+  // (vedi saveNamedConfig/namedConfigsFor) — a differenza di presetSection()
+  // sopra (preset globali, senza paziente, mostrati solo FUORI dal flusso
+  // "aggiungi esercizio al programma"), questa compare solo DENTRO quel
+  // flusso, dove il paziente è sempre noto: non avrebbe senso proporre di
+  // salvare "per questo paziente" quando nessun paziente è specificato.
+  function namedConfigSection(){
+    if(!buildingProgramFor || !editingPatient) return null;
+    const wrap = el('div',{class:'field'});
+    wrap.appendChild(el('label',{},['Configurazioni salvate per '+buildingProgramFor.nome]));
+    const list = namedConfigsFor(editingPatient, cfg.taskMode);
+    if(!list.length){
+      wrap.appendChild(el('p',{class:'hint'},['Nessuna configurazione nominale salvata per questo esercizio. A differenza del livello raggiunto automaticamente ad ogni seduta, questa va salvata a mano e resta ferma finché non la sovrascrivi tu con lo stesso nome — utile per tornare rapidamente a una configurazione precisa (es. "Livello base", "Rivalutazione marzo"), indipendentemente da cosa è successo nelle sedute nel frattempo.']));
+    } else {
+      list.slice().sort((a,b)=>b.savedAt-a.savedAt).forEach(entry=>{
+        const lvl = levelOfCfg(entry.cfg);
+        const modeLabel = entry.cfg.titrationMode ? ({manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'}[entry.cfg.titrationMode]||'') : '';
+        const desc = (lvl!=null ? 'livello '+lvl+' · ' : '') + (modeLabel ? modeLabel+' · ' : '') + entry.cfg.trials+' prove · salvata il '+new Date(entry.savedAt).toLocaleDateString('it-IT');
+        const row = el('div',{class:'histrow'},[
+          el('div',{style:'cursor:pointer; flex:1;', onclick:()=>{
+            Object.assign(cfg, entry.cfg);
+            cfg.taskMode = entry.cfg.taskMode;
+            render();
+          }},[
+            el('div',{},[entry.nome]),
+            el('div',{class:'l'},[desc])
+          ]),
+          el('button',{class:'ghost', onclick: async ()=>{
+            if(confirm('Eliminare la configurazione "'+entry.nome+'"?')){
+              await deleteNamedConfig(buildingProgramFor.kind, buildingProgramFor.id, cfg.taskMode, entry.nome);
+              render();
+            }
+          }},['× elimina'])
+        ]);
+        wrap.appendChild(row);
+      });
+    }
+    wrap.appendChild(el('button',{class:'ghost', onclick: async ()=>{
+      const name = prompt('Nome per questa configurazione (es. "Livello base", "Rivalutazione marzo"):', '');
+      if(name && name.trim()){
+        const ok = await saveNamedConfig(buildingProgramFor.kind, buildingProgramFor.id, cfg.taskMode, name.trim(), presetCfgOf(cfg));
+        if(ok) render(); else alert('Salvataggio non riuscito. Riprova.');
+      }
+    }},['+ Salva configurazione attuale con un nome']));
+    return wrap;
+  }
+
   let view = 'setup';
   let session = null; // active run state
   let lastResult = null;
@@ -1138,8 +1290,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1722,9 +1874,10 @@
   // live quando l'adattivo è attivo.
   function genCategTrial(){
     const startLevel = cfg.categLivello;
-    const structure = categStructureOfLevel(startLevel);
-    const liveLevel = cfg.adaptive ? (session.categLevel||startLevel) : startLevel;
-    const isiOverride = CATEG_ISI[liveLevel];
+    const structure = categEffectiveStructure(cfg);
+    const manuale = cfg.titrationMode==='manuale';
+    const liveLevel = (!manuale && cfg.adaptive) ? (session.categLevel||startLevel) : startLevel;
+    const isiOverride = manuale ? null : CATEG_ISI[liveLevel];
     if(structure===1){
       const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
       const pool = POOLS[cfg.categMateriale];
@@ -1736,7 +1889,7 @@
     if(structure===4){
       const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
       const pool = POOLS[cfg.categMateriale];
-      const lureFreq = CATEG_LURE[liveLevel]||0;
+      const lureFreq = manuale ? (cfg.targetRate||0) : (CATEG_LURE[liveLevel]||0);
       function pickCategValue(wantCat){
         const want = wantCat==='a';
         const filtered = pool.filter(v=>rs.classify(v)===want);
@@ -1798,8 +1951,8 @@
     const pool1 = pairing==='aud-aud' ? POOLS.suoni : POOLS[cfg.dualVisual];
     const pool2 = pairing==='vis-vis' ? POOLS[cfg.dualVisual2] : pairing==='aud-aud' ? POOLS.suoni2 : POOLS.suoni;
     const i = session.seq.length;
-    const freq1 = cfg.adaptive ? (ADAPT_DUAL_FREQ[session.dualLevel1]||cfg.targetRate) : cfg.targetRate;
-    const freq2 = cfg.adaptive ? (ADAPT_DUAL_FREQ[session.dualLevel2]||cfg.targetRate) : cfg.targetRate;
+    const freq1 = cfg.titrationMode!=='manuale' ? (ADAPT_DUAL_FREQ[session.dualLevel1]||cfg.targetRate) : cfg.targetRate;
+    const freq2 = cfg.titrationMode!=='manuale' ? (ADAPT_DUAL_FREQ[session.dualLevel2]||cfg.targetRate) : cfg.targetRate;
     const lure1 = ADAPT_DUAL_LURE[session.dualLevel1]||0;
     const lure2 = ADAPT_DUAL_LURE[session.dualLevel2]||0;
     let v1 = pool1[Math.floor(Math.random()*pool1.length)];
@@ -1971,6 +2124,48 @@
   // Calcolo condiviso fra l'export CSV e il report stampabile: entrambi
   // devono mostrare esattamente le stesse righe con la stessa logica, quindi
   // il calcolo vive qui una sola volta.
+  // Confronta i parametri usati nelle sessioni di baseline con quelli delle
+  // sessioni finali incluse nel confronto RCI — un cambiamento di
+  // accuratezza fra condizioni diverse (livello, ISI, frequenza, modalità
+  // di titolazione) misura quanto è cambiato IL COMPITO, non quanto è
+  // cambiato il paziente, e userebbe la formula di Crawford & Howell fuori
+  // dalla sua assunzione di fondo (stessa misura, stesse condizioni).
+  // Risposta diretta a una domanda di Rodrigo: confrontare il livello 1
+  // con il livello 10 dello stesso esercizio ha ESATTAMENTE lo stesso
+  // problema di un ISI diverso fra le due sedute — coperto dallo stesso
+  // controllo, sul campo finalLevel salvato per ogni sessione, non da un
+  // meccanismo a parte.
+  function sessionMismatchWarnings(baselineItems, finalItems){
+    const warnings = [];
+    function numField(getter){
+      const b = baselineItems.map(x=>getter(x.r)).filter(v=>v!=null && !isNaN(v));
+      const f = finalItems.map(x=>getter(x.r)).filter(v=>v!=null && !isNaN(v));
+      if(!b.length || !f.length) return null; // dato non registrato per una delle due parti (es. sessioni storiche precedenti a questa consegna) — non verificabile, non si dichiara comparabile per default
+      return {mb: mean(b), mf: mean(f)};
+    }
+    const isi = numField(r=>r.isi);
+    if(isi && isi.mb>0 && Math.abs(isi.mf-isi.mb)/isi.mb > 0.15){
+      warnings.push('ISI diverso fra baseline ('+Math.round(isi.mb)+'ms) e punto finale ('+Math.round(isi.mf)+'ms)');
+    }
+    const lvl = numField(r=> typeof r.finalLevel==='number' ? r.finalLevel : null);
+    if(lvl && Math.abs(lvl.mf-lvl.mb) >= 2){
+      warnings.push('livello diverso fra baseline (~'+lvl.mb.toFixed(1)+') e punto finale (~'+lvl.mf.toFixed(1)+')');
+    }
+    const trials = numField(r=>r.trials);
+    if(trials && trials.mb>0 && Math.abs(trials.mf-trials.mb)/trials.mb > 0.20){
+      warnings.push('numero di prove diverso fra baseline ('+Math.round(trials.mb)+') e punto finale ('+Math.round(trials.mf)+')');
+    }
+    const rate = numField(r=>r.targetRate);
+    if(rate && Math.abs(rate.mf-rate.mb) > 0.05){
+      warnings.push('frequenza bersaglio/no-go diversa fra baseline ('+Math.round(rate.mb*100)+'%) e punto finale ('+Math.round(rate.mf*100)+'%)');
+    }
+    const modesB = new Set(baselineItems.map(x=>x.r.titrationMode).filter(Boolean));
+    const modesF = new Set(finalItems.map(x=>x.r.titrationMode).filter(Boolean));
+    if(modesB.size && modesF.size && (![...modesB].every(m=>modesF.has(m)) || ![...modesF].every(m=>modesB.has(m)))){
+      warnings.push('modalità di titolazione diversa fra baseline ('+[...modesB].join('/')+') e punto finale ('+[...modesF].join('/')+')');
+    }
+    return warnings;
+  }
   function computeRCIRows(items){
     const groups = {};
     items.forEach(r=>{
@@ -1986,8 +2181,9 @@
       const n = list.length;
       if(n < 4) return; // troppo poche sessioni per separare baseline e punto finale in modo sensato
       const half = Math.min(RCI_BASELINE_N, Math.floor(n/2));
-      const baselineVals = list.slice(0, half).map(x=>x.metric.value);
-      const finalVals = list.slice(n-half).map(x=>x.metric.value);
+      const baselineItems = list.slice(0, half), finalItems = list.slice(n-half);
+      const baselineVals = baselineItems.map(x=>x.metric.value);
+      const finalVals = finalItems.map(x=>x.metric.value);
       const higherIsBetter = list[0].metric.higherIsBetter;
       const baselineMean = mean(baselineVals), finalMean = mean(finalVals);
       const baselineSD = sd(baselineVals);
@@ -2013,15 +2209,31 @@
       let rci = (finalMean - baselineMean) / seDiff;
       if(!higherIsBetter) rci = -rci;
       const exLabel = EXERCISES[taskMode] ? EXERCISES[taskMode].label : taskMode;
-      rows.push({exLabel, n, half, baselineMean, finalMean, rci, significativo: Math.abs(rci)>=1.96});
+      // Il controllo di comparabilità viene DOPO il calcolo, non prima: si
+      // vuole sempre poter mostrare le medie grezze (baseline/finale) anche
+      // quando il confronto non è valido — solo il numero RCI viene
+      // soppresso (null), mai le due medie, che restano dati legittimi da
+      // guardare per quello che sono anche senza un indice sintetico sopra.
+      const warnings = sessionMismatchWarnings(baselineItems, finalItems);
+      rows.push({
+        exLabel, n, half, baselineMean, finalMean,
+        rci: warnings.length ? null : rci,
+        comparable: !warnings.length,
+        warnings,
+        significativo: warnings.length ? false : Math.abs(rci)>=1.96
+      });
     });
     return rows;
   }
   function generateRCIReport(items, patientLabel){
     const rows = computeRCIRows(items);
     if(!rows.length){ alert('Non ci sono ancora abbastanza sessioni per un report RCI (servono almeno 4 sessioni sullo stesso esercizio).'); return; }
-    const head = ['esercizio','sessioni_totali','sessioni_per_gruppo','media_baseline','media_finale','rci','cambiamento_significativo'];
-    const csv = [head.join(';')].concat(rows.map(r=>[r.exLabel, r.n, r.half, r.baselineMean.toFixed(2), r.finalMean.toFixed(2), r.rci.toFixed(2), r.significativo?'Sì':'No'].join(';'))).join('\n');
+    const head = ['esercizio','sessioni_totali','sessioni_per_gruppo','media_baseline','media_finale','rci','cambiamento_significativo','confronto_valido','motivo_non_validita'];
+    const csv = [head.join(';')].concat(rows.map(r=>[
+      r.exLabel, r.n, r.half, r.baselineMean.toFixed(2), r.finalMean.toFixed(2),
+      r.comparable ? r.rci.toFixed(2) : '', r.comparable ? (r.significativo?'Sì':'No') : '',
+      r.comparable ? 'Sì' : 'No', r.comparable ? '' : r.warnings.join(' | ')
+    ].join(';'))).join('\n');
     const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'traccian_rci_'+(patientLabel||'paziente').replace(/[^a-z0-9]/gi,'_')+'.csv';
@@ -2043,8 +2255,10 @@
     const rowsHtml = rows.map(r=>
       '<tr><td>'+esc(r.exLabel)+'</td><td>'+r.n+'</td><td>'+r.half+'</td>'
       +'<td>'+r.baselineMean.toFixed(2)+'</td><td>'+r.finalMean.toFixed(2)+'</td>'
-      +'<td>'+r.rci.toFixed(2)+'</td><td class="'+(r.significativo?'sig-yes':'sig-no')+'">'
-      +(r.significativo?'Sì':'No')+'</td></tr>'
+      +(r.comparable
+        ? '<td>'+r.rci.toFixed(2)+'</td><td class="'+(r.significativo?'sig-yes':'sig-no')+'">'+(r.significativo?'Sì':'No')+'</td>'
+        : '<td colspan="2" class="not-comparable">Confronto non disponibile — '+esc(r.warnings.join('; '))+'</td>')
+      +'</tr>'
     ).join('');
     const html = '<!doctype html><html lang="it"><head><meta charset="utf-8">'
       +'<title>Report RCI — '+esc(patientLabel||'paziente')+'</title>'
@@ -2054,6 +2268,7 @@
       +'table{width:100%; border-collapse:collapse; font-size:13px;}'
       +'th,td{border:1px solid #ccc; padding:8px 10px; text-align:left;}'
       +'th{background:#f2f2f2;} .sig-yes{color:#0a6b2f; font-weight:700;} .sig-no{color:#555;}'
+      +'.not-comparable{color:#a33; font-style:italic;}'
       +'.note{margin-top:20px; font-size:12px; color:#555; line-height:1.5;}'
       +'.printbtn{margin:16px 0; padding:8px 16px; font-size:13px;}'
       +'@media print{ .printbtn{display:none;} body{margin:0;} }'
@@ -2068,7 +2283,12 @@
       +'statisticamente affidabile (p&lt;.05), non attribuibile a variabilità di misura tra sessioni. '
       +'Baseline e punto finale sono la media delle prime/ultime sessioni disponibili per ciascun esercizio '
       +'(fino a '+RCI_BASELINE_N+' per gruppo) — l\'affidabilità usata nel calcolo è corretta con la formula '
-      +'di Spearman-Brown per riflettere che si confrontano due medie, non due sedute singole. Documento generato da TracciaN, uso clinico.</div>'
+      +'di Spearman-Brown per riflettere che si confrontano due medie, non due sedute singole. '
+      +'Quando i parametri (livello, ISI, numero di prove, frequenza, modalità di titolazione) differiscono '
+      +'in modo sostanziale fra le sessioni di baseline e quelle finali, l\'RCI non viene calcolato: un '
+      +'cambiamento di accuratezza fra condizioni diverse misurerebbe quanto è cambiato il compito, non il '
+      +'paziente — le medie restano comunque mostrate, solo l\'indice sintetico viene soppresso. '
+      +'Documento generato da TracciaN, uso clinico.</div>'
       +'</body></html>';
     w.document.open(); w.document.write(html); w.document.close();
   }
@@ -3081,6 +3301,89 @@
     const map = patientLike.livelli_esercizi || patientLike.livelliEsercizi;
     return (map && map[taskMode]) ? map[taskMode] : null;
   }
+  // Slot nominali per paziente/esercizio — a differenza di
+  // livelli_esercizi/livelliEsercizi (UN solo slot, "ultima raggiunta",
+  // sovrascritto ad ogni sessione), qui il clinico salva ESPLICITAMENTE
+  // una configurazione con un nome a scelta, e ne può avere più di una
+  // per lo stesso paziente/esercizio (es. "Livello base", "Rivalutazione
+  // marzo"), mai sovrascritte da una sessione qualunque — solo da
+  // un salvataggio esplicito con lo stesso nome. Stessa infrastruttura di
+  // storage di saveExerciseLevel sopra (localStorage per i pazienti in
+  // presenza, colonna Supabase per quelli remoti), campo separato.
+  function namedConfigsFor(patientLike, taskMode){
+    if(!patientLike) return [];
+    const map = patientLike.configurazioni_salvate || patientLike.configurazioniSalvate;
+    return (map && map[taskMode]) ? map[taskMode] : [];
+  }
+  async function saveNamedConfig(kind, id, taskMode, nome, snap){
+    if(kind==='local'){
+      try{
+        const raw = localStorage.getItem('traccian:localpatient:'+id);
+        if(!raw) return false;
+        const p = JSON.parse(raw);
+        p.configurazioniSalvate = p.configurazioniSalvate || {};
+        p.configurazioniSalvate[taskMode] = p.configurazioniSalvate[taskMode] || [];
+        const list = p.configurazioniSalvate[taskMode];
+        const i = list.findIndex(x=>x.nome===nome);
+        const entry = {nome, cfg:snap, savedAt:Date.now()};
+        if(i>=0) list[i]=entry; else list.push(entry);
+        localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(p));
+        syncLocalPatientToCloud(p);
+        return true;
+      }catch(e){ return false; }
+    } else if(sb && cloudUser){
+      try{
+        let existing = null;
+        if(patientProfile && patientProfile.id===id) existing = patientProfile.configurazioni_salvate;
+        else{
+          const cached = (cachedRemotePatients||[]).find(p=>p.id===id);
+          existing = cached ? cached.configurazioni_salvate : (await fetchRemotePatientFresh(id) || {}).configurazioni_salvate;
+        }
+        const map = Object.assign({}, existing||{});
+        const list = (map[taskMode]||[]).slice();
+        const i = list.findIndex(x=>x.nome===nome);
+        const entry = {nome, cfg:snap, savedAt:Date.now()};
+        if(i>=0) list[i]=entry; else list.push(entry);
+        map[taskMode] = list;
+        await sb.from('pazienti').update({configurazioni_salvate:map}).eq('id', id);
+        if(patientProfile && patientProfile.id===id) patientProfile.configurazioni_salvate = map;
+        cachedRemotePatients = null;
+        return true;
+      }catch(e){ console.error('salvataggio configurazione nominale fallito', e); return false; }
+    }
+    return false;
+  }
+  async function deleteNamedConfig(kind, id, taskMode, nome){
+    if(kind==='local'){
+      try{
+        const raw = localStorage.getItem('traccian:localpatient:'+id);
+        if(!raw) return false;
+        const p = JSON.parse(raw);
+        if(p.configurazioniSalvate && p.configurazioniSalvate[taskMode]){
+          p.configurazioniSalvate[taskMode] = p.configurazioniSalvate[taskMode].filter(x=>x.nome!==nome);
+        }
+        localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(p));
+        syncLocalPatientToCloud(p);
+        return true;
+      }catch(e){ return false; }
+    } else if(sb && cloudUser){
+      try{
+        let existing = null;
+        if(patientProfile && patientProfile.id===id) existing = patientProfile.configurazioni_salvate;
+        else{
+          const cached = (cachedRemotePatients||[]).find(p=>p.id===id);
+          existing = cached ? cached.configurazioni_salvate : (await fetchRemotePatientFresh(id) || {}).configurazioni_salvate;
+        }
+        const map = Object.assign({}, existing||{});
+        if(map[taskMode]) map[taskMode] = map[taskMode].filter(x=>x.nome!==nome);
+        await sb.from('pazienti').update({configurazioni_salvate:map}).eq('id', id);
+        if(patientProfile && patientProfile.id===id) patientProfile.configurazioni_salvate = map;
+        cachedRemotePatients = null;
+        return true;
+      }catch(e){ console.error('cancellazione configurazione nominale fallita', e); return false; }
+    }
+    return false;
+  }
   // Normalizza il programma di un paziente in un array {nome, cfg}[], sia per
   // i pazienti nuovi (programma_assegnato) sia per quelli assegnati prima
   // che esistesse il multi-esercizio (preset_assegnato singolo).
@@ -3111,7 +3414,8 @@
       counts: rec.counts, metrics: rec.metrics, avg_rt: rec.avgRT, duration_ms: rec.durationMs,
       family: rec.family || null, counts_aud: rec.countsAud || null, metrics_aud: rec.metricsAud || null,
       choice: rec.choice || null, ssrt: rec.ssrt!=null?rec.ssrt:null, mean_ssd: rec.meanSSD!=null?rec.meanSSD:null,
-      neglect: rec.neglect || null, goaltask: rec.goaltask || null, memoria: rec.memoria || null
+      neglect: rec.neglect || null, goaltask: rec.goaltask || null, memoria: rec.memoria || null,
+      titration_mode: rec.titrationMode || null, target_rate: rec.targetRate!=null ? rec.targetRate : null
     };
   }
   function rowToRec(row){
@@ -3123,7 +3427,13 @@
       counts: row.counts, metrics: row.metrics, avgRT: row.avg_rt, durationMs: row.duration_ms,
       family: row.family || 'signal', countsAud: row.counts_aud, metricsAud: row.metrics_aud,
       choice: row.choice, ssrt: row.ssrt, meanSSD: row.mean_ssd, neglect: row.neglect, goaltask: row.goaltask, memoria: row.memoria,
-      pazienteId: row.paziente_id || null, localPatientId: row.local_patient_id || null
+      pazienteId: row.paziente_id || null, localPatientId: row.local_patient_id || null,
+      // Colonne nuove (vedi commento su rec.titrationMode in completeAndSave)
+      // — row.titration_mode/row.target_rate saranno undefined finché non
+      // esistono davvero in Supabase; qui degradano a null senza errori,
+      // il controllo di comparabilità dell'RCI tratta il dato mancante
+      // come "non verificabile", non come "sicuramente comparabile".
+      titrationMode: row.titration_mode || null, targetRate: row.target_rate!=null ? row.target_rate : null
     };
   }
   async function pushSession(rec){
@@ -3171,6 +3481,7 @@
     card.appendChild(el('p',{class:'hint'},['Scegli il tipo di stimolo, il livello n-back e i parametri temporali. I valori restano impostati per la prossima sessione.']));
 
     if(!buildingProgramFor) card.appendChild(presetSection());
+    else { const ncs = namedConfigSection(); if(ncs) card.appendChild(ncs); }
 
     const grid = el('div',{class:'grid'});
     const ex = EXERCISES[cfg.taskMode];
@@ -3180,7 +3491,7 @@
       cfg.taskMode=v;
       resetLevelField(v); // livello sempre a 1 quando si cambia esercizio dentro Setup — il caricamento di un eventuale suggerimento da screening avviene solo all'apertura iniziale (vedi applyLevelBaselineOrSuggestion), non a ogni cambio manuale, per non sovrascrivere a sorpresa scelte già fatte dall'operatore
       if(v==='stopsignal' && !['frecce','lettere','numeri','forma','suoni'].includes(cfg.stimType)) cfg.stimType='frecce';
-      if(TITRATION_EXERCISES.includes(v)){ cfg.titrationMode='manuale'; cfg.adaptive=false; } // stessa logica di resetLevelField: un cambio esercizio manuale in Setup riparte pulito, non eredita la modalità dell'esercizio precedente
+      if(TITRATION_EXERCISES.includes(v) || TITRATION_MODE_EXTRA.includes(v)){ cfg.titrationMode='manuale'; cfg.adaptive=false; } // stessa logica di resetLevelField: un cambio esercizio manuale in Setup riparte pulito, non eredita la modalità dell'esercizio precedente
       // 'targetRate' è un campo condiviso da più esercizi con significati
       // diversi (frequenza bersaglio N-back, frequenza no-go Go/No-Go,
       // frequenza trial di stop Stop-Signal, frequenza cambio regola
@@ -3316,8 +3627,29 @@
       grid.appendChild(field('Livello canale 1', stepper(cfg.dualStartLevel1,1,10,v=>{cfg.dualStartLevel1=v; render();})));
       grid.appendChild(field('Livello canale 2', stepper(cfg.dualStartLevel2,1,10,v=>{cfg.dualStartLevel2=v; render();})));
     }
-    if(cfg.taskMode==='dualtask' || (cfg.taskMode==='ant' && cfg.antMode==='tapat')){
-      grid.appendChild(field('Difficoltà adattiva', segButtons(['no','si'], cfg.adaptive?'si':'no', v=>{ cfg.adaptive = v==='si'; render(); }, {no:'Fissa (manuale)', si:'Adattiva automatica'})));
+    if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+      grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
+        cfg.titrationMode = v;
+        cfg.adaptive = v==='adattivo';
+        render();
+      }, {manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'})));
+      if((cfg.titrationMode||'manuale')==='manuale'){
+        // Solo il blocco TONICO ha un intervallo di tabella da rendere
+        // libero: quello FASICO usa già sempre il campo ISI generico di
+        // Setup, in ogni modalità (mai stato legato al livello) — nessuna
+        // modifica necessaria lì.
+        grid.appendChild(field('Intervallo minimo (blocco tonico)', stepper(cfg.tapatIsiMin,500,20000,v=>{cfg.tapatIsiMin=Math.min(v,cfg.tapatIsiMax-100); render();},250,ms=>(ms/1000).toFixed(2)+' s')));
+        grid.appendChild(field('Intervallo massimo (blocco tonico)', stepper(cfg.tapatIsiMax,1000,30000,v=>{cfg.tapatIsiMax=Math.max(v,cfg.tapatIsiMin+100); render();},250,ms=>(ms/1000).toFixed(2)+' s')));
+      }
+      card.appendChild(el('p',{class:'hint'},[tapatTitrationModeHint(cfg, cfg.titrationMode||'manuale')]));
+    }
+    if(cfg.taskMode==='dualtask'){
+      grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
+        cfg.titrationMode = v;
+        cfg.adaptive = v==='adattivo';
+        render();
+      }, {manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'})));
+      card.appendChild(el('p',{class:'hint'},[dualTitrationModeHint(cfg, cfg.titrationMode||'manuale')]));
     }
     if(TITRATION_EXERCISES.includes(cfg.taskMode) && !(cfg.taskMode==='ant' && cfg.antMode==='tapat')){
       grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
@@ -3400,11 +3732,25 @@
       grid.appendChild(field('Livello di complessità', segButtons(['1','2','3','4','5'], String(cfg.goaltaskLivello), v=>{cfg.goaltaskLivello=parseInt(v,10); render();}, {'1':'1 — molto facile', '2':'2 — facile', '3':'3 — medio', '4':'4 — difficile', '5':'5 — molto difficile'})));
     } else if(!isNeglect){
       grid.appendChild(field('Numero di prove', stepper(cfg.trials,10,100,v=>{cfg.trials=v; updateDurEst();},4)));
-      // ISI — di sola lettura (valore di tabella) per i 3 esercizi dove il
+      // ISI — di sola lettura (valore di tabella) per i esercizi dove il
       // livello lo pilota davvero in modalità Livello/Adattiva; altrove
-      // resta sempre un campo libero, in ogni modalità.
-      const resolvedIsi = TITRATION_EXERCISES.includes(cfg.taskMode) && cfg.titrationMode && cfg.titrationMode!=='manuale' ? resolvedIsiForDisplay(cfg.taskMode, cfg) : null;
-      if(resolvedIsi!=null){
+      // resta sempre un campo libero, in ogni modalità. Categorizzazione
+      // condizionale è un caso speciale: in Manuale il campo ISI compare
+      // già dentro la sua sezione dedicata sopra (o la frequenza lure, per
+      // la struttura 4, dove l'ISI non è la leva pertinente) — qui va solo
+      // il caso Livello/Adattivo, di sola lettura, con l'eccezione della
+      // struttura 4 dove si mostra la frequenza lure invece dell'ISI.
+      const isCategManualHandled = cfg.taskMode==='categorizzazione' && (cfg.titrationMode||'manuale')==='manuale';
+      const categStruct4NonManual = cfg.taskMode==='categorizzazione' && !isCategManualHandled && categEffectiveStructure(cfg)===4;
+      const resolvedIsi = (TITRATION_EXERCISES.includes(cfg.taskMode) && cfg.titrationMode && cfg.titrationMode!=='manuale') ? resolvedIsiForDisplay(cfg.taskMode, cfg)
+        : (cfg.taskMode==='categorizzazione' && !isCategManualHandled && !categStruct4NonManual) ? CATEG_ISI[cfg.categLivello]
+        : null;
+      if(isCategManualHandled){
+        // niente: il campo pertinente (ISI o frequenza lure) è già stato
+        // aggiunto dentro la sezione dedicata di Categorizzazione sopra.
+      } else if(categStruct4NonManual){
+        grid.appendChild(field('Frequenza lure — da tabella, livello '+cfg.categLivello, el('div',{style:'padding:10px 14px; background:var(--paper-dim); border-radius:8px; font-size:14px; color:var(--ink-soft);'},[Math.round((CATEG_LURE[cfg.categLivello]||0)*100)+'% — segue il livello, non modificabile in questa modalità'])));
+      } else if(resolvedIsi!=null){
         grid.appendChild(field('Intervallo tra stimoli (ISI) — da tabella, livello '+levelOfCfg(cfg), el('div',{style:'padding:10px 14px; background:var(--paper-dim); border-radius:8px; font-size:14px; color:var(--ink-soft);'},[(resolvedIsi/1000).toFixed(1)+' s — segue il livello, non modificabile in questa modalità'])));
       } else {
         grid.appendChild(field('Intervallo tra stimoli (ISI)', stepper(cfg.isi,1000,4000,v=>{cfg.isi=v; updateDurEst();},200,ms=>(ms/1000).toFixed(1)+' s')));
@@ -3456,7 +3802,12 @@
         grid.appendChild(field('Sollecitazione bottom-up', segButtons(['auto','off'], cfg.neglectBottomUp, v=>{cfg.neglectBottomUp=v; render();}, {auto:'Automatica (solo livelli bassi, se emerge asimmetria)', off:'Disattivata (consigliata in rivalutazione)'})));
       }
       grid.appendChild(field('Tempo limite per tavola', stepper(cfg.neglectTimeLimit,0,180,v=>{cfg.neglectTimeLimit=v;},15,s=> s===0?'nessuno':s+' s')));
-      grid.appendChild(field('Difficoltà adattiva', segButtons(['no','si'], cfg.adaptive?'si':'no', v=>{ cfg.adaptive = v==='si'; render(); }, {no:'Fissa (manuale)', si:'Adattiva automatica'})));
+      grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
+        cfg.titrationMode = v;
+        cfg.adaptive = v==='adattivo';
+        render();
+      }, {manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'})));
+      card.appendChild(el('p',{class:'hint'},[neglectTitrationModeHint(cfg, cfg.titrationMode||'manuale')]));
     }
 
     // target rate — riusato con etichetta diversa per ciascun esercizio
@@ -3541,30 +3892,37 @@
       }
     }
     if(cfg.taskMode==='categorizzazione'){
-      card.appendChild(field('Livello (1-10)', stepper(cfg.categLivello,1,10,v=>{cfg.categLivello=v; render();},1)));
-      const cStruct = categStructureOfLevel(cfg.categLivello);
+      grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
+        cfg.titrationMode = v;
+        cfg.adaptive = v==='adattivo';
+        render();
+      }, {manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'})));
+      const manuale = (cfg.titrationMode||'manuale')==='manuale';
+      if(manuale){
+        // In Manuale la struttura è una scelta indipendente dal numero di
+        // livello (decisione di Rodrigo: più libertà per il clinico, al
+        // prezzo dichiarato che il numero "Livello" smette di significare
+        // qualcosa in questa modalità — per questo qui non compare affatto,
+        // sostituito dalla scelta diretta di struttura).
+        grid.appendChild(field('Struttura (1-5)', stepper(cfg.categStructManual||1,1,5,v=>{cfg.categStructManual=v; render();},1,v=>CATEG_STRUCTURE_LABELS[v])));
+      } else {
+        grid.appendChild(field('Livello (1-10)', stepper(cfg.categLivello,1,10,v=>{cfg.categLivello=v; render();},1)));
+      }
+      const cStruct = categEffectiveStructure(cfg);
       if(cStruct===1 || cStruct===4){
         card.appendChild(field('Materiale', segButtons(['simboli','lettereVoce','numeriVoce'], cfg.categMateriale, v=>{cfg.categMateriale=v; render();}, {simboli:'Simboli', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati'})));
         const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
         card.appendChild(el('p',{class:'hint'},['Regola di classificazione per questo materiale: "'+rs.labelA+'" vs "'+rs.labelB+'" ('+rs.label+').']));
       }
-      const CATEG_LEVEL_HINTS = {
-        1:'Singola dimensione, regola fissa per tutta la sessione (nessun costo di switch, a differenza del Task-switching) — ISI ampio.',
-        2:'Stessa struttura del livello 1 — ISI più stretto (pressione di velocità).',
-        3:'Doppia dimensione con no-go: 3 risposte attive più un caso in cui non si deve rispondere — ISI ampio.',
-        4:'Stessa struttura del livello 3 — ISI più stretto.',
-        5:'Stessa doppia dimensione, ricombinata in una regola disgiuntiva a 2 risposte ("A se... oppure...") — ISI ampio.',
-        6:'Stessa struttura del livello 5 — ISI più stretto.',
-        7:'Confronto con lo stimolo precedente (1-back sulla categoria) — nessun trial lure.',
-        8:'Stessa struttura del livello 7, con trial lure: stessa categoria di 2 prove fa invece che 1 (sembra familiare ma la risposta corretta resta "nessuna risposta").',
-        9:'Doppia dimensione mappata direttamente su 4 risposte — nessun no-go, nessuna disgiunzione — ISI ampio.',
-        10:'Stessa struttura del livello 9 — ISI più stretto.'
-      };
-      card.appendChild(el('p',{class:'hint'},[CATEG_LEVEL_HINTS[cfg.categLivello]]));
-      card.appendChild(field('Difficoltà adattiva', segButtons(['no','si'], cfg.adaptive?'si':'no', v=>{ cfg.adaptive = v==='si'; render(); }, {no:'Fissa (manuale)', si:'Adattiva automatica'})));
-      if(cfg.adaptive){
-        card.appendChild(el('p',{class:'hint'},['Con l\'adattivo attivo, ISI (o frequenza lure ai livelli 7-8) si stringe/allarga da solo dentro la struttura di partenza ('+CATEG_LEVEL_HINTS[cfg.categLivello].split(' — ')[0]+') in base all\'accuratezza (regola 70-85%). La STRUTTURA non cambia mai durante questa seduta, anche a punteggio pieno — un cambio di struttura è un cambio di regola, e il paziente non deve mai incontrarne una che non gli è stata appena spiegata. Se la seduta resta a lungo al soffitto della struttura corrente, la prossima seduta partirà dalla struttura successiva, con le sue istruzioni mostrate prima di iniziare.']));
+      card.appendChild(el('p',{class:'hint'},[CATEG_STRUCTURE_HINTS[cStruct]]));
+      if(manuale){
+        if(cStruct===4){
+          grid.appendChild(field('Frequenza lure', stepper(Math.round((cfg.targetRate||0)*100),0,50,v=>{cfg.targetRate=v/100; render();},5,v=>v+'%')));
+        } else {
+          grid.appendChild(field('Intervallo tra stimoli (ISI)', stepper(cfg.isi,1000,4000,v=>{cfg.isi=v; updateDurEst();},200,ms=>(ms/1000).toFixed(1)+' s')));
+        }
       }
+      card.appendChild(el('p',{class:'hint'},[categTitrationModeHint(cfg, cfg.titrationMode||'manuale')]));
     }
     if(cfg.taskMode==='dualtask'){
       const DUAL_VIS_MATS = ['lettere','numeri','simboli','colori'];
@@ -4133,15 +4491,15 @@
   // per le tre modalità standalone).
   function neglectBoardSubLevel(){
     if(cfg.neglectMode==='progressiva'){
-      const raw = cfg.adaptive ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;
+      const raw = cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;
       return neglectProgressivaPhase(raw).subLevel;
     }
-    if(cfg.neglectMode==='regola') return cfg.adaptive ? (session && session.liveBoardLevel) : cfg.neglectRuleLevel;
-    return cfg.adaptive ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;
+    if(cfg.neglectMode==='regola') return cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectRuleLevel;
+    return cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;
   }
   function buildNeglectBoardIntruso(){
     const subLevel = neglectBoardSubLevel();
-    const n = cfg.adaptive ? (ADAPT_NEGLECT_SIZE[subLevel] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
+    const n = cfg.titrationMode!=='manuale' ? (ADAPT_NEGLECT_SIZE[subLevel] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
     const level = subLevel || cfg.neglectStartLevel || 3;
     const pool = intrusoPoolFor(cfg.neglectAlphabet, level);
     const nOdd = n % 2 === 0 ? n+1 : n; // deve essere dispari: bersaglio singolo + il resto ripetuto
@@ -4175,7 +4533,7 @@
     const stimType = (cfg.stimType==='numeri' || cfg.stimType==='lettere') ? cfg.stimType : 'lettere';
     const basePool = stimType==='numeri' ? ['1','2','3','4','5','6','7','8','9'] : ['A','E','I','O','U','B','C','D','F','G','H','L','M','N','P','R','S','T'];
     const subLevel = neglectBoardSubLevel();
-    const n = cfg.adaptive ? (ADAPT_NEGLECT_SIZE[subLevel] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
+    const n = cfg.titrationMode!=='manuale' ? (ADAPT_NEGLECT_SIZE[subLevel] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
     const rule = neglectRuleFor(stimType, subLevel || cfg.neglectRuleLevel, cfg.neglectRuleClauses);
     const positions = neglectLayoutPositions(n);
     return positions.map(p=>{
@@ -4189,7 +4547,7 @@
   function buildNeglectBoardClassico(){
     const pool = POOLS[cfg.stimType];
     const targets = cfg.targetSeq;
-    const n = cfg.adaptive ? (ADAPT_NEGLECT_SIZE[neglectBoardSubLevel()] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
+    const n = cfg.titrationMode!=='manuale' ? (ADAPT_NEGLECT_SIZE[neglectBoardSubLevel()] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
     const targetCount = Math.max(4, Math.round(n*0.25));
     // gradiente continuo 0-100: 0=tutti i bersagli a destra, 100=tutti a
     // sinistra, 50=simmetrico. Con l'adattivo attivo, session.liveGradient
@@ -4249,7 +4607,7 @@
   }
   function buildNeglectBoard(){
     if(cfg.neglectMode==='progressiva'){
-      const abs = cfg.adaptive ? session.liveBoardLevel : cfg.neglectStartLevel;
+      const abs = cfg.titrationMode!=='manuale' ? session.liveBoardLevel : cfg.neglectStartLevel;
       const phase = neglectProgressivaPhase(abs).mode;
       if(phase==='intruso') return buildNeglectBoardIntruso();
       if(phase==='regola') return buildNeglectBoardRegola();
@@ -4275,7 +4633,7 @@
     session.boardStartTime = performance.now();
     session.awaitingCount = false;
     render();
-    const timeLimit = cfg.adaptive ? (ADAPT_NEGLECT_TIME[neglectBoardSubLevel()] ?? cfg.neglectTimeLimit) : cfg.neglectTimeLimit;
+    const timeLimit = cfg.titrationMode!=='manuale' ? (ADAPT_NEGLECT_TIME[neglectBoardSubLevel()] ?? cfg.neglectTimeLimit) : cfg.neglectTimeLimit;
     if(timeLimit>0){
       const onTimeUp = ()=> currentNeglectEffMode()==='regola' ? beginRegolaCountEntry('tempo scaduto') : finishBoard('tempo scaduto');
       scheduleStep(onTimeUp, timeLimit*1000);
@@ -4475,7 +4833,7 @@
     let cueType, isiOverride;
     if(block==='tonic'){
       cueType = 'none';
-      const range = TAPAT_LEVELS[session.tapatLevel] || TAPAT_LEVELS[3];
+      const range = cfg.titrationMode==='manuale' ? [cfg.tapatIsiMin, cfg.tapatIsiMax] : (TAPAT_LEVELS[session.tapatLevel] || TAPAT_LEVELS[3]);
       isiOverride = range[0] + Math.random()*(range[1]-range[0]);
     } else {
       cueType = Math.random()<0.5 ? 'none' : 'center';
@@ -4778,7 +5136,7 @@
     scheduleStep(()=>{
       session.phase='wait'; render();
       let isi = trial.isiOverride || cfg.isi;
-      if(!trial.isiOverride && cfg.adaptive && cfg.taskMode==='dualtask'){
+      if(!trial.isiOverride && cfg.titrationMode!=='manuale' && cfg.taskMode==='dualtask'){
         // Il doppio compito non ha un unico session.adaptLevel: i due canali
         // sono adattati in modo indipendente (dualLevel1/dualLevel2). L'ISI
         // è condivisa da entrambi i canali (sono presentati insieme), quindi
@@ -5170,7 +5528,7 @@
       case 'switching':
         return [{action:'a', label:'—', cls:'match'}, {action:'b', label:'—', cls:'nomatch'}];
       case 'categorizzazione': {
-        const liv = categStructureOfLevel(cfg.categLivello);
+        const liv = categEffectiveStructure(cfg);
         if(liv===1){
           const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
           return [{action:'a', label:rs.labelA, cls:'match'}, {action:'b', label:rs.labelB, cls:'nomatch'}];
@@ -5592,7 +5950,7 @@
   function materialLabelFor(c){
     if(c.taskMode==='switching') return SWITCH_MATERIAL_LABELS_SHORT[c.switchMaterial]||c.switchMaterial;
     if(c.taskMode==='categorizzazione'){
-      const struct = categStructureOfLevel(c.categLivello);
+      const struct = categEffectiveStructure(c);
       return (struct===1||struct===4) ? (CATEG_MATERIAL_LABELS_SHORT[c.categMateriale]||c.categMateriale) : 'Lettere/numeri';
     }
     if(c.taskMode==='dualtask'){
@@ -6229,6 +6587,13 @@
       id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
       ts: Date.now(), dateLabel: todayStr(),
       stimType: cfg.stimType, nLevel: cfg.nLevel, trials: cfg.trials, isi: cfg.isi, stimDuration: cfg.stimDuration,
+      // titrationMode/targetRate: servono al controllo di comparabilità
+      // dell'RCI (vedi sessionMismatchWarnings) — prima non venivano
+      // registrati per sessione, solo nell'ultima configurazione raggiunta,
+      // quindi l'RCI non poteva sapere con cosa erano state generate le
+      // sessioni che stava confrontando.
+      titrationMode: hasTitrationMode(cfg.taskMode) ? (cfg.titrationMode||'manuale') : null,
+      targetRate: cfg.targetRate,
       respMode: cfg.respMode, patientCode: cfg.patientCode, notes: cfg.notes,
       taskMode: cfg.taskMode, targetSeq: EXERCISES[cfg.taskMode].usesTargetSeq ? cfg.targetSeq.map(seqLabel) : null,
       sequenzaMista: (cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no') ? cfg.sequenzaMista : null,
@@ -7191,7 +7556,7 @@
             ])
           ]),
           levelChanged ? el('div',{style:'font-size:12px; color:var(--ink-soft); margin-top:4px;'},['Suggerito dallo screening: livello '+origLevel+' — oggi: livello '+curLevel]) : null,
-          TITRATION_EXERCISES.includes(entry.cfg.taskMode) && !(entry.cfg.taskMode==='ant' && entry.cfg.antMode==='tapat') ? el('div',{style:'margin-top:6px;'},[
+          (TITRATION_EXERCISES.includes(entry.cfg.taskMode) && !(entry.cfg.taskMode==='ant' && entry.cfg.antMode==='tapat')) || TITRATION_MODE_EXTRA.includes(entry.cfg.taskMode) || (entry.cfg.taskMode==='ant' && entry.cfg.antMode==='tapat') ? el('div',{style:'margin-top:6px;'},[
             el('div',{style:'display:flex; align-items:center; gap:6px; flex-wrap:wrap;'},[
               el('span',{style:'font-size:12px; color:var(--ink-soft);'},['Modalità:']),
               ...['manuale','livello','adattivo'].map(m=>{
@@ -7215,7 +7580,13 @@
                 },[{manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'}[m]]);
               })
             ]),
-            el('div',{style:'font-size:11.5px; color:var(--ink-soft); margin-top:3px;'},[titrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')])
+            el('div',{style:'font-size:11.5px; color:var(--ink-soft); margin-top:3px;'},[
+              entry.cfg.taskMode==='neglect' ? neglectTitrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
+                : entry.cfg.taskMode==='dualtask' ? dualTitrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
+                : entry.cfg.taskMode==='categorizzazione' ? categTitrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
+                : (entry.cfg.taskMode==='ant' && entry.cfg.antMode==='tapat') ? tapatTitrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
+                : titrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
+            ])
           ]) : null,
           el('div',{style:'display:flex; align-items:center; gap:8px; margin-top:6px;'},[
             el('span',{style:'font-size:12px; color:var(--ink-soft);'},[

@@ -292,13 +292,14 @@ margine sia a pavimento (deficit marcati) sia a soffitto (prestazioni
 forti):
 
 **Modello triplice di titolazione — Manuale / Livello / Adattivo.**
-Per i 6 esercizi con stepper "Livello" condiviso (N-back, Go/No-Go,
-Task-switching, Sequenza bersaglio, Stop-Signal, ANT classico — non
-Doppio compito, Cancellazione, Categorizzazione condizionale o TAPAT, che
-hanno meccanismi di livello propri non condivisi con questo gruppo), il
-clinico sceglie fra tre modalità, cambiabili liberamente fra una seduta e
-l'altra (mai dentro una sessione in corso) dal profilo del paziente
-("Gestisci programma") o da Setup:
+Descritto qui per i 6 esercizi con stepper "Livello" pienamente
+condiviso (N-back, Go/No-Go, Task-switching, Sequenza bersaglio,
+Stop-Signal, ANT classico) — la stessa idea si applica, con le varianti
+dichiarate caso per caso più sotto, a tutti gli altri 8 esercizi tranne
+Scenari ecologici e Strategie di memoria (vedi il riepilogo dopo la
+tabella dei livelli). Il clinico sceglie fra tre modalità, cambiabili
+liberamente fra una seduta e l'altra (mai dentro una sessione in corso)
+dal profilo del paziente ("Gestisci programma") o da Setup:
 
 - **Manuale**: ogni parametro (ISI, frequenza bersaglio/no-go, intervallo
   cue→stimolo, sbilanciamento fra regole, lunghezza sequenza — secondo
@@ -320,6 +321,17 @@ cambiare modalità senza dover riaprire Setup — e riflette sempre l'ultima
 configurazione **davvero raggiunta** in sessione per quel paziente/
 esercizio (non quella salvata quando l'esercizio fu assegnato la prima
 volta), la stessa fonte già usata da "▶ Avvia".
+
+**Configurazioni salvate per paziente, con un nome a scelta.** Distinto
+dal livello raggiunto automaticamente ad ogni seduta (che viene sempre
+sovrascritto): dentro il flusso "aggiungi/modifica esercizio nel
+programma" di un paziente, un pulsante permette di salvare la
+configurazione corrente con un nome scelto dall'operatore (es. "Livello
+base", "Rivalutazione marzo") — resta ferma finché non la si sovrascrive
+esplicitamente con lo stesso nome, indipendentemente da quante sedute
+avvengono nel frattempo con parametri diversi. Più slot per lo stesso
+paziente/esercizio, richiamabili in un tocco. Salvare due volte con lo
+stesso nome sovrascrive quella voce, non ne crea una seconda.
 
 **Bug di sincronizzazione corretto (era la domanda bloccante della
 consegna precedente).** Prima di questa modifica, in modalità fissa
@@ -350,6 +362,68 @@ Stop-Signal, frequenza bersaglio della Sequenza, frequenza di cambio
 regola del Task-switching — tutti parametri metodologici fissi, non leve
 di difficoltà) restano sempre modificabili, in ogni modalità.
 
+**Estesa anche a Cancellazione (neglect) e Doppio compito.** Stesso
+modello triplice, stesso bug corretto, per entrambi. Per Cancellazione:
+in modalità Manuale la dimensione della tavola e il tempo limite ora
+restano davvero indipendenti dal livello (prima c'era lo stesso scarto
+silenzioso degli altri 6 esercizi), in Livello/Adattiva seguono sempre la
+tabella — anche nel caso più complesso, la modalità "Progressiva" (scala
+assoluta 1-30 che attraversa tre fasi), dove il livello mostrato in Setup
+si traduce sempre correttamente nel sotto-livello 1-10 della fase attiva,
+in ogni modalità. Per il Doppio compito: **un solo selettore condiviso**,
+non uno per canale — scelta deliberata, non una scorciatoia: il motore
+ha sempre avuto un unico interruttore "adattivo" per l'intero esercizio
+(`cfg.adaptive`), mai due flag indipendenti per canale, quindi due
+selettori avrebbero permesso stati misti (canale 1 Adattivo, canale 2
+Manuale) che il codice sottostante non saprebbe comunque gestire
+separatamente. I due LIVELLI restano invece pienamente indipendenti
+(due stepper distinti, mai stati uniti) — solo la scelta di modalità è
+una sola. L'ISI, condiviso perché i due canali sono presentati insieme,
+deriva dalla media dei due livelli (arrotondata), non da uno dei due.
+
+**Estesa anche a Categorizzazione condizionale — con una differenza
+sostanziale dagli altri 8, per decisione esplicita di Rodrigo.** Qui
+"Manuale" non significa "stessa struttura del livello, parametri
+liberi" (come per tutti gli altri esercizi) — significa **struttura
+scelta liberamente**, indipendente dal numero di livello: un nuovo campo
+"Struttura (1-5)" sostituisce lo stepper "Livello" quando si è in
+Manuale, e il clinico può impostare la struttura 4 (confronto 1-back)
+anche restando "al livello 1" nel senso numerico del termine — il numero
+di livello smette di significare qualcosa in questa sola modalità, ed è
+per questo che in Manuale non compare affatto, sostituito dalla scelta
+diretta di struttura. In Livello/Adattivo, tutto resta come sempre:
+struttura derivata dal livello, mai un cambio di struttura a metà
+seduta. ISI (strutture 1/2/3/5) o frequenza lure (struttura 4, il
+confronto 1-back) seguono lo stesso principio degli altri esercizi:
+tabella in Livello/Adattivo, campo libero in Manuale — corretto anche
+qui lo stesso bug di sincronizzazione silenzioso già visto altrove
+(l'ISI seguiva sempre la tabella, mai il campo libero, a prescindere
+dalla modalità).
+
+**Estesa infine anche al TAPAT — l'ultimo degli 11 esercizi.** Stesso
+principio degli altri: in Manuale, l'intervallo fra stimoli del blocco
+tonico (quello a ritmo lento e imprevedibile, pensato per misurare
+l'allerta sostenuta) diventa un range libero (minimo/massimo impostabili
+separatamente, non un singolo ISI — l'imprevedibilità dell'intervallo è
+parte del costrutto, non un dettaglio) invece di seguire sempre la
+tabella per livello. Il blocco fasico (quello con il cue, a metà seduta)
+non cambia: ha sempre usato il campo ISI generico di Setup, in ogni
+modalità, non era mai stato legato al livello — solo il blocco tonico
+aveva lo stesso scarto silenzioso già visto altrove. In Livello/Adattivo
+tutto resta come sempre.
+
+Con questa estensione, **tutti gli 11 esercizi hanno una gestione
+esplicita e coerente della titolazione** — i primi 8 (compresi i 6
+originali) con il selettore Manuale/Livello/Adattivo pienamente
+condiviso, Categorizzazione condizionale con la stessa idea adattata al
+suo caso particolare (struttura disaccoppiata dal livello in Manuale),
+Doppio compito e TAPAT con le loro varianti dichiarate (un solo
+selettore condiviso per due canali; range libero invece di ISI singolo).
+Scenari ecologici e Strategie di memoria restano fuori per un motivo
+diverso, non tecnico: non hanno mai avuto un concetto di "livello
+adattivo" nello stesso senso — la loro scala di complessità/i loro
+materiali sono sempre stati scelti a mano, non titolati.
+
 | Esercizio | Livelli | Cosa varia col livello |
 |---|---|---|
 | N-back | 1-10 | n cresce solo a cambio di banda — 1 ai livelli 1-4, 2 ai livelli 5-9, 3 al solo livello 10 (il carico "puro" resta clinicamente vincolato: la letteratura su cui si basa l'n-back mostra un calo netto di accuratezza già a n=3) — dentro ogni banda scalano frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso: aumentano il carico di controllo dell'interferenza senza alzare n, cfr. Kane, Conway, Miura & Colflesh, 2007) |
@@ -360,7 +434,7 @@ di difficoltà) restano sempre modificabili, in ogni modalità.
 | TAPAT | 1-10 | Intervallo tra stimoli, da prevedibile e ravvicinato (0.9-1.8s) a lungo e imprevedibile (12-25s) |
 | Task-switching | 1-10 | Intervallo cue→stimolo (CSI, 900→150ms) insieme allo sbilanciamento fra le due regole (50%→97%) — due parametri combinati |
 | Doppio compito | 1-10 (per canale, indipendenti) | Frequenza target per canale (40%→5%) insieme all'ISI condiviso fra i due canali (3000→700ms, derivato dalla media dei due livelli canale); ciascun canale ha anche una propria frequenza di trial lure (foil identico a quello di 2 prove fa invece che 1 — stessa logica del lure nell'N-back), assente ai due livelli più bassi e crescente fino al livello 10 |
-| Categorizzazione condizionale | 1-10 (manuale o adattivo) | Banda doppia delle 5 strutture originarie (dimensione singola → doppia dimensione+no-go → regola disgiuntiva → 1-back sulla categoria → doppia dimensione a 4 risposte), ordinate per complessità relazionale (Halford, Wilson & Phillips, 1998) non per numero di mappature stimolo-risposta; dentro ogni banda l'ISI si stringe, tranne nella banda del 1-back (livelli 7-8) dove il secondo parametro è la frequenza di trial lure (stessa categoria di 2 prove fa invece che 1). Con l'adattivo attivo, la titolazione (ISI/lure) resta vincolata dentro la struttura di partenza per tutta la seduta — non attraversa mai un confine di struttura (= un cambio di regola) a metà sessione, vedi sezione "Vincolo di fascia strutturale" più sotto |
+| Categorizzazione condizionale | 1-10 in Livello/Adattivo; struttura 1-5 scelta direttamente in Manuale (vedi sopra) | Banda doppia delle 5 strutture originarie (dimensione singola → doppia dimensione+no-go → regola disgiuntiva → 1-back sulla categoria → doppia dimensione a 4 risposte), ordinate per complessità relazionale (Halford, Wilson & Phillips, 1998) non per numero di mappature stimolo-risposta; dentro ogni banda l'ISI si stringe, tranne nella banda del 1-back (livelli 7-8) dove il secondo parametro è la frequenza di trial lure (stessa categoria di 2 prove fa invece che 1). Con l'adattivo attivo, la titolazione (ISI/lure) resta vincolata dentro la struttura di partenza per tutta la seduta — non attraversa mai un confine di struttura (= un cambio di regola) a metà sessione, vedi sezione "Vincolo di fascia strutturale" più sotto |
 | Cancellazione (neglect) | Classico/Trova l'intruso: 1-10. Conteggio a regola: 1-10 (unificato, non più separato dalla dimensione tavola). Progressiva: 1-30 | Elementi per tavola (14→85) insieme al tempo limite per tavola (nessun limite ai livelli 1-2, poi 110→18s). In "Conteggio a regola" la complessità della regola scala insieme, 2 livelli per condizione, ordine colore→sfondo→riga (percettivo prima, posizionale per ultimo — Treisman & Gelade, 1980). "Progressiva" incolla i tre in sequenza (1-10 Classico, 11-20 Intruso, 21-30 Regola), ciascuno con la propria scala 1-10 completa. Tutti i cambi di sotto-modalità (progressiva) o di condizione (regola) sono vincolati a non attraversare la seduta in corso, vedi sotto |
 
 **Conteggio a regola — risposta a conteggio mentale, non a tocco.** A
@@ -695,6 +769,7 @@ alter table pazienti add column if not exists modalita_accesso text default 'dir
 alter table pazienti add column if not exists screening_completato_il timestamptz; -- valorizzato la prima volta che il paziente completa lo screening in modalita_accesso='screening_poi_suggeriti' — il gate scatta una sola volta
 alter table pazienti add column if not exists screening_risultati jsonb; -- ultimo screening completo (tutti i domini, non solo quelli flaggati) — {ts, summary:[...]}, mostrato in "Gestisci programma"
 alter table pazienti add column if not exists livelli_esercizi jsonb; -- {taskMode: configurazione+livello raggiunto in quell'esercizio}, aggiornato dopo ogni sessione — un paziente con più esercizi assegnati ritrova il proprio livello in ciascuno, non solo nell'ultimo usato (che resta in ultima_config)
+alter table pazienti add column if not exists configurazioni_salvate jsonb; -- {taskMode: [{nome, cfg, savedAt}, ...]} — slot nominali salvati esplicitamente dall'operatore, distinti da livelli_esercizi (che si sovrascrive da solo ad ogni sessione)
 alter table pazienti enable row level security;
 drop policy if exists "operatore vede e gestisce i propri pazienti" on pazienti;
 create policy "operatore vede e gestisce i propri pazienti" on pazienti for all
@@ -730,6 +805,8 @@ alter table sessioni add column if not exists neglect jsonb;
 alter table sessioni add column if not exists goaltask jsonb;
 alter table sessioni add column if not exists memoria jsonb;
 alter table sessioni add column if not exists final_level text;
+alter table sessioni add column if not exists titration_mode text; -- 'manuale'|'livello'|'adattivo' al momento di QUESTA sessione — serve al controllo di comparabilità dell'RCI (vedi sezione RCI), senza questa colonna il controllo tratta il dato come "non verificabile" per i pazienti in cloud, non come "comparabile"
+alter table sessioni add column if not exists target_rate numeric; -- frequenza bersaglio/no-go/trial-di-stop al momento di QUESTA sessione, stesso motivo della colonna sopra
 update sessioni set operatore_id = user_id where operatore_id is null;
 alter table sessioni alter column operatore_id set not null;
 alter table sessioni enable row level security;
@@ -1152,6 +1229,36 @@ significativo (soglia ±1.96). I valori di affidabilità test-retest usati
 nel calcolo sono stime prudenti di default (0.65-0.75 a seconda
 dell'esercizio) — se hai valori più precisi dalla letteratura per un dato
 paradigma, si correggono nella costante `RCI_RELIABILITY` nel codice.
+
+**Controllo di comparabilità: l'RCI si rifiuta di calcolare un numero
+quando le sessioni confrontate non sono comparabili.** Un cambiamento di
+accuratezza fra sessioni con parametri diversi (livello, ISI, numero di
+prove, frequenza bersaglio/no-go, modalità di titolazione Manuale/
+Livello/Adattivo) misurerebbe quanto è cambiato il compito, non quanto è
+cambiato il paziente — l'assunzione di base di Crawford & Howell (stessa
+misura, stesse condizioni) salterebbe silenziosamente. Confrontare il
+livello 1 con il livello 10 dello stesso esercizio ha esattamente lo
+stesso problema di un ISI diverso fra le due sedute: **stesso controllo,
+non un caso a parte**. Quando viene rilevato uno scostamento sostanziale,
+il CSV e il report stampabile mostrano comunque le medie grezze (dato
+legittimo da guardare per quello che è) ma **non** il numero RCI, insieme
+al motivo specifico dello scostamento. Questo controllo dipende dai
+parametri registrati per ciascuna sessione (colonne `titration_mode` e
+`target_rate` nella tabella `sessioni`, vedi schema Supabase) — per le
+sessioni registrate prima di questa consegna, o per pazienti in cloud
+finché non si aggiungono quelle due colonne, il dato è assente e il
+controllo lo tratta come "non verificabile", non come "sicuramente
+comparabile": non blocca un confronto per un dato che semplicemente non
+c'è ancora, ma nemmeno lo dichiara valido senza prove.
+
+**Sessioni di verifica a parametri fissi — proposta non ancora
+implementata.** Il modo più solido per garantire confrontabilità nel
+tempo, discusso ma non ancora costruito: periodicamente, invece di
+confrontare sedute di allenamento (che si spostano di proposito, in
+Livello/Adattivo), far svolgere una seduta a una configurazione FISSA di
+riferimento, usata solo per la misura — l'allenamento vero e proprio
+resta libero di muoversi a qualunque livello serva clinicamente, senza
+dover scegliere fra "titolare bene" e "poter confrontare bene".
 
 ## Scenari ecologici (pianificazione / multitasking)
 

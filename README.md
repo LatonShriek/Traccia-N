@@ -27,7 +27,8 @@ multi-operatore e accesso paziente — è opzionale.
 [Sincronizzazione cloud e multi-utente](#sincronizzazione-cloud-e-account-multi-utente-facoltativa--supabase) ·
 [Gestione pazienti: programma, modalità di accesso, obiettivi, limiti, RCI, archiviazione](#gestione-pazienti-programma-modalità-di-accesso-obiettivi-limiti-rci-archiviazione) ·
 [Scenari ecologici](#scenari-ecologici-pianificazione--multitasking) ·
-[Strategie di memoria](#strategie-di-memoria)
+[Strategie di memoria](#strategie-di-memoria) ·
+[Test di regressione](#test-di-regressione)
 
 ## Framework teorico della batteria
 
@@ -537,6 +538,22 @@ motivate ma non normate, pensate per essere riviste con l'uso clinico
 reale. Un solo blocco per condizione (16 prove, 1 tavola per la
 Cancellazione) è una stima rapida, non una misura precisa: da trattare
 come un primo orientamento su cosa approfondire, non come diagnosi.
+
+## Test di regressione
+
+La cartella `tests/` contiene una suite di controlli automatici per i 6
+esercizi con titolazione a livelli condivisa (N-back, Go/No-Go,
+Task-switching, Sequenza bersaglio, Stop-Signal, ANT). Si lancia con:
+
+```
+node tests/run-all.js
+```
+
+Non serve installare nulla, non è collegata alla pagina che vedono
+pazienti/operatori (GitHub Pages la ospita come file inerte, non la
+esegue mai) — è uno strumento di lavoro per chi sviluppa, da lanciare
+prima di consegnare una modifica che tocca uno di quei 6 esercizi.
+Dettagli su cosa copre e cosa no in `tests/README.md`.
 
 ## Pubblicazione su GitHub Pages (una volta sola)
 

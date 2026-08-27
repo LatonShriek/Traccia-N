@@ -101,6 +101,35 @@ risposta (invariati, confrontabili con lo storico pre-redesign); la
 correttezza della scelta è tracciata a parte come nuova metrica
 "accuratezza discriminazione (go)", che non sostituisce le prime.
 
+**ANT/TAPAT — il cue precede sempre il target, non compare più insieme.**
+Bug corretto: cue (l'asterisco/freccia di allerta o orienting nell'ANT
+classico, il tono di allerta nel TAPAT) e bersaglio venivano mostrati/
+suonati nello stesso istante — questo azzerava di fatto la funzione del
+cue, che nel paradigma di Posner & Petersen (1990) e nell'ANT di Fan et
+al. (2002) deve precedere il bersaglio per dare un vantaggio di
+preparazione misurabile (effetto di allerta/orienting). Ora c'è sempre
+una fase di solo cue prima del bersaglio, con un SOA fisso di 400ms
+(cue visibile/udibile 100ms, poi 300ms di intervallo) — in linea con i
+valori più diffusi nelle repliche dell'ANT. Per il TAPAT (DeGutis & Van
+Vleet, 2010) non ho trovato un SOA specificato nella fonte originale:
+uso lo stesso valore dell'ANT come scelta dichiarata, non un dato
+verificato per il TAPAT stesso.
+
+**Dispositivo di risposta e tastiera.** Oltre al touch, l'app supporta
+sempre la risposta da tastiera per gli esercizi a 1, 2 o 4 pulsanti
+(barra spaziatrice, o lettere nell'ordine dei pulsanti mostrati). In
+Setup, "Dispositivo di risposta previsto" (touch/tastiera) non abilita
+né disabilita nulla — la tastiera funziona comunque sempre in
+background — ma decide cosa evidenziare: con "Tastiera" selezionata, ogni
+pulsante mostra un badge col tasto corrispondente e le istruzioni
+prima di iniziare evidenziano la scorciatoia in un riquadro, invece di
+un paragrafo secondario facile da non notare in un compito a tempo. Due
+disposizioni tasti: "Standard" (A / L / Z / M, quella storica dell'app)
+e "Ravvicinata" (V / B / N / M — quattro tasti fisicamente adiacenti
+sulla riga inferiore della tastiera, raggiungibili con una sola mano,
+per chi ha una limitazione motoria che rende impraticabile la
+disposizione standard).
+
 **TAPAT — variante uditiva.** TAPAT (Tonic and Phasic Alertness Training)
 è un protocollo pubblicato — DeGutis & Van Vleet, *Frontiers in Human
 Neuroscience*, 2010, validato specificamente su pazienti con neglect
@@ -303,6 +332,22 @@ visibile e sembrasse applicarsi. La nuova modalità "Livello" risolve
 esplicitamente il problema: quando è selezionata, tutti questi parametri
 seguono sempre la tabella del livello mostrato — non c'è più uno scarto
 fra "livello scritto in Setup" e "parametri davvero in uso".
+
+**Trasparenza dei controlli in Setup, non solo del testo.** Un secondo
+bug, distinto dal primo, faceva sembrare che muovere il livello "non
+cambiasse niente": gli stepper di Frequenza/ISI mostravano sempre il
+valore grezzo indipendente, mai il valore di tabella realmente in uso in
+modalità Livello/Adattiva — l'operatore vedeva lo stesso numero a
+qualunque livello, anche se il motore stava già applicando quello
+corretto. Ora, per i soli parametri davvero derivati da tabella
+(frequenza N-back/Go-No-Go; ISI di Sequenza bersaglio, Stop-Signal, ANT
+classico), il controllo diventa di sola lettura in Livello/Adattivo e
+mostra il valore vero, aggiornato in tempo reale muovendo lo stepper
+"Livello". Gli altri parametri con lo stesso nome ma non collegati al
+livello per scelta di costruzione (frequenza trial di stop dello
+Stop-Signal, frequenza bersaglio della Sequenza, frequenza di cambio
+regola del Task-switching — tutti parametri metodologici fissi, non leve
+di difficoltà) restano sempre modificabili, in ogni modalità.
 
 | Esercizio | Livelli | Cosa varia col livello |
 |---|---|---|

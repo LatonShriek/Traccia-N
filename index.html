@@ -344,11 +344,16 @@
       }},
     sequenza:   {label:'Sequenza bersaglio',      usesStimType:true,  usesTargetSeq:true,  family:'signal',
       domini:['Memoria di lavoro','Attenzione sostenuta'],
-      instructions:c=> (isAudioOnlyStim(c.stimType)&&!c.sequenzaMista?'Sentirai':'Vedrai')+' una serie di stimoli, uno dopo l\'altro. Tocca il pulsante dorato subito dopo che si è conclusa la sequenza '+c.targetSeq.map(seqLabel).join(', poi ')+'. Per tutti gli altri stimoli non toccare nulla.'},
+      instructions:c=>{
+        const verbo = (isAudioOnlyStim(c.stimType)&&!c.sequenzaMista) ? 'Sentirai' : 'Vedrai';
+        const seqTxt = c.targetSeq.map(seqLabel).join(' → ');
+        const n = c.targetSeq.length;
+        return verbo+' una serie di stimoli, uno alla volta. Il tuo compito è riconoscere quando compaiono, uno subito dopo l\'altro e nell\'ordine giusto, questi '+n+': '+seqTxt+'. Appena vedi comparire l\'ultimo di questi ('+seqLabel(c.targetSeq[n-1])+'), ma solo se è arrivato subito dopo gli altri '+(n-1)+' nell\'ordine corretto, tocca il pulsante dorato. Per tutti gli altri stimoli — anche se uno di questi appare da solo, fuori sequenza, o nell\'ordine sbagliato — non toccare nulla.';
+      }},
     gonogo:     {label:'Go/No-Go',                usesStimType:true,  usesTargetSeq:true,  family:'signal',
       domini:['Controllo inibitorio','Attenzione sostenuta'],
       instructions:c=>{
-        const active = c.adaptive ? c.targetSeq.slice(0, Math.max(1,ADAPT_GONOGO_COUNT[c.adaptStartLevel]||1)) : c.targetSeq;
+        const active = c.titrationMode && c.titrationMode!=='manuale' ? c.targetSeq.slice(0, Math.max(1,ADAPT_GONOGO_COUNT[c.adaptStartLevel]||1)) : c.targetSeq;
         const list = active.map(seqLabel).join(', ');
         return 'Tocca il pulsante ogni volta che appare uno stimolo, tranne quando appare '+(active.length>1?'uno di questi: '+list:list)+' — in quel caso non toccare nulla.';
       }},
@@ -525,6 +530,8 @@
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
     categLivello:1, categMateriale:'simboli', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('simboli'|'lettereVoce'|'numeriVoce' — 'colori' rimosso dalla selezione, la sua unica regola era Caldo/Freddo, troppo arbitraria; resta leggibile nello storico di sedute già registrate)
     zoneGrandi:false, // accessibilità: zone di risposta molto più grandi (metà schermo per 2 risposte) invece di pulsanti piccoli — utile su tablet/smartphone per bassa vista
+    inputDevice:'touch', // 'touch' | 'tastiera' — dichiarato dall'operatore prima di iniziare, usato solo per decidere COSA evidenziare (badge dei tasti sui pulsanti, promemoria nelle istruzioni), la tastiera funziona comunque sempre in background indipendentemente da questa scelta
+    keyLayout:'standard', // 'standard' (A/L, A/L/Z/M) | 'ravvicinata' (B/N, V/B/N/M — tasti adiacenti sulla riga inferiore della tastiera, per chi può usare solo una mano)
     sequenzaMista:'no', // solo per Sequenza bersaglio: 'no'|'visivo'|'uditivo'|'misto' — mescola codici diversi nella stessa sequenza invece di un solo tipo
     nbackMista:'no', // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
     gonogoMista:'no', // solo per Go/No-Go: stesso principio — il/i bersaglio/i no-go possono essere di tipi diversi fra loro, non solo lo stesso cfg.stimType
@@ -591,6 +598,10 @@
   // sincronizzazione — includerli sarebbe un allargamento di perimetro non
   // richiesto.
   const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant'];
+  // Valore di partenza ragionevole per 'targetRate' quando si arriva su
+  // ciascun esercizio da Setup (vedi commento sul reset sopra) — stessi
+  // valori già usati come default storico dell'app per ciascun significato.
+  const DEFAULT_TARGET_RATE = { nback:0.32, sequenza:0.32, gonogo:0.32, stopsignal:0.25, switching:0.35 };
   // Trasparenza obbligatoria: qualunque sia la modalità, il clinico deve
   // sempre vedere a cosa corrisponde esattamente ciò che sta per essere
   // lanciato — un numero di livello da solo non basta in modalità Manuale
@@ -598,9 +609,31 @@
   // parametri correnti per esteso. Accetta una cfg esplicita (non solo la
   // cfg live globale) per poter essere riusata anche nel profilo/Gestisci
   // programma, dove si descrive la configurazione salvata di una voce.
+  // Parametri davvero derivati dalla tabella di livello (Livello/Adattivo)
+  // per ciascun esercizio dei 6 — usato per decidere quali controlli in
+  // Setup diventano di sola lettura in quelle due modalità, mostrando il
+  // valore realmente in uso invece di un campo indipendente che darebbe
+  // l'impressione (sbagliata) di controllare qualcosa. Gli altri esercizi/
+  // parametri restano sempre modificabili in OGNI modalità perché non sono
+  // MAI stati collegati al livello per scelta di costruzione — es. la
+  // frequenza di trial di stop dello Stop-Signal è un parametro
+  // metodologico fisso, non una leva di difficoltà, e lo stesso vale per
+  // la frequenza bersaglio della Sequenza e la frequenza di cambio regola
+  // del Task-switching.
+  function resolvedFreqForDisplay(taskMode, c){
+    if(taskMode==='nback') return nbackParamsForLevel(c.nLevel).freq;
+    if(taskMode==='gonogo') return ADAPT_GONOGO_FREQ[c.adaptStartLevel] || c.targetRate;
+    return null;
+  }
+  function resolvedIsiForDisplay(taskMode, c){
+    if(taskMode==='sequenza') return ADAPT_ISI.sequenza[c.adaptStartLevel];
+    if(taskMode==='stopsignal') return ADAPT_ISI.stopsignal[c.adaptStartLevel];
+    if(taskMode==='ant' && c.antMode==='classico') return ADAPT_ISI.ant[c.adaptStartLevel];
+    return null;
+  }
   function titrationModeHint(c, mode){
     const taskMode = c.taskMode;
-    const lvl = c.adaptStartLevel;
+    const lvl = levelOfCfg(c); // usa il campo livello corretto per l'esercizio (nLevel per N-back, adaptStartLevel per gli altri 5 — non erano lo stesso campo, bug corretto)
     if(mode==='manuale'){
       const parts = [];
       if(taskMode==='nback') parts.push('n='+nbackParamsForLevel(c.nLevel).n, 'frequenza bersaglio '+Math.round(c.targetRate*100)+'%');
@@ -637,7 +670,8 @@
       goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
-      categLivello:c.categLivello, categMateriale:c.categMateriale, zoneGrandi: !!c.zoneGrandi
+      categLivello:c.categLivello, categMateriale:c.categMateriale, zoneGrandi: !!c.zoneGrandi,
+      inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'
     };
   }
   function listPresets(){
@@ -744,6 +778,7 @@
     cfg.memoriaLociTipo = pc.memoriaLociTipo || 'casa'; cfg.memoriaLociCustom = pc.memoriaLociCustom || '';
     cfg.chunkingMetodi = (pc.chunkingMetodi && pc.chunkingMetodi.length) ? pc.chunkingMetodi : ['categoria']; cfg.chunkingNota = pc.chunkingNota || '';
     cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'simboli'; cfg.zoneGrandi = !!pc.zoneGrandi;
+    cfg.inputDevice = pc.inputDevice || 'touch'; cfg.keyLayout = pc.keyLayout || 'standard';
     // Retrocompatibilità: preset/programmi salvati prima di questa versione
     // avevano sequenzaMista/nbackMista/gonogoMista come booleano — true
     // equivaleva a "tutti i tipi mescolati insieme", oggi 'misto'.
@@ -1103,8 +1138,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -3153,6 +3188,16 @@
       resetLevelField(v); // livello sempre a 1 quando si cambia esercizio dentro Setup — il caricamento di un eventuale suggerimento da screening avviene solo all'apertura iniziale (vedi applyLevelBaselineOrSuggestion), non a ogni cambio manuale, per non sovrascrivere a sorpresa scelte già fatte dall'operatore
       if(v==='stopsignal' && !['frecce','lettere','numeri','forma','suoni'].includes(cfg.stimType)) cfg.stimType='frecce';
       if(TITRATION_EXERCISES.includes(v)){ cfg.titrationMode='manuale'; cfg.adaptive=false; } // stessa logica di resetLevelField: un cambio esercizio manuale in Setup riparte pulito, non eredita la modalità dell'esercizio precedente
+      // 'targetRate' è un campo condiviso da più esercizi con significati
+      // diversi (frequenza bersaglio N-back, frequenza no-go Go/No-Go,
+      // frequenza trial di stop Stop-Signal, frequenza cambio regola
+      // Task-switching) — senza reset, cambiare esercizio in Setup poteva
+      // lasciare un valore pensato per un esercizio completamente diverso
+      // (es. il 5% di un N-back quasi adattivo al minimo) applicato al
+      // nuovo, con lo stepper che lo mostra correttamente ma un
+      // comportamento osservato molto diverso da quanto ci si aspetta dal
+      // default. Reset a un valore di partenza ragionevole per esercizio.
+      if(DEFAULT_TARGET_RATE[v]!=null) cfg.targetRate = DEFAULT_TARGET_RATE[v];
       programAddConfirmation=null;
       const nv = EXERCISES[v];
       if(nv.usesTargetSeq){
@@ -3362,8 +3407,15 @@
       grid.appendChild(field('Livello di complessità', segButtons(['1','2','3','4','5'], String(cfg.goaltaskLivello), v=>{cfg.goaltaskLivello=parseInt(v,10); render();}, {'1':'1 — molto facile', '2':'2 — facile', '3':'3 — medio', '4':'4 — difficile', '5':'5 — molto difficile'})));
     } else if(!isNeglect){
       grid.appendChild(field('Numero di prove', stepper(cfg.trials,10,100,v=>{cfg.trials=v; updateDurEst();},4)));
-      // ISI
-      grid.appendChild(field('Intervallo tra stimoli (ISI)', stepper(cfg.isi,1000,4000,v=>{cfg.isi=v; updateDurEst();},200,ms=>(ms/1000).toFixed(1)+' s')));
+      // ISI — di sola lettura (valore di tabella) per i 3 esercizi dove il
+      // livello lo pilota davvero in modalità Livello/Adattiva; altrove
+      // resta sempre un campo libero, in ogni modalità.
+      const resolvedIsi = TITRATION_EXERCISES.includes(cfg.taskMode) && cfg.titrationMode && cfg.titrationMode!=='manuale' ? resolvedIsiForDisplay(cfg.taskMode, cfg) : null;
+      if(resolvedIsi!=null){
+        grid.appendChild(field('Intervallo tra stimoli (ISI) — da tabella, livello '+levelOfCfg(cfg), el('div',{style:'padding:10px 14px; background:var(--paper-dim); border-radius:8px; font-size:14px; color:var(--ink-soft);'},[(resolvedIsi/1000).toFixed(1)+' s — segue il livello, non modificabile in questa modalità'])));
+      } else {
+        grid.appendChild(field('Intervallo tra stimoli (ISI)', stepper(cfg.isi,1000,4000,v=>{cfg.isi=v; updateDurEst();},200,ms=>(ms/1000).toFixed(1)+' s')));
+      }
       // stim duration
       grid.appendChild(field('Durata di presentazione', stepper(cfg.stimDuration,200,Math.min(2000,cfg.isi),v=>{cfg.stimDuration=Math.min(v,cfg.isi-100);},100,ms=>ms+' ms')));
     } else {
@@ -3420,7 +3472,12 @@
       stopsignal:'Frequenza trial di stop', switching:'Frequenza cambio regola'
     };
     if(rateLabels[cfg.taskMode]){
-      grid.appendChild(field(rateLabels[cfg.taskMode], stepper(Math.round(cfg.targetRate*100),15,45,v=>{cfg.targetRate=v/100; render();},5,v=>v+'%')));
+      const resolvedFreq = TITRATION_EXERCISES.includes(cfg.taskMode) && cfg.titrationMode && cfg.titrationMode!=='manuale' ? resolvedFreqForDisplay(cfg.taskMode, cfg) : null;
+      if(resolvedFreq!=null){
+        grid.appendChild(field(rateLabels[cfg.taskMode]+' — da tabella, livello '+levelOfCfg(cfg), el('div',{style:'padding:10px 14px; background:var(--paper-dim); border-radius:8px; font-size:14px; color:var(--ink-soft);'},[Math.round(resolvedFreq*100)+'% — segue il livello, non modificabile in questa modalità'])));
+      } else {
+        grid.appendChild(field(rateLabels[cfg.taskMode], stepper(Math.round(cfg.targetRate*100),15,45,v=>{cfg.targetRate=v/100; render();},5,v=>v+'%')));
+      }
     }
 
     // Stop-Signal: parametri dello staircase SSD
@@ -3556,6 +3613,17 @@
       }));
       card.appendChild(respWrap);
       if(cfg.respMode!=='manuale'){
+        card.appendChild(field('Dispositivo di risposta previsto', segButtons(['touch','tastiera'], cfg.inputDevice||'touch', v=>{
+          cfg.inputDevice = v;
+          render();
+        }, {touch:'Touch (schermo)', tastiera:'Tastiera (computer)'})));
+        if(cfg.inputDevice==='tastiera'){
+          card.appendChild(field('Disposizione tasti', segButtons(['standard','ravvicinata'], cfg.keyLayout||'standard', v=>{
+            cfg.keyLayout = v;
+            render();
+          }, {standard:'Standard (A / L / Z / M)', ravvicinata:'Ravvicinata, una mano sola (B / N / V / M)'})));
+          card.appendChild(el('p',{class:'hint'},['La tastiera funziona comunque sempre, indipendentemente da questa scelta — questa impostazione decide solo quali tasti evidenziare sui pulsanti e nelle istruzioni prima di iniziare, così chi guarda lo schermo sa subito cosa premere senza doverlo scoprire a tentativi. "Ravvicinata" usa 4 tasti adiacenti sulla riga inferiore, raggiungibili con una sola mano.']));
+        }
         card.appendChild(field('Zone di risposta grandi', segButtons(['no','si'], cfg.zoneGrandi?'si':'no', v=>{
           cfg.zoneGrandi = v==='si';
           render();
@@ -3764,20 +3832,52 @@
     const textBox = el('p',{style:'font-size:16px; line-height:1.6; background:var(--paper-dim); border-radius:12px; padding:16px 18px; margin:0 0 18px;'},[text]);
     card.appendChild(textBox);
 
+    // Riferimento visivo Grande/Piccolo: la regola non ha un'ancora fissa
+    // (la dimensione è casuale ad ogni prova, non una proprietà fissa del
+    // simbolo — vedi buildSwitching), quindi senza un esempio concreto
+    // mostrato prima di iniziare, "grande" e "piccolo" restano giudizi
+    // relativi senza un metro di paragone. Mostrato solo quando la regola
+    // può davvero presentarsi in questa sessione.
+    if(cfg.taskMode==='switching' && cfg.switchMaterial==='simboli'){
+      card.appendChild(el('div',{style:'background:var(--paper-dim); border-radius:12px; padding:16px 18px; margin:0 0 18px; text-align:center;'},[
+        el('div',{style:'font-size:13px; color:var(--ink-soft); margin-bottom:10px;'},['Riferimento per la regola "Grande / Piccolo":']),
+        el('div',{style:'display:flex; align-items:center; justify-content:center; gap:28px;'},[
+          el('div',{},[
+            el('div',{class:'stimulus', style:'font-size:min(28vw,220px) !important;'},['●']),
+            el('div',{style:'font-size:12px; color:var(--ink-soft); margin-top:4px;'},['Grande'])
+          ]),
+          el('div',{},[
+            el('div',{class:'stimulus', style:'font-size:min(9vw,64px) !important;'},['●']),
+            el('div',{style:'font-size:12px; color:var(--ink-soft); margin-top:4px;'},['Piccolo'])
+          ])
+        ])
+      ]));
+    }
+
     const nBtns = respondSpec().length;
     // La scorciatoia da tastiera fa parte di quello che serve sapere prima
     // di iniziare — va detta insieme alle istruzioni quando si usa
     // "Ascolta", non lasciata come paragrafo silenzioso a parte: altrimenti
     // chi si affida solo all'audio (bassa vista, o materiale uditivo senza
-    // nulla da guardare) non la sente mai.
+    // nulla da guardare) non la sente mai. Se l'operatore ha dichiarato
+    // "Tastiera" come dispositivo previsto, il promemoria è evidenziato
+    // (non un semplice paragrafo secondario) — è l'informazione più
+    // rilevante da leggere prima di un compito a tempo in quel caso.
     let keyHint = null;
+    const layout = activeKeyLayout();
     if(cfg.respMode!=='manuale' && (nBtns===1 || nBtns===2 || nBtns===4)){
       keyHint = nBtns===1 ? 'Da computer puoi rispondere anche premendo la barra spaziatrice.'
-        : nBtns===2 ? 'Da computer puoi rispondere anche da tastiera: A / L (nell\'ordine dei pulsanti mostrati a schermo).'
-        : 'Da computer puoi rispondere anche da tastiera: A / L / Z / M (nell\'ordine dei pulsanti mostrati a schermo).';
+        : nBtns===2 ? 'Da computer puoi rispondere anche da tastiera: '+layout.labels2.join(' / ')+' (nell\'ordine dei pulsanti mostrati a schermo).'
+        : 'Da computer puoi rispondere anche da tastiera: '+layout.labels4.join(' / ')+' (nell\'ordine dei pulsanti mostrati a schermo).';
     }
     card.appendChild(speakControls(keyHint ? text+'. '+keyHint : text));
-    if(keyHint) card.appendChild(el('p',{class:'hint', style:'margin-top:10px;'},[keyHint]));
+    if(keyHint){
+      const emphasize = cfg.inputDevice==='tastiera';
+      card.appendChild(el('p',{class:'hint', style: emphasize
+        ? 'margin-top:10px; background:var(--paper-dim); border-radius:10px; padding:10px 14px; font-size:15px; font-weight:600; color:var(--ink);'
+        : 'margin-top:10px;'
+      },[keyHint]));
+    }
 
     card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ view='countdown'; render(); }},['Ho capito, inizia']));
     const nav = el('div',{class:'navlinks'});
@@ -4619,6 +4719,19 @@
   const ADAPT_SEQ_LEN = {1:2,2:2,3:3,4:3,5:3,6:3,7:4,8:4,9:5,10:5};
   const ADAPT_NEGLECT_TIME = {1:0,2:0,3:110,4:90,5:70,6:55,7:42,8:32,9:24,10:18}; // secondi per tavola (0=nessun limite) — più basso = più difficile; nessun limite ora anche al livello 2 (pavimento più graduale)
 
+  // ANT classico e TAPAT (blocco fasico): il cue deve precedere il target,
+  // non comparire insieme — è ciò che rende il cue un vero segnale di
+  // allerta/orienting anticipatorio (Posner & Petersen, 1990), non solo un
+  // ornamento visivo simultaneo. SOA fisso cue→target di 400ms (durata cue
+  // 100ms + intervallo 300ms), in linea con i valori più diffusi in
+  // letteratura per l'ANT (Fan et al., 2002; ripreso da numerose repliche,
+  // es. Callejas, Lupiáñez & Tudela, 2004). Per il TAPAT (protocollo di
+  // DeGutis & Van Vleet, 2010) non ho trovato un valore di SOA specificato
+  // nella fonte originale: uso lo stesso valore dell'ANT come scelta
+  // ragionevole e dichiarata, non come dato verificato per il TAPAT stesso
+  // — segnalare se in letteratura TAPAT esiste un valore diverso da usare.
+  const ANT_CUE_DURATION = 100;
+  const ANT_CUE_SOA = 400;
   function nextTrial(){
     session.idx++;
     if(session.idx >= cfg.trials){ finishSession(); return; }
@@ -4643,6 +4756,16 @@
       render();
       const csi = ADAPT_SWITCH_CSI[session.adaptLevel] || 400;
       scheduleStep(()=> showTrialStimulus(trial), csi);
+      return;
+    }
+    // ANT classico/TAPAT: se questa prova ha un cue, mostralo/suonalo per
+    // primo e SOLO per primo — il target compare dopo un intervallo fisso,
+    // mai insieme al cue (vedi nota su ANT_CUE_SOA sopra).
+    if(cfg.taskMode==='ant' && trial.cueType && trial.cueType!=='none'){
+      session.phase='cue';
+      render();
+      presentCue(trial);
+      scheduleStep(()=> showTrialStimulus(trial), ANT_CUE_SOA);
       return;
     }
     showTrialStimulus(trial);
@@ -4691,6 +4814,15 @@
     }
     resolveTrial();
   }
+  // Suona/prepara SOLO il cue (fase 'cue', precede sempre il target di
+  // ANT_CUE_SOA — vedi nextTrial). Per l'ANT classico il cue è puramente
+  // visivo (disegnato da renderCueNode, niente da fare qui). Per il TAPAT,
+  // il cue è un tono, disaccoppiato dalla modalità del bersaglio stesso.
+  function presentCue(trial){
+    if(cfg.taskMode==='ant' && cfg.antMode==='tapat' && trial.cueType==='center'){
+      playTone(TAPAT_CUE_TONE, ANT_CUE_DURATION+50);
+    }
+  }
   function presentStimulus(trial){
     if(cfg.taskMode==='dualtask'){
       const pairing = cfg.dualPairing || 'vis-aud';
@@ -4705,7 +4837,9 @@
       return;
     }
     if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
-      if(trial.cueType==='center') playTone(TAPAT_CUE_TONE, 150); // cue acustico, non lateralizzato per costruzione — raggiunge il paziente indipendentemente da dove è rivolta l'attenzione, in entrambe le modalità
+      // Il tono di cue è già stato suonato nella fase 'cue' separata (vedi
+      // presentCue) quando trial.cueType==='center' — qui parte solo il
+      // bersaglio, mai il cue di nuovo.
       if(cfg.tapatModalita==='uditivo'){
         // Il bersaglio stesso è il tono dedicato (mai lo stimolo visivo di
         // renderStimulusNode, che in questa modalità non viene disegnato).
@@ -5109,10 +5243,29 @@
     if(cfg.respMode!=='manuale'){
       const spec = respondSpec();
       const resp = el('div',{class:'respond'+(cfg.zoneGrandi && spec.length===2 ? ' respond-large' : '')});
-      spec.forEach(s=>{
+      // Badge del tasto sui pulsanti, SOLO se l'operatore ha dichiarato
+      // "Tastiera" come dispositivo previsto (Setup) — la tastiera
+      // funziona comunque sempre in background, il badge serve solo a
+      // rendere visibile a colpo d'occhio quale tasto corrisponde a quale
+      // pulsante, invece di doverlo scoprire per tentativi durante una
+      // prova a tempo. Aggiunto come elemento SEPARATO accanto al
+      // pulsante (mai dentro il suo testo), perché alcuni esercizi
+      // riscrivono s.label via textContent dopo il montaggio (switching,
+      // n-back a un pulsante...) — un badge dentro verrebbe cancellato.
+      const keyLabels = cfg.inputDevice==='tastiera'
+        ? (spec.length===1 ? ['SPAZIO'] : spec.length===2 ? activeKeyLayout().labels2 : spec.length===4 ? activeKeyLayout().labels4 : null)
+        : null;
+      spec.forEach((s,i)=>{
         const b = el('button',{class:'tapbtn '+s.cls+(s.full?' full':'')+(cfg.zoneGrandi && spec.length===2 ? ' tapbtn-large' : ''), onclick:()=>{ registerTap(s.action); flashTap(b); }},[s.label]);
         b.dataset.action = s.action;
-        resp.appendChild(b);
+        if(keyLabels && keyLabels[i]){
+          const holder = el('div',{style:'position:relative; flex:1 1 auto; display:flex;'});
+          holder.appendChild(b);
+          holder.appendChild(el('span',{style:'position:absolute; top:6px; right:8px; background:rgba(0,0,0,.35); color:#fff; font-size:11px; font-weight:700; letter-spacing:.03em; padding:2px 7px; border-radius:6px; pointer-events:none;'},[keyLabels[i]]));
+          resp.appendChild(holder);
+        } else {
+          resp.appendChild(b);
+        }
         btns.push(b);
       });
       root.appendChild(resp);
@@ -5164,7 +5317,9 @@
     } else if(session.showStopCue){
       d.stimSlot.appendChild(el('div',{class:'stopcue-full'},['STOP']));
     } else if(trial && session.phase==='cue' && cfg.taskMode==='switching'){
-      d.stimSlot.appendChild(el('div',{style:'color:var(--accent); font-size:18px; letter-spacing:.08em; font-weight:700;'},[trial.ruleDef.label.toUpperCase()+'?']));
+      d.stimSlot.appendChild(el('div',{style:'color:var(--accent); font-size:26px; letter-spacing:.06em; font-weight:800;'},[trial.ruleDef.label.toUpperCase()+'?']));
+    } else if(trial && session.phase==='cue' && cfg.taskMode==='ant'){
+      d.stimSlot.appendChild(renderCueNode(trial));
     } else if(trial && session.phase==='show'){
       d.stimSlot.appendChild(renderStimulusNode(trial));
     } else {
@@ -5184,6 +5339,26 @@
       b.style.pointerEvents = session.paused ? 'none' : 'auto';
     });
   }
+  // Disegna SOLO il cue (fase 'cue', precede il target — vedi nextTrial),
+  // mai insieme al bersaglio/flanker. ANT classico: '✦' per il cue
+  // centrale (allerta, non informa sulla posizione), freccia per il cue
+  // spaziale (posizione probabile del bersaglio, valido nell'80% dei
+  // casi). TAPAT visivo: solo '✦' centrale, non lateralizzato per
+  // costruzione — stesso principio già usato per il cue acustico, un
+  // segnale di allerta non deve anticipare la posizione del bersaglio.
+  function renderCueNode(trial){
+    if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+      if(cfg.tapatModalita==='uditivo') return el('div',{style:'display:flex; width:100%; justify-content:center; padding:0 8vw;'},[el('div',{style:'color:var(--ink-soft); font-size:15px; text-align:center;'},['🔊 Ascolta'])]);
+      return el('div',{style:'display:flex; width:100%; justify-content:center; padding:0 8vw;'},[
+        el('div',{style:'color:var(--accent); font-size:28px;'},['✦'])
+      ]);
+    }
+    const glyph = trial.cueType==='spatial' ? (trial.side==='left'?'◀':'▶') : '✦';
+    const color = trial.cueType==='spatial' ? 'var(--accent)' : 'rgba(255,255,255,.6)';
+    return el('div',{style:'display:flex; width:100%; justify-content:center; padding:0 8vw;'},[
+      el('div',{style:'color:'+color+'; font-size:28px;'},[glyph])
+    ]);
+  }
   function renderStimulusNode(trial){
     if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
       if(cfg.tapatModalita==='uditivo'){
@@ -5198,7 +5373,6 @@
       }
       const outer = el('div',{style:'display:flex; width:100%; justify-content:'+(trial.side==='left'?'flex-start':trial.side==='right'?'flex-end':'center')+'; padding:0 8vw;'});
       const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; gap:18px;'});
-      if(trial.cueType==='center') wrap.appendChild(el('div',{style:'color:var(--accent); font-size:28px;'},['✦']));
       if(cfg.stimType==='colori'){
         wrap.appendChild(el('div',{class:'colorcircle', style:'width:110px; height:110px; background:'+trial.val.hex+';'},[]));
       } else if(isAudioOnlyStim(cfg.stimType)){
@@ -5223,13 +5397,12 @@
       else flankers = neutralGlyph;
       const row = flankers+flankers+target(trial.targetDir)+flankers+flankers;
       const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; gap:18px;'});
-      if(trial.cueType!=='none') wrap.appendChild(el('div',{style:'color:'+ (trial.cueType==='spatial'? 'var(--accent)':'rgba(255,255,255,.6)') +'; font-size:28px;'},[trial.cueType==='spatial' ? (trial.side==='left'?'◀':'▶') : '✦']));
       wrap.appendChild(el('div',{class:'stimulus symbolwrap', style: trial.cueType==='spatial' ? ('align-self:'+(trial.side==='left'?'flex-start':'flex-end')) : ''},[row]));
       return wrap;
     }
     if(cfg.taskMode==='switching'){
       const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; gap:14px;'});
-      wrap.appendChild(el('div',{style:'color:var(--accent); font-size:16px; letter-spacing:.08em; font-weight:700;'},[trial.ruleDef.label.toUpperCase()+'?']));
+      wrap.appendChild(el('div',{style:'color:var(--accent); font-size:24px; letter-spacing:.06em; font-weight:800;'},[trial.ruleDef.label.toUpperCase()+'?']));
       if(cfg.switchMaterial==='colori'){
         wrap.appendChild(el('div',{class:'colorcircle', style:'width:140px; height:140px; background:'+trial.val.hex+';'},[]));
       } else if(cfg.switchMaterial==='bivalente'){
@@ -7770,17 +7943,24 @@
   };
 
   // Ingresso da tastiera (solo desktop) per le risposte a 2 o 4 alternative
-  // durante una sessione attiva. Mappatura fissa A/L (2 scelte) e A/L/Z/M
-  // (4 scelte, per esercizi futuri) sull'ordine dei pulsanti così come
-  // vengono renderizzati — mai attiva fuori da view==='task', per non
-  // creare scorciatoie accidentali nei menu.
+  // durante una sessione attiva. Due disposizioni possibili (cfg.keyLayout,
+  // scelta in Setup — vedi "Dispositivo di risposta previsto"): 'standard'
+  // (A/L, A/L/Z/M) o 'ravvicinata' (B/N, V/B/N/M — 4 tasti adiacenti sulla
+  // riga inferiore della tastiera, raggiungibili con una sola mano, per chi
+  // ha una limitazione motoria che rende impossibile usare due mani o
+  // coprire una tastiera intera). La disposizione non cambia MAI quali
+  // pulsanti sono attivi, solo quali tasti li attivano — mai attiva fuori
+  // da view==='task', per non creare scorciatoie accidentali nei menu.
   // Barra spaziatrice per gli esercizi a un solo pulsante (N-back,
   // categorizzazione 1-back...): prima non avevano NESSUNA scorciatoia da
   // tastiera, un vuoto reale per chi non può individuare il pulsante a
   // schermo (basso vedente, o in generale su materiale uditivo dove non
   // c'è nulla da guardare) — Tab+Invio funzionava già ma è più lento.
-  const KEY_MAP_2 = {'a':0, 'l':1};
-  const KEY_MAP_4 = {'a':0, 'l':1, 'z':2, 'm':3};
+  const KEY_LAYOUTS = {
+    standard:    { map2:{'a':0,'l':1}, map4:{'a':0,'l':1,'z':2,'m':3}, labels2:['A','L'], labels4:['A','L','Z','M'] },
+    ravvicinata: { map2:{'b':0,'n':1}, map4:{'v':0,'b':1,'n':2,'m':3}, labels2:['B','N'], labels4:['V','B','N','M'] }
+  };
+  function activeKeyLayout(){ return KEY_LAYOUTS[cfg.keyLayout] || KEY_LAYOUTS.standard; }
   document.addEventListener('keydown', function(ev){
     if(view!=='task' || !taskDom || !taskDom.btns || session.paused) return;
     const tag = (document.activeElement && document.activeElement.tagName) || '';
@@ -7792,7 +7972,8 @@
       return;
     }
     const key = ev.key.toLowerCase();
-    const map = n===2 ? KEY_MAP_2 : (n===4 ? KEY_MAP_4 : null);
+    const layout = activeKeyLayout();
+    const map = n===2 ? layout.map2 : (n===4 ? layout.map4 : null);
     if(!map || !(key in map)) return;
     const idx = map[key];
     if(idx>=n) return;

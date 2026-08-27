@@ -41,7 +41,7 @@ dieci varianti dello stesso compito.
 | N-back | Aggiornamento della memoria di lavoro (updating) | Fronto-parietale, DLPFC | Owen, McMillan, Laird & Bullmore (2005), *Human Brain Mapping*, 25(1), 46-59 |
 | Sequenza bersaglio | Context processing, controllo proattivo/reattivo (ispirato all'AX-CPT) | DLPFC (proattivo) + ACC (reattivo) | Cohen, Barch, Carter & Servan-Schreiber (1999), *Journal of Abnormal Psychology*, 108(1), 120-133 |
 | Go/No-Go | Inibizione di un'azione non ancora iniziata (action restraint) | Giro frontale inferiore sinistro + parietale | Eagle, Bari & Robbins (2008), *Psychopharmacology*, 199(3), 439-456 |
-| Stop-Signal | Cancellazione di un'azione già in corso (action cancellation), con stima di SSRT | Via fronto-striatale destra (RIFG–preSMA–STN) | Eagle, Bari & Robbins (2008), come sopra; Aron, Fletcher, Bullmore, Sahakian & Robbins (2003), *Nature Neuroscience*, 6(2), 115-116 |
+| Stop-Signal | Cancellazione di un'azione già in corso (action cancellation), con stima di SSRT | Via fronto-striatale destra (RIFG–preSMA–STN) | Eagle, Bari & Robbins (2008), come sopra; Aron, Fletcher, Bullmore, Sahakian & Robbins (2003), *Nature Neuroscience*, 6(2), 115-116; Verbruggen, Aron, Band, Logan et al. (2019), *eLife*, 8, e46323 (go-task a scelta discreta) |
 | Attenzione (ANT / TAPAT) | Allerta (tonica/fasica), orienting spaziale, conflitto percettivo | Locus coeruleus-NA; reti dorsale/ventrale; ACC-DLPFC | Fan, McCandliss, Sommer, Raz & Posner (2002), *Journal of Cognitive Neuroscience*, 14(3), 340-347 (ANT); DeGutis & Van Vleet (2010), *Frontiers in Human Neuroscience*, 4:60 (TAPAT) |
 | Task-switching | Flessibilità cognitiva (shifting), switch cost | Rete fronto-parietale dominio-generale, solco frontale inferiore | Monsell (2003), *Trends in Cognitive Sciences*, 7(3), 134-140 |
 | Categorizzazione condizionale | Applicazione di regole di classificazione di complessità crescente (fissa, non a costo di switch) | Corteccia prefrontale dorsolaterale, striato (apprendimento di regole condizionali) | Halford, Wilson & Phillips (1998), *Behavioral and Brain Sciences*, 21(6), 803-831 |
@@ -78,6 +78,28 @@ allenamento/pratica, non prove standardizzate. Questi esercizi sono
 pensati per **trattamento e monitoraggio intra-soggetto nel tempo**, non
 per confronto normativo — a differenza dei protocolli di NeuroScore, non
 hanno tabelle di riferimento.
+
+**Stop-Signal — go-task a scelta discreta, non rilevamento semplice.**
+Fino a questa consegna lo Stop-Signal era un compito di rilevamento (tocca
+appena appare qualunque stimolo, salvo stop): la guida di consenso del
+campo (Verbruggen, Aron, Band, Logan et al., 2019, *eLife*, 8, e46323)
+segnala che un go-task così semplice rischia di violare l'assunzione del
+race model alla base dello SSRT. Ora è una discriminazione 2AFC vera: la
+risposta corretta dipende dall'identità dello stimolo, non dalla sola
+comparsa. Materiali disponibili e regola fissa per ciascuno (nessuna
+alternanza fra due regole come nel Task-switching — una sola regola,
+costante per tutta la sessione): Frecce (Sinistra/Destra), Lettere
+(Vocale/Consonante, stessa regola del Task-switching/Categorizzazione),
+Numeri (Pari/Dispari, idem), Forma (Cerchio/Triangolo, coppia dedicata,
+non la stessa dicotomia "rotondo/con angoli" del Task-switching), Suoni
+(Grave/Acuto — soglia sulla frequenza mediana del pool di toni esistente:
+**ipotesi di costruzione, non un dato di letteratura**, da confermare).
+Rimossi come materiale i simboli generici, le parole e i colori (non
+citati in nessuna delle regole sopra). **Conseguenza dichiarata:**
+hit/falsi allarmi/d′/SSRT restano calcolati solo su presenza/assenza di
+risposta (invariati, confrontabili con lo storico pre-redesign); la
+correttezza della scelta è tracciata a parte come nuova metrica
+"accuratezza discriminazione (go)", che non sostituisce le prime.
 
 **TAPAT — variante uditiva.** TAPAT (Tonic and Phasic Alertness Training)
 è un protocollo pubblicato — DeGutis & Van Vleet, *Frontiers in Human
@@ -239,11 +261,54 @@ primo (es. un ISI che si aggiunge a una frequenza), il compito guadagna
 margine sia a pavimento (deficit marcati) sia a soffitto (prestazioni
 forti):
 
+**Modello triplice di titolazione — Manuale / Livello / Adattivo.**
+Per i 6 esercizi con stepper "Livello" condiviso (N-back, Go/No-Go,
+Task-switching, Sequenza bersaglio, Stop-Signal, ANT classico — non
+Doppio compito, Cancellazione, Categorizzazione condizionale o TAPAT, che
+hanno meccanismi di livello propri non condivisi con questo gruppo), il
+clinico sceglie fra tre modalità, cambiabili liberamente fra una seduta e
+l'altra (mai dentro una sessione in corso) dal profilo del paziente
+("Gestisci programma") o da Setup:
+
+- **Manuale**: ogni parametro (ISI, frequenza bersaglio/no-go, intervallo
+  cue→stimolo, sbilanciamento fra regole, lunghezza sequenza — secondo
+  l'esercizio) è impostato singolarmente in Setup, indipendente dal
+  livello. Lo stepper "Livello" resta visibile ma non pilota nulla.
+- **Livello**: lo stepper "Livello" pilota tutti i parametri collegati
+  secondo la tabella di quell'esercizio (le stesse tabelle ADAPT_* usate
+  dalla titolazione adattiva), che restano fissi per l'intera seduta.
+- **Adattivo**: come Livello, ma il livello stesso si sposta da solo
+  durante la seduta secondo la regola 70-85%/8 prove (Wilson et al.,
+  2019) — invariato rispetto a prima.
+
+In ogni modalità, Setup mostra sempre per esteso a cosa corrisponde
+esattamente ciò che sta per partire — un numero di livello da solo non
+basta in Manuale (dove non pilota nulla): lì compaiono i valori dei
+singoli parametri correnti, non un numero di livello. La stessa
+indicazione compare anche nel profilo, insieme ai tre pulsanti per
+cambiare modalità senza dover riaprire Setup — e riflette sempre l'ultima
+configurazione **davvero raggiunta** in sessione per quel paziente/
+esercizio (non quella salvata quando l'esercizio fu assegnato la prima
+volta), la stessa fonte già usata da "▶ Avvia".
+
+**Bug di sincronizzazione corretto (era la domanda bloccante della
+consegna precedente).** Prima di questa modifica, in modalità fissa
+(oggi "Manuale") cambiare il livello in Setup non aggiornava quasi
+nessun parametro reale: la frequenza bersaglio dell'N-back, la frequenza
+no-go del Go/No-Go, l'intervallo cue→stimolo e lo sbilanciamento delle
+regole del Task-switching, la lunghezza della sequenza bersaglio, l'ISI
+di Stop-Signal/ANT classico/Sequenza bersaglio restavano tutti legati a
+un campo indipendente dal livello, nonostante lo stepper "Livello" fosse
+visibile e sembrasse applicarsi. La nuova modalità "Livello" risolve
+esplicitamente il problema: quando è selezionata, tutti questi parametri
+seguono sempre la tabella del livello mostrato — non c'è più uno scarto
+fra "livello scritto in Setup" e "parametri davvero in uso".
+
 | Esercizio | Livelli | Cosa varia col livello |
 |---|---|---|
 | N-back | 1-10 | n cresce solo a cambio di banda — 1 ai livelli 1-4, 2 ai livelli 5-9, 3 al solo livello 10 (il carico "puro" resta clinicamente vincolato: la letteratura su cui si basa l'n-back mostra un calo netto di accuratezza già a n=3) — dentro ogni banda scalano frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso: aumentano il carico di controllo dell'interferenza senza alzare n, cfr. Kane, Conway, Miura & Colflesh, 2007) |
 | Go/No-Go | 1-10 | Frequenza no-go (48%→5%) e numero di elementi no-go attivi (1→4, tetto raggiunto solo al livello 10); l'ISI resta fisso (impostato manualmente in Setup), non è adattivo per questo esercizio |
-| Sequenza bersaglio | 1-10 | ISI (4500→900ms) e, solo in modalità adattiva, lunghezza della sequenza bersaglio (2→5 elementi) |
+| Sequenza bersaglio | 1-10 | ISI (4500→900ms) e, in modalità Livello/Adattiva, lunghezza della sequenza bersaglio (2→5 elementi) |
 | Stop-Signal | 1-10 (leva secondaria) + staircase SSD continuo | ISI secondario (3600→750ms); lo SSD resta un meccanismo indipendente e continuo, non a livelli (vedi sotto) |
 | ANT (classico) | 1-10 | ISI (3200→650ms) |
 | TAPAT | 1-10 | Intervallo tra stimoli, da prevedibile e ravvicinato (0.9-1.8s) a lungo e imprevedibile (12-25s) |
@@ -318,9 +383,9 @@ invece dell'ISI.
 |---|---|---|---|
 | 1 | Dimensione singola (simboli, o lettere/numeri pronunciati) | ISI ampio | 2 |
 | 2 | Dimensione singola (simboli, o lettere/numeri pronunciati) | ISI stretto | 2 |
-| 3 | Doppia dimensione + no-go: lettera nera→A, numero rosso→B, numero nero→C, lettera rossa→nessuna risposta | ISI ampio | 3 + no-go |
+| 3 | Doppia dimensione + no-go: lettera bianca→A, numero rosso→B, numero bianco→C, lettera rossa→nessuna risposta | ISI ampio | 3 + no-go |
 | 4 | Stessa struttura del livello 3 | ISI stretto | 3 + no-go |
-| 5 | Stessa doppia dimensione, ricombinata in una regola disgiuntiva: A se lettera nera *oppure* numero rosso, B se lettera rossa *oppure* numero nero | ISI ampio | 2 |
+| 5 | Stessa doppia dimensione, ricombinata in una regola disgiuntiva: A se lettera bianca *oppure* numero rosso, B se lettera rossa *oppure* numero bianco | ISI ampio | 2 |
 | 6 | Stessa struttura del livello 5 | ISI stretto | 2 |
 | 7 | Confronto con lo stimolo precedente (1-back sulla categoria) | Nessun trial lure | 1 (rispondi se la categoria è la stessa di prima) |
 | 8 | Stessa struttura del livello 7 | Trial lure: stessa categoria di 2 prove fa invece che 1 — sembra familiare per prossimità recente ma la risposta corretta resta "nessuna risposta" | 1 |
@@ -338,7 +403,11 @@ integrare in parallelo nella stessa rappresentazione, non con il numero
 di risposte disponibili.
 
 Le strutture a livelli 3/4/6/9/10 condividono lo stesso item a due
-dimensioni indipendenti (lettera/numero × nero/rosso) già usato dalla
+dimensioni indipendenti (lettera/numero × bianco/rosso — bianco, non
+nero: lo schermo di sessione ha sfondo scuro, un vero nero sarebbe
+invisibile, il campo dati interno resta `colore:'nero'` per
+compatibilità ma il rendering e ogni testo rivolto al paziente/operatore
+mostrano bianco) già usato dalla
 modalità "Bivalente" del Task-switching, ma lo ricombinano in mappature
 diverse sulla risposta — a parità di stimolo, cambia solo la regola di
 classificazione, in modo da isolare il carico della regola stessa dal
@@ -363,19 +432,32 @@ livelli 3/4 e 7/8) — altrimenti il dato sarebbe fuorviante.
 
 Sessione breve e riproducibile che confronta, per 4 domini, un blocco
 **base** (stimolo semplice, nessun carico esecutivo) con un blocco
-**caricato** (stessa area, con carico esecutivo) — un quinto dominio
-(Attenzione divisa) riusa il blocco base dell'Attenzione invece di averne
-uno proprio, sullo stesso principio del "base condiviso". Riutilizza
-esercizi già esistenti con parametri fissi e brevi (16 prove per blocco,
-1 tavola per la Cancellazione), non introduce contenuti nuovi:
+**caricato** (stessa area, con carico esecutivo). Riutilizza esercizi
+già esistenti con parametri fissi e brevi (16 prove per blocco, 1 tavola
+per la Cancellazione), non introduce contenuti nuovi:
 
 | Dominio | Blocco base | Blocco caricato |
 |---|---|---|
 | Attenzione sostenuta / inibizione | Go/No-Go, no-go frequente (48%), 1 elemento | Go/No-Go, no-go raro (22%), 3 elementi |
 | Memoria di lavoro | N-back, n=1 | N-back, n=2 |
 | Flessibilità cognitiva | Categorizzazione condizionale, livello 1 | Task-switching, bilanciato |
-| Attenzione divisa | *(riusa il base dell'Attenzione)* | Doppio compito, visivo+uditivo |
 | Esplorazione visuospaziale | Cancellazione classica, 20 elementi | Cancellazione a regola, livello 2 |
+
+**Attenzione divisa: rimossa dallo screening, non dall'app.** Il Doppio
+compito resta un esercizio pienamente disponibile e assegnabile — è
+solo uscito dal confronto base/caricato automatico. Due motivi, uno di
+costrutto e uno concettuale: (1) il blocco caricato riusava il base
+dell'Attenzione (Go/No-Go solo visivo) invece di una base nelle stesse
+due modalità del Doppio compito (visivo+uditivo) prese singolarmente —
+un calo poteva derivare dal canale uditivo mai testato da solo, non da
+un vero deficit di coordinamento; correggibile, ma (2) più a monte,
+l'attenzione divisa è concettualmente di un livello diverso dagli altri
+quattro domini — non una singola risorsa attentiva di base come
+selettiva/sostenuta, ma un coordinamento fra risorse (Baddeley,
+esecutivo centrale) o un fattore EF comune (Engle et al., 1999) — misurarla
+con lo stesso schema "base pulito vs caricato" degli altri domini la
+inquadra in modo fuorviante come se fosse un quinto substrato allo stesso
+livello degli altri, quando è piuttosto ciò che li mette in relazione.
 
 **A cosa serve il confronto.** Se il blocco caricato è sotto soglia
 (70%, la stessa "Eighty Five Percent Rule"-derivata già in uso per la

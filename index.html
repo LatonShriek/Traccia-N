@@ -228,6 +228,13 @@
       {f:220,type:'sine',icon:'A'},{f:294,type:'square',icon:'B'},{f:349,type:'sine',icon:'C'},
       {f:392,type:'triangle',icon:'D'},{f:466,type:'square',icon:'E'},{f:523,type:'triangle',icon:'F'}
     ],
+    // Materiali dedicati allo Stop-Signal two-choice: frecce (sinistra/destra,
+    // stesso alfabeto grafico dell'ANT classico) e forma (cerchio/triangolo,
+    // sottoinsieme di 'simboli' scelto apposta perché la coppia sia
+    // percettivamente inequivocabile — non "rotondo/con angoli" come nello
+    // Task-switching, ma le due forme letterali richieste).
+    frecce:  ['◀','▶'],
+    forma:   ['●','▲'],
     suoni2:  [ // registro più acuto, timbro diverso — usato per il secondo canale nel doppio compito uditivo-uditivo
       {f:660,type:'sine',icon:'G'},{f:740,type:'square',icon:'H'},{f:831,type:'triangle',icon:'I'},
       {f:932,type:'sine',icon:'J'},{f:1046,type:'square',icon:'K'},{f:1175,type:'triangle',icon:'L'}
@@ -240,7 +247,7 @@
   };
   POOLS.lettereVoce = POOLS.lettere; // stessi contenuti di 'lettere', letti dal sintetizzatore invece che mostrati
   POOLS.numeriVoce = POOLS.numeri;   // tenuto sincronizzato con POOLS.numeri in regenerateNumeriPool()
-  const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati', paroleVoce:'Parole pronunciate'};
+  const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati', paroleVoce:'Parole pronunciate', frecce:'Frecce', forma:'Forma'};
   // Stimoli uditivi puri: 'suoni' (toni) e le due varianti "voce" (lettere o
   // numeri letti dal sintetizzatore vocale, nessuna rivelazione visiva) —
   // stessa idea del canale acustico del Doppio compito, ma come tipo di
@@ -347,7 +354,25 @@
       }},
     stopsignal: {label:'Stop-Signal',             usesStimType:true,  usesTargetSeq:false, family:'signal',
       domini:['Controllo inibitorio (motorio)'],
-      instructions:c=> 'Tocca il pulsante il più velocemente possibile, ogni volta che appare uno stimolo. A volte, subito dopo, comparirà la scritta STOP: in quel caso prova a non toccare, anche se avevi già iniziato il movimento.'},
+      // Two-choice go-task (non più rilevamento semplice): la risposta corretta
+      // dipende dall'identità dello stimolo, non dalla sua sola comparsa — un
+      // vero compito di discriminazione, coerente con l'assunzione del race
+      // model alla base dello SSRT (Verbruggen, Aron, Band, Logan et al., 2019,
+      // eLife, 8, e46323: un go-task troppo semplice rischia di violarla).
+      // Conseguenza dichiarata: l'accuratezza/d′ di questa scheda restano
+      // basati solo sulla presenza/assenza di risposta (confrontabili con lo
+      // storico), la correttezza della scelta è tracciata a parte come nuova
+      // metrica "accuratezza discriminazione (go)", non sostituisce le prime.
+      instructions:c=>{
+        const rule = STOPSIGNAL_RULES[c.stimType] || STOPSIGNAL_RULES.frecce;
+        const matName = c.stimType==='frecce' ? 'una freccia'
+          : c.stimType==='lettere' ? 'una lettera'
+          : c.stimType==='numeri' ? 'un numero'
+          : c.stimType==='forma' ? 'una forma'
+          : 'un suono';
+        const verbo = c.stimType==='suoni' ? 'Sentirai' : 'Vedrai';
+        return verbo+' '+matName+' e devi rispondere il più velocemente possibile toccando "'+rule.labelA+'" o "'+rule.labelB+'", a seconda di quale delle due si applica. A volte, subito dopo, comparirà la scritta STOP: in quel caso non toccare nessuno dei due pulsanti, anche se avevi già iniziato il movimento.';
+      }},
     ant:        {label:'Attenzione (tipo ANT)',   usesStimType:true,  usesTargetSeq:false, family:'choice',
       domini:['Allerta','Orienting spaziale','Controllo esecutivo/conflitto'],
       instructions:c=>{
@@ -382,14 +407,14 @@
           const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
           return verboVis+' '+matLabel+': classificalo come "'+rs.labelA+'" o "'+rs.labelB+'", toccando il pulsante corrispondente. La regola resta sempre la stessa, non cambia da una prova all\'altra.';
         }
-        if(liv===2) return 'Vedrai una lettera o un numero, nero o rosso. Tocca "A" se è una lettera nera, "B" se è un numero rosso, "C" se è un numero nero. Se è una lettera rossa, non toccare nulla — è l\'unico caso in cui non si risponde.';
-        if(liv===3) return 'Vedrai una lettera o un numero, nero o rosso. Tocca "A" se vedi una lettera nera oppure un numero rosso. Tocca "B" se vedi una lettera rossa oppure un numero nero.';
+        if(liv===2) return 'Vedrai una lettera o un numero, bianco o rosso. Tocca "A" se è una lettera bianca, "B" se è un numero rosso, "C" se è un numero bianco. Se è una lettera rossa, non toccare nulla — è l\'unico caso in cui non si risponde.';
+        if(liv===3) return 'Vedrai una lettera o un numero, bianco o rosso. Tocca "A" se vedi una lettera bianca oppure un numero rosso. Tocca "B" se vedi una lettera rossa oppure un numero bianco.';
         if(liv===4){
           const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
           const matPlur = c.categMateriale==='colori' ? 'cerchi colorati' : c.categMateriale==='simboli' ? 'simboli' : c.categMateriale==='lettereVoce' ? 'lettere pronunciate' : 'numeri pronunciati';
           return verboVis+' una serie di '+matPlur+', uno alla volta. Ciascuno appartiene alla categoria "'+rs.labelA+'" o "'+rs.labelB+'". Tocca il pulsante ogni volta che la categoria è la stessa di quella dello stimolo appena precedente.';
         }
-        return 'Vedrai una lettera o un numero, nero o rosso. Tocca A per lettera nera, L per lettera rossa, Z per numero nero, M per numero rosso.';
+        return 'Vedrai una lettera o un numero, bianco o rosso. Tocca A per lettera bianca, L per lettera rossa, Z per numero bianco, M per numero rosso.';
       }},
     dualtask:   {label:'Doppio compito',          usesStimType:false, usesTargetSeq:false, family:'dual',
       domini:['Attenzione divisa','Funzioni esecutive'],
@@ -467,7 +492,19 @@
     targetRate:0.32, respMode:'paziente', voice:false, patientCode:'', notes:'',
     taskMode:'nback', targetSeq: POOLS.lettere.slice(0,3),
     ssd:250, ssdStep:50, // solo per Stop-Signal
-    adaptive:false, // solo per N-back: titolazione automatica del livello
+    adaptive:false, // derivato da titrationMode==='adattivo' — tenuto per compatibilità con tutto il codice di titolazione live (maybeAdapt, ADAPT_ISI, ecc.), va sempre aggiornato insieme a titrationMode, mai impostato da solo
+    // Modello triplice di titolazione (solo per i 6 esercizi con livello
+    // condiviso: N-back, Go/No-Go, Task-switching, Sequenza bersaglio,
+    // Stop-Signal, ANT classico — vedi TITRATION_EXERCISES):
+    // 'manuale'  — ogni parametro è editabile a mano, indipendente dal livello
+    // 'livello'  — lo stepper "Livello" pilota tutti i parametri collegati
+    //              (tabelle ADAPT_*), che restano fissi per l'intera seduta
+    // 'adattivo' — come 'livello', ma il livello stesso si muove da solo
+    //              seduta per seduta in base alla regola 70-85%/8 prove
+    // Il cambio è libero FRA sedute (dal profilo/Gestisci programma), mai
+    // dentro una sessione in corso (il pulsante vive solo in Setup/profilo,
+    // non nella schermata di task).
+    titrationMode:'manuale',
     switchMaterial:'numeri', // solo per Task-switching
     antMode:'classico', antMaterial:'frecce', // 'classico' | 'tapat'; materiale: 'frecce' | 'lettere' | 'simboli' — solo ANT classico
     showTrail:true, // mostra i pallini di esito prova-per-prova durante la sessione
@@ -545,6 +582,39 @@
   /* ---------- training presets (saved settings, local device) ---------- */
   // Salva solo i parametri del protocollo, non dati di sessione (codice
   // paziente/note) — un preset è "come allenare", non "chi" o "quando".
+  // I 6 esercizi con stepper "Livello" condiviso e tabelle ADAPT_* — unici
+  // interessati dal modello triplice manuale/livello/adattivo. Doppio
+  // compito, Cancellazione e Categorizzazione condizionale restano sul
+  // vecchio interruttore manuale/adattivo a due vie: hanno meccanismi di
+  // livello propri (per-canale, per-tavola, per-struttura) non condivisi
+  // con questo gruppo, e non erano fra gli esercizi segnalati col bug di
+  // sincronizzazione — includerli sarebbe un allargamento di perimetro non
+  // richiesto.
+  const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant'];
+  // Trasparenza obbligatoria: qualunque sia la modalità, il clinico deve
+  // sempre vedere a cosa corrisponde esattamente ciò che sta per essere
+  // lanciato — un numero di livello da solo non basta in modalità Manuale
+  // (dove il livello non pilota nulla), quindi lì si mostrano invece i
+  // parametri correnti per esteso. Accetta una cfg esplicita (non solo la
+  // cfg live globale) per poter essere riusata anche nel profilo/Gestisci
+  // programma, dove si descrive la configurazione salvata di una voce.
+  function titrationModeHint(c, mode){
+    const taskMode = c.taskMode;
+    const lvl = c.adaptStartLevel;
+    if(mode==='manuale'){
+      const parts = [];
+      if(taskMode==='nback') parts.push('n='+nbackParamsForLevel(c.nLevel).n, 'frequenza bersaglio '+Math.round(c.targetRate*100)+'%');
+      else if(taskMode==='gonogo') parts.push((c.targetSeq||[]).length+' elementi no-go attivi', 'frequenza no-go '+Math.round(c.targetRate*100)+'%');
+      else if(taskMode==='switching') parts.push('nessun intervallo cue→stimolo dedicato (regola e stimolo mostrati insieme)', 'nessuno sbilanciamento fra le due regole (50/50)');
+      else if(taskMode==='sequenza') parts.push('lunghezza sequenza bersaglio: '+c.targetSeq.length);
+      else if(taskMode==='stopsignal' || (taskMode==='ant' && c.antMode==='classico')) parts.push('ISI '+c.isi+' ms (non collegato al livello)');
+      return 'Modalità Manuale: ogni parametro resta quello impostato qui sotto, indipendente dal livello.'+(parts.length?' Oggi: '+parts.join(', ')+'.':'');
+    }
+    if(mode==='livello'){
+      return 'Modalità Livello: tutti i parametri collegati (secondo l\'esercizio: ISI, frequenza bersaglio/no-go, intervallo cue→stimolo, sbilanciamento regole, lunghezza sequenza) sono quelli di tabella per il livello '+lvl+', fissi per l\'intera seduta — muovi lo stepper "Livello" qui sopra per cambiarli tutti insieme.';
+    }
+    return 'Modalità Adattiva: si parte dal livello '+lvl+' con gli stessi parametri di tabella della modalità Livello, ma il livello si sposta da solo durante la seduta in base all\'accuratezza (regola 70-85% ogni 8 prove).';
+  }
   function presetCfgOf(c){
     return {
       stimType:c.stimType, taskMode:c.taskMode, nLevel:c.nLevel,
@@ -558,6 +628,7 @@
       sequenzaMista: c.sequenzaMista||'no', nbackMista: c.nbackMista||'no', gonogoMista: c.gonogoMista||'no',
       trials:c.trials, isi:c.isi, stimDuration:c.stimDuration, targetRate:c.targetRate,
       respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, adaptive:c.adaptive,
+      titrationMode: TITRATION_EXERCISES.includes(c.taskMode) ? (c.titrationMode||'manuale') : undefined,
       switchMaterial:c.switchMaterial, dualVisual:c.dualVisual, dualVisual2:c.dualVisual2, dualPairing:c.dualPairing, antMode:c.antMode,
       tapatSpatial:c.tapatSpatial, tapatGradient:c.tapatGradient, tapatModalita:c.tapatModalita, antMaterial:c.antMaterial,
       numDigits:c.numDigits, wordComplexity:c.wordComplexity, showTrail:c.showTrail,
@@ -690,7 +761,7 @@
     // all'apertura corrispondono sempre a ciò che verrà davvero giocato,
     // invece di restare quelle vecchie finché l'operatore non tocca a mano
     // lo stepper del livello (vedi discussione con Rodrigo, punto 1).
-    if(cfg.taskMode==='sequenza' && cfg.adaptive) adjustTargetSeqToLength(ADAPT_SEQ_LEN[cfg.adaptStartLevel]);
+    if(cfg.taskMode==='sequenza' && cfg.titrationMode!=='manuale') adjustTargetSeqToLength(ADAPT_SEQ_LEN[cfg.adaptStartLevel]);
     render();
   }
   /* ---------- profili paziente locali (in presenza, senza account remoto) ---------- */
@@ -1032,8 +1103,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1343,7 +1414,7 @@
     cfg.targetSeq = cur;
   }
   function sequenceTargetForBuild(){
-    if(!cfg.adaptive) return cfg.targetSeq;
+    if(cfg.titrationMode==='manuale') return cfg.targetSeq;
     const desiredLen = ADAPT_SEQ_LEN[cfg.adaptStartLevel] || cfg.targetSeq.length;
     if(cfg.targetSeq.length===desiredLen) return cfg.targetSeq;
     const base = cfg.targetSeq.length ? cfg.targetSeq
@@ -1395,11 +1466,13 @@
   // session.currentSSD.
   function buildStopSignal(){
     const pool = POOLS[cfg.stimType];
+    const rule = STOPSIGNAL_RULES[cfg.stimType] || STOPSIGNAL_RULES.frecce;
     const seq = [];
     for(let i=0;i<cfg.trials;i++){
       const val = pool[Math.floor(Math.random()*pool.length)];
       const isStopTrial = Math.random() < cfg.targetRate;
-      seq.push({val, isTarget: !isStopTrial, isStopTrial, valid:true});
+      const correctAnswer = rule.classify(val) ? 'a' : 'b';
+      seq.push({val, correctAnswer, isTarget: !isStopTrial, isStopTrial, valid:true});
     }
     return seq;
   }
@@ -1510,6 +1583,20 @@
   // dalla Categorizzazione condizionale ai livelli a dimensione singola.
   SWITCH_RULESETS.lettereVoce = SWITCH_RULESETS.lettere;
   SWITCH_RULESETS.numeriVoce = SWITCH_RULESETS.numeri;
+  // Regole di classificazione dello Stop-Signal two-choice: una sola regola
+  // fissa per materiale (a differenza del Task-switching non c'è alternanza
+  // fra due regole), riusa le stesse coppie già validate altrove dove
+  // esistono (vocale/consonante, pari/dispari) invece di inventarne di nuove.
+  // 'suoni' non ha un ruleset preesistente: la coppia scelta (grave/acuto,
+  // soglia sulla frequenza mediana del pool esistente) è un'ipotesi di
+  // costruzione, non un dato di letteratura — da confermare.
+  const STOPSIGNAL_RULES = {
+    frecce: {labelA:'◀ Sinistra', labelB:'Destra ▶', classify:v=> v==='◀'},
+    lettere:{labelA:SWITCH_RULESETS.lettere.ruleA.labelA, labelB:SWITCH_RULESETS.lettere.ruleA.labelB, classify:SWITCH_RULESETS.lettere.ruleA.classify},
+    numeri: {labelA:SWITCH_RULESETS.numeri.ruleA.labelA, labelB:SWITCH_RULESETS.numeri.ruleA.labelB, classify:SWITCH_RULESETS.numeri.ruleA.classify},
+    forma:  {labelA:'Cerchio', labelB:'Triangolo', classify:v=> v==='●'},
+    suoni:  {labelA:'Grave', labelB:'Acuto', classify:v=> v.f < 380}
+  };
   const SWITCH_BIVALENTE_NUM_POOL = ['1','2','3','4','6','7','8','9'];
   const SWITCH_BIVALENTE_LETTERE = ['A','B','D','E','F','G','H','I','J','K','L','M','O','P','U']; // identità della lettera irrilevante per entrambe le regole bivalenti (Numero/Lettera, Bianco/Rosso) — include vocali e consonanti, nessuna ragione per escluderle
   function buildSwitching(){
@@ -1522,7 +1609,7 @@
     // livello raggiunto l'ultima volta (buildSwitching gira prima che la
     // sessione esista, quindi non può leggere un livello "in diretta" come
     // fa il CSI, che invece si aggiorna davvero prova per prova).
-    const dominance = cfg.adaptive ? (ADAPT_SWITCH_BALANCE[cfg.adaptStartLevel]||0.5) : 0.5;
+    const dominance = cfg.titrationMode!=='manuale' ? (ADAPT_SWITCH_BALANCE[cfg.adaptStartLevel]||0.5) : 0.5;
     let activeRule = Math.random()<0.5 ? 'A' : 'B';
     for(let i=0;i<cfg.trials;i++){
       const prevRule = activeRule;
@@ -3064,6 +3151,8 @@
     grid.appendChild(field('Esercizio', segButtons(Object.keys(EXERCISES), cfg.taskMode, v=>{
       cfg.taskMode=v;
       resetLevelField(v); // livello sempre a 1 quando si cambia esercizio dentro Setup — il caricamento di un eventuale suggerimento da screening avviene solo all'apertura iniziale (vedi applyLevelBaselineOrSuggestion), non a ogni cambio manuale, per non sovrascrivere a sorpresa scelte già fatte dall'operatore
+      if(v==='stopsignal' && !['frecce','lettere','numeri','forma','suoni'].includes(cfg.stimType)) cfg.stimType='frecce';
+      if(TITRATION_EXERCISES.includes(v)){ cfg.titrationMode='manuale'; cfg.adaptive=false; } // stessa logica di resetLevelField: un cambio esercizio manuale in Setup riparte pulito, non eredita la modalità dell'esercizio precedente
       programAddConfirmation=null;
       const nv = EXERCISES[v];
       if(nv.usesTargetSeq){
@@ -3128,7 +3217,13 @@
     }
     if(ex.usesStimType && !isClassicAnt && !isTapat && !isSequenzaMista && !isNbackMista && !isGonogoMista && !neglectIntruso){
       grid.appendChild(field('Tipo di stimolo', segButtons(
-        neglectRegola ? ['numeri','lettere'] : Object.keys(STIM_LABELS).filter(k=> !(cfg.taskMode==='neglect' && isAudioOnlyStim(k)) && !(cfg.taskMode==='stopsignal' && isSpokenStim(k))),
+        neglectRegola ? ['numeri','lettere']
+          : cfg.taskMode==='stopsignal' ? ['frecce','lettere','numeri','forma','suoni']
+          // 'frecce'/'forma' esistono solo per lo Stop-Signal (pool a 2 soli
+          // elementi, pensati per una regola binaria fissa) — esclusi qui
+          // perché gli altri esercizi che usano stimType generico (n-back,
+          // Go/No-Go, Cancellazione...) si aspettano pool più ampi.
+          : Object.keys(STIM_LABELS).filter(k=> !(cfg.taskMode==='neglect' && isAudioOnlyStim(k)) && k!=='frecce' && k!=='forma'),
         cfg.stimType, v=>{
         cfg.stimType=v;
         regenerateNumeriPool(); regenerateParolePool();
@@ -3162,7 +3257,7 @@
     if(cfg.taskMode==='sequenza' || cfg.taskMode==='switching' || cfg.taskMode==='gonogo' || cfg.taskMode==='stopsignal' || (cfg.taskMode==='ant' && cfg.antMode==='classico')){
       grid.appendChild(field('Livello', stepper(cfg.adaptStartLevel,1,10,v=>{
         cfg.adaptStartLevel=v;
-        if(cfg.taskMode==='sequenza' && cfg.adaptive) adjustTargetSeqToLength(ADAPT_SEQ_LEN[v]);
+        if(cfg.taskMode==='sequenza' && cfg.titrationMode!=='manuale') adjustTargetSeqToLength(ADAPT_SEQ_LEN[v]);
         if(cfg.taskMode==='gonogo') suggestGoNoGoTargets(v);
         render();
       })));
@@ -3183,12 +3278,17 @@
       grid.appendChild(field('Livello canale 1', stepper(cfg.dualStartLevel1,1,10,v=>{cfg.dualStartLevel1=v; render();})));
       grid.appendChild(field('Livello canale 2', stepper(cfg.dualStartLevel2,1,10,v=>{cfg.dualStartLevel2=v; render();})));
     }
-    if(cfg.taskMode==='nback' || cfg.taskMode==='sequenza' || cfg.taskMode==='gonogo' || cfg.taskMode==='switching' || cfg.taskMode==='dualtask' || cfg.taskMode==='ant' || cfg.taskMode==='stopsignal'){
-      grid.appendChild(field('Difficoltà adattiva', segButtons(['no','si'], cfg.adaptive?'si':'no', v=>{
-        cfg.adaptive = v==='si';
-        if(cfg.taskMode==='sequenza' && cfg.adaptive) adjustTargetSeqToLength(ADAPT_SEQ_LEN[cfg.adaptStartLevel]);
+    if(cfg.taskMode==='dualtask' || (cfg.taskMode==='ant' && cfg.antMode==='tapat')){
+      grid.appendChild(field('Difficoltà adattiva', segButtons(['no','si'], cfg.adaptive?'si':'no', v=>{ cfg.adaptive = v==='si'; render(); }, {no:'Fissa (manuale)', si:'Adattiva automatica'})));
+    }
+    if(TITRATION_EXERCISES.includes(cfg.taskMode) && !(cfg.taskMode==='ant' && cfg.antMode==='tapat')){
+      grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
+        cfg.titrationMode = v;
+        cfg.adaptive = v==='adattivo';
+        if(cfg.taskMode==='sequenza' && v!=='manuale') adjustTargetSeqToLength(ADAPT_SEQ_LEN[cfg.adaptStartLevel]);
         render();
-      }, {no:'Fissa (manuale)', si:'Adattiva automatica'})));
+      }, {manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'})));
+      card.appendChild(el('p',{class:'hint'},[titrationModeHint(cfg, cfg.titrationMode||'manuale')]));
     }
     const isNeglect = cfg.taskMode==='neglect';
     const isGoalTask = cfg.taskMode==='goaltask';
@@ -3727,7 +3827,7 @@
       fatigueLog:[], // sequenza di bool corretto/scorretto, prova per prova — solo per l'indicatore di calo intra-sessione (famiglia signal)
       trail:[], responses:new Set(), respTime:null, trialStart:0,
       rts:[], startedAt: Date.now(), paused:false, pausedAt:null,
-      currentSSD: cfg.ssd, ssdHistory:[], showStopCue:false, stopCueTimer:null,
+      currentSSD: cfg.ssd, ssdHistory:[], showStopCue:false, stopCueTimer:null, discrimLog:[],
       liveNLevel: cfg.nLevel, tapatLevel: cfg.tapatStartLevel, adaptLevel: cfg.adaptStartLevel, liveTapatGradient: cfg.tapatGradient,
       categLevel: cfg.categLivello, categPrevCat: null, categPrevCat2: null,
       dualLevel1: cfg.dualStartLevel1, dualLevel2: cfg.dualStartLevel2, adaptBlock1:[], adaptBlock2:[], prevDual1:null, prevDual2:null,
@@ -4212,7 +4312,7 @@
     const level = session.liveNLevel;
     const params = nbackParamsForLevel(level);
     const n = params.n;
-    const freq = cfg.adaptive ? params.freq : cfg.targetRate;
+    const freq = cfg.titrationMode!=='manuale' ? params.freq : cfg.targetRate;
     const lureFreq = params.lure;
     const lureLag = nbackLureLag(n);
     function runLen(val){ let run=1; for(let k=i-1;k>=0;k--){ if(nbackSameVal(session.seq[k].val,val)) run++; else break; } return run; }
@@ -4255,7 +4355,7 @@
     const fullSet = cfg.targetSeq;
     const count = cfg.adaptive ? Math.min(fullSet.length, ADAPT_GONOGO_COUNT[session.adaptLevel]||1) : fullSet.length;
     const activeNoGo = fullSet.slice(0, Math.max(1,count));
-    const freq = cfg.adaptive ? (ADAPT_GONOGO_FREQ[session.adaptLevel] || cfg.targetRate) : cfg.targetRate;
+    const freq = cfg.titrationMode!=='manuale' ? (ADAPT_GONOGO_FREQ[session.adaptLevel] || cfg.targetRate) : cfg.targetRate;
     let val;
     if(Math.random() < freq){ val = activeNoGo[Math.floor(Math.random()*activeNoGo.length)]; }
     else if(isMista){
@@ -4533,10 +4633,12 @@
     if(session.stopCueTimer){ clearTimeout(session.stopCueTimer); session.stopCueTimer=null; }
     session.trialStart = performance.now();
 
-    // Task-switching adattivo: fase di solo cue (la regola, senza stimolo)
-    // per l'intervallo CSI corrente, poi lo stimolo — è il parametro con
-    // il fondamento più solido in letteratura per questo compito specifico.
-    if(cfg.taskMode==='switching' && cfg.adaptive){
+    // Task-switching in modalità Livello/Adattiva: fase di solo cue (la
+    // regola, senza stimolo) per l'intervallo CSI corrente, poi lo stimolo
+    // — è il parametro con il fondamento più solido in letteratura per
+    // questo compito specifico. In modalità Manuale non c'è fase di cue
+    // separata (comportamento invariato — vedi titrationModeHint).
+    if(cfg.taskMode==='switching' && cfg.titrationMode!=='manuale'){
       session.phase='cue';
       render();
       const csi = ADAPT_SWITCH_CSI[session.adaptLevel] || 400;
@@ -4568,7 +4670,7 @@
         // con la tabella ADAPT_ISI.dualtask (10 livelli).
         const avgLevel = Math.round(((session.dualLevel1||1)+(session.dualLevel2||1))/2);
         isi = ADAPT_ISI.dualtask[Math.max(1,Math.min(10,avgLevel))] || cfg.isi;
-      } else if(!trial.isiOverride && cfg.adaptive && ADAPT_ISI[cfg.taskMode] && !(cfg.taskMode==='ant' && cfg.antMode==='tapat')){
+      } else if(!trial.isiOverride && TITRATION_EXERCISES.includes(cfg.taskMode) && cfg.titrationMode!=='manuale' && ADAPT_ISI[cfg.taskMode] && !(cfg.taskMode==='ant' && cfg.antMode==='tapat')){
         isi = ADAPT_ISI[cfg.taskMode][session.adaptLevel];
       }
       scheduleStep(()=> maybeResolveWithGrace(trial), Math.max(50,isi-cfg.stimDuration));
@@ -4668,6 +4770,20 @@
     else if(trial.isTarget && !tapped){ session.counts.misses++; outcome='err'; correct=false; }
     else if(!trial.isTarget && tapped){ session.counts.falseAlarms++; outcome='err'; correct=false; }
     else { session.counts.correctRejections++; outcome='hit'; correct=true; }
+    // Stop-Signal two-choice: sopra abbiamo già contato hit/miss/FA/CR sulla
+    // sola presenza/assenza di risposta (inibizione — invariato, resta
+    // confrontabile con lo storico pre-redesign). Qui aggiungiamo, solo per i
+    // trial "go" con risposta data, un secondo giudizio ortogonale su QUALE
+    // pulsante è stato toccato: sbagliare la discriminazione conta come
+    // errore per il trail/l'affaticamento/l'adattività ISI (correct=false),
+    // ma non tocca hit/FA/d′ — quella era la specifica dello staircase
+    // SSD/inibizione ed è giusto restare separata.
+    if(trial.isTarget && tapped && trial.correctAnswer!=null){
+      const given = [...session.responses][0];
+      const discCorrect = given===trial.correctAnswer;
+      session.discrimLog.push(discCorrect);
+      if(!discCorrect){ outcome='err'; correct=false; }
+    }
     session.fatigueLog.push(correct);
     if(cfg.taskMode==='nback' || cfg.taskMode==='sequenza' || cfg.taskMode==='gonogo'){
       session.adaptBlock.push(correct);
@@ -4913,8 +5029,10 @@
     switch(cfg.taskMode){
       case 'gonogo':
         return [{action:'go', label: cfg.respMode==='operatore' ? 'Il paziente risponde' : 'GO — rispondi', cls:'match', full:true}];
-      case 'stopsignal':
-        return [{action:'go', label: cfg.respMode==='operatore' ? 'Il paziente risponde' : 'GO — il più veloce possibile', cls:'match', full:true}];
+      case 'stopsignal': {
+        const rule = STOPSIGNAL_RULES[cfg.stimType] || STOPSIGNAL_RULES.frecce;
+        return [{action:'a', label:rule.labelA, cls:'match'}, {action:'b', label:rule.labelB, cls:'nomatch'}];
+      }
       case 'ant': {
         if(cfg.antMode==='tapat') return [{action:'go', label: cfg.tapatModalita==='uditivo' ? 'Rilevato — tocca appena lo senti' : 'Rilevato — tocca appena lo vedi', cls:'match', full:true}];
         const tokens = ANT_MATERIAL_TOKENS[cfg.antMaterial];
@@ -4933,7 +5051,7 @@
         if(liv===2) return [{action:'a', label:'A', cls:'match'}, {action:'b', label:'B', cls:'nomatch'}, {action:'c', label:'C', cls:'nomatch'}];
         if(liv===3) return [{action:'a', label:'A', cls:'match'}, {action:'b', label:'B', cls:'nomatch'}];
         if(liv===4) return [{action:'match', label: cfg.respMode==='operatore' ? 'Il paziente indica corrispondenza' : 'Corrispondenza (stessa categoria di prima)', cls:'match', full:true}];
-        return [{action:'a', label:'A — lettera nera', cls:'match'}, {action:'l', label:'L — lettera rossa', cls:'nomatch'}, {action:'z', label:'Z — numero nero', cls:'match'}, {action:'m', label:'M — numero rosso', cls:'nomatch'}];
+        return [{action:'a', label:'A — lettera bianca', cls:'match'}, {action:'l', label:'L — lettera rossa', cls:'nomatch'}, {action:'z', label:'Z — numero bianco', cls:'match'}, {action:'m', label:'M — numero rosso', cls:'nomatch'}];
       }
       case 'dualtask': {
         const pairing = cfg.dualPairing || 'vis-aud';
@@ -5167,7 +5285,7 @@
     if(cfg.taskMode==='gonogo' && cfg.gonogoMista && cfg.gonogoMista!=='no'){
       return renderTypedStimulus(trial.val.stimType, trial.val.item);
     }
-    if(cfg.stimType==='simboli'){
+    if(cfg.stimType==='simboli' || cfg.stimType==='forma' || cfg.stimType==='frecce'){
       return el('div',{class:'stimulus symbolwrap'},[trial.val]);
     }
     if(cfg.stimType==='parole'){
@@ -5193,12 +5311,12 @@
 
   /* ---------- FINISH / RESULTS ---------- */
   /* ---------- Batteria di screening iniziale ---------- */
-  // 5 domini, ciascuno con un blocco "base" (stimolo semplice, nessun
-  // carico esecutivo) e un blocco "caricato" (versione con carico
-  // esecutivo dello stesso dominio). Il dominio "Attenzione divisa"
-  // riusa il blocco base del dominio "Attenzione" invece di averne uno
-  // proprio — lo stesso principio del "base condiviso" per esercizi che
-  // misurano varianti dello stesso substrato attentivo di base.
+  // 4 domini (Attenzione divisa rimossa: considerata di livello superiore
+  // rispetto a uno screening rapido — vedi discussione con Rodrigo. Il
+  // Doppio compito resta un esercizio pienamente disponibile, semplicemente
+  // non più proposto/confrontato in automatico da questa batteria), ciascuno
+  // con un blocco "base" (stimolo semplice, nessun carico esecutivo) e un
+  // blocco "caricato" (versione con carico esecutivo dello stesso dominio).
   // Ogni blocco è breve e a difficoltà FISSA (adaptive:false), non la
   // solita titolazione automatica: qui l'obiettivo non è trovare il
   // livello ideale del paziente, ma un confronto pulito e riproducibile
@@ -5217,8 +5335,6 @@
       patch:()=>({taskMode:'categorizzazione', categLivello:1, categMateriale:'simboli', isi:1800, stimDuration:700, trials:SCREENING_TRIALS}) },
     { domain:'flessibilita', tipo:'caricato', domainLabel:'Flessibilità cognitiva', label:'Flessibilità — blocco caricato', suggestTaskMode:'switching', suggestLabel:'Task-switching',
       patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:SCREENING_TRIALS}) },
-    { domain:'divisa', tipo:'caricato', domainLabel:'Attenzione divisa', label:'Attenzione divisa — blocco caricato', suggestTaskMode:'dualtask', suggestLabel:'Doppio compito', baseFrom:'attenzione',
-      patch:()=>({taskMode:'dualtask', dualPairing:'vis-aud', dualVisual:'lettere', adaptive:false, targetRate:0.30, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}) },
     { domain:'esplorazione', tipo:'base', domainLabel:'Esplorazione visuospaziale', label:'Esplorazione — blocco base',
       patch:()=>({taskMode:'neglect', neglectMode:'classico', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}) },
     { domain:'esplorazione', tipo:'caricato', domainLabel:'Esplorazione visuospaziale', label:'Esplorazione — blocco caricato', suggestTaskMode:'neglect', suggestLabel:'Cancellazione a regola',
@@ -5980,6 +6096,9 @@
         rec.meanSSD = meanSSD;
         rec.ssrt = (avgRT!=null && meanSSD!=null) ? Math.max(0, avgRT-meanSSD) : null;
       }
+      if(cfg.taskMode==='stopsignal' && session.discrimLog.length){
+        rec.goAccuracy = session.discrimLog.filter(Boolean).length / session.discrimLog.length;
+      }
       if(cfg.taskMode==='nback'){
         rec.finalNLevel = session.liveNLevel;
         rec.adaptive = cfg.adaptive;
@@ -6314,6 +6433,7 @@
       mg.appendChild(metric(r.metrics.dprime!=null? r.metrics.dprime.toFixed(2):'—', "d′"));
       if(r.avgRT!=null) mg.appendChild(metric(Math.round(r.avgRT)+' ms', 'RT medio (hit)'));
       if(r.ssrt!=null) mg.appendChild(metric(Math.round(r.ssrt)+' ms', 'SSRT (stima)'));
+      if(r.taskMode==='stopsignal' && r.goAccuracy!=null) mg.appendChild(metric(fmtPct(r.goAccuracy), 'Accuratezza discriminazione (go)'));
       if(r.taskMode==='nback' && r.finalNLevel!=null && r.finalNLevel!==r.nLevel){
         mg.appendChild(metric(r.nLevel+' → '+r.finalNLevel, 'Livello (iniziale → finale)'));
       }
@@ -6849,6 +6969,11 @@
         const origLevel = (isFromScreening && entry.suggerito) ? levelOfCfg(entry.suggerito.cfg) : null;
         const curLevel = levelOfCfg(entry.cfg);
         const levelChanged = origLevel!=null && curLevel!=null && String(origLevel)!==String(curLevel);
+        // "▶ Avvia" usa configForExercise (l'ultima cfg davvero raggiunta in
+        // sessione) quando esiste, non la cfg della voce — la modalità
+        // mostrata/modificabile qui deve riflettere quella, non la voce
+        // "storica" salvata quando l'esercizio fu assegnato.
+        const effectiveCfg = configForExercise(editingPatient, entry.cfg.taskMode) || entry.cfg;
         const row = el('div',{style:'padding:10px 4px; border-bottom:1px solid var(--line);'},[
           el('div',{style:'display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;'},[
             el('div',{},[
@@ -6900,6 +7025,32 @@
             ])
           ]),
           levelChanged ? el('div',{style:'font-size:12px; color:var(--ink-soft); margin-top:4px;'},['Suggerito dallo screening: livello '+origLevel+' — oggi: livello '+curLevel]) : null,
+          TITRATION_EXERCISES.includes(entry.cfg.taskMode) && !(entry.cfg.taskMode==='ant' && entry.cfg.antMode==='tapat') ? el('div',{style:'margin-top:6px;'},[
+            el('div',{style:'display:flex; align-items:center; gap:6px; flex-wrap:wrap;'},[
+              el('span',{style:'font-size:12px; color:var(--ink-soft);'},['Modalità:']),
+              ...['manuale','livello','adattivo'].map(m=>{
+                const active = (effectiveCfg.titrationMode||'manuale')===m;
+                return el('button',{
+                  style:'padding:4px 10px; font-size:12px; border-radius:999px; border:1px solid var(--line); cursor:pointer; font-family:Inter;'
+                    +(active ? ' background:var(--accent); color:#fff; border-color:var(--accent);' : ' background:none; color:var(--ink-soft);'),
+                  onclick: async ()=>{
+                    if(active) return;
+                    // "▶ Avvia" preferisce configForExercise (l'ultima
+                    // configurazione DAVVERO raggiunta in sessione) alla cfg
+                    // della voce di programma, se esiste — quindi il cambio
+                    // di modalità deve aggiornare entrambe, altrimenti
+                    // sembrerebbe applicato ma "▶ Avvia" continuerebbe a
+                    // usare la vecchia modalità salvata nello snapshot.
+                    const newCfg = Object.assign({}, effectiveCfg, {titrationMode:m, adaptive: m==='adattivo'});
+                    await saveExerciseLevel(isLocal?'local':'remote', editingPatient.id, entry.cfg.taskMode, newCfg);
+                    const ok = await replaceProgramEntry(isLocal?'local':'remote', editingPatient.id, idx, {cfg: Object.assign({}, entry.cfg, {titrationMode:m, adaptive: m==='adattivo'})});
+                    if(ok) render();
+                  }
+                },[{manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'}[m]]);
+              })
+            ]),
+            el('div',{style:'font-size:11.5px; color:var(--ink-soft); margin-top:3px;'},[titrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')])
+          ]) : null,
           el('div',{style:'display:flex; align-items:center; gap:8px; margin-top:6px;'},[
             el('span',{style:'font-size:12px; color:var(--ink-soft);'},[
               entry.tempoConsigliato ? 'Tempo consigliato: '+entry.tempoConsigliato.minuti+' min/'+(entry.tempoConsigliato.periodo==='giorno'?'giorno':'totale') : 'Nessun tempo consigliato impostato'

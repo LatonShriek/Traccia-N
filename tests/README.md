@@ -1,4 +1,4 @@
-# Test di regressione — 6 esercizi di titolazione
+# Test di regressione — 7 esercizi di titolazione
 
 ## Come si lancia
 
@@ -14,7 +14,7 @@ anche uno solo fallisce.
 
 ## Quando lanciarla
 
-**Prima di ogni consegna che tocca uno di questi 6 esercizi**: N-back,
+**Prima di ogni consegna che tocca uno di questi 7 esercizi**: N-back,
 Go/No-Go, Task-switching, Sequenza bersaglio, Stop-Signal, ANT. Non è
 indispensabile per modifiche che non li toccano (Doppio compito,
 Cancellazione, Categorizzazione condizionale, Strategie di memoria,
@@ -34,7 +34,7 @@ Il meccanismo di estrazione è in `tests/lib/extract-source.js`.
 
 ## Cosa copre
 
-- **`titration.test.js`** — i 6 esercizi di titolazione: Manuale non deve
+- **`titration.test.js`** — i 7 esercizi di titolazione: Manuale non deve
   mai leggere una tabella di livello; Livello e Adattivo devono risolvere
   esattamente allo stesso modo allo stesso livello; nessun parametro deve
   restare "orfano" (agganciato a un campo che nessuna modalità aggiorna);
@@ -61,7 +61,7 @@ Il meccanismo di estrazione è in `tests/lib/extract-source.js`.
   separati.
 - **`neglect-titration.test.js`** — l'estensione del modello triplice a
   Cancellazione (Neglect): stesso schema Manuale/Livello/Adattivo dei
-  primi 6 esercizi, incluso il caso più complesso (modalità "Progressiva",
+  primi 7 esercizi, incluso il caso più complesso (modalità "Progressiva",
   scala assoluta 1-30 che attraversa tre fasi con la propria scala 1-10
   ciascuna).
 - **`dualtask-titration.test.js`** — l'estensione del modello triplice al
@@ -89,9 +89,16 @@ Il meccanismo di estrazione è in `tests/lib/extract-source.js`.
   tocca i pulsanti di risposta veri, verifica che arrivi ai risultati
   senza errori JavaScript in pagina e senza restare bloccata. Copre
   esattamente ciò che tutto il resto della suite dichiara di NON coprire
-  (vedi sezione sotto). Per ora N-back, Go/No-Go, Task-switching, Doppio
-  compito, TAPAT (5 su 11) — prova di fattibilità estesa progressivamente,
-  non ancora tutti gli esercizi.
+  (vedi sezione sotto). Copre 10 esercizi su 12 (11 combinazioni testate,
+  perché ANT viene provato in entrambe le sotto-modalità, classico e
+  TAPAT) — mancano Scenari ecologici e Strategie di memoria, per un
+  motivo diverso dagli altri: non richiedono un'interazione più
+  complessa, ne richiedono diverse fra loro internamente (Scenari: ogni
+  scenario ha i propri elementi/vincoli; Strategie di memoria: 5
+  tecniche con fasi studio/richiamo diverse per tecnica) — un agente
+  onesto per loro richiede una progettazione dedicata per sotto-flusso,
+  non un'estensione della stessa logica di tocco generica usata per gli
+  altri 9.
   **Richiede `npm install playwright`** (una volta sola su questa
   macchina) — se non è installato, `run-all.js` salta questa parte con un
   avviso invece di fallire: il resto della suite non dipende da questo.
@@ -102,30 +109,40 @@ Il meccanismo di estrazione è in `tests/lib/extract-source.js`.
 per davvero in un browser headless, clicca sui pulsanti veri dell'app
 (mai chiamate dirette a funzioni interne — dall'esterno del file non sono
 comunque raggiungibili, sono chiuse dentro la grande funzione che
-racchiude tutta l'app), riduce il numero di prove al minimo per velocità,
-avvia la sessione, e poi tocca ripetutamente i pulsanti di risposta veri
-finché la sessione non finisce da sola. Restituisce se è arrivato ai
-risultati, se ci sono stati errori JavaScript, quanti tocchi ha dato.
+racchiude tutta l'app), riduce il numero di prove (o, per la
+Cancellazione, il numero di tavole e gli elementi per tavola) al minimo
+per velocità, avvia la sessione, e poi interagisce ripetutamente finché
+la sessione non finisce da sola. Due logiche di interazione distinte,
+scelte in base alla famiglia dell'esercizio: `simulatePatientResponses`
+per gli esercizi a pulsante di risposta standard (classe `.tapbtn`),
+`simulateNeglectResponses` per la Cancellazione (tocco diretto sulle
+celle `.neglect-item` "libere" — né già trovate né già segnate come
+tocco falso; le celle toccate restano nel DOM con una classe di stato
+invece di sparire, quindi vanno escluse esplicitamente dal conteggio
+"celle rimaste", altrimenti quel conteggio non arriverebbe mai a zero da
+solo — un dettaglio non ovvio, scoperto durante la costruzione di questa
+parte, annotato qui perché non si ripresenti come domanda la prossima
+volta). Restituisce se è arrivato ai risultati, se ci sono stati errori
+JavaScript, quanti tocchi ha dato.
 
-Per aggiungere un esercizio nuovo a questa parte: basta aggiungere una
-riga a `EXERCISE_BUTTON_TEXT` in `patient-agent.js` col testo esatto del
-suo pulsante in Setup — non serve altra infrastruttura.
+Per aggiungere un esercizio nuovo a questa parte (fra quelli a pulsante
+di risposta standard): basta aggiungere una riga a `EXERCISE_BUTTON_TEXT`
+in `patient-agent.js` col testo esatto del suo pulsante in Setup — non
+serve altra infrastruttura. Per un esercizio con un'interazione diversa
+(come Scenari ecologici o Strategie di memoria) serve invece una nuova
+funzione di simulazione dedicata, sul modello di
+`simulateNeglectResponses`.
 
 ## Cosa NON copre (limite dichiarato, non nascosto)
 
-- **La parte end-to-end (`tests/e2e/`) copre 5 esercizi su 11** per ora
-  (N-back, Go/No-Go, Task-switching, Doppio compito, TAPAT) — è una prova
-  di fattibilità, non ancora la copertura completa. Verifica solo che la
-  sessione arrivi in fondo senza errori e senza bloccarsi con input
-  realistico misto (risposte giuste e sbagliate) — non verifica che il
-  PUNTEGGIO mostrato sia numericamente corretto (quello lo fanno già i
-  test di logica pura sopra, che calcolano gli stessi numeri in
-  isolamento). **Cancellazione (Neglect), Categorizzazione condizionale e
-  Stop-Signal/ANT classico non sono incluse**: le prime due usano
-  un'interazione diversa dagli altri (Neglect: si tocca ogni singolo
-  elemento sulla tavola, non un pulsante di risposta standard;
-  Categorizzazione ha un flusso di configurazione più articolato) — non
-  sono ancora state provate con l'agente attuale.
+- **La parte end-to-end (`tests/e2e/`) copre 10 esercizi su 12** — Scenari
+  ecologici e Strategie di memoria restano fuori, per il motivo spiegato
+  sopra (non un'interazione più complessa, più interazioni diverse fra
+  loro). Verifica solo che la sessione arrivi in fondo senza errori e
+  senza bloccarsi con input realistico misto (risposte giuste e
+  sbagliate) — non verifica che il PUNTEGGIO mostrato sia numericamente
+  corretto (quello lo fanno già i test di logica pura sopra, che
+  calcolano gli stessi numeri in isolamento).
 - **Un valore sbagliato scritto in una tabella non si trova sempre da
   solo**: se il display e il motore leggono la STESSA tabella (che è la
   situazione normale — è proprio quello che li tiene sincronizzati), un

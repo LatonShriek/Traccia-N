@@ -8,49 +8,67 @@
 // lì si verifica la LOGICA pura (i calcoli), qui si verifica che
 // quella logica arrivi davvero, correttamente, sullo schermo.
 //
-// Limite dichiarato: copre N-back, Go/No-Go, Task-switching, Doppio
-// compito, TAPAT — 5 esercizi su 11. Estendere agli altri richiede solo
-// aggiungere voci a EXERCISE_BUTTON_TEXT sotto (o, per compiti a
-// interazione diversa da un pulsante di risposta standard come
-// Cancellazione, una logica di tocco dedicata) — non nuova
-// infrastruttura di base.
+// Copertura: 9 esercizi su 11 — tutti quelli che rispondono con un
+// pulsante vero (famiglie signal/choice/dual, classe .tapbtn) più la
+// Cancellazione (famiglia spatial, interazione radicalmente diversa: si
+// tocca direttamente la cella .neglect-item sulla tavola, non un
+// pulsante di risposta fisso — gestita a parte da
+// simulateNeglectResponses). Restano fuori Scenari ecologici e
+// Strategie di memoria: entrambi hanno più sotto-flussi interni
+// profondamente diversi l'uno dall'altro (Scenari: ~9 scenari con
+// elementi/vincoli propri ciascuno; Strategie di memoria: 5 tecniche
+// con fasi studio/richiamo diverse per tecnica) — un agente onesto per
+// loro richiede una progettazione dedicata per sotto-flusso, non
+// un'estensione della stessa logica di tocco generica usata qui.
+// Deliberatamente non tentata di corsa in questa sessione: rischio di
+// scrivere una copertura solo apparente più alto del beneficio.
 
 const path = require('path');
 const { chromium } = require('playwright');
 
 const EXERCISE_BUTTON_TEXT = {
   nback: 'N-back classico',
+  sequenza: 'Sequenza bersaglio',
   gonogo: 'Go/No-Go',
+  stopsignal: 'Stop-Signal',
   switching: 'Task-switching',
+  categorizzazione: 'Categorizzazione condizionale',
   dualtask: 'Doppio compito',
-  // TAPAT non è un esercizio a sé nel selettore — è una sotto-modalità
-  // di "Attenzione (tipo ANT)", che richiede un secondo tocco (vedi
-  // subMode sotto, gestito da runFakePatientSession).
-  tapat: { exercise: 'Attenzione (tipo ANT)', subMode: 'TAPAT' }
+  // TAPAT e ANT classico non sono due esercizi a sé nel selettore — sono
+  // due sotto-modalità di "Attenzione (tipo ANT)". Classico è la
+  // modalità di default (nessun secondo tocco necessario), TAPAT
+  // richiede un secondo tocco esplicito (subMode sotto).
+  antclassico: 'Attenzione (tipo ANT)',
+  tapat: { exercise: 'Attenzione (tipo ANT)', subMode: 'TAPAT' },
+  simon: 'Simon (conflitto spazio-risposta)',
+  neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' }
 };
 
-// Riduce "Numero di prove" al minimo (10) prima di avviare — una sessione
-// finta non ha bisogno delle 24 prove di default, e una seduta più corta
-// rende l'agente più veloce senza cambiare nessuna logica testata.
-async function setMinTrials(page) {
-  const minus = page.locator('label:has-text("Numero di prove")').locator('xpath=following-sibling::*[1]').locator('button:has-text("–")');
-  for (let i = 0; i < 20; i++) { await minus.click(); }
+// Riduce al minimo il campo che controlla la lunghezza della sessione —
+// "Numero di prove" per gli esercizi a famiglia signal/choice/dual,
+// "Numero di tavole" per la Cancellazione (campo diverso, stesso ruolo:
+// entrambi sono legati a cfg.trials). Il minimo per la Cancellazione è 1
+// (non riducibile sotto), per gli altri il generatore permette di
+// scendere fino a un valore molto basso — il ciclo di 20 click è più che
+// sufficiente in entrambi i casi, si ferma da solo al minimo consentito.
+async function decreaseStepperByLabel(page, label) {
+  const minus = page.locator('label:has-text("' + label + '")').locator('xpath=following-sibling::*[1]').locator('button:has-text("–")');
+  const count = await minus.count();
+  if (count === 0) return false;
+  for (let i = 0; i < 20; i++) { await minus.click().catch(() => {}); }
+  return true;
 }
 
-// Simula le risposte del "paziente": tocca un pulsante di risposta visibile
-// a intervalli regolari finché la schermata di sessione (riconoscibile dal
-// pulsante "Interrompi") non sparisce, cioè finché la seduta non finisce
-// da sola — mai un numero di tocchi deciso a priori, perché non sappiamo
-// in anticipo quante prove ISI-per-ISI dureranno con esattezza.
+// Simula le risposte del "paziente" per gli esercizi a pulsante di
+// risposta standard (classe .tapbtn, usata da mountTaskScreen) — a
+// intervalli regolari finché la schermata di sessione (riconoscibile dal
+// pulsante "Interrompi") non sparisce da sola.
 async function simulatePatientResponses(page, { maxMs = 60000, tapEveryMs = 300, correctRate = 0.8 } = {}) {
   const start = Date.now();
   let taps = 0;
   while (Date.now() - start < maxMs) {
     const stillRunning = await page.locator('button:has-text("Interrompi")').count();
     if (!stillRunning) break;
-    // Tutti i pulsanti dentro l'area di risposta reale dell'app (classe
-    // 'tapbtn', quella usata da mountTaskScreen per i pulsanti di risposta
-    // veri — non "Pausa"/"Interrompi"/gli stepper del titolo).
     const respButtons = page.locator('button.tapbtn');
     const n = await respButtons.count();
     if (n > 0) {
@@ -59,15 +77,52 @@ async function simulatePatientResponses(page, { maxMs = 60000, tapEveryMs = 300,
       // corretta (l'agente non legge lo stato interno, solo lo schermo,
       // come un utente vero) — alterniamo pseudo-casualmente fra i pulsanti
       // disponibili con una preferenza per il primo (~correctRate delle
-      // volte), il resto delle volte un altro a caso, per generare un
-      // pattern di risposte miste invece di spingere sempre lo stesso
-      // pulsante — utile a controllare che l'app non vada in errore con
-      // input realisticamente misti, non a misurare l'accuratezza vera.
+      // volte), il resto delle volte un altro a caso.
       const idx = (n > 1 && Math.random() > correctRate) ? Math.floor(Math.random() * n) : 0;
       await respButtons.nth(idx).click({ timeout: 800 }).catch(() => {});
       taps++;
     }
     await page.waitForTimeout(tapEveryMs);
+  }
+  return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
+}
+
+// Simula le risposte per la Cancellazione: tocca celle .neglect-item
+// ancora "libere" (né già trovate né già segnate come tocco falso — le
+// celle toccate restano nel DOM con una classe di stato, non vengono
+// rimosse, quindi vanno escluse esplicitamente dal conteggio "celle
+// rimaste", altrimenti quel conteggio non arriva mai a zero da solo) a
+// caso, finché ce ne sono di libere sulla tavola corrente, poi preme
+// "Fatto con questa tavola" per passare alla successiva (o chiudere
+// l'ultima). Gestisce anche il caso "Conteggio a regola" (un campo
+// numerico al posto della tavola, a fine tavola) con un valore
+// qualunque, dato che qui interessa solo che l'app non vada in errore,
+// non l'accuratezza della risposta.
+async function simulateNeglectResponses(page, { maxMs = 60000, tapEveryMs = 120 } = {}) {
+  const start = Date.now();
+  let taps = 0;
+  while (Date.now() - start < maxMs) {
+    const stillRunning = await page.locator('button:has-text("Interrompi")').count();
+    if (!stillRunning) break;
+    const countInput = page.locator('input[type="number"]');
+    if (await countInput.count() > 0) {
+      await countInput.fill('5').catch(() => {});
+      await page.click('button:has-text("Conferma")').catch(() => {});
+      await page.waitForTimeout(300);
+      continue;
+    }
+    const remaining = page.locator('.neglect-item:not(.found):not(.falsetap)');
+    const n = await remaining.count();
+    if (n > 0) {
+      const idx = Math.floor(Math.random() * n);
+      await remaining.nth(idx).click({ timeout: 800 }).catch(() => {});
+      taps++;
+      await page.waitForTimeout(tapEveryMs);
+    } else {
+      const doneBtn = page.locator('button:has-text("Fatto con questa tavola")');
+      if (await doneBtn.count() > 0) { await doneBtn.click().catch(() => {}); await page.waitForTimeout(300); }
+      else { await page.waitForTimeout(tapEveryMs); }
+    }
   }
   return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
 }
@@ -80,11 +135,13 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
   if (!entry) throw new Error('Esercizio non configurato in EXERCISE_BUTTON_TEXT: ' + exerciseKey);
   const label = typeof entry === 'string' ? entry : entry.exercise;
   const subMode = typeof entry === 'string' ? null : entry.subMode;
+  const family = typeof entry === 'string' ? null : entry.family;
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
   const jsErrors = [];
   page.on('pageerror', e => jsErrors.push(e.message));
+  page.on('dialog', async d => { await d.accept().catch(() => {}); });
 
   try {
     await page.goto('file://' + path.join(repoRoot, 'index.html'));
@@ -97,13 +154,20 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
       await page.click('button:has-text("' + subMode + '")');
       await page.waitForTimeout(250);
     }
-    await setMinTrials(page);
+    if (family === 'neglect') {
+      await decreaseStepperByLabel(page, 'Numero di tavole');
+      await decreaseStepperByLabel(page, 'Elementi per tavola');
+    } else {
+      await decreaseStepperByLabel(page, 'Numero di prove');
+    }
     await page.click('text=Avvia sessione');
     await page.waitForTimeout(300);
     await page.click('text=Ho capito, inizia');
     await page.waitForTimeout(3200); // conto alla rovescia 3-2-1, ~800ms a cifra
 
-    const { taps, elapsedMs, timedOut } = await simulatePatientResponses(page, opts);
+    const { taps, elapsedMs, timedOut } = family === 'neglect'
+      ? await simulateNeglectResponses(page, opts)
+      : await simulatePatientResponses(page, opts);
 
     await page.waitForTimeout(500);
     const reachedResults = await page.locator('text=Interrompi').count() === 0;

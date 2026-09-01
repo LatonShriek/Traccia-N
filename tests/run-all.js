@@ -15,7 +15,9 @@ const FILES = [
   'dualtask-titration.test.js',
   'categorizzazione-titration.test.js',
   'tapat-titration.test.js',
-  'demo.test.js'
+  'demo.test.js',
+  'motor-check.test.js',
+  'simon.test.js'
 ];
 
 // Suite end-to-end (browser vero via Playwright — più lenta, richiede

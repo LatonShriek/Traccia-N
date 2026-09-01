@@ -13,7 +13,7 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 module.exports = async function run(t) {
   for (const exerciseKey of Object.keys(EXERCISE_BUTTON_TEXT)) {
     const entry = EXERCISE_BUTTON_TEXT[exerciseKey];
-    const label = typeof entry === 'string' ? entry : entry.exercise + ' → ' + entry.subMode;
+    const label = typeof entry === 'string' ? entry : entry.exercise + (entry.subMode ? ' → ' + entry.subMode : '');
     const result = await runFakePatientSession(REPO_ROOT, exerciseKey, { maxMs: 30000, tapEveryMs: 250 });
     t.group('Sessione finta — ' + label, () => {
       t.eq(result.jsErrors.length, 0, 'nessun errore JavaScript in pagina durante l\'intera sessione' + (result.jsErrors.length ? ' — ' + result.jsErrors.join(' | ') : ''));

@@ -1296,8 +1296,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1425,8 +1425,15 @@
     if(suppressHistoryPush) return;
     try{
       const snap = navSnapshot();
-      if(!history.state || history.state.view !== view) history.pushState(snap, '', '');
-      else history.replaceState(snap, '', ''); // stessa "schermata" ma contesto aggiornato (es. paziente diverso, filtro diverso) — non impila una voce nuova
+      // L'hash riflette SOLO il nome della schermata (es. #setup,
+      // #patients, #history) — mai un codice paziente o altro dato
+      // identificativo, anche quando la schermata è specifica di un
+      // paziente (es. "Storico di GCT00" resta comunque solo #history).
+      // Vincolo di privacy già dichiarato altrove nel progetto: l'hash
+      // finisce nella cronologia del browser e in eventuali screenshot
+      // condivisi, un posto sbagliato per un codice paziente.
+      if(!history.state || history.state.view !== view) history.pushState(snap, '', '#'+view);
+      else history.replaceState(snap, '', '#'+view); // stessa "schermata" ma contesto aggiornato (es. paziente diverso, filtro diverso) — non impila una voce nuova
     }catch(e){}
   }
   // Sentinella anti-uscita: spinta una sola volta all'avvio (vedi in fondo
@@ -1440,7 +1447,7 @@
       if(confirm('Vuoi uscire da TracciaN?')){
         history.back(); // prosegue oltre la sentinella: esce davvero
       } else {
-        try{ history.pushState(navSnapshot(), '', ''); }catch(err){}
+        try{ history.pushState(navSnapshot(), '', '#'+view); }catch(err){}
       }
       return;
     }
@@ -1472,6 +1479,15 @@
     return e;
   }
   function fmtTime(ms){ const s = Math.round(ms/1000); const m=Math.floor(s/60); return (m>0? m+'m ':'')+(s%60)+'s'; }
+  // Pulsante "indietro", stile e posizione uniche in tutta l'app — SEMPRE
+  // in cima alla card, subito dopo il logo, mai in fondo alla pagina.
+  // Prima di questo helper alcune schermate (Archivio, Pazienti in
+  // presenza, Pazienti remoti) lo mettevano in fondo, altre (Registro
+  // accessi, Gestisci programma) già in cima — inconsistenza segnalata,
+  // corretta qui invece che riscrivendo lo stile a mano in ogni schermata.
+  function backLink(label, onclick){
+    return el('button',{class:'link', style:'padding:0; margin-bottom:14px; display:inline-block;', onclick},['← '+label]);
+  }
   function homeView(){ return patientProfile ? 'patientHome' : 'setup'; }
   function fmtPct(x){ return isFinite(x) ? Math.round(x*100)+'%' : '—'; }
   // Etichette corrette per i due canali del Doppio compito, a seconda
@@ -7481,15 +7497,12 @@
     root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
+    card.appendChild(backLink('Indietro', ()=>{ view='operatorHome'; render(); }));
     card.appendChild(el('h2',{},['Archivio']));
     card.appendChild(el('p',{class:'hint'},['Profili archiviati, in presenza e remoti insieme. Non sono eliminati: storico e report restano consultabili, e possono tornare attivi in qualsiasi momento.']));
 
     const listWrap = el('div',{},[el('p',{class:'empty'},['Caricamento…'])]);
     card.appendChild(listWrap);
-
-    const nav = el('div',{class:'navlinks'});
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='operatorHome'; render(); }},['← Indietro']));
-    card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
 
     const localArchived = listLocalPatients().filter(p=>p.attivo===false).map(p=>Object.assign({_kind:'local'}, p));
@@ -7560,6 +7573,7 @@
     root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
+    card.appendChild(backLink('Indietro', ()=>{ view='operatorHome'; render(); }));
     card.appendChild(el('div',{style:'display:flex; align-items:center; justify-content:space-between; gap:12px;'},[
       el('h2',{style:'margin:0;'},['Paziente in presenza']),
       el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px; flex-shrink:0;', onclick:()=>{ view='archive'; render(); }},['Archivio'])
@@ -7652,9 +7666,6 @@
       }
     }},['+ Nuovo paziente']));
 
-    const nav = el('div',{class:'navlinks'});
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='operatorHome'; render(); }},['← Indietro']));
-    card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
   }
 
@@ -7789,6 +7800,7 @@
     root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
+    card.appendChild(backLink('Indietro', ()=>{ view='operatorHome'; render(); }));
     card.appendChild(el('div',{style:'display:flex; align-items:center; justify-content:space-between; gap:12px;'},[
       el('h2',{style:'margin:0;'},['I tuoi pazienti']),
       el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px; flex-shrink:0;', onclick:()=>{ view='archive'; render(); }},['Archivio'])
@@ -7819,9 +7831,6 @@
       }
     }},['+ Nuovo paziente']));
 
-    const nav = el('div',{class:'navlinks'});
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ view='operatorHome'; render(); }},['← Indietro']));
-    card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
 
     listMyPatients().then(list=>{

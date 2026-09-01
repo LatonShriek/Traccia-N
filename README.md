@@ -63,6 +63,32 @@ PQRST/errorless/vanishing cues) non hanno qui una citazione dedicata:
 prima di aggiungerne una, va verificata con la stessa cura delle altre,
 non approssimata per completare la tabella.
 
+**Nota su inibizione e attenzione selettiva: perché non sono una riga a
+sé in questa tabella.** Deliberato, non una dimenticanza: la
+psicometria non trova un fattore di "inibizione" residuo distinto da un
+fattore esecutivo comune, una volta scorporata la varianza condivisa
+(Friedman & Miyake, 2017, *Cortex*, 86, 186-204), e a livello di
+meccanismo l'inibizione competitiva (un distrattore che compete con il
+bersaglio, come nel conflitto dell'ANT o nella ricerca visiva della
+Cancellazione) è la stessa cosa della selezione attentiva vista da
+un'altra angolazione (biased competition — Desimone & Duncan, 1995,
+*Annual Review of Neuroscience*, 18, 193-222; per l'integrazione dei due
+casi — competitivo-indiretto e globale-diretto — sotto un unico
+principio di mantenimento dell'obiettivo attivo, Munakata, Herd,
+Chatham, Depue, Banich & O'Reilly, 2011, *Trends in Cognitive Sciences*,
+15(10), 453-459). Per questo la tabella sopra non raggruppa Go/No-Go,
+Stop-Signal, ANT e Cancellazione sotto un'unica etichetta "inibizione"
+o "attenzione selettiva": ciascuno ha il proprio costrutto specifico
+(restraint, cancellation, conflitto percettivo, ricerca visiva) perché
+sono quello — manifestazioni diverse dello stesso meccanismo di fondo,
+non quattro misure imperfette della stessa cosa. Fa eccezione,
+consapevolmente, l'etichetta di dominio dello screening
+(`'Attenzione sostenuta / inibizione'`, in `SCREENING_BLOCKS`) — lì è
+una semplificazione pratica per l'operatore che deve leggere un
+risultato in un colpo d'occhio, non un'affermazione teorica: il commento
+nel codice, subito sopra la costante, lo dichiara esplicitamente per chi
+legge il sorgente.
+
 **Limiti dichiarati, non nascosti:** l'AX-CPT qui implementato (la
 "sequenza bersaglio") è semplificato — non distingue i quattro tipi di
 trial (AX/AY/BX/BY) dell'AX-CPT classico, quindi non fornisce l'indice
@@ -116,6 +142,25 @@ Vleet, 2010) non ho trovato un SOA specificato nella fonte originale:
 uso lo stesso valore dell'ANT come scelta dichiarata, non un dato
 verificato per il TAPAT stesso.
 
+**Task-switching — switch cost relativo, accanto a quello assoluto.**
+Lo switch cost (RT medio prove di cambio regola meno RT medio prove di
+ripetizione) resta calcolato come prima, invariato. Si affianca ora un
+secondo valore, `switchCostRelative`, calcolato come switch cost assoluto
+diviso per il RT medio delle prove di ripetizione dello stesso paziente
+nella stessa sessione — non lo sostituisce, compare in aggiunta nel
+riepilogo e in coda al CSV di esportazione (colonna
+`switch_cost_relativo`, ultima colonna, per non alterare la posizione
+delle colonne esistenti). Motivo: un paziente semplicemente lento in
+generale (es. per bradicinesia) rischia di mostrare uno switch cost
+assoluto gonfiato anche senza un vero deficit specifico di shifting; il
+vigore di risposta generale e il costo di ricostruire la regola sono
+concettualmente distinti (Cools, Rogers & Robbins — invigorimento
+motorio dopamina-dipendente, distinto dallo shifting propriamente
+detto). Il valore relativo non corregge nulla nel punteggio principale,
+è un secondo dato di lettura per chi interpreta i risultati, da usare
+per relativizzare uno switch cost assoluto alto in un paziente già lento
+di base.
+
 **Dispositivo di risposta e tastiera.** Oltre al touch, l'app supporta
 sempre la risposta da tastiera per gli esercizi a 1, 2 o 4 pulsanti
 (barra spaziatrice, o lettere nell'ordine dei pulsanti mostrati). In
@@ -147,6 +192,21 @@ analogia: Van Vleet & DeGutis, *Cortex*, 2013, hanno mostrato che un
 allenamento uditivo sostenuto produce transfer su misure di attenzione
 visiva in pazienti con neglect — un precedente diretto di cross-training
 uditivo→visivo dagli stessi autori del protocollo TAPAT.
+
+**TAPAT — nota terminologica proattivo/reattivo.** Le etichette dei
+risultati per il blocco tonico e il blocco fasico riportano ora, tra
+parentesi, rispettivamente "sostenuto/proattivo" e "cue-indotto/
+reattivo" — così come il testo esplicativo in Setup. È dichiaratamente
+un'**analogia concettuale** con il framework proattivo/reattivo di
+Braver (Dual Mechanisms of Control, 2012), non un'equivalenza
+dimostrata nello stesso paradigma: il blocco tonico del TAPAT richiede
+di sostenere l'attivazione nel tempo senza aiuti esterni (vicino, per
+costrutto, all'idea di proattivo), il blocco fasico la fa scattare un
+cue esterno appena prima del bersaglio (vicino a reattivo) — ma il
+TAPAT non è stato validato come misura di proattivo/reattivo in senso
+stretto (quello resta il ruolo dell'AX-CPT in letteratura). Nessun
+calcolo è cambiato, solo l'etichetta mostrata nei risultati e nel testo
+di Setup.
 
 Con la componente spaziale attiva (bersaglio a sinistra/destra), la
 modalità uditiva usa panning stereo reale (Web Audio `StereoPannerNode`)
@@ -628,6 +688,75 @@ pazienti/operatori (GitHub Pages la ospita come file inerte, non la
 esegue mai) — è uno strumento di lavoro per chi sviluppa, da lanciare
 prima di consegnare una modifica che tocca uno di quei 6 esercizi.
 Dettagli su cosa copre e cosa no in `tests/README.md`.
+
+## Prova dimostrativa
+
+Per gli esercizi a prove sequenziali con una regola meno immediata da
+intuire da soli — N-back, Sequenza bersaglio, Go/No-Go, Task-switching,
+Stop-Signal, Categorizzazione condizionale, Doppio compito, ANT (sia
+classico sia TAPAT) — Setup mostra, sotto "Avvia sessione", un secondo
+pulsante: "▶ Prova dimostrativa (6 prove, non salvate)". Sequenza
+bersaglio e Go/No-Go richiedono lo stesso prerequisito già richiesto da
+"Avvia sessione" (bersaglio/i configurato/i) — la demo lo controlla allo
+stesso modo, con lo stesso messaggio.
+
+**Fuori da questa lista, per motivi diversi fra loro:**
+- **Cancellazione**: motore completamente diverso (una tavola con molti
+  elementi e tocco diretto, non un ciclo di prove sequenziali) — il
+  meccanismo di pausa-e-spiegazione dopo ogni risposta, pensato per un
+  ciclo di prove, non si adatta a quella struttura senza una
+  progettazione a sé. Resta un candidato per una futura "presentazione
+  guidata" non interattiva (vedi sotto), non per questo stesso
+  meccanismo.
+- **Strategie di memoria e Compiti a obiettivi (pianificazione)**:
+  esclusi per scelta esplicita — qui la "regola" non è qualcosa da
+  scoprire per tentativi (come in un N-back o un Task-switching), è una
+  tecnica che va insegnata esplicitamente (dove posizionare un elemento
+  nel metodo dei loci, come si segmenta un brano nel PQRST, come si legge
+  il budget di tempo in uno scenario). Una demo a 6 prove interattive
+  finirebbe per essere solo un allenamento breve — cosa già ottenibile
+  con una sessione libera più corta — non una vera spiegazione della
+  tecnica. Più adatta qui sarebbe una breve presentazione automatica non
+  interattiva (una specie di esempio già risolto, con un paio di passaggi
+  corretti e un paio scorretti commentati) — proposta, non ancora
+  progettata nei dettagli né implementata.
+
+**Cosa fa esattamente.** Applica temporaneamente ai parametri
+dell'esercizio scelto una versione fissa e facile (livello più basso
+della scala, 6 prove — dove possibile, riusa esattamente gli stessi
+valori isi/stimDuration già validati nei blocchi di screening per lo
+stesso esercizio, non numeri nuovi inventati) e passa dalle normali
+istruzioni (con un banner "DIMOSTRAZIONE" ben visibile) a un ciclo di 6
+prove. Dopo **ogni singola risposta**, il ciclo si ferma e mostra una
+riga di spiegazione — non solo se la risposta era giusta o sbagliata, ma
+perché, usando la stessa classificazione che il motore calcola comunque
+per ogni prova (bersaglio/non bersaglio, lure, elemento no-go, cambio di
+regola, trial di stop, presenza di un cue...): nessuna nuova logica di
+valutazione, solo un testo che la mette in parole. Si prosegue un tocco
+alla volta ("Avanti"), non a tempo.
+
+**Cosa NON fa.** Nessun dato della demo entra nello storico, nell'RCI, nel
+log accessi o nella titolazione adattiva — a fine demo compare una
+schermata dedicata ("Dimostrazione conclusa") con due sole scelte:
+iniziare subito la sessione vera (con i parametri che l'operatore aveva
+già impostato prima di avviare la demo, ripristinati automaticamente) o
+tornare al setup. Uscire dalla demo in qualunque altro punto (Interrompi
+a metà, Annulla dal countdown, "torna al setup" dalle istruzioni)
+ripristina comunque i parametri originali — l'operatore non deve mai
+riconfigurare a mano dopo una demo interrotta.
+
+**Testo di feedback.** Le frasi sono scritte per esercizio (in
+`demoFeedbackText`), non generiche — es. per l'N-back distinguono
+esplicitamente un lure ("trappola", familiare ma alla distanza sbagliata)
+da un non-bersaglio qualunque; per il Go/No-Go nominano sempre
+l'elemento no-go per nome, non solo "corretto/sbagliato"; per il
+Task-switching nominano la regola corrente e se è appena cambiata; per il
+TAPAT distinguono blocco tonico (nessun aiuto) da fasico (preceduto da un
+segnale); per l'ANT classico ricordano di ignorare le frecce di contorno
+e nominano il cue quando presente. Sono testi scritti a mano, non
+derivati da uno studio specifico sul wording — se in pratica risultano
+poco chiari per qualche esercizio, vanno rivisti a parole, non è un
+problema di logica sottostante.
 
 ## Pubblicazione su GitHub Pages (una volta sola)
 

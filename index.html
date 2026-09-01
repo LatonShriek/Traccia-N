@@ -1290,8 +1290,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1315,6 +1315,17 @@
   let historyFilterKind = 'local'; // 'local' | 'remote' — quale tipo di id è historyFilterPatientId
   let activeRemotePatientId = null; // paziente remoto scelto per una seduta in presenza (invece di uno locale)
   let screeningState = null; // {blockIdx, results:[], respModeBefore} — non-null solo durante una sessione di screening in corso
+  // Prova dimostrativa: non-null solo mentre una demo è in corso o appena
+  // conclusa. cfgBackup è l'istantanea di cfg presa PRIMA di applicare i
+  // parametri fissi e facili della demo, per poterla ripristinare esatta
+  // (compreso il livello scelto dall'operatore) quando si passa alla
+  // sessione vera o si torna al setup — stesso principio di
+  // Object.assign(cfg, patch()) già usato dallo screening, ma con
+  // ripristino esplicito perché qui, a differenza dello screening, la demo
+  // deve poi lasciare il posto a una sessione vera con i parametri
+  // originali, non a un'altra schermata di riepilogo.
+  let demoState = null; // {cfgBackup}
+
   let cachedRemotePatients = null; // null = non ancora caricati
   let pendingAccessCode = null; // {codice, patientLabel} — per la schermata di consegna codice
   let sessionGuardToken = null; // token casuale di questa scheda/dispositivo, per impedire l'uso concorrente dello stesso account
@@ -2995,7 +3006,7 @@
       'neglect_pct_sinistra','neglect_pct_destra','neglect_omessi_sin','neglect_omessi_des','neglect_asimmetria','neglect_falsi_allarmi',
       'goaltask_scenario','goaltask_livello','goaltask_completati','goaltask_totale','goaltask_percentuale','goaltask_violazioni','goaltask_tempo_sec','goaltask_budget_rispettato',
       'memoria_modo','memoria_livello','memoria_forma','memoria_recuperati','memoria_totale','memoria_percentuale','calo_intra_sessione',
-      'neglect_conteggio_accuratezza','neglect_conteggio_errore_medio','note'];
+      'neglect_conteggio_accuratezza','neglect_conteggio_errore_medio','note','switch_cost_relativo'];
     const rows = items.map(r=>{
       const family = r.family || 'signal'; // record salvati prima di questa versione
       const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
@@ -3043,7 +3054,8 @@
         r.fatigueNote ? (r.fatigueNote.flag?'Sì':'No')+' ('+(r.fatigueNote.accFirst*100).toFixed(0)+'%→'+(r.fatigueNote.accLast*100).toFixed(0)+'%)' : '',
         family==='spatial' && r.neglect.modalitaConteggio && r.neglect.accuratezzaConteggio!=null ? (r.neglect.accuratezzaConteggio*100).toFixed(1)+'%' : '',
         family==='spatial' && r.neglect.modalitaConteggio && r.neglect.erroreAssolutoMedio!=null ? r.neglect.erroreAssolutoMedio.toFixed(2) : '',
-        (r.notes||'').replace(/[\n,]/g,' ')
+        (r.notes||'').replace(/[\n,]/g,' '),
+        family==='choice' && r.choice.switchCostRelative!=null ? (r.choice.switchCostRelative*100).toFixed(1)+'%' : ''
       ];
     });
     const csv = [head.join(';')].concat(rows.map(r=>r.join(';'))).join('\n');
@@ -3855,7 +3867,7 @@
     if(cfg.taskMode==='ant'){
       card.appendChild(field('Modalità', segButtons(['classico','tapat'], cfg.antMode, v=>{cfg.antMode=v; render();}, {classico:'ANT classico (misura)', tapat:'TAPAT (training tonico/fasico)'})));
       if(cfg.antMode==='tapat'){
-        card.appendChild(el('p',{class:'hint'},['Variante orientata al training, non alla misura: prima metà delle prove senza cue e con intervalli lunghi e imprevedibili (allerta tonica/sostenuta), seconda metà con intervalli più brevi e un cue di allerta in metà dei casi (allerta fasica). Risposta: tocca appena vedi il bersaglio, non c\'è scelta di direzione.']));
+        card.appendChild(el('p',{class:'hint'},['Variante orientata al training, non alla misura: prima metà delle prove senza cue e con intervalli lunghi e imprevedibili (allerta tonica/sostenuta), seconda metà con intervalli più brevi e un cue di allerta in metà dei casi (allerta fasica). Risposta: tocca appena vedi il bersaglio, non c\'è scelta di direzione. Nota terminologica: il blocco tonico richiede di sostenere l\'attivazione da soli nel tempo, il blocco fasico la innesca un cue esterno appena prima del bersaglio — un\'analogia concettuale con proattivo/reattivo (Braver, 2012), non un\'equivalenza dimostrata nello stesso paradigma.']));
         if(cfg.adaptive){
           card.appendChild(el('p',{class:'hint'},['La difficoltà del blocco tonico (durata delle attese) sale se l\'accuratezza supera l\'85% negli ultimi 8 trial validi, scende sotto il 70% — 5 livelli, dalle attese brevi (2-4s) a quelle lunghe e imprevedibili (8-15s). Puoi comunque forzare il livello con i pulsanti +/– nella barra in alto durante la sessione.']));
         }
@@ -4047,6 +4059,10 @@
         if(cfg.taskMode==='neglect' && (cfg.neglectMode==='classico'||cfg.neglectMode==='progressiva') && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima almeno un elemento bersaglio da cancellare.'); return; }
         view='instructions'; render();
       }},['Avvia sessione']));
+      const demoKey = demoKeyForCurrentCfg();
+      if(demoKey){
+        card.appendChild(el('button',{class:'ghost', style:'margin-top:8px;', onclick:()=>startDemo(demoKey)},['▶ Prova dimostrativa — '+demoLabelFor(demoKey)+' (6 prove, non salvate)']));
+      }
     }
 
     const nav = el('div',{class:'navlinks'});
@@ -4179,6 +4195,9 @@
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',{},['Prima di iniziare']));
+    if(demoState){
+      card.appendChild(el('div',{style:'background:var(--accent); color:#fff; border-radius:10px; padding:8px 14px; font-size:13px; font-weight:600; margin-bottom:14px; display:inline-block;'},['DIMOSTRAZIONE — 6 prove, spiegate una per una, non salvate']));
+    }
     const text = EXERCISES[cfg.taskMode].instructions(cfg);
     const textBox = el('p',{style:'font-size:16px; line-height:1.6; background:var(--paper-dim); border-radius:12px; padding:16px 18px; margin:0 0 18px;'},[text]);
     card.appendChild(textBox);
@@ -4232,7 +4251,7 @@
 
     card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ view='countdown'; render(); }},['Ho capito, inizia']));
     const nav = el('div',{class:'navlinks'});
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){} view=homeView(); render(); }},['← Torna al setup']));
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){} if(demoState){ Object.assign(cfg, demoState.cfgBackup); demoState=null; } view=homeView(); render(); }},['← Torna al setup']));
     card.appendChild(nav);
 
     s.appendChild(card); root.appendChild(s);
@@ -4245,7 +4264,7 @@
     s.appendChild(num);
     root.appendChild(el('div',{class:'topbar'},[
       el('div',{class:'info'},['preparazione']),
-      el('button',{onclick:()=>{view=homeView(); render();}},['Annulla'])
+      el('button',{onclick:()=>{ if(demoState){ Object.assign(cfg, demoState.cfgBackup); demoState=null; } view=homeView(); render(); }},['Annulla'])
     ]));
     root.appendChild(s);
     const iv = setInterval(()=>{
@@ -4282,7 +4301,8 @@
       liveNLevel: cfg.nLevel, tapatLevel: cfg.tapatStartLevel, adaptLevel: cfg.adaptStartLevel, liveTapatGradient: cfg.tapatGradient,
       categLevel: cfg.categLivello, categPrevCat: null, categPrevCat2: null,
       dualLevel1: cfg.dualStartLevel1, dualLevel2: cfg.dualStartLevel2, adaptBlock1:[], adaptBlock2:[], prevDual1:null, prevDual2:null,
-      adaptBlock:[], levelChanges:[]
+      adaptBlock:[], levelChanges:[],
+      isDemo: !!demoState, lastDemoFeedback: null
     };
     view='task'; render();
     nextTrial();
@@ -5224,6 +5244,7 @@
   // accetta un tocco indipendente per canale.
   function registerTap(action){
     if(!session || session.paused || session.idx<0 || session.idx>=session.seq.length) return;
+    if(session.phase==='demoFeedback') return; // in pausa fra una prova e l'altra della demo: si avanza solo col pulsante "Avanti"
     if(cfg.respMode==='manuale') return;
     if(session.responses.has(action)) return;
     if(cfg.taskMode!=='dualtask' && session.responses.size>0) return;
@@ -5241,6 +5262,12 @@
       default: outcome = resolveSignal(trial); // nback / sequenza
     }
     if(outcome) session.trail.push({outcome, target: !!trial.isTarget});
+    if(session.isDemo && outcome && outcome!=='pend'){
+      session.lastDemoFeedback = demoFeedbackText(trial, outcome);
+      session.phase='demoFeedback';
+      render();
+      return;
+    }
     nextTrial();
   }
   // nback, sequenza, gonogo, stopsignal: tutti sono "rispondi sì/no" con un
@@ -5580,7 +5607,7 @@
       infoSpan,
       el('div',{class:'topbar-actions'},[
         ...topRight,
-        el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); if(session.stopCueTimer) clearTimeout(session.stopCueTimer); view=homeView(); render(); } }},['Interrompi'])
+        el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); if(session.stopCueTimer) clearTimeout(session.stopCueTimer); if(session.isDemo && demoState){ Object.assign(cfg, demoState.cfgBackup); demoState=null; } view=homeView(); render(); } }},['Interrompi'])
       ])
     ]));
     const stage = el('div',{class:'stage'});
@@ -5663,7 +5690,14 @@
     }
 
     d.stimSlot.innerHTML='';
-    if(session.paused){
+    if(session.phase==='demoFeedback'){
+      const isLast = session.idx+1>=cfg.trials;
+      d.stimSlot.appendChild(el('div',{style:'max-width:420px; margin:0 auto; text-align:center;'},[
+        el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:8px;'},['Dimostrazione']),
+        el('div',{style:'font-size:17px; line-height:1.4; margin-bottom:18px;'},[session.lastDemoFeedback||'']),
+        el('button',{class:'primary', onclick:()=>{ continueDemo(); }},[isLast ? 'Fine dimostrazione' : 'Avanti'])
+      ]));
+    } else if(session.paused){
       d.stimSlot.appendChild(el('div',{class:'blank'},['❚❚ in pausa']));
     } else if(session.showStopCue){
       d.stimSlot.appendChild(el('div',{class:'stopcue-full'},['STOP']));
@@ -5682,7 +5716,7 @@
       session.trail.slice(-16).forEach(t=> d.trail.appendChild(el('div',{class:'chip '+t.outcome})));
     }
 
-    const canRespond = cfg.respMode!=='manuale' && !session.paused &&
+    const canRespond = session.phase!=='demoFeedback' && cfg.respMode!=='manuale' && !session.paused &&
       (cfg.taskMode==='dualtask' ? true : session.responses.size===0);
     d.btns.forEach(b=>{
       const already = cfg.taskMode==='dualtask' ? session.responses.has(b.dataset.action) : false;
@@ -5846,6 +5880,17 @@
   // livello ideale del paziente, ma un confronto pulito e riproducibile
   // fra "senza carico" e "con carico" allo stesso dominio.
   const SCREENING_TRIALS = 16;
+  // "Attenzione sostenuta / inibizione" (domainLabel sotto) è
+  // un'etichetta pragmatica per l'operatore, non una posizione teorica:
+  // il framework della batteria (vedi README, "Framework teorico") tratta
+  // inibizione e attenzione selettiva come due facce dello stesso
+  // meccanismo di mantenimento dell'obiettivo attivo (Munakata, Herd,
+  // Chatham, Depue, Banich & O'Reilly, 2011), non come moduli a sé — qui
+  // restano accorpate in una sola etichetta perché lo screening ha
+  // bisogno di un nome breve e leggibile a colpo d'occhio, non perché il
+  // codice le consideri la stessa cosa altrove (Go/No-Go, Stop-Signal,
+  // ANT e Cancellazione, per esempio, restano distinti per costrutto
+  // specifico in tutto il resto della batteria).
   const SCREENING_BLOCKS = [
     { domain:'attenzione', tipo:'base', domainLabel:'Attenzione sostenuta / inibizione', label:'Attenzione — blocco base',
       patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:[POOLS.lettere[0]], adaptive:false, targetRate:0.48, isi:1600, stimDuration:600, trials:SCREENING_TRIALS}) },
@@ -5865,6 +5910,108 @@
       patch:()=>({taskMode:'neglect', neglectMode:'regola', neglectRuleLevel:2, stimType:'lettere', neglectBoardSize:40, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}) }
   ];
   const SCREENING_FLAG_THRESHOLD = 0.70; // coerente con la soglia Wilson già in uso per la titolazione adattiva
+  // Prova dimostrativa: 6 prove a difficoltà fissa e facile, con feedback
+  // esplicativo dopo ogni risposta, per far capire la regola prima che le
+  // prove "contino" davvero. Solo per i 6 esercizi con la regola meno
+  // immediata da intuire da soli — Cancellazione, Sequenza bersaglio e le
+  // strategie di memoria restano fuori: la loro consegna è già
+  // sostanzialmente auto-esplicativa. Riuso, dove possibile, esattamente
+  // gli stessi valori isi/stimDuration già validati nei blocchi di
+  // screening per lo stesso esercizio (non nuovi numeri inventati); dove
+  // lo screening non copre quell'esercizio (Stop-Signal, TAPAT, Doppio
+  // compito) i valori sono una scelta di comodo per un ritmo non
+  // frettoloso — ipotesi di costruzione, non un dato di letteratura.
+  const DEMO_TRIALS = 6;
+  const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','antclassico'];
+  const DEMO_PATCHES = {
+    nback: ()=>({taskMode:'nback', nLevel:1, isi:2200, stimDuration:700, trials:DEMO_TRIALS}),
+    sequenza: ()=>({taskMode:'sequenza', adaptStartLevel:1, isi:2200, stimDuration:700, trials:DEMO_TRIALS}),
+    gonogo: ()=>({taskMode:'gonogo', adaptStartLevel:1, isi:1600, stimDuration:600, trials:DEMO_TRIALS}),
+    switching: ()=>({taskMode:'switching', adaptStartLevel:1, isi:1800, stimDuration:800, trials:DEMO_TRIALS}),
+    stopsignal: ()=>({taskMode:'stopsignal', adaptStartLevel:1, isi:2000, stimDuration:800, trials:DEMO_TRIALS}),
+    categorizzazione: ()=>({taskMode:'categorizzazione', categLivello:1, isi:1800, stimDuration:700, trials:DEMO_TRIALS}),
+    dualtask: ()=>({taskMode:'dualtask', dualStartLevel1:1, dualStartLevel2:1, isi:2200, stimDuration:800, trials:DEMO_TRIALS}),
+    tapat: ()=>({taskMode:'ant', antMode:'tapat', tapatStartLevel:1, trials:DEMO_TRIALS}),
+    antclassico: ()=>({taskMode:'ant', antMode:'classico', adaptStartLevel:1, isi:3200, stimDuration:700, trials:DEMO_TRIALS})
+  };
+  function demoLabelFor(key){
+    if(key==='tapat') return 'TAPAT';
+    if(key==='antclassico') return 'ANT';
+    return EXERCISES[key].label;
+  }
+  function demoKeyForCurrentCfg(){
+    if(cfg.taskMode==='ant') return cfg.antMode==='tapat' ? 'tapat' : 'antclassico';
+    return DEMO_ELIGIBLE.includes(cfg.taskMode) ? cfg.taskMode : null;
+  }
+  // Stessi controlli già usati da "Avvia sessione" — una demo su Sequenza
+  // bersaglio o Go/No-Go senza bersagli configurati non avrebbe nulla da
+  // dimostrare, meglio bloccarla con lo stesso messaggio piuttosto che
+  // farla partire su una configurazione vuota.
+  function demoPrereqOk(key){
+    if(key==='sequenza' && cfg.targetSeq.length<2){ alert('Costruisci prima la sequenza bersaglio (almeno 2 elementi).'); return false; }
+    if(key==='gonogo' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima l\'elemento no-go.'); return false; }
+    return true;
+  }
+  function startDemo(key){
+    if(!demoPrereqOk(key)) return;
+    demoState = { cfgBackup: Object.assign({}, cfg) };
+    Object.assign(cfg, DEMO_PATCHES[key]());
+    view='instructions'; render();
+  }
+  // Testo di feedback dopo ogni prova della demo — usa la classificazione
+  // che il motore calcola comunque (outcome, isTarget, isLure, isSwitch,
+  // isStopTrial...), non aggiunge nuova logica di valutazione: si limita a
+  // spiegare a parole quello che l'esercizio ha già giudicato.
+  function demoFeedbackText(trial, outcome){
+    const ok = outcome==='hit';
+    if(cfg.taskMode==='nback'){
+      if(ok && trial.isTarget) return 'Giusto — questa lettera era uguale a quella di n prove fa: andava toccato il tasto.';
+      if(ok && trial.isLure) return 'Giusto a non rispondere — questa lettera sembrava familiare, ma non era alla distanza giusta (n prove fa): era una "trappola".';
+      if(ok) return 'Giusto a non rispondere — questa lettera non corrispondeva.';
+      if(trial.isTarget) return 'Qui andava toccato il tasto: questa lettera era uguale a quella di n prove fa.';
+      if(trial.isLure) return 'Qui non andava toccato nulla: questa lettera sembrava familiare, ma era una "trappola" — non alla distanza giusta.';
+      return 'Qui non andava toccato nulla: questa lettera non corrispondeva.';
+    }
+    if(cfg.taskMode==='sequenza'){
+      if(ok && trial.isTarget) return 'Giusto — questo elemento è nella sequenza bersaglio da riconoscere: andava toccato il tasto.';
+      if(ok) return 'Giusto a non rispondere — questo elemento non fa parte della sequenza bersaglio.';
+      if(trial.isTarget) return 'Qui andava toccato il tasto: questo elemento fa parte della sequenza bersaglio.';
+      return 'Qui non andava toccato nulla: questo elemento non fa parte della sequenza bersaglio.';
+    }
+    if(cfg.taskMode==='gonogo'){
+      if(ok && !trial.isTarget) return 'Giusto a non rispondere — questo è l\'elemento "no-go", quello a cui NON si risponde mai.';
+      if(ok) return 'Giusto — hai risposto, ed era corretto farlo.';
+      if(!trial.isTarget) return 'Qui non andava toccato nulla: questo è l\'elemento "no-go".';
+      return 'Qui andava data una risposta: non era l\'elemento "no-go".';
+    }
+    if(cfg.taskMode==='switching'){
+      const regola = trial.ruleDef ? trial.ruleDef.label : '';
+      if(ok) return 'Giusto — la regola di questa prova era «'+regola+'».';
+      return 'Qui la regola era «'+regola+'»'+(trial.isSwitch ? ', cambiata rispetto alla prova precedente.' : ', la stessa della prova precedente.');
+    }
+    if(cfg.taskMode==='stopsignal'){
+      if(trial.isStopTrial) return ok ? 'Giusto — è comparso il segnale di stop: bene a non rispondere.' : 'Qui è comparso il segnale di stop: l\'obiettivo era trattenersi, non rispondere.';
+      return ok ? 'Giusto — hai risposto in tempo con la scelta corretta.' : 'Non era la risposta giusta per questo stimolo — rivedi la regola sopra.';
+    }
+    if(cfg.taskMode==='categorizzazione'){
+      const isNogo = trial.correctAnswer==='nogo';
+      if(isNogo) return ok ? 'Giusto a non rispondere — la regola attuale lo richiedeva.' : 'Qui non andava data nessuna risposta, secondo la regola attuale.';
+      return ok ? 'Giusto.' : 'Non era la categoria corretta secondo la regola attuale.';
+    }
+    if(cfg.taskMode==='dualtask'){
+      return ok ? 'Giusto su entrambi i canali — ricorda: qui si risponde a due cose insieme, ciascuna con la propria regola.' : 'Qui manca o è sbagliata la risposta su almeno uno dei due canali — ricorda: vanno seguiti insieme, ciascuno con la propria regola.';
+    }
+    if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+      if(trial.block==='tonic') return ok ? 'Giusto — hai risposto al bersaglio anche senza nessun segnale d\'aiuto.' : 'Il bersaglio è comparso senza preavviso: in questo blocco bisogna restare pronti da soli, senza aiuti.';
+      return ok ? 'Giusto — hai risposto al bersaglio dopo il segnale di allerta.' : 'Ricorda: il segnale che precede il bersaglio serve ad anticiparne l\'arrivo.';
+    }
+    if(cfg.taskMode==='ant' && cfg.antMode==='classico'){
+      const cueNote = trial.cueType && trial.cueType!=='none' ? ' Il segnale visto poco prima anticipava l\'arrivo del bersaglio.' : '';
+      return ok ? 'Giusto — hai indicato la direzione corretta.'+cueNote : 'La direzione indicata non era corretta — guarda solo la freccia centrale, ignora quelle intorno.'+cueNote;
+    }
+    return ok ? 'Giusto.' : 'Risposta non corretta per questa prova.';
+  }
+  function continueDemo(){ nextTrial(); }
   function startScreeningSession(){
     screeningState = { blockIdx:0, results:[], respModeBefore: cfg.respMode };
     if(cfg.respMode==='manuale') cfg.respMode = 'paziente'; // l'inserimento manuale differito non è compatibile con la sequenza automatica dei blocchi
@@ -6192,7 +6339,24 @@
     card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ screeningState=null; view=homeView(); render(); }},['Fatto']));
     s.appendChild(card); root.appendChild(s);
   }
+  function ScreenDemoDone(root){
+    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['Dimostrazione conclusa']));
+    card.appendChild(el('p',{class:'hint'},['Le risposte della dimostrazione non sono state salvate. Quando il paziente si sente pronto, si può iniziare la sessione vera, con i parametri già impostati in precedenza.']));
+    card.appendChild(el('button',{class:'primary', style:'margin-top:16px;', onclick:()=>{
+      if(demoState){ Object.assign(cfg, demoState.cfgBackup); demoState=null; }
+      view='instructions'; render();
+    }},['Inizia la sessione vera']));
+    card.appendChild(el('button',{class:'ghost', style:'margin-top:8px;', onclick:()=>{
+      if(demoState){ Object.assign(cfg, demoState.cfgBackup); demoState=null; }
+      view='setup'; render();
+    }},['Torna al setup']));
+    s.appendChild(card); root.appendChild(s);
+  }
   function finishSession(){
+    if(session.isDemo){ view='demoDone'; render(); return; }
     const durationMs = Date.now()-session.startedAt;
     if(cfg.respMode==='manuale'){
       view='manualEntry'; render(); return;
@@ -6662,6 +6826,14 @@
         const swRT = rtMeanOf(log.filter(x=>x.isSwitch && x.correct).map(x=>x.rt));
         const repRT = rtMeanOf(log.filter(x=>!x.isSwitch && x.correct).map(x=>x.rt));
         rec.choice.switchCost = (swRT!=null && repRT!=null) ? Math.round(swRT-repRT) : null;
+        // Switch cost relativo al RT di base del paziente (repRT), non solo
+        // assoluto: un paziente semplicemente lento in generale (es. per
+        // bradicinesia) non deve gonfiare il costo di switching, che dovrebbe
+        // riflettere solo il sovraccosto specifico del cambio di regola, non
+        // il "vigore" di risposta generale (Cools, Rogers & Robbins — vigore
+        // di risposta dopamina-dipendente, distinto dallo shifting). Affianca
+        // il valore assoluto, non lo sostituisce.
+        rec.choice.switchCostRelative = (rec.choice.switchCost!=null && repRT>0) ? +(rec.choice.switchCost/repRT).toFixed(3) : null;
         if(cfg.switchMaterial==='bivalente'){
           const congRT = rtMeanOf(log.filter(x=>x.congruency==='congruent' && x.correct).map(x=>x.rt));
           const incongRT = rtMeanOf(log.filter(x=>x.congruency==='incongruent' && x.correct).map(x=>x.rt));
@@ -6897,11 +7069,12 @@
       if(r.choice.alerting!=null) mg.appendChild(metric(r.choice.alerting+' ms', 'Indice allerta'));
       if(r.choice.orienting!=null) mg.appendChild(metric(r.choice.orienting+' ms', 'Indice orienting'));
       if(r.choice.conflict!=null) mg.appendChild(metric(r.choice.conflict+' ms', 'Indice conflitto'));
-      if(r.choice.tonicMeanRT!=null) mg.appendChild(metric(Math.round(r.choice.tonicMeanRT)+' ms', 'RT medio — blocco tonico'));
-      if(r.choice.tonicTotal!=null) mg.appendChild(metric(r.choice.tonicOmissions+' / '+r.choice.tonicTotal, 'Omissioni — blocco tonico'));
-      if(r.choice.phasicMeanRT!=null) mg.appendChild(metric(Math.round(r.choice.phasicMeanRT)+' ms', 'RT medio — blocco fasico'));
+      if(r.choice.tonicMeanRT!=null) mg.appendChild(metric(Math.round(r.choice.tonicMeanRT)+' ms', 'RT medio — blocco tonico (sostenuto/proattivo)'));
+      if(r.choice.tonicTotal!=null) mg.appendChild(metric(r.choice.tonicOmissions+' / '+r.choice.tonicTotal, 'Omissioni — blocco tonico (sostenuto/proattivo)'));
+      if(r.choice.phasicMeanRT!=null) mg.appendChild(metric(Math.round(r.choice.phasicMeanRT)+' ms', 'RT medio — blocco fasico (cue-indotto/reattivo)'));
       if(r.choice.adaptive && r.choice.finalTapatLevel!=null) mg.appendChild(metric('livello '+r.choice.finalTapatLevel, 'Difficoltà finale (adattiva)'));
       if(r.choice.switchCost!=null) mg.appendChild(metric(r.choice.switchCost+' ms', 'Switch cost'));
+      if(r.choice.switchCostRelative!=null) mg.appendChild(metric((r.choice.switchCostRelative*100).toFixed(1)+' %', 'Switch cost relativo al RT di base'));
     } else if(r.family==='dual'){
       const [lab1,lab2] = dualChannelLabels(r.dualPairing);
       mg.appendChild(metric(fmtPct(r.metrics.acc), 'Accuratezza canale '+lab1));
@@ -8303,7 +8476,7 @@
     manualEntry: ScreenManualEntry, results: ScreenResults, history: ScreenHistory,
     cloud: ScreenCloud, patients: ScreenPatients, patientHome: ScreenPatientHome, patientProgram: ScreenPatientProgram,
     operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode, accessLog: ScreenAccessLog,
-    screeningIntro: ScreenScreeningIntro, screeningResults: ScreenScreeningResults, archive: ScreenArchive
+    screeningIntro: ScreenScreeningIntro, screeningResults: ScreenScreeningResults, archive: ScreenArchive, demoDone: ScreenDemoDone
   };
 
   // Ingresso da tastiera (solo desktop) per le risposte a 2 o 4 alternative

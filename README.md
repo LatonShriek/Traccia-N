@@ -19,8 +19,10 @@ multi-operatore e accesso paziente — è opzionale.
 
 **Indice:** [Framework teorico](#framework-teorico-della-batteria) ·
 [Difficoltà adattiva](#difficoltà-adattiva) ·
+[Simon task](#simon-task) ·
 [Categorizzazione condizionale](#categorizzazione-condizionale) ·
 [Batteria di screening iniziale](#batteria-di-screening-iniziale) ·
+[Controllo motorio di base](#controllo-motorio-di-base) ·
 [Pubblicazione su GitHub Pages](#pubblicazione-su-github-pages-una-volta-sola) ·
 [Uso sul dispositivo](#uso-sul-dispositivo) ·
 [Dati e privacy](#dati-e-privacy) ·
@@ -352,10 +354,10 @@ margine sia a pavimento (deficit marcati) sia a soffitto (prestazioni
 forti):
 
 **Modello triplice di titolazione — Manuale / Livello / Adattivo.**
-Descritto qui per i 6 esercizi con stepper "Livello" pienamente
+Descritto qui per i 7 esercizi con stepper "Livello" pienamente
 condiviso (N-back, Go/No-Go, Task-switching, Sequenza bersaglio,
-Stop-Signal, ANT classico) — la stessa idea si applica, con le varianti
-dichiarate caso per caso più sotto, a tutti gli altri 8 esercizi tranne
+Stop-Signal, ANT classico, Simon) — la stessa idea si applica, con le
+varianti dichiarate caso per caso più sotto, a tutti gli altri 5 esercizi tranne
 Scenari ecologici e Strategie di memoria (vedi il riepilogo dopo la
 tabella dei livelli). Il clinico sceglie fra tre modalità, cambiabili
 liberamente fra una seduta e l'altra (mai dentro una sessione in corso)
@@ -426,7 +428,7 @@ di difficoltà) restano sempre modificabili, in ogni modalità.
 modello triplice, stesso bug corretto, per entrambi. Per Cancellazione:
 in modalità Manuale la dimensione della tavola e il tempo limite ora
 restano davvero indipendenti dal livello (prima c'era lo stesso scarto
-silenzioso degli altri 6 esercizi), in Livello/Adattiva seguono sempre la
+silenzioso degli altri 7 esercizi), in Livello/Adattiva seguono sempre la
 tabella — anche nel caso più complesso, la modalità "Progressiva" (scala
 assoluta 1-30 che attraversa tre fasi), dove il livello mostrato in Setup
 si traduce sempre correttamente nel sotto-livello 1-10 della fase attiva,
@@ -536,6 +538,59 @@ sezione dedicata più sotto. La **Categorizzazione condizionale** ha
 allo stesso modo una progressione a 5 livelli scelti manualmente, non
 adattiva — vedi la sezione dedicata. Le **Strategie di memoria** hanno 16
 livelli di difficoltà del materiale, anch'essi scelti manualmente.
+
+## Simon task
+
+Conflitto spazio-risposta, non identità-vs-identità come il flanker
+dell'ANT (frecce che indicano un'altra direzione) — un solo stimolo,
+nessun distrattore affiancato: un cerchio colorato (blu o verde) compare
+a sinistra o a destra dello schermo. Il paziente tocca "Blu" o "Verde" in
+base al **colore**, mai alla posizione — ma la posizione, quando non
+coincide col pulsante corretto per quel colore, genera comunque
+interferenza (Simon & Rudell, 1967, *Journal of Applied Psychology*,
+51(3), 300-304).
+
+**Perché non il Color-Word Stroop classico.** Scelta deliberata: uno
+Stroop parola-colore standard rischierebbe di sovrapporsi a un eventuale
+Stroop usato come misura diagnostica altrove (in NeuroScore o in un test
+carta-e-matita) — l'esposizione ripetuta come esercizio di allenamento
+contaminerebbe quella misura con un effetto di pratica scambiabile per
+miglioramento reale. Il Simon task misura lo stesso principio generale
+(inibizione competitiva, dimensional overlap — Kornblum, Hasbroucq &
+Osman, 1990, *Psychological Review*, 97(2), 253-270) con un paradigma
+percettivamente diverso, nessuna lettura coinvolta.
+
+**Mappatura fissa per l'intera sessione**: Blu → pulsante sinistro, Verde
+→ pulsante destro — dichiarata una volta nelle istruzioni, mai
+rimescolata prova per prova (cambiarla a metà sessione sarebbe un cambio
+di regola strutturale, vietato dal principio delle bande strutturali già
+in vigore per tutti gli altri esercizi).
+
+**Proporzione di congruenza** (Setup, parametro clinico fisso, non una
+leva di titolazione): Bilanciato (50/50), Prevalenza congruente (75/25),
+Prevalenza incongruente (25/75) — manipolazione list-wide, decisa a
+livello di sessione. Un blocco a prevalenza congruente o incongruente
+permette di misurare quanto il paziente riesce a sfruttare l'aspettativa
+generale del blocco per prepararsi in anticipo all'interferenza
+(controllo proattivo); un blocco bilanciato non lo permette — stessa
+logica già discussa per Categorizzazione condizionale e per il Task-
+switching bivalente. Consigliate almeno 60 prove per un indice di
+conflitto stabile.
+
+**Titolazione**: livello 1-10 condiviso con Sequenza bersaglio, Go/No-Go,
+Task-switching, Stop-Signal, ANT classico (Manuale/Livello/Adattivo,
+`ADAPT_ISI.simon` — stessa scala dell'ANT classico, complessità
+percettivo-motoria comparabile: 2AFC spaziale). Blu e verde restano
+sempre in proporzione 50/50 indipendentemente dalla proporzione di
+congruenza scelta — sono due manipolazioni indipendenti, non la stessa
+leva.
+
+**Risultati**: "Effetto Simon" (RT prove incongruenti meno RT prove
+congruenti, stesso segno e stessa interpretazione dell'indice di
+conflitto già mostrato per ANT e per il Task-switching bivalente — riusa
+lo stesso campo interno, compare già nella colonna "conflitto" del CSV
+di esportazione, nessuna colonna nuova necessaria) più l'accuratezza
+separata per condizione congruente/incongruente.
 
 ## Categorizzazione condizionale
 
@@ -673,6 +728,65 @@ reale. Un solo blocco per condizione (16 prove, 1 tavola per la
 Cancellazione) è una stima rapida, non una misura precisa: da trattare
 come un primo orientamento su cosa approfondire, non come diagnosi.
 
+## Controllo motorio di base
+
+Non è un test cognitivo: verifica solo che il canale di risposta (tocco
+o mouse/trackpad) sia affidabile, **prima** di qualunque esercizio o
+screening — un'imprecisione qui (tremore, difficoltà visiva, mira)
+altrimenti rischia di essere letta come un deficit cognitivo che non è.
+Ispirato al Motor Screening Task di CANTAB, ma senza le sue norme di
+popolazione: l'hardware del paziente è troppo eterogeneo perché un
+valore di riferimento assoluto abbia senso — qui il confronto è sempre e
+solo con lo stesso paziente, sullo stesso tipo di dispositivo, nel
+tempo, stessa filosofia single-case già usata per l'RCI.
+
+**Accesso**: dalla scheda "Gestisci programma" di un paziente (in
+presenza o remoto), accanto al pulsante dello screening — "Controllo
+motorio di base".
+
+**Come funziona**: l'operatore indica il tipo di dispositivo che il
+paziente sta usando in quel momento — Smartphone, Tablet, o Computer
+(mouse/trackpad). Non è lo stesso concetto di "Dispositivo di risposta
+previsto" in Setup (quello riguarda touch/tastiera durante gli
+esercizi) — qui serve una categoria più fine, perché la zona di comfort
+della mano cambia molto fra un telefono e un tablet anche se entrambi
+sono "touch": su smartphone i 6 bersagli compaiono concentrati nella
+metà inferiore dello schermo, raggiungibile dal pollice, mai negli
+angoli estremi; su tablet e computer sono distribuiti su tutto lo
+schermo, angoli inclusi. Il paziente tocca ciascun bersaglio appena
+compare, uno alla volta.
+
+**Cosa misura**: non solo se il bersaglio è stato preso, ma *quanto*
+lontano dal centro (distanza espressa come multiplo del raggio del
+bersaglio, non in pixel grezzi — così resta leggibile a prescindere
+dalla risoluzione dello schermo) e la variabilità del tempo di reazione
+fra un tocco e l'altro (coefficiente di variazione — stesso principio
+già discusso a proposito della firma comportamentale cerebellare: non
+solo *quanto* va bene, *quanto* è costante). Il tocco viene registrato
+ovunque cada nello schermo, non solo se cade dentro il cerchio visibile
+— un "quasi preso" e un "preso al centro" sono informazioni diverse, non
+un binario riuscito/fallito.
+
+**Confronto nel tempo**: se esiste un controllo precedente per lo stesso
+paziente sullo stesso tipo di dispositivo, il risultato lo confronta
+(soglia del 15% per descrivere "simile" vs "diverso" — scelta di comodo
+descrittiva, non un valore validato in letteratura, dichiarata come tale
+nel testo mostrato). Con un dispositivo diverso dall'ultima volta, non
+viene mai forzato un confronto non comparabile — semplicemente non c'è
+nulla con cui confrontare, e quel controllo diventa il nuovo punto di
+partenza.
+
+**Suggerimento pratico, non un giudizio clinico**: se i tocchi cadono in
+media fuori dal cerchio visibile del bersaglio, il risultato lo segnala
+come osservazione diretta ("i tocchi sono caduti fuori dal bersaglio"),
+non come deficit, e suggerisce di valutare "Zone di risposta grandi" in
+Setup prima di iniziare le sessioni vere su quel dispositivo.
+
+**Dati**: ogni controllo si salva con la stessa infrastruttura delle
+sessioni normali (stesso storico, stessa sincronizzazione Supabase se
+configurata) con un campo `family:'motorio'` dedicato — non compare
+nell'RCI né nei report per esercizio, è un flusso a parte.
+
 ## Test di regressione
 
 La cartella `tests/` contiene una suite di controlli automatici per i 6
@@ -686,7 +800,7 @@ node tests/run-all.js
 Non serve installare nulla, non è collegata alla pagina che vedono
 pazienti/operatori (GitHub Pages la ospita come file inerte, non la
 esegue mai) — è uno strumento di lavoro per chi sviluppa, da lanciare
-prima di consegnare una modifica che tocca uno di quei 6 esercizi.
+prima di consegnare una modifica che tocca uno di quei 7 esercizi.
 Dettagli su cosa copre e cosa no in `tests/README.md`.
 
 ## Prova dimostrativa
@@ -694,8 +808,8 @@ Dettagli su cosa copre e cosa no in `tests/README.md`.
 Per gli esercizi a prove sequenziali con una regola meno immediata da
 intuire da soli — N-back, Sequenza bersaglio, Go/No-Go, Task-switching,
 Stop-Signal, Categorizzazione condizionale, Doppio compito, ANT (sia
-classico sia TAPAT) — Setup mostra, sotto "Avvia sessione", un secondo
-pulsante: "▶ Prova dimostrativa (6 prove, non salvate)". Sequenza
+classico sia TAPAT), Simon — Setup mostra, sotto "Avvia sessione", un
+secondo pulsante: "▶ Prova dimostrativa (6 prove, non salvate)". Sequenza
 bersaglio e Go/No-Go richiedono lo stesso prerequisito già richiesto da
 "Avvia sessione" (bersaglio/i configurato/i) — la demo lo controlla allo
 stesso modo, con lo stesso messaggio.

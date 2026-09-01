@@ -401,6 +401,11 @@
       instructions:c=>{
         if(c.switchMaterial==='bivalente') return 'Vedrai un carattere che può essere un numero o una lettera, scritto in bianco o in rosso. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere, ignora il colore) oppure "Bianco / Rosso" (rispondi in base al colore, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
         const rs=SWITCH_RULESETS[c.switchMaterial]; const matName = c.switchMaterial==='numeri'?'un numero':c.switchMaterial==='lettere'?'una lettera':c.switchMaterial==='simboli'?'un simbolo':'un colore'; return 'Vedrai '+matName+', con accanto un\'indicazione che cambia: a volte devi classificarlo come "'+rs.ruleA.label+'", altre volte come "'+rs.ruleB.label+'". Segui l\'indicazione mostrata in quel momento.'; }},
+    simon: {label:'Simon (conflitto spazio-risposta)', usesStimType:false, usesTargetSeq:false, family:'choice',
+      domini:['Inibizione competitiva','Controllo esecutivo/conflitto'],
+      instructions:c=>{
+        return 'Vedrai un cerchio colorato, blu o verde, comparire a sinistra o a destra dello schermo. Tocca "Blu" se è blu, "Verde" se è verde — rispondi in base al COLORE, non alla posizione in cui compare: la posizione non conta mai per la risposta, anche se a volte può sembrare "attirare" verso il pulsante sbagliato.';
+      }},
     categorizzazione: {label:'Categorizzazione condizionale', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Funzioni esecutive','Categorizzazione','Memoria di lavoro'],
       instructions:c=>{
@@ -498,9 +503,9 @@
     taskMode:'nback', targetSeq: POOLS.lettere.slice(0,3),
     ssd:250, ssdStep:50, // solo per Stop-Signal
     adaptive:false, // derivato da titrationMode==='adattivo' — tenuto per compatibilità con tutto il codice di titolazione live (maybeAdapt, ADAPT_ISI, ecc.), va sempre aggiornato insieme a titrationMode, mai impostato da solo
-    // Modello triplice di titolazione (solo per i 6 esercizi con livello
+    // Modello triplice di titolazione (solo per i 7 esercizi con livello
     // condiviso: N-back, Go/No-Go, Task-switching, Sequenza bersaglio,
-    // Stop-Signal, ANT classico — vedi TITRATION_EXERCISES):
+    // Stop-Signal, ANT classico, Simon — vedi TITRATION_EXERCISES):
     // 'manuale'  — ogni parametro è editabile a mano, indipendente dal livello
     // 'livello'  — lo stepper "Livello" pilota tutti i parametri collegati
     //              (tabelle ADAPT_*), che restano fissi per l'intera seduta
@@ -511,6 +516,7 @@
     // non nella schermata di task).
     titrationMode:'manuale',
     switchMaterial:'numeri', // solo per Task-switching
+    simonCongruenza:'bilanciato', // solo per Simon — 'bilanciato'|'prevalenza_congruente'|'prevalenza_incongruente', parametro clinico fisso per sessione, non una leva di titolazione (vedi ADAPT_ISI.simon per la vera leva adattiva)
     antMode:'classico', antMaterial:'frecce', // 'classico' | 'tapat'; materiale: 'frecce' | 'lettere' | 'simboli' — solo ANT classico
     showTrail:true, // mostra i pallini di esito prova-per-prova durante la sessione
     numDigits:1, wordComplexity:'breve', // solo per stimolo "numeri"/"parole"
@@ -599,7 +605,7 @@
   // con questo gruppo, e non erano fra gli esercizi segnalati col bug di
   // sincronizzazione — includerli sarebbe un allargamento di perimetro non
   // richiesto.
-  const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant'];
+  const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant','simon'];
   // Neglect e Doppio compito hanno il CONCETTO di titrationMode (e vanno
   // quindi trattati come gli altri per persistenza/switch dal profilo) ma
   // non fanno parte del gruppo "condiviso" sopra: hanno le proprie
@@ -736,7 +742,7 @@
   }
   function titrationModeHint(c, mode){
     const taskMode = c.taskMode;
-    const lvl = levelOfCfg(c); // usa il campo livello corretto per l'esercizio (nLevel per N-back, adaptStartLevel per gli altri 5 — non erano lo stesso campo, bug corretto)
+    const lvl = levelOfCfg(c); // usa il campo livello corretto per l'esercizio (nLevel per N-back, adaptStartLevel per gli altri 6 — non erano lo stesso campo, bug corretto)
     if(mode==='manuale'){
       const parts = [];
       if(taskMode==='nback') parts.push('n='+nbackParamsForLevel(c.nLevel).n, 'frequenza bersaglio '+Math.round(c.targetRate*100)+'%');
@@ -1290,8 +1296,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1527,6 +1533,7 @@
       case 'stopsignal': return buildStopSignal();
       case 'ant': return buildANT();
       case 'switching': return buildSwitching();
+      case 'simon': return buildSimon();
       // 'categorizzazione' rimossa da qui: è ora sempre incrementale (vedi
       // genCategTrial/isIncremental), non passa mai da buildSequence().
       case 'dualtask': return buildDualTask();
@@ -1836,7 +1843,46 @@
     }
     return seq;
   }
-  // ---------- Categorizzazione condizionale ----------
+  // ---------- Simon task ----------
+  // Conflitto spazio-risposta, non identità-vs-identità come il flanker
+  // dell'ANT: un solo stimolo (nessun distrattore affiancato), il
+  // conflitto nasce fra la POSIZIONE dello stimolo (irrilevante per il
+  // compito) e la posizione del pulsante di risposta corretto — Simon &
+  // Rudell, 1967, Journal of Applied Psychology, 51(3), 300-304.
+  // Deliberatamente NON il Color-Word Stroop classico: eviterebbe di
+  // sovrapporsi a un eventuale Stroop usato come misura diagnostica
+  // altrove (NeuroScore o test carta-e-matita), che l'esposizione
+  // ripetuta come esercizio di training contaminerebbe con un effetto di
+  // pratica scambiabile per miglioramento reale.
+  // Mappatura colore→pulsante FISSA per l'intera sessione (Blu→sinistra,
+  // Verde→destra) — dichiarata una volta nelle istruzioni, non
+  // rimescolata prova per prova (sarebbe un cambio di regola a metà
+  // sessione, vietato dal principio delle bande strutturali). Riusa gli
+  // stessi hex già validati in POOLS.colori, non nuovi colori inventati.
+  const SIMON_COLORS = { blu:{hex:'#3B72D6', icon:'Blu'}, verde:{hex:'#3FA34D', icon:'Verde'} };
+  // Proporzione di congruenza: manipolazione list-wide (a livello di
+  // blocco/sessione, non prova per prova) — parametro clinico fisso,
+  // deciso in Setup, non una leva della titolazione adattiva: la
+  // proporzione di congruenza cambia CHE COSA si misura (quanto il
+  // paziente sfrutta l'aspettativa generale per prepararsi
+  // proattivamente all'interferenza), non QUANTO è difficile in senso
+  // continuo — stessa distinzione già fatta per Categorizzazione
+  // condizionale (struttura Manuale mai derivata dal livello).
+  const SIMON_CONGRUENCE_PROB = { bilanciato:0.5, prevalenza_congruente:0.75, prevalenza_incongruente:0.25 };
+  function buildSimon(){
+    const congProb = SIMON_CONGRUENCE_PROB[cfg.simonCongruenza] || 0.5;
+    const seq = [];
+    for(let i=0;i<cfg.trials;i++){
+      const isBlu = Math.random()<0.5;
+      const val = isBlu ? SIMON_COLORS.blu : SIMON_COLORS.verde;
+      const correctAnswer = isBlu ? 'left' : 'right'; // mappatura fissa Blu→sinistra, Verde→destra
+      const congruent = Math.random() < congProb;
+      const side = congruent ? correctAnswer : (correctAnswer==='left' ? 'right' : 'left');
+      seq.push({val, side, correctAnswer, congruency: congruent?'congruent':'incongruent', valid:true});
+    }
+    return seq;
+  }
+
   // Esercizio separato dal Task-switching: qui la regola resta fissa per
   // tutta la sessione (non si misura il costo di cambiare regola, ma il
   // carico di applicarne una di complessità crescente). 5 livelli fissi,
@@ -3903,6 +3949,10 @@
         card.appendChild(el('p',{class:'hint'},['Modalità a doppia dimensione (tipo di carattere + colore, assegnati indipendentemente): su metà delle prove le due dimensioni indicano la stessa risposta ("congruenti"), sull\'altra metà indicano risposte opposte ("incongruenti") — genera un indice di conflitto in stile Stroop, oltre allo switch cost. Consigliate almeno 60 prove per un indice di conflitto stabile.']));
       }
     }
+    if(cfg.taskMode==='simon'){
+      card.appendChild(field('Proporzione di congruenza', segButtons(['bilanciato','prevalenza_congruente','prevalenza_incongruente'], cfg.simonCongruenza||'bilanciato', v=>{ cfg.simonCongruenza=v; render(); }, {bilanciato:'Bilanciato (50/50)', prevalenza_congruente:'Prevalenza congruente (75/25)', prevalenza_incongruente:'Prevalenza incongruente (25/75)'})));
+      card.appendChild(el('p',{class:'hint'},['Regola fissa per tutta la sessione: "Blu" a sinistra, "Verde" a destra — la posizione in cui compare il cerchio non conta mai per la risposta, ma può coincidere (congruente) o no (incongruente) con il pulsante corretto. La proporzione qui sopra è un parametro clinico fisso, non una leva di difficoltà: un blocco a prevalenza congruente o incongruente permette di misurare quanto il paziente riesce a sfruttare l\'aspettativa generale del blocco per prepararsi in anticipo all\'interferenza (controllo proattivo); un blocco bilanciato non lo permette. Consigliate almeno 60 prove per un indice di conflitto stabile.']));
+    }
     if(cfg.taskMode==='categorizzazione'){
       grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
         cfg.titrationMode = v;
@@ -5024,6 +5074,7 @@
     sequenza: {1:4500,2:3900,3:3200,4:2700,5:2200,6:1900,7:1700,8:1500,9:1150,10:900},
     dualtask: {1:3000,2:2700,3:2400,4:2100,5:1800,6:1550,7:1300,8:1100,9:900,10:700}, // ISI condivisa (leva secondaria), esteso da 5 a 10 livelli
     ant:      {1:3200,2:2800,3:2400,4:2000,5:1600,6:1400,7:1200,8:1000,9:800,10:650},  // solo ANT classico, non TAPAT
+    simon:    {1:3200,2:2800,3:2400,4:2000,5:1600,6:1400,7:1200,8:1000,9:800,10:650},  // stessa scala dell'ANT classico — complessità percettivo-motoria comparabile (2AFC spaziale)
     stopsignal: {1:3600,2:3200,3:2800,4:2400,5:2000,6:1700,7:1400,8:1150,9:950,10:750} // leva secondaria, indipendente dallo staircase SSD
   };
   const ADAPT_GONOGO_FREQ = {1:0.48,2:0.44,3:0.40,4:0.34,5:0.28,6:0.22,7:0.17,8:0.12,9:0.08,10:0.05}; // frequenza no-go — più bassa = più difficile
@@ -5202,7 +5253,7 @@
       // vis-vis: nessun audio, entrambi i canali sono visivi (mostrati in renderStimulusNode)
       return;
     }
-    if((cfg.taskMode==='ant' && cfg.antMode!=='tapat') || cfg.taskMode==='switching') return; // solo visivi
+    if((cfg.taskMode==='ant' && cfg.antMode!=='tapat') || cfg.taskMode==='switching' || cfg.taskMode==='simon') return; // solo visivi
     if(cfg.taskMode==='categorizzazione' && isSpokenStim(cfg.categMateriale)){
       speak(String(trial.val));
       return;
@@ -5256,7 +5307,7 @@
     let outcome = null;
     switch(cfg.taskMode){
       case 'gonogo': case 'stopsignal': outcome = resolveSignal(trial); break;
-      case 'ant': case 'switching': outcome = resolveChoice(trial); break;
+      case 'ant': case 'switching': case 'simon': outcome = resolveChoice(trial); break;
       case 'categorizzazione': outcome = resolveCategorization(trial); break;
       case 'dualtask': outcome = resolveDualTask(trial); break;
       default: outcome = resolveSignal(trial); // nback / sequenza
@@ -5332,7 +5383,7 @@
       session.spatialBlock = session.spatialBlock || [];
       session.spatialBlock.push({side:trial.side, correct});
     }
-    if(cfg.taskMode==='ant' || cfg.taskMode==='switching'){
+    if(cfg.taskMode==='ant' || cfg.taskMode==='switching' || cfg.taskMode==='simon'){
       session.adaptBlock.push(correct);
       const before = session.adaptBlock.length;
       maybeAdapt();
@@ -5554,6 +5605,8 @@
       }
       case 'switching':
         return [{action:'a', label:'—', cls:'match'}, {action:'b', label:'—', cls:'nomatch'}];
+      case 'simon':
+        return [{action:'left', label:'⬤ Blu', cls:'match'}, {action:'right', label:'⬤ Verde', cls:'nomatch'}];
       case 'categorizzazione': {
         const liv = categEffectiveStructure(cfg);
         if(liv===1){
@@ -5693,8 +5746,8 @@
     if(session.phase==='demoFeedback'){
       const isLast = session.idx+1>=cfg.trials;
       d.stimSlot.appendChild(el('div',{style:'max-width:420px; margin:0 auto; text-align:center;'},[
-        el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:8px;'},['Dimostrazione']),
-        el('div',{style:'font-size:17px; line-height:1.4; margin-bottom:18px;'},[session.lastDemoFeedback||'']),
+        el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); margin-bottom:8px; font-weight:700;'},['Dimostrazione']),
+        el('div',{style:'font-size:17px; line-height:1.4; margin-bottom:18px; color:var(--white);'},[session.lastDemoFeedback||'']),
         el('button',{class:'primary', onclick:()=>{ continueDemo(); }},[isLast ? 'Fine dimostrazione' : 'Avanti'])
       ]));
     } else if(session.paused){
@@ -5784,6 +5837,11 @@
       const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; gap:18px;'});
       wrap.appendChild(el('div',{class:'stimulus symbolwrap', style: trial.cueType==='spatial' ? ('align-self:'+(trial.side==='left'?'flex-start':'flex-end')) : ''},[row]));
       return wrap;
+    }
+    if(cfg.taskMode==='simon'){
+      const outer = el('div',{style:'display:flex; width:100%; justify-content:'+(trial.side==='left'?'flex-start':'flex-end')+'; padding:0 8vw;'});
+      outer.appendChild(el('div',{class:'colorcircle', style:'width:110px; height:110px; background:'+trial.val.hex+';'},[]));
+      return outer;
     }
     if(cfg.taskMode==='switching'){
       const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; gap:14px;'});
@@ -5922,7 +5980,7 @@
   // compito) i valori sono una scelta di comodo per un ritmo non
   // frettoloso — ipotesi di costruzione, non un dato di letteratura.
   const DEMO_TRIALS = 6;
-  const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','antclassico'];
+  const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','antclassico','simon'];
   const DEMO_PATCHES = {
     nback: ()=>({taskMode:'nback', nLevel:1, isi:2200, stimDuration:700, trials:DEMO_TRIALS}),
     sequenza: ()=>({taskMode:'sequenza', adaptStartLevel:1, isi:2200, stimDuration:700, trials:DEMO_TRIALS}),
@@ -5932,7 +5990,8 @@
     categorizzazione: ()=>({taskMode:'categorizzazione', categLivello:1, isi:1800, stimDuration:700, trials:DEMO_TRIALS}),
     dualtask: ()=>({taskMode:'dualtask', dualStartLevel1:1, dualStartLevel2:1, isi:2200, stimDuration:800, trials:DEMO_TRIALS}),
     tapat: ()=>({taskMode:'ant', antMode:'tapat', tapatStartLevel:1, trials:DEMO_TRIALS}),
-    antclassico: ()=>({taskMode:'ant', antMode:'classico', adaptStartLevel:1, isi:3200, stimDuration:700, trials:DEMO_TRIALS})
+    antclassico: ()=>({taskMode:'ant', antMode:'classico', adaptStartLevel:1, isi:3200, stimDuration:700, trials:DEMO_TRIALS}),
+    simon: ()=>({taskMode:'simon', adaptStartLevel:1, simonCongruenza:'bilanciato', isi:3200, stimDuration:700, trials:DEMO_TRIALS})
   };
   function demoLabelFor(key){
     if(key==='tapat') return 'TAPAT';
@@ -6009,9 +6068,117 @@
       const cueNote = trial.cueType && trial.cueType!=='none' ? ' Il segnale visto poco prima anticipava l\'arrivo del bersaglio.' : '';
       return ok ? 'Giusto — hai indicato la direzione corretta.'+cueNote : 'La direzione indicata non era corretta — guarda solo la freccia centrale, ignora quelle intorno.'+cueNote;
     }
+    if(cfg.taskMode==='simon'){
+      const posNote = trial.congruency==='incongruent' ? ' Qui la posizione del cerchio "tirava" verso il pulsante sbagliato — conta solo il colore, mai la posizione.' : '';
+      return ok ? 'Giusto — hai risposto in base al colore.'+posNote : 'Risposta sbagliata: la regola è sempre e solo il colore (Blu=sinistra, Verde=destra), mai la posizione in cui compare il cerchio.'+posNote;
+    }
     return ok ? 'Giusto.' : 'Risposta non corretta per questa prova.';
   }
   function continueDemo(){ nextTrial(); }
+
+  /* ---------- controllo motorio di base ---------- */
+  // Non una misura cognitiva: verifica solo che il canale di risposta
+  // (tocco o mouse/trackpad) sia affidabile, PRIMA di qualunque test
+  // cognitivo — un'imprecisione qui (tremore, difficoltà visiva, mira)
+  // altrimenti rischia di essere letta come un deficit cognitivo che non
+  // è. Ispirato al Motor Screening Task di CANTAB, ma senza le sue norme
+  // di popolazione (hardware del paziente troppo eterogeneo per avere
+  // senso) — qui il confronto è sempre e solo con lo stesso paziente,
+  // sullo stesso tipo di dispositivo, nel tempo (stessa filosofia
+  // single-case già usata per l'RCI). "Smartphone/Tablet/Computer" non è
+  // lo stesso concetto di cfg.inputDevice (touch/tastiera, che riguarda
+  // la RISPOSTA durante gli esercizi) — qui serve una categoria più fine,
+  // perché la zona di comfort della mano cambia molto fra un telefono e
+  // un tablet anche se entrambi sono "touch".
+  const MOTOR_TARGET_RADIUS = 34; // px — anche il diametro visivo del bersaglio (68px)
+  const MOTOR_TRIALS = 6;
+  const MOTOR_TARGET_SETS = {
+    // Posizioni [x%, y%] nel container a schermo intero. Smartphone:
+    // concentrate nella metà inferiore, raggiungibile dal pollice, mai
+    // negli angoli estremi — un tocco impreciso lì può riflettere solo la
+    // scomodità dello schermo piccolo, non un problema motorio reale.
+    // Tablet/Computer: distribuite su tutto lo schermo, bersagli anche
+    // negli angoli — la mano (tablet) o il mouse (computer) raggiungono
+    // comodamente tutta l'area.
+    smartphone: [[20,55],[80,55],[50,72],[20,90],[80,90],[50,60]],
+    tablet:     [[15,18],[85,18],[50,50],[15,82],[85,82],[50,15]],
+    computer:   [[10,12],[90,12],[50,50],[10,88],[90,88],[50,10]]
+  };
+  let motorCheck = null; // {device, idx, taps:[{distancePx,rtMs}], startedAt}
+
+  function startMotorCheck(device){
+    motorCheck = { device, idx:0, taps:[], targetShownAt:null };
+    view='motorTask'; render();
+  }
+  function motorTargetPos(idx){
+    const set = MOTOR_TARGET_SETS[motorCheck.device] || MOTOR_TARGET_SETS.tablet;
+    return set[idx % set.length];
+  }
+  // Pura: nessun riferimento a motorCheck/DOM, testabile in isolamento.
+  // Converte la differenza in percentuale in pixel usando le dimensioni
+  // reali del container, per avere una distanza in un'unica unità fisica
+  // coerente (non ha senso sommare un dx in % larghezza a un dy in %
+  // altezza se il container non è quadrato).
+  function motorDistancePx(clientX, clientY, containerRect, targetXPercent, targetYPercent){
+    const px = ((clientX-containerRect.left)/containerRect.width)*100;
+    const py = ((clientY-containerRect.top)/containerRect.height)*100;
+    const dxPx = ((px-targetXPercent)/100)*containerRect.width;
+    const dyPx = ((py-targetYPercent)/100)*containerRect.height;
+    return Math.sqrt(dxPx*dxPx+dyPx*dyPx);
+  }
+  // Pura: dato l'elenco dei tocchi, calcola le quattro metriche di sintesi
+  // — nessun riferimento a motorCheck/DOM, testabile in isolamento.
+  function motorSummaryStats(taps, targetRadius){
+    const dists = taps.map(t=>t.distancePx);
+    const rts = taps.map(t=>t.rtMs).filter(x=>x!=null);
+    const meanDistPx = dists.length ? dists.reduce((a,b)=>a+b,0)/dists.length : null;
+    const meanDistRel = meanDistPx!=null ? meanDistPx/targetRadius : null;
+    const meanRT = rts.length ? rts.reduce((a,b)=>a+b,0)/rts.length : null;
+    const sdRT = (rts.length>1 && meanRT!=null) ? Math.sqrt(rts.reduce((a,b)=>a+(b-meanRT)*(b-meanRT),0)/(rts.length-1)) : null;
+    const cvRT = (sdRT!=null && meanRT>0) ? sdRT/meanRT : null;
+    return { meanDistPx, meanDistRel, meanRT, cvRT };
+  }
+  function registerMotorTap(clientX, clientY, containerRect, targetX, targetY){
+    const distancePx = motorDistancePx(clientX, clientY, containerRect, targetX, targetY);
+    const rtMs = motorCheck.targetShownAt ? (Date.now()-motorCheck.targetShownAt) : null;
+    motorCheck.taps.push({ distancePx, rtMs });
+    motorCheck.idx++;
+    if(motorCheck.idx>=MOTOR_TRIALS){ finishMotorCheck(); }
+    else { motorCheck.targetShownAt = Date.now(); render(); }
+  }
+  async function finishMotorCheck(){
+    const { meanDistPx, meanDistRel, meanRT, cvRT } = motorSummaryStats(motorCheck.taps, MOTOR_TARGET_RADIUS);
+    const rec = {
+      id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
+      ts: Date.now(), dateLabel: todayStr(),
+      patientCode: cfg.patientCode,
+      localPatientId: patientProfile ? null : (activeLocalPatientId || null),
+      pazienteId: (!patientProfile && activeRemotePatientId) ? activeRemotePatientId : null,
+      family:'motorio', taskMode:'motorio', device: motorCheck.device,
+      taps: motorCheck.taps, meanDistPx, meanDistRel, meanRT, cvRT,
+      durationMs: motorCheck.taps.reduce((a,t)=>a+(t.rtMs||0),0)
+    };
+    await saveSession(rec);
+    motorCheck.result = rec;
+    view='motorResults'; render();
+  }
+  // Confronto con l'ultimo controllo motorio disponibile per lo STESSO
+  // paziente sullo STESSO tipo di dispositivo — mai con un altro
+  // dispositivo (non comparabile, stessa logica già usata per l'RCI
+  // quando i parametri di sessione cambiano) e mai con una soglia di
+  // popolazione (non esiste, per l'eterogeneità dell'hardware). La soglia
+  // del 15% qui sotto è una scelta di comodo per descrivere "simile" vs
+  // "diverso", non un valore validato in letteratura — dichiarato come
+  // tale nel testo mostrato, non presentato come dato clinico.
+  async function motorCheckComparison(rec){
+    const hist = await loadHistory();
+    const prior = hist.filter(r=> r.family==='motorio' && r.device===rec.device && r.patientCode===rec.patientCode && r.id!==rec.id)
+      .sort((a,b)=> b.ts-a.ts)[0];
+    if(!prior) return null;
+    const deltaDist = (rec.meanDistRel - prior.meanDistRel) / prior.meanDistRel;
+    return { prior, deltaDist };
+  }
+
   function startScreeningSession(){
     screeningState = { blockIdx:0, results:[], respModeBefore: cfg.respMode };
     if(cfg.respMode==='manuale') cfg.respMode = 'paziente'; // l'inserimento manuale differito non è compatibile con la sequenza automatica dei blocchi
@@ -6337,6 +6504,79 @@
       });
     }
     card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ screeningState=null; view=homeView(); render(); }},['Fatto']));
+    s.appendChild(card); root.appendChild(s);
+  }
+  function ScreenMotorIntro(root){
+    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['Controllo motorio di base']));
+    card.appendChild(el('p',{class:'hint'},['Non è un test cognitivo: verifica solo che il tocco (o il clic) sia preciso e regolare, prima di iniziare. '+MOTOR_TRIALS+' bersagli, uno alla volta — tocca ciascuno appena compare, il più precisamente possibile. Il risultato si confronta solo con i controlli precedenti dello stesso paziente sullo stesso tipo di dispositivo, mai con una soglia generale.']));
+    card.appendChild(el('p',{class:'hint'},['Che dispositivo sta usando il paziente in questo momento?']));
+    const row = el('div',{style:'display:flex; flex-direction:column; gap:10px; margin-top:8px;'});
+    [['smartphone','Smartphone'],['tablet','Tablet'],['computer','Computer (mouse/trackpad)']].forEach(([key,label])=>{
+      row.appendChild(el('button',{class:'ghost', onclick:()=> startMotorCheck(key)},[label]));
+    });
+    card.appendChild(row);
+    const nav = el('div',{class:'navlinks', style:'margin-top:18px;'});
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ view=homeView(); render(); }},['← Torna indietro']));
+    card.appendChild(nav);
+    s.appendChild(card); root.appendChild(s);
+  }
+  function ScreenMotorTask(root){
+    const s = el('div',{class:'stage'});
+    root.appendChild(el('div',{class:'topbar'},[
+      el('div',{class:'info'},['bersaglio '+(motorCheck.idx+1)+' / '+MOTOR_TRIALS]),
+      el('button',{onclick:()=>{ motorCheck=null; view=homeView(); render(); }},['Interrompi'])
+    ]));
+    const container = el('div',{style:'position:relative; flex:1; width:100%; background:var(--paper);'});
+    if(motorCheck.targetShownAt===null) motorCheck.targetShownAt = Date.now();
+    const [tx,ty] = motorTargetPos(motorCheck.idx);
+    const target = el('div',{style:'position:absolute; left:'+tx+'%; top:'+ty+'%; width:'+(MOTOR_TARGET_RADIUS*2)+'px; height:'+(MOTOR_TARGET_RADIUS*2)+'px; margin-left:-'+MOTOR_TARGET_RADIUS+'px; margin-top:-'+MOTOR_TARGET_RADIUS+'px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 6px rgba(217,164,65,0.25);'});
+    container.appendChild(target);
+    // Il tocco/clic viene catturato su TUTTO il container, non solo sul
+    // cerchio visibile: interessa misurare quanto ci si discosta dal
+    // centro del bersaglio, anche quando il tocco cade fuori dal cerchio
+    // — un "quasi preso" e un "preso al centro" sono informazioni
+    // diverse, non solo un binario riuscito/fallito.
+    container.addEventListener('click', (ev)=>{
+      const rect = container.getBoundingClientRect();
+      registerMotorTap(ev.clientX, ev.clientY, rect, tx, ty);
+    }, { once:true });
+    s.appendChild(container);
+    root.appendChild(s);
+  }
+  function ScreenMotorResults(root){
+    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    card.appendChild(el('h2',{},['Controllo motorio — risultato']));
+    const rec = motorCheck.result;
+    const mg = el('div',{class:'metricsgrid'});
+    const metric = (v,l)=> el('div',{class:'metric'},[el('div',{class:'v'},[v]),el('div',{class:'l'},[l])]);
+    mg.appendChild(metric(rec.meanDistRel.toFixed(2)+'×', 'Distanza media dal centro (raggio del bersaglio)'));
+    if(rec.meanRT!=null) mg.appendChild(metric(Math.round(rec.meanRT)+' ms', 'RT medio'));
+    if(rec.cvRT!=null) mg.appendChild(metric((rec.cvRT*100).toFixed(0)+'%', 'Variabilità RT (CV)'));
+    card.appendChild(mg);
+    if(rec.meanDistRel>1){
+      card.appendChild(el('p',{class:'hint'},['I tocchi sono caduti in media fuori dal cerchio visibile del bersaglio. Non è un giudizio clinico — solo un\'osservazione diretta: se il paziente userà questo dispositivo per le sessioni vere, può aiutare attivare "Zone di risposta grandi" (Setup → Dispositivo di risposta) prima di iniziare.']));
+    }
+    card.appendChild(el('div',{id:'motor-compare-slot'},['Confronto con il controllo precedente…']));
+    motorCheckComparison(rec).then(cmp=>{
+      const slot = document.getElementById('motor-compare-slot');
+      if(!slot) return;
+      slot.innerHTML = '';
+      if(!cmp){
+        slot.appendChild(el('p',{class:'hint'},['Nessun controllo precedente sullo stesso dispositivo per questo paziente — questo diventa il riferimento per i prossimi.']));
+        return;
+      }
+      const pct = (cmp.deltaDist*100).toFixed(0);
+      const verso = cmp.deltaDist > 0.15 ? 'meno preciso' : cmp.deltaDist < -0.15 ? 'più preciso' : 'nella media di quanto già osservato';
+      slot.appendChild(el('p',{class:'hint'},['Rispetto all\'ultimo controllo sullo stesso dispositivo ('+new Date(cmp.prior.ts).toLocaleDateString('it-IT')+'): '+verso+' ('+(pct>0?'+':'')+pct+'%). Soglia del 15% scelta per comodità descrittiva, non un valore validato — resta un confronto fra due sole misurazioni, da leggere con cautela.']));
+    });
+    const nav = el('div',{class:'navlinks', style:'margin-top:18px;'});
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ motorCheck=null; view=homeView(); render(); }},['← Torna indietro']));
+    card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
   }
   function ScreenDemoDone(root){
@@ -6840,6 +7080,15 @@
           rec.choice.conflict = (congRT!=null && incongRT!=null) ? Math.round(incongRT-congRT) : null;
         }
       }
+      if(cfg.taskMode==='simon'){
+        const congRT = rtMeanOf(log.filter(x=>x.congruency==='congruent' && x.correct).map(x=>x.rt));
+        const incongRT = rtMeanOf(log.filter(x=>x.congruency==='incongruent' && x.correct).map(x=>x.rt));
+        rec.choice.conflict = (congRT!=null && incongRT!=null) ? Math.round(incongRT-congRT) : null; // "effetto Simon" — stesso segno/interpretazione dell'indice di conflitto già usato per ANT e Task-switching bivalente
+        const congLog = log.filter(x=>x.congruency==='congruent');
+        const incongLog = log.filter(x=>x.congruency==='incongruent');
+        rec.choice.congAccuracy = congLog.length ? congLog.filter(x=>x.correct).length/congLog.length : null;
+        rec.choice.incongAccuracy = incongLog.length ? incongLog.filter(x=>x.correct).length/incongLog.length : null;
+      }
     } else if(family==='dual'){
       rec.counts = session.counts; rec.metrics = scoreFromCounts(session.counts);
       rec.countsAud = session.countsAud; rec.metricsAud = scoreFromCounts(session.countsAud);
@@ -7068,7 +7317,9 @@
       if(r.choice.meanRT!=null) mg.appendChild(metric(Math.round(r.choice.meanRT)+' ms', 'RT medio (corrette)'));
       if(r.choice.alerting!=null) mg.appendChild(metric(r.choice.alerting+' ms', 'Indice allerta'));
       if(r.choice.orienting!=null) mg.appendChild(metric(r.choice.orienting+' ms', 'Indice orienting'));
-      if(r.choice.conflict!=null) mg.appendChild(metric(r.choice.conflict+' ms', 'Indice conflitto'));
+      if(r.choice.conflict!=null) mg.appendChild(metric(r.choice.conflict+' ms', r.taskMode==='simon' ? 'Effetto Simon (RT incongruente − congruente)' : 'Indice conflitto'));
+      if(r.choice.congAccuracy!=null) mg.appendChild(metric(fmtPct(r.choice.congAccuracy), 'Accuratezza — prove congruenti'));
+      if(r.choice.incongAccuracy!=null) mg.appendChild(metric(fmtPct(r.choice.incongAccuracy), 'Accuratezza — prove incongruenti'));
       if(r.choice.tonicMeanRT!=null) mg.appendChild(metric(Math.round(r.choice.tonicMeanRT)+' ms', 'RT medio — blocco tonico (sostenuto/proattivo)'));
       if(r.choice.tonicTotal!=null) mg.appendChild(metric(r.choice.tonicOmissions+' / '+r.choice.tonicTotal, 'Omissioni — blocco tonico (sostenuto/proattivo)'));
       if(r.choice.phasicMeanRT!=null) mg.appendChild(metric(Math.round(r.choice.phasicMeanRT)+' ms', 'RT medio — blocco fasico (cue-indotto/reattivo)'));
@@ -7898,6 +8149,11 @@
       else { activeRemotePatientId=editingPatient.id; activeLocalPatientId=null; cfg.patientCode=editingPatient.codice_paziente; }
       startScreeningSession();
     }},[risultati ? 'Rifai lo screening' : 'Fai lo screening ora']));
+    card.appendChild(el('button',{class:'ghost', style:'margin-top:8px;', onclick:()=>{
+      if(isLocal){ activeLocalPatientId=editingPatient.id; activeRemotePatientId=null; cfg.patientCode=editingPatient.nome; }
+      else { activeRemotePatientId=editingPatient.id; activeLocalPatientId=null; cfg.patientCode=editingPatient.codice_paziente; }
+      view='motorIntro'; render();
+    }},['Controllo motorio di base']));
 
     // Obiettivi: sezione comune a pazienti in presenza e remoti (stessa
     // struttura dati, normalizeGoals/saveGoalsForPatient astraggono dove
@@ -8476,7 +8732,8 @@
     manualEntry: ScreenManualEntry, results: ScreenResults, history: ScreenHistory,
     cloud: ScreenCloud, patients: ScreenPatients, patientHome: ScreenPatientHome, patientProgram: ScreenPatientProgram,
     operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode, accessLog: ScreenAccessLog,
-    screeningIntro: ScreenScreeningIntro, screeningResults: ScreenScreeningResults, archive: ScreenArchive, demoDone: ScreenDemoDone
+    screeningIntro: ScreenScreeningIntro, screeningResults: ScreenScreeningResults, archive: ScreenArchive, demoDone: ScreenDemoDone,
+    motorIntro: ScreenMotorIntro, motorTask: ScreenMotorTask, motorResults: ScreenMotorResults
   };
 
   // Ingresso da tastiera (solo desktop) per le risposte a 2 o 4 alternative

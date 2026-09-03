@@ -51,7 +51,7 @@ dieci varianti dello stesso compito.
 | Doppio compito | Attenzione divisa, coordinamento di due compiti concorrenti | Corteccia frontopolare (BA10), colli di bottiglia prefrontali laterali | Pashler (1994), *Psychological Bulletin*, 116(2), 220-244 |
 | Cancellazione (neglect) | Ricerca visiva ed esplorazione spaziale simmetrica/asimmetrica | Rete attentiva parietale destra; asimmetria sinistra/destra come indice di neglect | Mesulam (1981), *Annals of Neurology*, 10(4), 309-325 |
 | Scenari ecologici | Pianificazione, multitasking, autogestione sotto vincoli (Six Elements/Multiple Errands) | Corteccia prefrontale dorsolaterale e frontopolare (BA10), monitoraggio prospettico | Shallice & Burgess (1991), *Brain*, 114(2), 727-741 |
-| Strategie di memoria | Memoria a lungo termine, apprendimento strategico | Ippocampo/lobo temporale mediale (codifica); prefrontale per il controllo strategico | Glisky, Schacter & Tulving (1986), *Journal of Clinical and Experimental Neuropsychology*, 8(3), 292-312 (vanishing cues); Baddeley & Wilson (1994), *Neuropsychologia*, 32(1), 53-68 (errorless learning) |
+| Strategie di memoria | Memoria a lungo termine, apprendimento strategico | Ippocampo/lobo temporale mediale (codifica); prefrontale per il controllo strategico | Glisky, Schacter & Tulving (1986), *Journal of Clinical and Experimental Neuropsychology*, 8(3), 292-312 (vanishing cues); Baddeley & Wilson (1994), *Neuropsychologia*, 32(1), 53-68 (errorless learning); Ciaramelli, Neri, Marini & Braghittoni (2015), *Frontiers in Behavioral Neuroscience*, 9, 211 (PQRST, popolazione a lesione prefrontale — la fonte più direttamente pertinente qui, non solo l'origine generica del metodo); Huntley, Hampshire, Bor, Owen & Howard (2017), *British Journal of Psychiatry*, 210(1), 61-66 (chunking, trial randomizzato in Alzheimer lieve); Gross, Brandt, Bandeen-Roche, Carlson, Stuart, Marsiske & Rebok (2014), *Experimental Aging Research*, 40(2), 140-163 (metodo dei loci, anziani) |
 
 Ogni citazione qui sopra è stata verificata singolarmente (autori, anno,
 rivista, volume, pagine) prima di essere inserita — nessuna a memoria,
@@ -59,11 +59,13 @@ nessuna approssimata. Per Doppio compito e Cancellazione, i riferimenti
 coprono il fenomeno generale (interferenza a doppio compito; rete
 attentiva parietale del neglect), non uno studio che validi questa
 specifica implementazione — coerente con quanto già dichiarato sopra sui
-limiti dell'app rispetto a strumenti normati. Chunking multi-metodo e
-metodo dei loci (le altre due modalità di Strategie di memoria, oltre a
-PQRST/errorless/vanishing cues) non hanno qui una citazione dedicata:
-prima di aggiungerne una, va verificata con la stessa cura delle altre,
-non approssimata per completare la tabella.
+limiti dell'app rispetto a strumenti normati. Per Chunking, Metodo dei
+loci e PQRST le citazioni sono state scelte deliberatamente in contesto
+clinico/di popolazione anziana quando disponibili (Ciaramelli et al. su
+pazienti con lesione prefrontale è la più vicina alla vostra popolazione
+target, non un semplice studio su studenti) — non l'origine storica
+generica della tecnica (es. Robinson, 1970, per PQRST/SQ3R), che esiste
+ma è meno informativa sull'efficacia clinica specifica.
 
 **Nota su inibizione e attenzione selettiva: perché non sono una riga a
 sé in questa tabella.** Deliberato, non una dimenticanza: la
@@ -328,7 +330,13 @@ Doppio compito: scegliendo l'abbinamento canali (Visivo+Uditivo,
 Visivo+Visivo, Uditivo+Uditivo) il materiale dei canali visivi viene
 proposto a caso — nel caso Visivo+Visivo, sempre due materiali diversi
 fra i due canali, per restare visivamente distinguibili — e resta
-modificabile subito dopo dai selettori.
+modificabile subito dopo dai selettori. Nell'abbinamento Uditivo+Uditivo
+i due toni sono separati con panning stereo netto (grave a sinistra,
+acuto a destra, Web Audio `StereoPannerNode`, stessa tecnica già usata
+per la componente spaziale del TAPAT uditivo) — senza cuffie o casse
+stereo funzionanti i due toni restano udibili ma non distinguibili
+spazialmente, e l'app lo segnala esplicitamente in setup e nelle
+istruzioni pre-sessione.
 
 **Accessibilità.** Tutti i controlli dell'app sono elementi `<button>`
 nativi, riconoscibili e navigabili dai lettori di schermo (VoiceOver,
@@ -338,7 +346,25 @@ spaziatrice risponde negli esercizi a un solo pulsante (N-back,
 1-back...) — prima non avevano nessuna scorciatoia. Le istruzioni
 lette a voce ("🔊 Ascolta") includono ora anche il promemoria della
 scorciatoia da tastiera, non solo il testo dell'esercizio: prima chi si
-affidava solo all'audio non la sentiva mai. Su tablet/smartphone, il
+affidava solo all'audio non la sentiva mai.
+
+**Sintesi vocale.** La voce usata per materiali pronunciati e istruzioni
+lette è la Web Speech API del browser, non audio pre-registrato — la
+qualità e l'accento dipendono quindi dal motore disponibile su
+dispositivo/browser, non regolabili dall'app. `speechSynthesis.getVoices()`
+è tipicamente popolato in modo asincrono dal browser: l'app mantiene una
+cache delle voci disponibili aggiornata tramite l'evento `voiceschanged`,
+così anche la primissima frase pronunciata in sessione seleziona già una
+voce italiana esplicita (preferendo, quando disponibile, una voce
+etichettata "natural/neural/premium/enhanced/online") invece del default
+generico del sistema.
+
+**Barra superiore uniforme.** Ogni schermata usa la stessa barra piena in
+cima (titolo + azioni, incluso "← Indietro"), mai un link di testo in
+fondo pagina — comportamento unico in tutta l'app, non solo nelle
+schermate di sessione/operatore.
+
+Su tablet/smartphone, il
 toggle **"Zone di risposta grandi"** in Setup (visibile quando la
 risposta è a due scelte) ingrandisce le zone toccabili a gran parte
 dello schermo — pensato per bassa vista, dove individuare un pulsante
@@ -740,9 +766,11 @@ valore di riferimento assoluto abbia senso — qui il confronto è sempre e
 solo con lo stesso paziente, sullo stesso tipo di dispositivo, nel
 tempo, stessa filosofia single-case già usata per l'RCI.
 
-**Accesso**: dalla scheda "Gestisci programma" di un paziente (in
-presenza o remoto), accanto al pulsante dello screening — "Controllo
-motorio di base".
+**Accesso**: subito, dalla riga di ciascun paziente in "Paziente in
+presenza" e "I tuoi pazienti" (pulsanti "Screening" e "Controllo
+motorio" affiancati), oppure in cima alla scheda "Gestisci programma"
+del paziente — non più in fondo alla pagina, sono le due valutazioni
+che si cercano per prime aprendo un paziente.
 
 **Come funziona**: l'operatore indica il tipo di dispositivo che il
 paziente sta usando in quel momento — Smartphone, Tablet, o Computer

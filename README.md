@@ -165,6 +165,18 @@ detto). Il valore relativo non corregge nulla nel punteggio principale,
 per relativizzare uno switch cost assoluto alto in un paziente già lento
 di base.
 
+**Task-switching — accuratezza separata ripetizione/switch, non solo il
+tempo.** Oltre allo switch cost su RT, ogni sessione calcola anche
+`repAcc` (accuratezza sulle prove di ripetizione dentro il blocco misto)
+e `switchAcc` (accuratezza sulle prove di switch), mostrate nel riepilogo
+di fine sessione e in coda al CSV (`switch_acc_ripetizione`,
+`switch_acc_switch`, ultime due colonne). Isola il costo di switching
+puro (repAcc vs switchAcc, entrambe dentro lo stesso blocco misto), non
+il "mixing cost" nel senso della letteratura sperimentale (Rogers &
+Monsell, 1995) — quest'ultimo confronterebbe repAcc con l'accuratezza a
+compito singolo puro, blocco di riferimento non presente in questo
+esercizio.
+
 **Dispositivo di risposta e tastiera.** Oltre al touch, l'app supporta
 sempre la risposta da tastiera per gli esercizi a 1, 2 o 4 pulsanti
 (barra spaziatrice, o lettere nell'ordine dei pulsanti mostrati). In
@@ -699,10 +711,39 @@ per la Cancellazione), non introduce contenuti nuovi:
 
 | Dominio | Blocco base | Blocco caricato |
 |---|---|---|
-| Attenzione sostenuta / inibizione | Go/No-Go, no-go frequente (48%), 1 elemento | Go/No-Go, no-go raro (22%), 3 elementi |
-| Memoria di lavoro | N-back, n=1 | N-back, n=2 |
-| Flessibilità cognitiva | Categorizzazione condizionale, livello 1 | Task-switching, bilanciato |
+| Attenzione sostenuta / inibizione | Go/No-Go, no-go frequente (48%), 1 elemento | Go/No-Go, no-go meno frequente (35%, non 22%: una riduzione più contenuta — la frequenza no-go bassa da sola riduce l'aspettativa e aumenta la difficoltà indipendentemente dal numero di elementi), 2 elementi (non 3) |
+| Memoria di lavoro | N-back, n=1 | N-back, n=2 (non n=5: irrealistico come misura di screening, effetto pavimento anche in soggetti sani) |
+| Flessibilità cognitiva | *(vedi sotto — un solo blocco, non più due esercizi confrontati)* | |
 | Esplorazione visuospaziale | Cancellazione classica, 20 elementi | Cancellazione a regola, livello 2 |
+
+**Flessibilità cognitiva: un solo blocco, auto-scomposto, non due
+esercizi diversi.** Fino a poco fa il confronto era Categorizzazione
+condizionale (livello 1) vs Task-switching — due costrutti diversi
+mescolati nello stesso confronto base/caricato: la Categorizzazione L1
+misura apprendimento/riconoscimento di una regola singola, il
+Task-switching misura il costo di alternanza fra regole già note. Non
+sono due carichi dello stesso dominio, sono due domini diversi.
+
+Ora è **un solo blocco di Task-switching** (24 prove, materiale
+numerico, non 16: con un solo blocco scomposto in due punteggi servono
+più prove totali perché ciascuno resti su una base non troppo rumorosa),
+scomposto dagli stessi dati in due punteggi: **base = accuratezza sulle
+prove di ripetizione** dentro il blocco misto (stessa regola della prova
+precedente — carico di dover comunque tenere pronte entrambe le regole,
+senza switch vero) e **caricato = accuratezza sulle prove di switch**
+(la regola cambia). Isola il vero **costo di switching**, non ancora il
+"mixing cost" pieno nel senso della letteratura sperimentale (Rogers &
+Monsell, 1995; Rubin & Meiran, 2005) — quest'ultimo richiederebbe un
+blocco di riferimento a compito singolo puro, non presente qui.
+
+Il materiale numerico è scelto perché ogni cifra è **bivalente**
+rispetto a entrambe le regole attive (pari/dispari, alto/basso) — ogni
+cifra è sempre classificabile secondo l'una e l'altra, è solo il cue a
+dire quale applicare in quella prova. È una condizione necessaria perché
+il costo di switching emerga in modo pulito: con materiale reso
+artificialmente **univalente** (ogni stimolo classificabile secondo una
+sola regola) la letteratura sperimentale trova il costo ridotto o
+assente, perché non c'è ambiguità di compito da risolvere.
 
 **Attenzione divisa: rimossa dallo screening, non dall'app.** Il Doppio
 compito resta un esercizio pienamente disponibile e assegnabile — è
@@ -1136,10 +1177,16 @@ create table if not exists sessioni_login (
   token text not null,
   aggiornato_il timestamptz default now()
 );
+alter table sessioni_login add column if not exists iniziata_il timestamptz default now(); -- inizio di QUESTA sessione (si azzera a ogni nuovo claim, incluse le riprese silenziose) — serve a calcolare la durata, distinto da aggiornato_il che è il "battito" più recente
+alter table sessioni_login add column if not exists user_type text; -- 'operatore' | 'paziente', valorizzato al claim — evita un join con pazienti/operatori solo per etichettare il pannello "chi è online"
+alter table sessioni_login add column if not exists etichetta text; -- nickname leggibile (email operatore, codice_paziente) — stessa scelta già fatta per accessi.etichetta, per non mostrare credenziali nel pannello
 alter table sessioni_login enable row level security;
 drop policy if exists "solo il proprio gettone di sessione" on sessioni_login;
 create policy "solo il proprio gettone di sessione" on sessioni_login for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "il super-operatore legge tutte le sessioni attive" on sessioni_login;
+create policy "il super-operatore legge tutte le sessioni attive" on sessioni_login for select
+  using (exists(select 1 from operatori o where o.id = auth.uid() and o.super = true));
 
 -- Ruoli: distingue il super-operatore (unico che può leggere il registro
 -- accessi sotto) dagli altri operatori. Nessuna riga = operatore normale;
@@ -1192,6 +1239,24 @@ Dopo aver eseguito lo script sopra:
    on conflict (id) do update set super = true;
    ```
 3. Ricarica l'app e accedi di nuovo: nella home operatore comparirà una sezione "Solo super-operatore" con il Registro accessi. Gli altri operatori non la vedranno, e un tentativo di lettura diretto della tabella `accessi` con le loro credenziali restituirà righe vuote per via della RLS.
+
+**"Chi sta usando l'app ora" — pannello separato dal Registro accessi.**
+Il Registro accessi resta uno storico di eventi discreti (login/logout);
+questo pannello (stessa sezione "Solo super-operatore") mostra invece lo
+stato **attuale**, letto da `sessioni_login` — la stessa tabella già usata
+per l'anti-uso-concorrente (un solo accesso attivo per account). Include
+esplicitamente chi ha riaperto l'app con le credenziali salvate nel
+browser, senza digitare nulla: ogni apertura (login esplicito o ripresa
+silenziosa) scrive `iniziata_il` (inizio di questa sessione) e un battito
+ogni 25 secondi aggiorna `aggiornato_il` (ultima attività). "Online adesso"
+= battito negli ultimi 90 secondi (margine per un giro di battito mancato);
+oltre quella soglia la riga resta visibile come "visto di recente" ma non
+c'è certezza che la sessione sia ancora aperta — una scheda chiusa di
+scatto o una rete caduta non avvisano l'app, quindi non esiste un vero
+evento di "disconnessione" da registrare in quel caso, solo l'assenza di
+battiti successivi. La durata mostrata per le sessioni online è
+`aggiornato_il - iniziata_il` di quella sessione, non un totale storico
+(quello resta nel Registro accessi, colonna "tempo totale").
 
 Il registro mostra, per ciascun utente (operatore o paziente): numero di
 login riusciti/falliti, tempo **medio** e tempo **totale** sull'app (somma
@@ -1255,6 +1320,18 @@ serve creare nessun segreto manualmente**, anzi Supabase blocca esplicitamente
 la creazione di segreti con nome che inizia per `SUPABASE_` (comparirebbe
 l'errore "Name must not start with the SUPABASE_ prefix" se lo tentassi). Il
 codice della funzione in questo pacchetto è già scritto per leggerle da solo.
+Supabase ha rinominato queste chiavi nel 2026 (`SUPABASE_SECRET_KEYS` /
+`SUPABASE_PUBLISHABLE_KEYS`, ora dizionari JSON con una voce `default`)
+mantenendo per un periodo di transizione anche i nomi precedenti
+(`SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY`, stringhe semplici) — la
+funzione prova prima il formato nuovo e ripiega sul vecchio solo se il nuovo
+non è disponibile, così funziona su entrambi senza bisogno di sapere quale
+dei due il tuo progetto sta ancora usando.
+
+Il file è incluso in questo pacchetto in
+`supabase/functions/create-patient/index.ts` — prima non lo era nonostante
+questa sezione lo dicesse (probabilmente perso in una sessione di lavoro
+precedente): se lo stavi cercando qui senza trovarlo, non era un tuo errore.
 
 **Via più semplice — dalla Dashboard, senza installare nulla:**
 

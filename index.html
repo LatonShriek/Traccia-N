@@ -1296,8 +1296,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1392,7 +1392,7 @@
     manualEntry:'Inserimento manuale', results:'Risultati', history:'Storico',
     cloud:'Account', patients:'Pazienti', patientHome:'I miei esercizi', patientProgram:'Programma',
     operatorHome:'Home operatore', localPatientPicker:'Paziente in presenza', accessCode:'Codice di accesso', accessLog:'Registro accessi',
-    screeningIntro:'Screening', screeningResults:'Risultati screening', archive:'Archivio'
+    screeningIntro:'Screening', screeningResults:'Risultati screening', archive:'Archivio', onlineNow:'Chi è online'
   };
   function updatePageTitle(){
     try{
@@ -3078,7 +3078,7 @@
       'neglect_pct_sinistra','neglect_pct_destra','neglect_omessi_sin','neglect_omessi_des','neglect_asimmetria','neglect_falsi_allarmi',
       'goaltask_scenario','goaltask_livello','goaltask_completati','goaltask_totale','goaltask_percentuale','goaltask_violazioni','goaltask_tempo_sec','goaltask_budget_rispettato',
       'memoria_modo','memoria_livello','memoria_forma','memoria_recuperati','memoria_totale','memoria_percentuale','calo_intra_sessione',
-      'neglect_conteggio_accuratezza','neglect_conteggio_errore_medio','note','switch_cost_relativo'];
+      'neglect_conteggio_accuratezza','neglect_conteggio_errore_medio','note','switch_cost_relativo','switch_acc_ripetizione','switch_acc_switch'];
     const rows = items.map(r=>{
       const family = r.family || 'signal'; // record salvati prima di questa versione
       const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
@@ -3127,7 +3127,9 @@
         family==='spatial' && r.neglect.modalitaConteggio && r.neglect.accuratezzaConteggio!=null ? (r.neglect.accuratezzaConteggio*100).toFixed(1)+'%' : '',
         family==='spatial' && r.neglect.modalitaConteggio && r.neglect.erroreAssolutoMedio!=null ? r.neglect.erroreAssolutoMedio.toFixed(2) : '',
         (r.notes||'').replace(/[\n,]/g,' '),
-        family==='choice' && r.choice.switchCostRelative!=null ? (r.choice.switchCostRelative*100).toFixed(1)+'%' : ''
+        family==='choice' && r.choice.switchCostRelative!=null ? (r.choice.switchCostRelative*100).toFixed(1)+'%' : '',
+        family==='choice' && r.choice.repAcc!=null ? (r.choice.repAcc*100).toFixed(1)+'%' : '',
+        family==='choice' && r.choice.switchAcc!=null ? (r.choice.switchAcc*100).toFixed(1)+'%' : ''
       ];
     });
     const csv = [head.join(';')].concat(rows.map(r=>r.join(';'))).join('\n');
@@ -3206,6 +3208,31 @@
     }catch(e){ accessLogCache = []; }
     return accessLogCache;
   }
+  // Soglia "online adesso": il battito è ogni 25s (startSessionGuard), 90s
+  // di margine tollera un giro mancato senza dichiarare offline chi in
+  // realtà è ancora lì. Sopra questa soglia: "visto di recente", non più
+  // "online" — la sessione non è stata chiusa esplicitamente (browser
+  // chiuso di scatto, rete caduta), quindi non sappiamo con certezza se è
+  // ancora aperta, solo da quanto non risponde più.
+  const ONLINE_THRESHOLD_MS = 90*1000;
+  async function loadOnlineSessions(){
+    if(!sb || !isSuperOperatore) return [];
+    try{
+      const { data, error } = await sb.from('sessioni_login').select('*').order('aggiornato_il',{ascending:false});
+      if(error) throw error;
+      const now = Date.now();
+      return (data||[]).map(r=>{
+        const lastMs = r.aggiornato_il ? new Date(r.aggiornato_il).getTime() : null;
+        const startMs = r.iniziata_il ? new Date(r.iniziata_il).getTime() : lastMs;
+        return {
+          userId: r.user_id, userType: r.user_type, etichetta: r.etichetta,
+          online: lastMs!=null && (now-lastMs)<=ONLINE_THRESHOLD_MS,
+          durataMs: (startMs!=null && lastMs!=null) ? Math.max(0,lastMs-startMs) : null,
+          ultimoVistoMs: lastMs
+        };
+      });
+    }catch(e){ return []; }
+  }
   // ---------- Sessione unica per account (anti-uso concorrente) ----------
   // Meccanismo volutamente semplice: al login viene scritto un "gettone"
   // casuale in una riga per-utente su Supabase, sovrascrivendo quello
@@ -3221,8 +3248,19 @@
   async function claimSession(){
     if(!sb || !cloudUser) return;
     sessionGuardToken = genSessionToken();
-    try{ await sb.from('sessioni_login').upsert({user_id:cloudUser.id, token:sessionGuardToken, aggiornato_il:new Date().toISOString()}); }
-    catch(e){ console.error('claim sessione fallito (tabella sessioni_login assente?)', e); }
+    // user_type/etichetta letti da patientProfile/cloudUser, già valorizzati
+    // da checkRole() chiamato subito prima in ogni punto in cui si arriva
+    // qui — evita un secondo giro di query solo per etichettare il
+    // pannello "chi è online" più tardi.
+    const nowIso = new Date().toISOString();
+    const userType = patientProfile ? 'paziente' : 'operatore';
+    const etichetta = patientProfile ? (patientProfile.codice_paziente||null) : (cloudUser.email||null);
+    try{
+      await sb.from('sessioni_login').upsert({
+        user_id:cloudUser.id, token:sessionGuardToken,
+        aggiornato_il:nowIso, iniziata_il:nowIso, user_type:userType, etichetta
+      });
+    }catch(e){ console.error('claim sessione fallito (tabella sessioni_login assente?)', e); }
     startSessionGuard();
   }
   function startSessionGuard(){
@@ -3235,7 +3273,15 @@
           stopSessionGuard();
           alert('Sei stato disconnesso: risulta un accesso più recente con le stesse credenziali da un altro dispositivo o scheda. Un solo accesso alla volta è consentito per account.');
           await cloudSignOut();
+          return;
         }
+        // Battito: aggiorna SOLO aggiornato_il (mai iniziata_il, che segna
+        // l'inizio di questa sessione) — solo se il gettone è ancora
+        // quello attivo, altrimenti non ha senso rinfrescare una sessione
+        // già superata (il ramo sopra la chiude comunque). Questo rende
+        // aggiornato_il un vero "ultima attività", non solo un timestamp
+        // di apertura — necessario per il pannello "chi è online ora".
+        await sb.from('sessioni_login').update({aggiornato_il:new Date().toISOString()}).eq('user_id', cloudUser.id).eq('token', sessionGuardToken);
       }catch(e){ /* rete assente: non forzare il logout, riprova al giro successivo */ }
     }, 25000);
   }
@@ -3538,9 +3584,15 @@
 
   /* ---------- SETUP SCREEN ---------- */
   function ScreenSetup(root){
-    root.appendChild(el('div',{class:'brand'},[
-      el('div',{class:'mark'},['Traccia',el('span',{},['N'])]),
-      el('div',{class:'sub'},['CT MRI'])
+    // "Esercizi liberi" è raggiunta da operatorHome quando c'è un
+    // operatore connesso, ma è anche la vera schermata radice dell'app in
+    // uso locale puro (nessun cloud configurato, mai passata da
+    // operatorHome) — l'Indietro punta a operatorHome quando esiste un
+    // cloudUser, altrimenti alla schermata di accesso cloud (dove c'è il
+    // link "usa in locale" che ha portato qui).
+    root.appendChild(el('div',{class:'topbar'},[
+      el('div',{class:'info'},['Esercizi liberi']),
+      el('button',{onclick:()=>{ view = cloudUser ? 'operatorHome' : 'cloud'; render(); }},['← Indietro'])
     ]));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
@@ -5993,15 +6045,46 @@
     { domain:'attenzione', tipo:'base', domainLabel:'Attenzione sostenuta / inibizione', label:'Attenzione — blocco base',
       patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:[POOLS.lettere[0]], adaptive:false, targetRate:0.48, isi:1600, stimDuration:600, trials:SCREENING_TRIALS}) },
     { domain:'attenzione', tipo:'caricato', domainLabel:'Attenzione sostenuta / inibizione', label:'Attenzione — blocco caricato', suggestTaskMode:'gonogo', suggestLabel:'Go/No-Go',
-      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,3), adaptive:false, targetRate:0.22, isi:900, stimDuration:500, trials:SCREENING_TRIALS}) },
+      // Corretto rispetto alla versione precedente: 3 elementi no-go a
+      // frequenza 22% sommava due fonti di difficoltà diverse (carico
+      // discriminativo multi-target + minore aspettativa del no-go, che
+      // secondo la letteratura sull'inibizione proattiva rende il compito
+      // più difficile indipendentemente dal numero di target — una
+      // frequenza no-go più bassa riduce l'aspettativa e rinforza la
+      // tendenza prepotente a rispondere). Ora: 2 target (carico
+      // discriminativo puro) con una riduzione più contenuta della
+      // frequenza no-go (48%→35%, non 22%) rispetto al blocco base.
+      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,2), adaptive:false, targetRate:0.35, isi:900, stimDuration:500, trials:SCREENING_TRIALS}) },
     { domain:'memoria', tipo:'base', domainLabel:'Memoria di lavoro', label:'Memoria di lavoro — blocco base',
       patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:1, adaptive:false, targetRate:0.32, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}) },
     { domain:'memoria', tipo:'caricato', domainLabel:'Memoria di lavoro', label:'Memoria di lavoro — blocco caricato', suggestTaskMode:'nback', suggestLabel:'N-back',
-      patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:5, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}) },
-    { domain:'flessibilita', tipo:'base', domainLabel:'Flessibilità cognitiva', label:'Flessibilità — blocco base',
-      patch:()=>({taskMode:'categorizzazione', categLivello:1, categMateriale:'simboli', isi:1800, stimDuration:700, trials:SCREENING_TRIALS}) },
-    { domain:'flessibilita', tipo:'caricato', domainLabel:'Flessibilità cognitiva', label:'Flessibilità — blocco caricato', suggestTaskMode:'switching', suggestLabel:'Task-switching',
-      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:SCREENING_TRIALS}) },
+      // n=5 era irrealistico come misura di screening: anche adulti sani
+      // mostrano un calo netto di accuratezza oltre n=2/3 nella
+      // letteratura sperimentale sull'n-back (gli studi che usano l'n-back
+      // per discriminare gruppi si fermano quasi sempre a 2-3), quindi n=5
+      // rischiava un effetto pavimento che avrebbe appiattito la
+      // distribuzione invece di discriminare. Ora n=2, tempi invariati.
+      patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:2, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}) },
+    // Flessibilità cognitiva: NON più due esercizi diversi confrontati fra
+    // loro (Categorizzazione L1 vs Task-switching) — quel confronto
+    // mescolava apprendimento di regola singola con costo di alternanza,
+    // due costrutti diversi (vedi discussione sulla bivalenza/mixing
+    // cost). Ora un SOLO blocco di Task-switching, scomposto in due
+    // punteggi dagli stessi dati: repAcc (prove di ripetizione dentro il
+    // blocco misto, usata come "base") e switchAcc (prove di switch,
+    // usata come "caricato") — isola il vero costo di switching, non
+    // ancora il "mixing cost" pieno (richiederebbe un blocco puro a
+    // compito singolo come riferimento, non presente qui). Materiale
+    // numerico: ogni cifra è bivalente rispetto a entrambe le regole
+    // (pari/dispari, alto/basso), condizione necessaria perché il costo
+    // di switching emerga (letteratura: con stimoli univalenti il costo
+    // si riduce o sparisce). 24 prove non 16: con un solo blocco diviso in
+    // due, servono più prove totali perché repAcc e switchAcc abbiano
+    // ciascuna un numero di prove sufficiente a una stima non troppo
+    // rumorosa.
+    { domain:'flessibilita', tipo:'split', domainLabel:'Flessibilità cognitiva', label:'Flessibilità cognitiva', suggestTaskMode:'switching', suggestLabel:'Task-switching',
+      splitAccKeys:{base:'repAcc', caricato:'switchAcc'},
+      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:24}) },
     { domain:'esplorazione', tipo:'base', domainLabel:'Esplorazione visuospaziale', label:'Esplorazione — blocco base',
       patch:()=>({taskMode:'neglect', neglectMode:'classico', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}) },
     { domain:'esplorazione', tipo:'caricato', domainLabel:'Esplorazione visuospaziale', label:'Esplorazione — blocco caricato', suggestTaskMode:'neglect', suggestLabel:'Cancellazione a regola',
@@ -6238,7 +6321,7 @@
   // soglia, il problema sembra più a monte (percettivo/attentivo) che
   // esecutivo specifico, e non si propone il flag.
   function computeScreeningFlags(results){
-    const caricatoBlocks = SCREENING_BLOCKS.filter(b=>b.tipo==='caricato');
+    const caricatoBlocks = SCREENING_BLOCKS.filter(b=>b.tipo==='caricato' || b.tipo==='split');
     return caricatoBlocks.map(b=>{
       const baseDomain = b.baseFrom || b.domain;
       const baseRes = results.find(r=>r.domain===baseDomain && r.tipo==='base');
@@ -7114,6 +7197,18 @@
         // di risposta dopamina-dipendente, distinto dallo shifting). Affianca
         // il valore assoluto, non lo sostituisce.
         rec.choice.switchCostRelative = (rec.choice.switchCost!=null && repRT>0) ? +(rec.choice.switchCost/repRT).toFixed(3) : null;
+        // Accuratezza separata per prove di ripetizione e di switch, non
+        // solo il tempo di reazione — isola il costo di switching puro
+        // (swAcc vs repAcc, entrambe dentro lo stesso blocco misto) da un
+        // eventuale carico attentivo generico di dover tenere pronte
+        // entrambe le regole (visibile confrontando repAcc con l'accuratezza
+        // di un compito a regola singola, quando disponibile altrove — qui
+        // dentro un solo esercizio si misura solo la componente di switch,
+        // non il "mixing cost" pieno, che richiederebbe un blocco puro a
+        // compito singolo come riferimento, non ancora presente).
+        const swTrials = log.filter(x=>x.isSwitch), repTrials = log.filter(x=>!x.isSwitch);
+        rec.choice.switchAcc = swTrials.length ? swTrials.filter(x=>x.correct).length/swTrials.length : null;
+        rec.choice.repAcc = repTrials.length ? repTrials.filter(x=>x.correct).length/repTrials.length : null;
         if(cfg.switchMaterial==='bivalente'){
           const congRT = rtMeanOf(log.filter(x=>x.congruency==='congruent' && x.correct).map(x=>x.rt));
           const incongRT = rtMeanOf(log.filter(x=>x.congruency==='incongruent' && x.correct).map(x=>x.rt));
@@ -7204,7 +7299,15 @@
       rec.screening = {domain:block.domain, tipo:block.tipo, label:block.label};
       rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening — '+block.label+']';
       await saveSession(rec);
-      screeningState.results.push({domain:block.domain, tipo:block.tipo, accuracy: primaryAccuracyOf(rec)});
+      if(block.tipo==='split'){
+        // Un solo blocco somministrato, due punteggi derivati dagli stessi
+        // dati (vedi commento su SCREENING_BLOCKS) — non una seconda
+        // somministrazione.
+        screeningState.results.push({domain:block.domain, tipo:'base', accuracy: rec.choice[block.splitAccKeys.base]});
+        screeningState.results.push({domain:block.domain, tipo:'caricato', accuracy: rec.choice[block.splitAccKeys.caricato]});
+      } else {
+        screeningState.results.push({domain:block.domain, tipo:block.tipo, accuracy: primaryAccuracyOf(rec)});
+      }
       screeningState.blockIdx++;
       runScreeningBlock(screeningState.blockIdx);
       return;
@@ -7366,6 +7469,8 @@
       if(r.choice.adaptive && r.choice.finalTapatLevel!=null) mg.appendChild(metric('livello '+r.choice.finalTapatLevel, 'Difficoltà finale (adattiva)'));
       if(r.choice.switchCost!=null) mg.appendChild(metric(r.choice.switchCost+' ms', 'Switch cost'));
       if(r.choice.switchCostRelative!=null) mg.appendChild(metric((r.choice.switchCostRelative*100).toFixed(1)+' %', 'Switch cost relativo al RT di base'));
+      if(r.choice.repAcc!=null) mg.appendChild(metric(Math.round(r.choice.repAcc*100)+'%', 'Accuratezza — ripetizione'));
+      if(r.choice.switchAcc!=null) mg.appendChild(metric(Math.round(r.choice.switchAcc*100)+'%', 'Accuratezza — switch'));
     } else if(r.family==='dual'){
       const [lab1,lab2] = dualChannelLabels(r.dualPairing);
       mg.appendChild(metric(fmtPct(r.metrics.acc), 'Accuratezza canale '+lab1));
@@ -7505,6 +7610,11 @@
         el('div',{class:'landing-title'},['Registro accessi']),
         el('div',{class:'landing-desc'},['Login, logout e tentativi falliti di operatori e pazienti, con vista aggregata per operatore.'])
       ]));
+      superSection.appendChild(el('button',{class:'landing-card', style:'width:100%; margin-top:10px;', onclick:()=>{ view='onlineNow'; render(); }},[
+        el('div',{class:'landing-icon'},['🟢']),
+        el('div',{class:'landing-title'},['Chi sta usando l\'app ora']),
+        el('div',{class:'landing-desc'},['Sessioni attive in questo momento — comprese le riprese senza login esplicito (credenziali salvate nel browser) — e da quanto tempo.'])
+      ]));
       card.appendChild(superSection);
     }
 
@@ -7554,7 +7664,7 @@
           el('div',{style:'display:flex; gap:8px; flex-wrap:wrap;'},[
             el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{ historyFilterPatientId=p.id; historyFilterKind=isLocal?'local':'remote'; view='history'; render(); }},['Storico']),
             el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{ editingPatient=p; editingPatientKind=isLocal?'local':'remote'; view='patientProgram'; render(); }},['Gestisci programma']),
-            el('button',{class:'primary', style:'padding:8px 14px; font-size:13px;', onclick: async ()=>{
+            el('button',{class:'primary', style:'padding:8px 14px; font-size:13px; width:auto;', onclick: async ()=>{
               if(isLocal){
                 try{
                   const raw = localStorage.getItem('traccian:localpatient:'+p.id);
@@ -7630,7 +7740,7 @@
               localPatientChoiceFor=null;
               view='setup'; render();
             }},['Setup libero']),
-            el('button',{class:'primary', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
+            el('button',{class:'primary', style:'padding:8px 14px; font-size:13px; width:auto;', onclick:()=>{
               editingPatient=p; editingPatientKind='local';
               localPatientChoiceFor=null;
               view='patientProgram'; render();
@@ -7876,7 +7986,7 @@
         const row = el('div',{style:'padding:14px 4px; border-bottom:1px solid var(--line);'},[
           el('div',{style:'font-size:14.5px; font-weight:600; margin-bottom:10px;'},[p.codice_paziente]),
           el('div',{style:'display:flex; gap:8px; flex-wrap:wrap;'},[
-            el('button',{class:'primary', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
+            el('button',{class:'primary', style:'padding:8px 14px; font-size:13px; width:auto;', onclick:()=>{
               activeRemotePatientId = p.id; activeLocalPatientId = null; cfg.patientCode = p.codice_paziente;
               if(p.ultima_config) loadPreset({cfg:p.ultima_config});
               else applyLevelBaselineOrSuggestion(cfg.taskMode);
@@ -7960,7 +8070,7 @@
     // sono le due valutazioni che un operatore cerca per prime aprendo un
     // paziente, prima ancora di guardare il programma assegnato.
     card.appendChild(el('div',{style:'display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;'},[
-      el('button',{class:'primary', style:'padding:10px 16px; font-size:13.5px;', onclick:()=>{
+      el('button',{class:'primary', style:'padding:10px 16px; font-size:13.5px; width:auto;', onclick:()=>{
         if(isLocal){ activeLocalPatientId=editingPatient.id; activeRemotePatientId=null; cfg.patientCode=editingPatient.nome; }
         else { activeRemotePatientId=editingPatient.id; activeLocalPatientId=null; cfg.patientCode=editingPatient.codice_paziente; }
         startScreeningSession();
@@ -7999,7 +8109,7 @@
               el('div',{class:'l'},[exLabel])
             ]),
             el('div',{style:'display:flex; gap:8px; flex-wrap:wrap;'},[
-              el('button',{class:'primary', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
+              el('button',{class:'primary', style:'padding:8px 14px; font-size:13px; width:auto;', onclick:()=>{
                 // Riprende l'esercizio al livello adattivo corrente (stesso
                 // configForExercise usato per il paziente remoto autonomo),
                 // saltando Setup — non è "modificare il programma", è avviare
@@ -8558,7 +8668,7 @@
         const tempoLabel = tempo ? tempo.minuti+' minuti'+(tempo.periodo==='giorno'?' al giorno':' in totale') : null;
         const row = el('div',{class:'histrow'},[
           el('div',{},[ el('div',{},[exLabel]), tempoLabel ? el('div',{class:'l'},[tempoLabel]) : null ].filter(Boolean)),
-          el('button',{class:'primary', style:'padding:10px 16px;', onclick:()=>{
+          el('button',{class:'primary', style:'padding:10px 16px; width:auto;', onclick:()=>{
             const own = configForExercise(patientProfile, item.cfg.taskMode);
             loadPreset({cfg: own || item.cfg});
             cfg.patientCode = patientProfile.codice_paziente;
@@ -8725,6 +8835,61 @@
     return (h>0? h+'h ':'')+m+'min';
   }
   let accessLogExpanded = null; // key del gruppo attualmente espanso (drill-down), o null
+  function ScreenOnlineNow(root){
+    root.appendChild(el('div',{class:'topbar'},[
+      el('div',{class:'info'},['Chi sta usando l\'app ora']),
+      el('button',{onclick:()=>{ view='operatorHome'; render(); }},['← Indietro'])
+    ]));
+    const s = el('div',{class:'screen'});
+    const card = el('div',{class:'card'});
+    if(!isSuperOperatore){
+      card.appendChild(el('p',{class:'hint'},['Sezione riservata al super-operatore.']));
+      s.appendChild(card); root.appendChild(s); return;
+    }
+    card.appendChild(el('h2',{},['Chi sta usando l\'app ora']));
+    card.appendChild(el('p',{class:'hint'},[
+      'Include chi ha riaperto l\'app con le credenziali salvate nel browser, senza digitare nulla — non solo chi ha appena fatto login. "Online" = battito ricevuto negli ultimi 90 secondi; oltre, resta visibile come "visto di recente" ma non è certo sia ancora aperta (rete caduta o scheda chiusa di scatto non avvisano). Un solo accesso attivo per account, per via del controllo anti-uso-concorrente già in uso altrove — questa lista è quindi al massimo una riga per persona.'
+    ]));
+    const body = el('div',{style:'min-height:60px;'},[el('p',{class:'hint'},['Caricamento…'])]);
+    card.appendChild(body);
+    card.appendChild(el('button',{class:'ghost', style:'margin-top:14px;', onclick: renderBody},['Aggiorna ora']));
+    s.appendChild(card); root.appendChild(s);
+
+    let autoTimer = null;
+    async function renderBody(){
+      const sessions = await loadOnlineSessions();
+      body.innerHTML = '';
+      if(!sessions.length){ body.appendChild(el('p',{class:'empty'},['Nessuna sessione registrata.'])); return; }
+      sessions.sort((a,b)=> (b.online-a.online) || (b.ultimoVistoMs||0)-(a.ultimoVistoMs||0));
+      const online = sessions.filter(x=>x.online), recent = sessions.filter(x=>!x.online);
+      const row = (x)=> el('div',{class:'histrow'},[
+        el('div',{},[
+          el('div',{style:'font-weight:600;'},[(x.online?'🟢 ':'⚪ ')+(x.etichetta||x.userId), ' ', el('span',{style:'margin-left:4px; font-size:11px; font-weight:600; color:var(--ink-soft); border:1px solid var(--line); border-radius:999px; padding:1px 8px;'},[x.userType||'?'])]),
+          el('div',{class:'hint', style:'margin:2px 0 0;'},[
+            x.online
+              ? 'Online da '+(x.durataMs!=null ? fmtTime(x.durataMs) : '—')
+              : 'Visto l\'ultima volta: '+(x.ultimoVistoMs ? new Date(x.ultimoVistoMs).toLocaleString('it-IT') : '—')
+          ])
+        ])
+      ]);
+      if(online.length){
+        body.appendChild(el('div',{style:'font-weight:600; margin-bottom:8px;'},['Online ora ('+online.length+')']));
+        online.forEach(x=> body.appendChild(row(x)));
+      } else {
+        body.appendChild(el('p',{class:'hint'},['Nessuno online in questo momento.']));
+      }
+      if(recent.length){
+        body.appendChild(el('div',{style:'font-weight:600; margin:18px 0 8px;'},['Visti di recente, non più online ('+recent.length+')']));
+        recent.forEach(x=> body.appendChild(row(x)));
+      }
+    }
+    renderBody();
+    // Auto-aggiornamento ogni 20s finché questa schermata resta aperta —
+    // coerente con un pannello pensato per essere guardato "in diretta",
+    // non solo interrogato una volta. Fermato quando si cambia schermata.
+    autoTimer = setInterval(()=>{ if(view==='onlineNow') renderBody(); else clearInterval(autoTimer); }, 20000);
+  }
+
   function ScreenAccessLog(root){
     root.appendChild(el('div',{class:'topbar'},[
       el('div',{class:'info'},['Registro accessi']),
@@ -8785,7 +8950,7 @@
     setup: ScreenSetup, instructions: ScreenInstructions, countdown: ScreenCountdown,
     manualEntry: ScreenManualEntry, results: ScreenResults, history: ScreenHistory,
     cloud: ScreenCloud, patients: ScreenPatients, patientHome: ScreenPatientHome, patientProgram: ScreenPatientProgram,
-    operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode, accessLog: ScreenAccessLog,
+    operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode, accessLog: ScreenAccessLog, onlineNow: ScreenOnlineNow,
     screeningIntro: ScreenScreeningIntro, screeningResults: ScreenScreeningResults, archive: ScreenArchive, demoDone: ScreenDemoDone,
     motorIntro: ScreenMotorIntro, motorTask: ScreenMotorTask, motorResults: ScreenMotorResults
   };
@@ -8836,7 +9001,7 @@
   // dipendono da un oggetto di sessione in memoria che il reload cancella
   // (session, screeningState, pendingAccessCode...) — solo da id di
   // paziente/filtro, tutti ricostruibili da localStorage/Supabase.
-  const RELOAD_SAFE_VIEWS = new Set(['setup','patients','localPatientPicker','history','archive','cloud','accessLog','operatorHome','patientHome','patientProgram']);
+  const RELOAD_SAFE_VIEWS = new Set(['setup','patients','localPatientPicker','history','archive','cloud','accessLog','onlineNow','operatorHome','patientHome','patientProgram']);
   // priorState: lo stato di history.state COM'ERA prima di spingere la
   // sentinella anti-uscita qui sotto — deve essere catturato subito
   // all'avvio, perché dopo il pushState della sentinella history.state

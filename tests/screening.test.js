@@ -25,12 +25,20 @@ module.exports = function run(t) {
 
     domains.forEach(d => {
       const blocks = SCREENING_BLOCKS.filter(b => b.domain === d);
-      t.eq(blocks.length, 2, 'dominio "' + d + '": esattamente un blocco base + un blocco caricato');
-      t.ok(blocks.some(b => b.tipo === 'base'), 'dominio "' + d + '": ha un blocco "base"');
-      t.ok(blocks.some(b => b.tipo === 'caricato'), 'dominio "' + d + '": ha un blocco "caricato"');
+      if (d === 'flessibilita') {
+        // Dominio a blocco singolo auto-scomposto (repAcc/switchAcc dallo
+        // stesso Task-switching), non più due esercizi diversi confrontati.
+        t.eq(blocks.length, 1, 'dominio "flessibilita": un solo blocco (tipo "split", auto-scomposto in base/caricato)');
+        t.eq(blocks[0].tipo, 'split', 'dominio "flessibilita": il blocco è di tipo "split"');
+        t.ok(blocks[0].splitAccKeys && blocks[0].splitAccKeys.base && blocks[0].splitAccKeys.caricato, 'dominio "flessibilita": ha splitAccKeys.base e .caricato');
+      } else {
+        t.eq(blocks.length, 2, 'dominio "' + d + '": esattamente un blocco base + un blocco caricato');
+        t.ok(blocks.some(b => b.tipo === 'base'), 'dominio "' + d + '": ha un blocco "base"');
+        t.ok(blocks.some(b => b.tipo === 'caricato'), 'dominio "' + d + '": ha un blocco "caricato"');
+      }
     });
 
-    t.eq(SCREENING_BLOCKS.length, 8, 'totale 8 blocchi (4 domini × base/caricato)');
+    t.eq(SCREENING_BLOCKS.length, 7, 'totale 7 blocchi (3 domini × base/caricato + 1 dominio a blocco singolo split)');
 
     SCREENING_BLOCKS.forEach(b => {
       t.ok(typeof b.patch === 'function', 'blocco "' + b.label + '": ha una funzione patch()');

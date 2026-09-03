@@ -1240,23 +1240,21 @@ Dopo aver eseguito lo script sopra:
    ```
 3. Ricarica l'app e accedi di nuovo: nella home operatore comparirà una sezione "Solo super-operatore" con il Registro accessi. Gli altri operatori non la vedranno, e un tentativo di lettura diretto della tabella `accessi` con le loro credenziali restituirà righe vuote per via della RLS.
 
-**"Chi sta usando l'app ora" — pannello separato dal Registro accessi.**
-Il Registro accessi resta uno storico di eventi discreti (login/logout);
-questo pannello (stessa sezione "Solo super-operatore") mostra invece lo
-stato **attuale**, letto da `sessioni_login` — la stessa tabella già usata
-per l'anti-uso-concorrente (un solo accesso attivo per account). Include
-esplicitamente chi ha riaperto l'app con le credenziali salvate nel
-browser, senza digitare nulla: ogni apertura (login esplicito o ripresa
-silenziosa) scrive `iniziata_il` (inizio di questa sessione) e un battito
-ogni 25 secondi aggiorna `aggiornato_il` (ultima attività). "Online adesso"
-= battito negli ultimi 90 secondi (margine per un giro di battito mancato);
-oltre quella soglia la riga resta visibile come "visto di recente" ma non
-c'è certezza che la sessione sia ancora aperta — una scheda chiusa di
-scatto o una rete caduta non avvisano l'app, quindi non esiste un vero
-evento di "disconnessione" da registrare in quel caso, solo l'assenza di
-battiti successivi. La durata mostrata per le sessioni online è
-`aggiornato_il - iniziata_il` di quella sessione, non un totale storico
-(quello resta nel Registro accessi, colonna "tempo totale").
+**Registro accessi — una sola schermata, stato attuale e storico insieme.**
+Una riga per persona (operatore o paziente): stato attuale (🟢 online da
+X, o l'orario dell'ultima attività vista) e, nel dettaglio, lo storico
+delle sessioni passate con durata. Due fonti diverse dietro le quinte,
+unite qui: lo storico da `accessi` (sessioni chiuse da un logout
+esplicito registrato, durata esatta) e lo stato live da `sessioni_login`
+(battito ogni 25 secondi, comprese le riprese senza login esplicito —
+credenziali salvate nel browser — che lo storico da solo non vede mai,
+perché non generano un evento "login" in `accessi`). "Online" = battito
+negli ultimi 90 secondi; oltre, la riga resta visibile come "visto
+l'ultima volta" con orario, non sparisce — una scheda chiusa di scatto o
+una rete caduta non avvisano l'app, quindi non c'è un vero evento di
+disconnessione da registrare in quel caso, solo l'assenza di battiti
+successivi. La schermata si auto-aggiorna ogni 20 secondi finché resta
+aperta.
 
 Il registro mostra, per ciascun utente (operatore o paziente): numero di
 login riusciti/falliti, tempo **medio** e tempo **totale** sull'app (somma

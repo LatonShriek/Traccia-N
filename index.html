@@ -1296,8 +1296,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1392,7 +1392,7 @@
     manualEntry:'Inserimento manuale', results:'Risultati', history:'Storico',
     cloud:'Account', patients:'Pazienti', patientHome:'I miei esercizi', patientProgram:'Programma',
     operatorHome:'Home operatore', localPatientPicker:'Paziente in presenza', accessCode:'Codice di accesso', accessLog:'Registro accessi',
-    screeningIntro:'Screening', screeningResults:'Risultati screening', archive:'Archivio', onlineNow:'Chi è online'
+    screeningIntro:'Screening', screeningResults:'Risultati screening', archive:'Archivio'
   };
   function updatePageTitle(){
     try{
@@ -7608,12 +7608,7 @@
       superSection.appendChild(el('button',{class:'landing-card', style:'width:100%;', onclick:()=>{ view='accessLog'; render(); }},[
         el('div',{class:'landing-icon'},['🔐']),
         el('div',{class:'landing-title'},['Registro accessi']),
-        el('div',{class:'landing-desc'},['Login, logout e tentativi falliti di operatori e pazienti, con vista aggregata per operatore.'])
-      ]));
-      superSection.appendChild(el('button',{class:'landing-card', style:'width:100%; margin-top:10px;', onclick:()=>{ view='onlineNow'; render(); }},[
-        el('div',{class:'landing-icon'},['🟢']),
-        el('div',{class:'landing-title'},['Chi sta usando l\'app ora']),
-        el('div',{class:'landing-desc'},['Sessioni attive in questo momento — comprese le riprese senza login esplicito (credenziali salvate nel browser) — e da quanto tempo.'])
+        el('div',{class:'landing-desc'},['Chi è online ora e da quanto tempo, chi è stato online in passato e per quanto — operatori e pazienti, comprese le riprese senza login esplicito.'])
       ]));
       card.appendChild(superSection);
     }
@@ -8822,7 +8817,11 @@
       // stima per difetto del tempo reale sull'app, non un valore esatto.
       const totalDurationMs = sessions.length ? sessions.reduce((s,x)=>s+x.durationMs,0) : null;
       const avgDurationMs = sessions.length ? totalDurationMs/sessions.length : null;
-      return {key:g.key, label:g.label, loginsOk, loginsFail, logouts, lastTs, avgDurationMs, totalDurationMs, events: events.slice().reverse()};
+      // openLogin non nullo qui = ultimo login mai chiuso da un logout
+      // registrato (sessione ancora aperta, o scheda chiusa senza uscire) —
+      // esposto così chi unisce questi dati con lo stato live di
+      // sessioni_login sa quale login sta cercando di abbinare.
+      return {key:g.key, label:g.label, userType, loginsOk, loginsFail, logouts, lastTs, avgDurationMs, totalDurationMs, sessions, openLoginTs: openLogin ? openLogin.ts : null, events: events.slice().reverse()};
     });
     out.sort((a,b)=> new Date(b.lastTs||0) - new Date(a.lastTs||0));
     return out;
@@ -8835,61 +8834,6 @@
     return (h>0? h+'h ':'')+m+'min';
   }
   let accessLogExpanded = null; // key del gruppo attualmente espanso (drill-down), o null
-  function ScreenOnlineNow(root){
-    root.appendChild(el('div',{class:'topbar'},[
-      el('div',{class:'info'},['Chi sta usando l\'app ora']),
-      el('button',{onclick:()=>{ view='operatorHome'; render(); }},['← Indietro'])
-    ]));
-    const s = el('div',{class:'screen'});
-    const card = el('div',{class:'card'});
-    if(!isSuperOperatore){
-      card.appendChild(el('p',{class:'hint'},['Sezione riservata al super-operatore.']));
-      s.appendChild(card); root.appendChild(s); return;
-    }
-    card.appendChild(el('h2',{},['Chi sta usando l\'app ora']));
-    card.appendChild(el('p',{class:'hint'},[
-      'Include chi ha riaperto l\'app con le credenziali salvate nel browser, senza digitare nulla — non solo chi ha appena fatto login. "Online" = battito ricevuto negli ultimi 90 secondi; oltre, resta visibile come "visto di recente" ma non è certo sia ancora aperta (rete caduta o scheda chiusa di scatto non avvisano). Un solo accesso attivo per account, per via del controllo anti-uso-concorrente già in uso altrove — questa lista è quindi al massimo una riga per persona.'
-    ]));
-    const body = el('div',{style:'min-height:60px;'},[el('p',{class:'hint'},['Caricamento…'])]);
-    card.appendChild(body);
-    card.appendChild(el('button',{class:'ghost', style:'margin-top:14px;', onclick: renderBody},['Aggiorna ora']));
-    s.appendChild(card); root.appendChild(s);
-
-    let autoTimer = null;
-    async function renderBody(){
-      const sessions = await loadOnlineSessions();
-      body.innerHTML = '';
-      if(!sessions.length){ body.appendChild(el('p',{class:'empty'},['Nessuna sessione registrata.'])); return; }
-      sessions.sort((a,b)=> (b.online-a.online) || (b.ultimoVistoMs||0)-(a.ultimoVistoMs||0));
-      const online = sessions.filter(x=>x.online), recent = sessions.filter(x=>!x.online);
-      const row = (x)=> el('div',{class:'histrow'},[
-        el('div',{},[
-          el('div',{style:'font-weight:600;'},[(x.online?'🟢 ':'⚪ ')+(x.etichetta||x.userId), ' ', el('span',{style:'margin-left:4px; font-size:11px; font-weight:600; color:var(--ink-soft); border:1px solid var(--line); border-radius:999px; padding:1px 8px;'},[x.userType||'?'])]),
-          el('div',{class:'hint', style:'margin:2px 0 0;'},[
-            x.online
-              ? 'Online da '+(x.durataMs!=null ? fmtTime(x.durataMs) : '—')
-              : 'Visto l\'ultima volta: '+(x.ultimoVistoMs ? new Date(x.ultimoVistoMs).toLocaleString('it-IT') : '—')
-          ])
-        ])
-      ]);
-      if(online.length){
-        body.appendChild(el('div',{style:'font-weight:600; margin-bottom:8px;'},['Online ora ('+online.length+')']));
-        online.forEach(x=> body.appendChild(row(x)));
-      } else {
-        body.appendChild(el('p',{class:'hint'},['Nessuno online in questo momento.']));
-      }
-      if(recent.length){
-        body.appendChild(el('div',{style:'font-weight:600; margin:18px 0 8px;'},['Visti di recente, non più online ('+recent.length+')']));
-        recent.forEach(x=> body.appendChild(row(x)));
-      }
-    }
-    renderBody();
-    // Auto-aggiornamento ogni 20s finché questa schermata resta aperta —
-    // coerente con un pannello pensato per essere guardato "in diretta",
-    // non solo interrogato una volta. Fermato quando si cambia schermata.
-    autoTimer = setInterval(()=>{ if(view==='onlineNow') renderBody(); else clearInterval(autoTimer); }, 20000);
-  }
-
   function ScreenAccessLog(root){
     root.appendChild(el('div',{class:'topbar'},[
       el('div',{class:'info'},['Registro accessi']),
@@ -8902,7 +8846,9 @@
       s.appendChild(card); root.appendChild(s); return;
     }
     card.appendChild(el('h2',{},['Registro accessi']));
-    card.appendChild(el('p',{class:'hint'},['Login, logout e tentativi falliti — vista aggregata per utente. Tocca una riga per il dettaglio evento per evento.']));
+    card.appendChild(el('p',{class:'hint'},[
+      'Una riga per persona: stato attuale (compresa una scheda riaperta con le credenziali salvate, senza login digitato) e storico delle sessioni passate con durata. Tocca una riga per il dettaglio sessione per sessione.'
+    ]));
     const body = el('div',{style:'min-height:60px;'},[el('p',{class:'hint'},['Caricamento…'])]);
     card.appendChild(body);
     const btnRow = el('div',{class:'rowbtns', style:'margin-top:16px;'});
@@ -8911,46 +8857,110 @@
     card.appendChild(btnRow);
     s.appendChild(card); root.appendChild(s);
 
+    // Unisce due fonti diverse per utente: lo storico da 'accessi' (sessioni
+    // chiuse da un logout esplicito registrato, con durata esatta) e lo
+    // stato live da 'sessioni_login' (battito ogni 25s, comprese le riprese
+    // senza login esplicito — che lo storico da solo non vede mai, perché
+    // non generano un evento 'login' in accessi). Una sessione ancora
+    // aperta (nessun logout corrispondente) compare quindi due volte nelle
+    // fonti grezze per lo stesso login: qui viene mostrata una sola volta,
+    // come riga "in corso" nel dettaglio, usando openLoginTs per abbinarla
+    // al gettone live dello stesso utente.
+    function mergeGroups(historical, live){
+      const byKey = {};
+      historical.forEach(g=> byKey[g.key] = Object.assign({}, g, {liveOnline:false, liveDurataMs:null, liveUltimoVistoMs:null}));
+      live.forEach(x=>{
+        const key = x.userId;
+        if(!byKey[key]) byKey[key] = {key, label:x.etichetta||x.userId, userType:x.userType, loginsOk:0, loginsFail:0, logouts:0, lastTs:null, avgDurationMs:null, totalDurationMs:null, sessions:[], openLoginTs:null, events:[]};
+        byKey[key].liveOnline = x.online;
+        byKey[key].liveDurataMs = x.durataMs;
+        byKey[key].liveUltimoVistoMs = x.ultimoVistoMs;
+      });
+      return Object.values(byKey);
+    }
+    function statusLine(g){
+      if(g.liveOnline) return '🟢 online da '+(g.liveDurataMs!=null ? fmtTime(g.liveDurataMs) : '—');
+      if(g.liveUltimoVistoMs) return '⚪ visto l\'ultima volta: '+new Date(g.liveUltimoVistoMs).toLocaleString('it-IT');
+      return '⚪ nessuna sessione registrata';
+    }
     function renderGroupTable(title, groups){
       const wrap = el('div',{style:'margin-top:18px;'});
       wrap.appendChild(el('div',{style:'font-weight:600; margin-bottom:8px;'},[title+' ('+groups.length+')']));
       if(!groups.length){ wrap.appendChild(el('p',{class:'hint'},['Nessun evento registrato.'])); return wrap; }
+      groups.sort((a,b)=> (b.liveOnline-a.liveOnline) || ((b.liveUltimoVistoMs||b.lastTs||0)-(a.liveUltimoVistoMs||a.lastTs||0)));
       groups.forEach(g=>{
         const row = el('div',{class:'histrow', style:'cursor:pointer; flex-direction:column; align-items:stretch;'});
-        const summary = el('div',{style:'display:flex; flex:none; justify-content:space-between; gap:10px; width:100%;', onclick:()=>{ accessLogExpanded = accessLogExpanded===g.key ? null : g.key; renderBody(); }},[
-          el('div',{},[g.label]),
+        const summary = el('div',{style:'display:flex; flex:none; justify-content:space-between; gap:10px; width:100%; flex-wrap:wrap;', onclick:()=>{ accessLogExpanded = accessLogExpanded===g.key ? null : g.key; renderBody(); }},[
+          el('div',{},[
+            el('div',{},[g.label]),
+            el('div',{class:'hint', style:'margin-top:2px;'},[statusLine(g)])
+          ]),
           el('div',{style:'text-align:right; font-size:13px; color:var(--ink-soft);'},[
-            '✓ '+g.loginsOk+' · ✗ '+g.loginsFail+' · media '+fmtDuration(g.avgDurationMs)+' · totale '+fmtDuration(g.totalDurationMs)+' · ultimo: '+(g.lastTs? new Date(g.lastTs).toLocaleString('it-IT') : '—')
+            '✓ '+g.loginsOk+' · ✗ '+g.loginsFail+' · media '+fmtDuration(g.avgDurationMs)+' · totale '+fmtDuration(g.totalDurationMs)
           ])
         ]);
         row.appendChild(summary);
         if(accessLogExpanded===g.key){
           const detail = el('div',{style:'margin-top:10px; padding-top:10px; border-top:1px solid var(--line, #eee); font-size:13px;'});
-          g.events.forEach(e=>{
-            detail.appendChild(el('div',{style:'padding:3px 0; color:'+(e.esito==='fallito'?'var(--alert)':'var(--ink)')+';'},[
-              new Date(e.ts).toLocaleString('it-IT')+' — '+e.evento+' · '+e.esito
+          detail.appendChild(el('div',{style:'font-weight:600; margin-bottom:6px;'},['Sessioni']));
+          if(g.liveOnline && g.openLoginTs==null){
+            // Ripresa silenziosa tuttora in corso, senza un login esplicito
+            // corrispondente in 'accessi' — la sessione "in corso" non ha
+            // un inizio noto dallo storico eventi, solo dal battito live.
+            detail.appendChild(el('div',{style:'padding:3px 0;'},['In corso (ripresa senza login esplicito) — online da '+(g.liveDurataMs!=null?fmtTime(g.liveDurataMs):'—')]));
+          }
+          g.sessions.slice().reverse().forEach(sess=>{
+            detail.appendChild(el('div',{style:'padding:3px 0;'},[
+              new Date(sess.start).toLocaleString('it-IT')+' → '+new Date(sess.end).toLocaleString('it-IT')+' · '+fmtDuration(sess.durationMs)
             ]));
           });
+          if(g.openLoginTs!=null && g.liveOnline){
+            detail.appendChild(el('div',{style:'padding:3px 0;'},[
+              new Date(g.openLoginTs).toLocaleString('it-IT')+' → in corso · '+(g.liveDurataMs!=null?fmtTime(g.liveDurataMs):'—')
+            ]));
+          } else if(g.openLoginTs!=null && !g.liveOnline){
+            detail.appendChild(el('div',{class:'hint', style:'padding:3px 0;'},[
+              new Date(g.openLoginTs).toLocaleString('it-IT')+' → nessun logout registrato (scheda chiusa senza uscire, o rete caduta) — durata non stimabile con certezza'
+            ]));
+          }
+          if(!g.sessions.length && g.openLoginTs==null && !g.liveOnline){
+            detail.appendChild(el('p',{class:'hint'},['Nessuna sessione con durata ricostruibile.']));
+          }
+          if(g.events.length){
+            detail.appendChild(el('div',{style:'font-weight:600; margin:10px 0 6px;'},['Eventi grezzi (login/logout/tentativi)']));
+            g.events.forEach(e=>{
+              detail.appendChild(el('div',{style:'padding:3px 0; color:'+(e.esito==='fallito'?'var(--alert)':'var(--ink)')+';'},[
+                new Date(e.ts).toLocaleString('it-IT')+' — '+e.evento+' · '+e.esito
+              ]));
+            });
+          }
           row.appendChild(detail);
         }
         wrap.appendChild(row);
       });
       return wrap;
     }
+    let autoTimer = null;
     async function renderBody(){
-      const rows = await loadAccessLog();
+      const [rows, live] = await Promise.all([loadAccessLog(), loadOnlineSessions()]);
       body.innerHTML = '';
-      body.appendChild(renderGroupTable('Operatori', summarizeAccessLog(rows,'operatore')));
-      body.appendChild(renderGroupTable('Pazienti', summarizeAccessLog(rows,'paziente')));
+      const opGroups = mergeGroups(summarizeAccessLog(rows,'operatore'), live.filter(x=>x.userType==='operatore'));
+      const patGroups = mergeGroups(summarizeAccessLog(rows,'paziente'), live.filter(x=>x.userType==='paziente'));
+      body.appendChild(renderGroupTable('Operatori', opGroups));
+      body.appendChild(renderGroupTable('Pazienti', patGroups));
     }
     renderBody();
+    // Auto-aggiornamento ogni 20s finché questa schermata resta aperta —
+    // così lo stato "online ora" resta corrente senza dover premere
+    // "Aggiorna" a mano.
+    autoTimer = setInterval(()=>{ if(view==='accessLog') renderBody(); else clearInterval(autoTimer); }, 20000);
   }
 
   const SCREENS = {
     setup: ScreenSetup, instructions: ScreenInstructions, countdown: ScreenCountdown,
     manualEntry: ScreenManualEntry, results: ScreenResults, history: ScreenHistory,
     cloud: ScreenCloud, patients: ScreenPatients, patientHome: ScreenPatientHome, patientProgram: ScreenPatientProgram,
-    operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode, accessLog: ScreenAccessLog, onlineNow: ScreenOnlineNow,
+    operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode, accessLog: ScreenAccessLog,
     screeningIntro: ScreenScreeningIntro, screeningResults: ScreenScreeningResults, archive: ScreenArchive, demoDone: ScreenDemoDone,
     motorIntro: ScreenMotorIntro, motorTask: ScreenMotorTask, motorResults: ScreenMotorResults
   };
@@ -9001,7 +9011,7 @@
   // dipendono da un oggetto di sessione in memoria che il reload cancella
   // (session, screeningState, pendingAccessCode...) — solo da id di
   // paziente/filtro, tutti ricostruibili da localStorage/Supabase.
-  const RELOAD_SAFE_VIEWS = new Set(['setup','patients','localPatientPicker','history','archive','cloud','accessLog','onlineNow','operatorHome','patientHome','patientProgram']);
+  const RELOAD_SAFE_VIEWS = new Set(['setup','patients','localPatientPicker','history','archive','cloud','accessLog','operatorHome','patientHome','patientProgram']);
   // priorState: lo stato di history.state COM'ERA prima di spingere la
   // sentinella anti-uscita qui sotto — deve essere catturato subito
   // all'avvio, perché dopo il pushState della sentinella history.state

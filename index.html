@@ -940,9 +940,16 @@
         sb.from('pazienti_locali').select('*').eq('operatore_id', cloudUser.id).then(({data,error})=>{
           if(!error && data){
             localPatientsCloudCache = data.map(r=>({id:r.id, nome:r.nome, createdAt:r.creato_il?Date.parse(r.creato_il):Date.now(), lastConfig:r.ultima_config||null, screeningFlags:r.screening_flags||null, programma:r.programma_assegnato||null, screeningRisultati:r.screening_risultati||null, attivo: r.attivo!==false, remotePazienteId: r.remote_paziente_id||null, livelliEsercizi: r.livelli_esercizi||null, obiettivo: r.obiettivo||null}));
-            // porta in locale anche i profili creati altrove, per uso offline
+            // Porta in locale anche i profili creati/aggiornati altrove
+            // (multi-dispositivo). Il cloud è la fonte più fresca quando la
+            // sincronizzazione è attiva — sovrascrive SEMPRE la copia locale,
+            // non solo se mancante: prima si limitava ad aggiungere i
+            // profili assenti, quindi un dispositivo con una copia locale
+            // già in cache (es. prima che un paziente venisse archiviato
+            // altrove) non riceveva mai l'aggiornamento e continuava a
+            // mostrarlo attivo all'infinito — bug reale, non solo teorico.
             localPatientsCloudCache.forEach(p=>{
-              try{ if(!localStorage.getItem('traccian:localpatient:'+p.id)) localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(p)); }catch(e){}
+              try{ localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(p)); }catch(e){}
             });
           }
           render();
@@ -1296,8 +1303,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -3216,12 +3223,12 @@
   // ancora aperta, solo da quanto non risponde più.
   const ONLINE_THRESHOLD_MS = 90*1000;
   async function loadOnlineSessions(){
-    if(!sb || !isSuperOperatore) return [];
+    if(!sb || !isSuperOperatore) return {sessions:[], error:null};
     try{
       const { data, error } = await sb.from('sessioni_login').select('*').order('aggiornato_il',{ascending:false});
       if(error) throw error;
       const now = Date.now();
-      return (data||[]).map(r=>{
+      const sessions = (data||[]).map(r=>{
         const lastMs = r.aggiornato_il ? new Date(r.aggiornato_il).getTime() : null;
         const startMs = r.iniziata_il ? new Date(r.iniziata_il).getTime() : lastMs;
         return {
@@ -3231,7 +3238,16 @@
           ultimoVistoMs: lastMs
         };
       });
-    }catch(e){ return []; }
+      return {sessions, error:null};
+    }catch(e){
+      // Non inghiottire l'errore in silenzio: se le colonne iniziata_il /
+      // user_type / etichetta o la policy di lettura per il super-operatore
+      // non sono ancora state aggiunte a sessioni_login (aggiornamento SQL
+      // nel README non ancora eseguito), questa query fallisce SEMPRE — e
+      // senza esporre il motivo, il pannello sembra solo "vuoto", non
+      // "rotto per un motivo preciso e risolvibile".
+      return {sessions:[], error: (e && e.message) || String(e)};
+    }
   }
   // ---------- Sessione unica per account (anti-uso concorrente) ----------
   // Meccanismo volutamente semplice: al login viene scritto un "gettone"
@@ -7796,7 +7812,15 @@
     card.appendChild(el('button',{class:'primary', style:'margin-top:16px;', onclick:()=>{
       const nome = prompt('Nome o codice del nuovo paziente (es. "Sig. Rossi" — valuta se usare un\'iniziale invece del nominativo completo):');
       if(nome && nome.trim()){
-        const p = saveLocalPatient(nome.trim());
+        const nomeTrim = nome.trim();
+        // Le etichette locali sono testo libero, senza controllo di
+        // unicità: due pazienti (anche uno attivo e uno archiviato) con lo
+        // stesso nome sono record indipendenti che sembrano collegati ma
+        // non lo sono. Un avviso qui non impedisce la scelta (può essere
+        // voluta), solo previene la confusione di scoprirlo dopo.
+        const dup = listLocalPatients().find(p=> p.nome.toLowerCase()===nomeTrim.toLowerCase());
+        if(dup && !confirm('Esiste già un paziente in presenza chiamato "'+nomeTrim+'"'+(dup.attivo===false?' (archiviato)':'')+'. Sarà un profilo separato e indipendente, non collegato a quello esistente. Continuare comunque?')) return;
+        const p = saveLocalPatient(nomeTrim);
         activeLocalPatientId=p.id; activeRemotePatientId=null; cfg.patientCode=p.nome;
         applyLevelBaselineOrSuggestion(cfg.taskMode);
         view='setup'; render();
@@ -8942,8 +8966,14 @@
     }
     let autoTimer = null;
     async function renderBody(){
-      const [rows, live] = await Promise.all([loadAccessLog(), loadOnlineSessions()]);
+      const [rows, liveResult] = await Promise.all([loadAccessLog(), loadOnlineSessions()]);
+      const live = liveResult.sessions;
       body.innerHTML = '';
+      if(liveResult.error){
+        body.appendChild(el('div',{style:'padding:10px 12px; margin-bottom:14px; border:1px solid var(--alert,#c0392b); border-radius:8px; font-size:13px; color:var(--alert,#c0392b);'},[
+          'Stato "online adesso" non disponibile: '+liveResult.error+'. Probabile causa: l\'aggiornamento SQL di sessioni_login (colonne iniziata_il/user_type/etichetta + policy di lettura per il super-operatore, vedi README) non è ancora stato eseguito su questo progetto Supabase. Lo storico sotto resta comunque affidabile.'
+        ]));
+      }
       const opGroups = mergeGroups(summarizeAccessLog(rows,'operatore'), live.filter(x=>x.userType==='operatore'));
       const patGroups = mergeGroups(summarizeAccessLog(rows,'paziente'), live.filter(x=>x.userType==='paziente'));
       body.appendChild(renderGroupTable('Operatori', opGroups));

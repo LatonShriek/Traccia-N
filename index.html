@@ -494,13 +494,54 @@
         if(c.memoriaModo==='vanishing') return 'Per '+(materiale==='lista'?'ogni parola':'ogni idea')+' vedrai prima un forte suggerimento (quasi tutta l\'informazione), poi uno più debole: prova a completarla tu prima che sparisca del tutto. È la tecnica dei "vanishing cues". Alla fine, un richiamo libero senza alcun suggerimento.';
         return '';
       }},
+    mantenimento: {label:'Mantenimento (tipo Sternberg)', usesStimType:false, usesTargetSeq:false, family:'choice',
+      domini:['Mantenimento in memoria a breve termine'],
+      instructions:c=>{
+        const matLabel = c.mantenimentoMateriale==='numeri' ? 'numeri' : 'lettere';
+        if(c.mantenimentoModalita==='seriale'){
+          return 'Vedrai un piccolo gruppo di '+matLabel+' mostrati uno alla volta all\'inizio: prova a ricordarli tutti — resteranno gli stessi per tutto l\'esercizio. Dopo, vedrai tanti '+matLabel+' singoli, uno alla volta: per ciascuno tocca "Sì, c\'era" se faceva parte del gruppo iniziale, "No, non c\'era" se non ne faceva parte.';
+        }
+        return 'Vedrai un piccolo gruppo di '+matLabel+' mostrati uno alla volta: prova a ricordarli tutti. Subito dopo vedrai un solo '+(c.mantenimentoMateriale==='numeri'?'numero':'lettera')+': tocca "Sì, c\'era" se faceva parte del gruppo appena visto, "No, non c\'era" se non ne faceva parte. Il gruppo cambia a ogni prova.';
+      }},
   };
+  // Livello -> {modalita, listLen}: 1-5 Riconoscimento (lista 2..6), 6-10
+  // Riconoscimento seriale (insieme fisso 3..7, sonde ripetute — vedi
+  // buildMantenimento). Il salto 5->6 è un cambio di MODALITÀ, non solo di
+  // difficoltà — dichiarato così di proposito, non un'unica scala
+  // "facile -> difficile" continua (vedi discussione sul perché mescolare
+  // le due modalità in un'unica scala rischierebbe di far scivolare il
+  // costrutto verso l'aggiornamento continuo tipo n-back, che è deliberatamente
+  // un dominio diverso da questo — mantenimento, non updating).
+  const ADAPT_MANTENIMENTO = {
+    1:{modalita:'riconoscimento', listLen:2}, 2:{modalita:'riconoscimento', listLen:3},
+    3:{modalita:'riconoscimento', listLen:4}, 4:{modalita:'riconoscimento', listLen:5},
+    5:{modalita:'riconoscimento', listLen:6},
+    6:{modalita:'seriale', listLen:3, probes:8}, 7:{modalita:'seriale', listLen:4, probes:11},
+    8:{modalita:'seriale', listLen:5, probes:14}, 9:{modalita:'seriale', listLen:6, probes:17},
+    10:{modalita:'seriale', listLen:7, probes:20}
+  };
+  // Ordine di presentazione degli esercizi nei selettori, raggruppato per
+  // vicinanza di costrutto invece che per ordine storico di sviluppo (era
+  // Object.keys(EXERCISES), cioè l'ordine in cui sono stati scritti nel
+  // codice — nessun significato clinico). Struttura separata apposta:
+  // EXERCISES resta la fonte dei dati, questa è solo l'ordine con cui
+  // vengono mostrati — così un domani riordinare la vetrina non richiede
+  // spostare blocchi di codice dentro EXERCISES, solo questa lista.
+  const EXERCISE_GROUPS = [
+    {label:'Attenzione e inibizione', keys:['gonogo','stopsignal','ant','simon']},
+    {label:'Memoria di lavoro e mantenimento', keys:['nback','sequenza','mantenimento']},
+    {label:'Flessibilità cognitiva', keys:['switching','categorizzazione']},
+    {label:'Esplorazione visuospaziale', keys:['neglect']},
+    {label:'Attenzione divisa e multitasking', keys:['dualtask','goaltask']},
+    {label:'Memoria strategica', keys:['memoria']}
+  ];
 
   /* ---------- state ---------- */
   let cfg = {
     stimType:'lettere', nLevel:5, isi:2200, stimDuration:600, trials:24,
     targetRate:0.32, respMode:'paziente', voice:false, patientCode:'', notes:'',
     taskMode:'nback', targetSeq: POOLS.lettere.slice(0,3),
+    mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', // solo per Mantenimento (tipo Sternberg)
     ssd:250, ssdStep:50, // solo per Stop-Signal
     adaptive:false, // derivato da titrationMode==='adattivo' — tenuto per compatibilità con tutto il codice di titolazione live (maybeAdapt, ADAPT_ISI, ecc.), va sempre aggiornato insieme a titrationMode, mai impostato da solo
     // Modello triplice di titolazione (solo per i 7 esercizi con livello
@@ -605,7 +646,7 @@
   // con questo gruppo, e non erano fra gli esercizi segnalati col bug di
   // sincronizzazione — includerli sarebbe un allargamento di perimetro non
   // richiesto.
-  const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant','simon'];
+  const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant','simon','mantenimento'];
   // Neglect e Doppio compito hanno il CONCETTO di titrationMode (e vanno
   // quindi trattati come gli altri per persistenza/switch dal profilo) ma
   // non fanno parte del gruppo "condiviso" sopra: hanno le proprie
@@ -1303,8 +1344,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1567,6 +1608,7 @@
       case 'ant': return buildANT();
       case 'switching': return buildSwitching();
       case 'simon': return buildSimon();
+      case 'mantenimento': return buildMantenimento();
       // 'categorizzazione' rimossa da qui: è ora sempre incrementale (vedi
       // genCategTrial/isIncremental), non passa mai da buildSequence().
       case 'dualtask': return buildDualTask();
@@ -1873,6 +1915,62 @@
         congruency = ansTipo===ansColore ? 'congruent' : 'incongruent';
       }
       seq.push({val:item, rule:activeRule, ruleDef, correctAnswer, sizeVariant, congruency, isSwitch, valid:true});
+    }
+    return seq;
+  }
+  // ---------- Mantenimento (tipo Sternberg) ----------
+  // Ogni "prova" per lo scoring/il report è la SONDA (correctAnswer 'a'=era
+  // nella lista, 'b'=non c'era) — resolveChoice/registerTap non cambiano,
+  // riusano lo stesso schema a 2 scelte del resto dell'app. La novità è
+  // encodeItems: una lista da mostrare in sequenza PRIMA della sonda,
+  // gestita da un piccolo stato aggiuntivo in nextTrial() (fase 'encode').
+  // Riconoscimento: encodeItems nuovi a ogni prova (skipEncode sempre
+  // false). Seriale: lo stesso encodeItems per tutte le prove della
+  // sessione (un solo insieme, stabilito una volta) — la sequenza lo
+  // mostra per intero solo alla prima prova (skipEncode false), le prove
+  // successive la saltano (skipEncode true, il set è già stato mostrato e
+  // resta lo stesso): non una seconda architettura, la stessa funzione,
+  // solo con lo stesso encodeItems ripetuto e un flag che dice se serve
+  // ri-mostrarlo.
+  function buildMantenimento(){
+    const params = cfg.titrationMode!=='manuale' ? (ADAPT_MANTENIMENTO[cfg.adaptStartLevel]||ADAPT_MANTENIMENTO[1]) : null;
+    const modalita = params ? params.modalita : cfg.mantenimentoModalita;
+    const listLen = params ? params.listLen : (cfg.mantenimentoListLen || 4);
+    const pool = cfg.mantenimentoMateriale==='numeri' ? POOLS.numeri.slice(0,9) : POOLS.lettere;
+    function drawList(n){
+      const shuffled = pool.slice().sort(()=>Math.random()-0.5);
+      return shuffled.slice(0, n);
+    }
+    const seq = [];
+    if(modalita==='seriale'){
+      const fixedSet = drawList(listLen);
+      const numProbes = (params && params.probes) || cfg.trials;
+      cfg.trials = numProbes; // il numero di sonde è deciso dal livello (o da cfg.trials stesso in manuale), non un valore fisso: allinea il contatore "prova X/Y" e la fine sessione a quanto viene generato davvero
+      for(let i=0;i<numProbes;i++){
+        // Metà delle sonde (circa) appartengono all'insieme, metà no —
+        // stesso principio dei bersagli/non bersagli altrove nell'app, non
+        // puramente casuale prova per prova (vedi discussione sul rischio
+        // di sequenze sbilanciate su blocchi brevi): qui il conteggio è
+        // fissato in anticipo (metà/metà, con arrotondamento), solo
+        // l'ordine è mescolato.
+        const isMember = i < Math.round(numProbes/2);
+        seq.push(null); // placeholder, riempito sotto dopo lo shuffle dell'ordine
+        seq[i] = {isMember};
+      }
+      seq.sort(()=>Math.random()-0.5);
+      const outsidePool = pool.filter(x=> !fixedSet.includes(x));
+      seq.forEach((t,i)=>{
+        const probeVal = t.isMember ? fixedSet[Math.floor(Math.random()*fixedSet.length)] : outsidePool[Math.floor(Math.random()*outsidePool.length)];
+        seq[i] = {encodeItems: fixedSet, skipEncode: i>0, val:probeVal, correctAnswer: t.isMember?'a':'b', isTarget: t.isMember, valid:true};
+      });
+    } else {
+      for(let i=0;i<cfg.trials;i++){
+        const list = drawList(listLen);
+        const isMember = Math.random()<0.5;
+        const outsidePool = pool.filter(x=> !list.includes(x));
+        const probeVal = isMember ? list[Math.floor(Math.random()*list.length)] : outsidePool[Math.floor(Math.random()*outsidePool.length)];
+        seq.push({encodeItems:list, skipEncode:false, val:probeVal, correctAnswer: isMember?'a':'b', isTarget:isMember, valid:true});
+      }
     }
     return seq;
   }
@@ -3215,6 +3313,27 @@
     }catch(e){ accessLogCache = []; }
     return accessLogCache;
   }
+  // Elimina dallo storico 'accessi' tutte le righe di UNA persona (uso
+  // tipico: account di prova, non un paziente/operatore reale) — non tocca
+  // l'account stesso (resta attivo o archiviato quel che era), solo le
+  // righe del registro. 'anon:'+email è la stessa chiave sintetica usata
+  // da summarizeAccessLog per i tentativi falliti senza sessione creata
+  // (user_id nullo) — qui va risolta all'indietro nel filtro giusto.
+  async function deleteAccessHistoryForUser(groupKey){
+    if(!sb || !isSuperOperatore) return false;
+    try{
+      let q = sb.from('accessi').delete();
+      if(typeof groupKey==='string' && groupKey.indexOf('anon:')===0){
+        q = q.eq('email_tentata', groupKey.slice(5)).is('user_id', null);
+      } else {
+        q = q.eq('user_id', groupKey);
+      }
+      const { error } = await q;
+      if(error) throw error;
+      accessLogCache = null;
+      return true;
+    }catch(e){ alert('Eliminazione non riuscita: '+((e&&e.message)||e)); return false; }
+  }
   // Soglia "online adesso": il battito è ogni 25s (startSessionGuard), 90s
   // di margine tollera un giro mancato senza dichiarare offline chi in
   // realtà è ancora lì. Sopra questa soglia: "visto di recente", non più
@@ -3639,7 +3758,7 @@
     const ex = EXERCISES[cfg.taskMode];
 
     // exercise selector (comes first: it determines which other fields apply)
-    grid.appendChild(field('Esercizio', segButtons(Object.keys(EXERCISES), cfg.taskMode, v=>{
+    grid.appendChild(field('Esercizio', groupedSegButtons(EXERCISE_GROUPS, cfg.taskMode, v=>{
       cfg.taskMode=v;
       resetLevelField(v); // livello sempre a 1 quando si cambia esercizio dentro Setup — il caricamento di un eventuale suggerimento da screening avviene solo all'apertura iniziale (vedi applyLevelBaselineOrSuggestion), non a ogni cambio manuale, per non sovrascrivere a sorpresa scelte già fatte dall'operatore
       if(v==='stopsignal' && !['frecce','lettere','numeri','forma','suoni'].includes(cfg.stimType)) cfg.stimType='frecce';
@@ -3961,6 +4080,26 @@
       }, {manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'})));
       card.appendChild(el('p',{class:'hint'},[neglectTitrationModeHint(cfg, cfg.titrationMode||'manuale')]));
     }
+    if(cfg.taskMode==='mantenimento'){
+      grid.appendChild(field('Materiale', segButtons(['lettere','numeri'], cfg.mantenimentoMateriale||'lettere', v=>{
+        cfg.mantenimentoMateriale=v; render();
+      }, {lettere:'Lettere', numeri:'Numeri'})));
+      if((cfg.titrationMode||'manuale')==='manuale'){
+        grid.appendChild(field('Modalità di prova', segButtons(['riconoscimento','seriale'], cfg.mantenimentoModalita||'riconoscimento', v=>{
+          cfg.mantenimentoModalita=v; render();
+        }, {riconoscimento:'Riconoscimento', seriale:'Riconoscimento seriale'})));
+        grid.appendChild(field('Lunghezza lista/insieme', stepper(cfg.mantenimentoListLen||4,2,9,v=>{cfg.mantenimentoListLen=v; render();})));
+        card.appendChild(el('p',{class:'hint'},[
+          cfg.mantenimentoModalita==='seriale'
+            ? 'Un insieme fisso viene mostrato una sola volta all\'inizio, poi molte sonde di fila lo interrogano ripetutamente — misura quanto resta accessibile l\'insieme nel tempo, non l\'aggiornamento continuo (quello lo misura l\'N-back).'
+            : 'Una lista nuova ogni prova, poi una sola sonda — è la versione classica del compito (Sternberg, 1966), qui usata come misura di riconoscimento, non di richiamo ordinato.'
+        ]));
+      } else {
+        card.appendChild(el('p',{class:'hint'},[
+          'In modalità Livello/Adattiva la modalità di prova e la lunghezza seguono la tabella dei livelli: livelli 1-5 Riconoscimento (lista 2→6), livelli 6-10 Riconoscimento seriale (insieme 3→7, sonde crescenti) — il salto fra 5 e 6 è un cambio di modalità, non solo di difficoltà.'
+        ]));
+      }
+    }
 
     // target rate — riusato con etichetta diversa per ciascun esercizio
     const rateLabels = {
@@ -4234,6 +4373,18 @@
       wrap.appendChild(b);
     });
     return wrap;
+  }
+  // Come segButtons, ma organizzato in gruppi con una piccola etichetta di
+  // sezione sopra ciascuno — stessa classe .seg per ogni riga, quindi
+  // stesso comportamento responsive (flex-wrap) già in uso, solo diviso in
+  // righe più corte e riconoscibili invece di un'unica fila lunghissima.
+  function groupedSegButtons(groups, current, onPick, labels){
+    const outer = el('div',{});
+    groups.forEach((g,i)=>{
+      outer.appendChild(el('div',{class:'group-label', style:'font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); margin:'+(i===0?'0':'14px')+' 0 6px; font-weight:600;'},[g.label]));
+      outer.appendChild(segButtons(g.keys, current, onPick, labels));
+    });
+    return outer;
   }
   function stepper(val,min,max,onChange,step,fmt){
     step = step||1;
@@ -5032,7 +5183,7 @@
     if(cfg.taskMode==='neglect') return 'liveBoardLevel';
     if(cfg.taskMode==='categorizzazione') return 'categLevel';
     if(cfg.taskMode==='dualtask') return null; // gestito a parte da bumpDualLevel/maybeAdaptDualChannel — mai session.adaptLevel, anche se ADAPT_ISI['dualtask'] esiste (usata solo per l'ISI condiviso, non per il livello)
-    if(ADAPT_ISI[cfg.taskMode] || cfg.taskMode==='gonogo' || cfg.taskMode==='switching') return 'adaptLevel';
+    if(ADAPT_ISI[cfg.taskMode] || cfg.taskMode==='gonogo' || cfg.taskMode==='switching' || cfg.taskMode==='mantenimento') return 'adaptLevel';
     return null;
   }
   // Tetto della scala per l'esercizio corrente: tutti gli esercizi con
@@ -5292,7 +5443,32 @@
       scheduleStep(()=> showTrialStimulus(trial), ANT_CUE_SOA);
       return;
     }
+    // Mantenimento (tipo Sternberg): mostra la lista da codificare, un
+    // elemento alla volta, prima della sonda vera e propria — saltato se
+    // skipEncode (modalità seriale, insieme già mostrato a una prova
+    // precedente nella stessa sessione, resta lo stesso per tutta la
+    // sessione).
+    if(cfg.taskMode==='mantenimento' && trial.encodeItems && !trial.skipEncode){
+      session.phase='encode';
+      session.encodeIdx=0;
+      render();
+      showEncodeItem(trial);
+      return;
+    }
     showTrialStimulus(trial);
+  }
+  // Fa avanzare la fase di codifica del Mantenimento un elemento alla
+  // volta (stesso schema di presentCue/scheduleStep già usato per il cue
+  // di ANT/Task-switching, non un secondo motore) — al termine della
+  // lista passa alla sonda vera e propria con showTrialStimulus, esattamente
+  // come farebbe una prova normale una volta finita la fase di cue.
+  function showEncodeItem(trial){
+    if(session.encodeIdx >= trial.encodeItems.length){ showTrialStimulus(trial); return; }
+    render();
+    scheduleStep(()=>{
+      session.encodeIdx++;
+      showEncodeItem(trial);
+    }, (cfg.stimDuration||600)+300);
   }
   function showTrialStimulus(trial){
     session.phase='show';
@@ -5415,7 +5591,7 @@
     let outcome = null;
     switch(cfg.taskMode){
       case 'gonogo': case 'stopsignal': outcome = resolveSignal(trial); break;
-      case 'ant': case 'switching': case 'simon': outcome = resolveChoice(trial); break;
+      case 'ant': case 'switching': case 'simon': case 'mantenimento': outcome = resolveChoice(trial); break;
       case 'categorizzazione': outcome = resolveCategorization(trial); break;
       case 'dualtask': outcome = resolveDualTask(trial); break;
       default: outcome = resolveSignal(trial); // nback / sequenza
@@ -5491,7 +5667,7 @@
       session.spatialBlock = session.spatialBlock || [];
       session.spatialBlock.push({side:trial.side, correct});
     }
-    if(cfg.taskMode==='ant' || cfg.taskMode==='switching' || cfg.taskMode==='simon'){
+    if(cfg.taskMode==='ant' || cfg.taskMode==='switching' || cfg.taskMode==='simon' || cfg.taskMode==='mantenimento'){
       session.adaptBlock.push(correct);
       const before = session.adaptBlock.length;
       maybeAdapt();
@@ -5713,6 +5889,8 @@
       }
       case 'switching':
         return [{action:'a', label:'—', cls:'match'}, {action:'b', label:'—', cls:'nomatch'}];
+      case 'mantenimento':
+        return [{action:'a', label:'Sì, c\'era', cls:'match'}, {action:'b', label:'No, non c\'era', cls:'nomatch'}];
       case 'simon':
         return [{action:'left', label:'⬤ Blu', cls:'match'}, {action:'right', label:'⬤ Verde', cls:'nomatch'}];
       case 'categorizzazione': {
@@ -6104,7 +6282,16 @@
     { domain:'esplorazione', tipo:'base', domainLabel:'Esplorazione visuospaziale', label:'Esplorazione — blocco base',
       patch:()=>({taskMode:'neglect', neglectMode:'classico', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}) },
     { domain:'esplorazione', tipo:'caricato', domainLabel:'Esplorazione visuospaziale', label:'Esplorazione — blocco caricato', suggestTaskMode:'neglect', suggestLabel:'Cancellazione a regola',
-      patch:()=>({taskMode:'neglect', neglectMode:'regola', neglectRuleLevel:2, stimType:'lettere', neglectBoardSize:40, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}) }
+      patch:()=>({taskMode:'neglect', neglectMode:'regola', neglectRuleLevel:2, stimType:'lettere', neglectBoardSize:40, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}) },
+    // Mantenimento: solo la modalità Riconoscimento (classica, discreta) —
+    // il Riconoscimento seriale resta una sonda di approfondimento per
+    // quando questo dominio flagga, non parte dello screening breve.
+    // Liste più lunghe del minimo (3/5, non 2/3): con solo 2 elementi il
+    // compito è quasi banale anche con un deficit reale, non discrimina.
+    { domain:'mantenimento', tipo:'base', domainLabel:'Mantenimento in memoria a breve termine', label:'Mantenimento — blocco base',
+      patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:3, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}) },
+    { domain:'mantenimento', tipo:'caricato', domainLabel:'Mantenimento in memoria a breve termine', label:'Mantenimento — blocco caricato', suggestTaskMode:'mantenimento', suggestLabel:'Mantenimento (tipo Sternberg)',
+      patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:5, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}) }
   ];
   const SCREENING_FLAG_THRESHOLD = 0.70; // coerente con la soglia Wilson già in uso per la titolazione adattiva
   // Prova dimostrativa: 6 prove a difficoltà fissa e facile, con feedback
@@ -8382,7 +8569,7 @@
         if(isNaN(minuti) || minuti<1){ alert('Valore non valido.'); return; }
         nuovoGoal = {tipo:'tempo', periodo: periodoScelta.trim()==='2'?'totale':'settimana', minutiTarget:minuti, id: Date.now()+'-'+Math.random().toString(36).slice(2,6)};
       } else {
-        const keys = Object.keys(EXERCISES);
+        const keys = EXERCISE_GROUPS.flatMap(g=>g.keys);
         const opts = keys.map((k,i)=> (i+1)+') '+EXERCISES[k].label).join('\n');
         const scelta = prompt('Su quale esercizio impostare l\'obiettivo? Scrivi il numero:\n'+opts);
         const idx = parseInt(scelta,10)-1;
@@ -8858,6 +9045,8 @@
     return (h>0? h+'h ':'')+m+'min';
   }
   let accessLogExpanded = null; // key del gruppo attualmente espanso (drill-down), o null
+  let accessLogFilterOp = null; // key dell'operatore selezionato nel menù a tendina, o null = tutti
+  let accessLogFilterPat = null; // key del paziente selezionato nel menù a tendina, o null = tutti
   function ScreenAccessLog(root){
     root.appendChild(el('div',{class:'topbar'},[
       el('div',{class:'info'},['Registro accessi']),
@@ -8958,6 +9147,12 @@
               ]));
             });
           }
+          detail.appendChild(el('button',{class:'ghost', style:'margin-top:12px; color:var(--alert);', onclick: async (ev)=>{
+            ev.stopPropagation();
+            if(!confirm('Eliminare dal registro tutto lo storico di "'+g.label+'"? Non tocca l\'account (resta attivo o archiviato quel che era), solo le righe di login/logout/tentativi. Non annullabile.')) return;
+            const ok = await deleteAccessHistoryForUser(g.key);
+            if(ok) renderBody();
+          }},['Elimina storico di questa persona dal registro']));
           row.appendChild(detail);
         }
         wrap.appendChild(row);
@@ -8976,8 +9171,27 @@
       }
       const opGroups = mergeGroups(summarizeAccessLog(rows,'operatore'), live.filter(x=>x.userType==='operatore'));
       const patGroups = mergeGroups(summarizeAccessLog(rows,'paziente'), live.filter(x=>x.userType==='paziente'));
-      body.appendChild(renderGroupTable('Operatori', opGroups));
-      body.appendChild(renderGroupTable('Pazienti', patGroups));
+      // Due menù a tendina, uno per tipo, per saltare direttamente a una
+      // persona invece di scorrere l'elenco intero — utile con molte righe.
+      // "Tutti" (default) non filtra nulla.
+      const filterRow = el('div',{style:'display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;'});
+      function makeFilterSelect(groups, current, onChange){
+        const sel = el('select',{style:'padding:8px 10px; border-radius:8px; border:1px solid var(--line,#ccc); font-size:13px;', onchange:(ev)=>onChange(ev.target.value)});
+        sel.appendChild(el('option',{value:''},['Tutti']));
+        groups.slice().sort((a,b)=>a.label.localeCompare(b.label,'it')).forEach(g=>{
+          const optAttrs = {value:g.key};
+          if(current===g.key) optAttrs.selected = 'selected';
+          sel.appendChild(el('option',optAttrs,[g.label]));
+        });
+        return sel;
+      }
+      filterRow.appendChild(makeFilterSelect(opGroups, accessLogFilterOp, v=>{ accessLogFilterOp=v||null; renderBody(); }));
+      filterRow.appendChild(makeFilterSelect(patGroups, accessLogFilterPat, v=>{ accessLogFilterPat=v||null; renderBody(); }));
+      body.appendChild(filterRow);
+      const opGroupsShown = accessLogFilterOp ? opGroups.filter(g=>g.key===accessLogFilterOp) : opGroups;
+      const patGroupsShown = accessLogFilterPat ? patGroups.filter(g=>g.key===accessLogFilterPat) : patGroups;
+      body.appendChild(renderGroupTable('Operatori', opGroupsShown));
+      body.appendChild(renderGroupTable('Pazienti', patGroupsShown));
     }
     renderBody();
     // Auto-aggiornamento ogni 20s finché questa schermata resta aperta —

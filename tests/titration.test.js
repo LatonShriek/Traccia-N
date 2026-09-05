@@ -56,8 +56,8 @@ function runtimeISI(taskMode, titrationMode, level, rawIsi) {
 
 module.exports = function run(t) {
   t.group('TITRATION_EXERCISES — perimetro dichiarato', () => {
-    t.eq(TITRATION_EXERCISES.slice().sort(), ['ant', 'gonogo', 'nback', 'sequenza', 'simon', 'stopsignal', 'switching'].sort(),
-      'i 7 esercizi con stepper Livello condiviso sono esattamente quelli attesi — nessuno aggiunto o tolto senza che questo test lo segnali');
+    t.eq(TITRATION_EXERCISES.slice().sort(), ['ant', 'gonogo', 'mantenimento', 'nback', 'sequenza', 'simon', 'stopsignal', 'switching'].sort(),
+      'gli 8 esercizi con stepper Livello condiviso sono esattamente quelli attesi — nessuno aggiunto o tolto senza che questo test lo segnali');
   });
 
   t.group('Manuale non legge MAI una tabella (nessun parametro "orfano")', () => {

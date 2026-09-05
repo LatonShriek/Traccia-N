@@ -42,6 +42,8 @@ dieci varianti dello stesso compito.
 | Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
 |---|---|---|---|
 | N-back | Aggiornamento della memoria di lavoro (updating) | Fronto-parietale, DLPFC | Owen, McMillan, Laird & Bullmore (2005), *Human Brain Mapping*, 25(1), 46-59 |
+| Mantenimento (tipo Sternberg) | Mantenimento in memoria a breve termine (non aggiornamento continuo) | Circuito fronto-parietale di mantenimento, solo in parte sovrapposto a quello dell'updating | Sternberg (1966), *Science*, 153(3736), 652-654 |
+| Simon | Risoluzione di conflitto spazio-risposta (posizione dello stimolo irrilevante al compito) | Monitoraggio del conflitto (ACC/pre-SMA), controllo inibitorio | Simon & Rudell (1967), *Journal of Applied Psychology*, 51(3), 300-304 |
 | Sequenza bersaglio | Context processing, controllo proattivo/reattivo (ispirato all'AX-CPT) | DLPFC (proattivo) + ACC (reattivo) | Cohen, Barch, Carter & Servan-Schreiber (1999), *Journal of Abnormal Psychology*, 108(1), 120-133 |
 | Go/No-Go | Inibizione di un'azione non ancora iniziata (action restraint) | Giro frontale inferiore sinistro + parietale | Eagle, Bari & Robbins (2008), *Psychopharmacology*, 199(3), 439-456 |
 | Stop-Signal | Cancellazione di un'azione già in corso (action cancellation), con stima di SSRT | Via fronto-striatale destra (RIFG–preSMA–STN) | Eagle, Bari & Robbins (2008), come sopra; Aron, Fletcher, Bullmore, Sahakian & Robbins (2003), *Nature Neuroscience*, 6(2), 115-116; Verbruggen, Aron, Band, Logan et al. (2019), *eLife*, 8, e46323 (go-task a scelta discreta) |
@@ -317,7 +319,7 @@ possibile scegliere fra "Un solo tipo" e tre varianti di mescolamento
 casuale prova per prova: **"Mescolato visivo"** (solo fra lettere,
 numeri, colori, simboli), **"Mescolato uditivo"** (solo fra suoni,
 lettere/numeri pronunciati) e **"Mescolato visivo + uditivo"** (tutti
-insieme) — non più un'unica modalità indifferenziata. Non ancora estesa
+insieme) — tre varianti distinte, non un'unica modalità indifferenziata. Non ancora estesa
 a TAPAT/ANT né a Task-switching.
 
 **Proposta automatica per sequenze/materiali personalizzati.** Ovunque
@@ -353,12 +355,11 @@ istruzioni pre-sessione.
 **Accessibilità.** Tutti i controlli dell'app sono elementi `<button>`
 nativi, riconoscibili e navigabili dai lettori di schermo (VoiceOver,
 TalkBack) senza bisogno di attributi aggiuntivi. Da computer, oltre alla
-mappatura A/L (2 scelte) e A/L/Z/M (4 scelte) già esistente, la barra
-spaziatrice risponde negli esercizi a un solo pulsante (N-back,
-1-back...) — prima non avevano nessuna scorciatoia. Le istruzioni
-lette a voce ("🔊 Ascolta") includono ora anche il promemoria della
-scorciatoia da tastiera, non solo il testo dell'esercizio: prima chi si
-affidava solo all'audio non la sentiva mai.
+mappatura A/L (2 scelte) e A/L/Z/M (4 scelte), la barra spaziatrice
+risponde negli esercizi a un solo pulsante (N-back, 1-back...). Le
+istruzioni lette a voce ("🔊 Ascolta") includono anche il promemoria
+della scorciatoia da tastiera, non solo il testo dell'esercizio, così
+chi si affida solo all'audio la sente comunque.
 
 **Sintesi vocale.** La voce usata per materiali pronunciati e istruzioni
 lette è la Web Speech API del browser, non audio pre-registrato — la
@@ -507,12 +508,10 @@ l'allerta sostenuta) diventa un range libero (minimo/massimo impostabili
 separatamente, non un singolo ISI — l'imprevedibilità dell'intervallo è
 parte del costrutto, non un dettaglio) invece di seguire sempre la
 tabella per livello. Il blocco fasico (quello con il cue, a metà seduta)
-non cambia: ha sempre usato il campo ISI generico di Setup, in ogni
-modalità, non era mai stato legato al livello — solo il blocco tonico
-aveva lo stesso scarto silenzioso già visto altrove. In Livello/Adattivo
-tutto resta come sempre.
+usa sempre il campo ISI generico di Setup, in ogni modalità — non è
+legato al livello. In Livello/Adattivo tutto resta come sempre.
 
-Con questa estensione, **tutti gli 11 esercizi hanno una gestione
+Con questi due esercizi, **tutti gli 11 esercizi hanno una gestione
 esplicita e coerente della titolazione** — i primi 8 (compresi i 6
 originali) con il selettore Manuale/Livello/Adattivo pienamente
 condiviso, Categorizzazione condizionale con la stessa idea adattata al
@@ -527,6 +526,7 @@ materiali sono sempre stati scelti a mano, non titolati.
 | Esercizio | Livelli | Cosa varia col livello |
 |---|---|---|
 | N-back | 1-10 | n cresce solo a cambio di banda — 1 ai livelli 1-4, 2 ai livelli 5-9, 3 al solo livello 10 (il carico "puro" resta clinicamente vincolato: la letteratura su cui si basa l'n-back mostra un calo netto di accuratezza già a n=3) — dentro ogni banda scalano frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso: aumentano il carico di controllo dell'interferenza senza alzare n, cfr. Kane, Conway, Miura & Colflesh, 2007) |
+| Mantenimento (tipo Sternberg) | 1-10 | Livelli 1-5: modalità Riconoscimento, lunghezza lista 2→6. Livelli 6-10: modalità Riconoscimento seriale, insieme fisso 3→7 con numero di sonde crescente (8→20) — il salto 5→6 è un cambio di modalità, non solo di difficoltà: il costrutto resta mantenimento in entrambe, non scivola verso l'aggiornamento continuo dell'N-back |
 | Go/No-Go | 1-10 | Frequenza no-go (48%→5%) e numero di elementi no-go attivi (1→4, tetto raggiunto solo al livello 10); l'ISI resta fisso (impostato manualmente in Setup), non è adattivo per questo esercizio |
 | Sequenza bersaglio | 1-10 | ISI (4500→900ms) e, in modalità Livello/Adattiva, lunghezza della sequenza bersaglio (2→5 elementi) |
 | Stop-Signal | 1-10 (leva secondaria) + staircase SSD continuo | ISI secondario (3600→750ms); lo SSD resta un meccanismo indipendente e continuo, non a livelli (vedi sotto) |
@@ -535,7 +535,7 @@ materiali sono sempre stati scelti a mano, non titolati.
 | Task-switching | 1-10 | Intervallo cue→stimolo (CSI, 900→150ms) insieme allo sbilanciamento fra le due regole (50%→97%) — due parametri combinati |
 | Doppio compito | 1-10 (per canale, indipendenti) | Frequenza target per canale (40%→5%) insieme all'ISI condiviso fra i due canali (3000→700ms, derivato dalla media dei due livelli canale); ciascun canale ha anche una propria frequenza di trial lure (foil identico a quello di 2 prove fa invece che 1 — stessa logica del lure nell'N-back), assente ai due livelli più bassi e crescente fino al livello 10 |
 | Categorizzazione condizionale | 1-10 in Livello/Adattivo; struttura 1-5 scelta direttamente in Manuale (vedi sopra) | Banda doppia delle 5 strutture originarie (dimensione singola → doppia dimensione+no-go → regola disgiuntiva → 1-back sulla categoria → doppia dimensione a 4 risposte), ordinate per complessità relazionale (Halford, Wilson & Phillips, 1998) non per numero di mappature stimolo-risposta; dentro ogni banda l'ISI si stringe, tranne nella banda del 1-back (livelli 7-8) dove il secondo parametro è la frequenza di trial lure (stessa categoria di 2 prove fa invece che 1). Con l'adattivo attivo, la titolazione (ISI/lure) resta vincolata dentro la struttura di partenza per tutta la seduta — non attraversa mai un confine di struttura (= un cambio di regola) a metà sessione, vedi sezione "Vincolo di fascia strutturale" più sotto |
-| Cancellazione (neglect) | Classico/Trova l'intruso: 1-10. Conteggio a regola: 1-10 (unificato, non più separato dalla dimensione tavola). Progressiva: 1-30 | Elementi per tavola (14→85) insieme al tempo limite per tavola (nessun limite ai livelli 1-2, poi 110→18s). In "Conteggio a regola" la complessità della regola scala insieme, 2 livelli per condizione, ordine colore→sfondo→riga (percettivo prima, posizionale per ultimo — Treisman & Gelade, 1980). "Progressiva" incolla i tre in sequenza (1-10 Classico, 11-20 Intruso, 21-30 Regola), ciascuno con la propria scala 1-10 completa. Tutti i cambi di sotto-modalità (progressiva) o di condizione (regola) sono vincolati a non attraversare la seduta in corso, vedi sotto |
+| Cancellazione (neglect) | Classico/Trova l'intruso: 1-10. Conteggio a regola: 1-10, unificato con la dimensione tavola. Progressiva: 1-30 | Elementi per tavola (14→85) insieme al tempo limite per tavola (nessun limite ai livelli 1-2, poi 110→18s). In "Conteggio a regola" la complessità della regola scala insieme, 2 livelli per condizione, ordine colore→sfondo→riga (percettivo prima, posizionale per ultimo — Treisman & Gelade, 1980). "Progressiva" incolla i tre in sequenza (1-10 Classico, 11-20 Intruso, 21-30 Regola), ciascuno con la propria scala 1-10 completa. Tutti i cambi di sotto-modalità (progressiva) o di condizione (regola) sono vincolati a non attraversare la seduta in corso, vedi sotto |
 
 **Conteggio a regola — risposta a conteggio mentale, non a tocco.** A
 differenza di Classico/Trova l'intruso/Progressiva, qui il paziente NON
@@ -703,38 +703,33 @@ livelli 3/4 e 7/8) — altrimenti il dato sarebbe fuorviante.
 
 ## Batteria di screening iniziale
 
-Sessione breve e riproducibile che confronta, per 4 domini, un blocco
+Sessione breve e riproducibile che confronta, per 5 domini, un blocco
 **base** (stimolo semplice, nessun carico esecutivo) con un blocco
 **caricato** (stessa area, con carico esecutivo). Riutilizza esercizi
-già esistenti con parametri fissi e brevi (16 prove per blocco, 1 tavola
-per la Cancellazione), non introduce contenuti nuovi:
+già esistenti con parametri fissi e brevi (16 prove per blocco — 24 per
+il blocco di Flessibilità cognitiva, che ne serve di più per scomporre
+un solo blocco in due punteggi affidabili; 1 tavola per la
+Cancellazione), non introduce contenuti nuovi:
 
 | Dominio | Blocco base | Blocco caricato |
 |---|---|---|
-| Attenzione sostenuta / inibizione | Go/No-Go, no-go frequente (48%), 1 elemento | Go/No-Go, no-go meno frequente (35%, non 22%: una riduzione più contenuta — la frequenza no-go bassa da sola riduce l'aspettativa e aumenta la difficoltà indipendentemente dal numero di elementi), 2 elementi (non 3) |
-| Memoria di lavoro | N-back, n=1 | N-back, n=2 (non n=5: irrealistico come misura di screening, effetto pavimento anche in soggetti sani) |
-| Flessibilità cognitiva | *(vedi sotto — un solo blocco, non più due esercizi confrontati)* | |
+| Attenzione sostenuta / inibizione | Go/No-Go, no-go frequente (48%), 1 elemento | Go/No-Go, no-go meno frequente (35%), 2 elementi — la frequenza no-go da sola riduce l'aspettativa e aumenta la difficoltà, indipendentemente dal numero di elementi |
+| Memoria di lavoro | N-back, n=1 | N-back, n=2 |
+| Mantenimento in memoria a breve termine | Mantenimento (tipo Sternberg), Riconoscimento, lista di 3 elementi | Mantenimento (tipo Sternberg), Riconoscimento, lista di 5 elementi |
+| Flessibilità cognitiva | *(vedi sotto — un solo blocco, auto-scomposto in due punteggi)* | |
 | Esplorazione visuospaziale | Cancellazione classica, 20 elementi | Cancellazione a regola, livello 2 |
 
-**Flessibilità cognitiva: un solo blocco, auto-scomposto, non due
-esercizi diversi.** Fino a poco fa il confronto era Categorizzazione
-condizionale (livello 1) vs Task-switching — due costrutti diversi
-mescolati nello stesso confronto base/caricato: la Categorizzazione L1
-misura apprendimento/riconoscimento di una regola singola, il
-Task-switching misura il costo di alternanza fra regole già note. Non
-sono due carichi dello stesso dominio, sono due domini diversi.
-
-Ora è **un solo blocco di Task-switching** (24 prove, materiale
-numerico, non 16: con un solo blocco scomposto in due punteggi servono
-più prove totali perché ciascuno resti su una base non troppo rumorosa),
-scomposto dagli stessi dati in due punteggi: **base = accuratezza sulle
-prove di ripetizione** dentro il blocco misto (stessa regola della prova
+**Flessibilità cognitiva: un solo blocco, auto-scomposto in due
+punteggi, non due esercizi diversi confrontati fra loro.** Un solo
+blocco di Task-switching (24 prove, materiale numerico), scomposto dagli
+stessi dati in due punteggi: **base = accuratezza sulle prove di
+ripetizione** dentro il blocco misto (stessa regola della prova
 precedente — carico di dover comunque tenere pronte entrambe le regole,
 senza switch vero) e **caricato = accuratezza sulle prove di switch**
-(la regola cambia). Isola il vero **costo di switching**, non ancora il
-"mixing cost" pieno nel senso della letteratura sperimentale (Rogers &
-Monsell, 1995; Rubin & Meiran, 2005) — quest'ultimo richiederebbe un
-blocco di riferimento a compito singolo puro, non presente qui.
+(la regola cambia). Isola il **costo di switching**, non il "mixing
+cost" pieno nel senso della letteratura sperimentale (Rogers & Monsell,
+1995; Rubin & Meiran, 2005) — quest'ultimo richiederebbe un blocco di
+riferimento a compito singolo puro, non presente qui.
 
 Il materiale numerico è scelto perché ogni cifra è **bivalente**
 rispetto a entrambe le regole attive (pari/dispari, alto/basso) — ogni
@@ -810,8 +805,8 @@ tempo, stessa filosofia single-case già usata per l'RCI.
 **Accesso**: subito, dalla riga di ciascun paziente in "Paziente in
 presenza" e "I tuoi pazienti" (pulsanti "Screening" e "Controllo
 motorio" affiancati), oppure in cima alla scheda "Gestisci programma"
-del paziente — non più in fondo alla pagina, sono le due valutazioni
-che si cercano per prime aprendo un paziente.
+del paziente — sono le due valutazioni che si cercano per prime aprendo
+un paziente.
 
 **Come funziona**: l'operatore indica il tipo di dispositivo che il
 paziente sta usando in quel momento — Smartphone, Tablet, o Computer
@@ -1254,7 +1249,15 @@ l'ultima volta" con orario, non sparisce — una scheda chiusa di scatto o
 una rete caduta non avvisano l'app, quindi non c'è un vero evento di
 disconnessione da registrare in quel caso, solo l'assenza di battiti
 successivi. La schermata si auto-aggiorna ogni 20 secondi finché resta
-aperta.
+aperta. Due menù a tendina (uno per gli operatori, uno per i pazienti)
+permettono di saltare direttamente a una persona invece di scorrere
+l'elenco intero — "Tutti" (il default) non filtra nulla.
+
+Ogni riga espansa ha in fondo un pulsante "Elimina storico di questa
+persona dal registro" — cancella dal registro tutte le righe di
+login/logout/tentativi di quella persona (utile per account di prova),
+senza toccare l'account stesso, che resta attivo o archiviato quel che
+era. Azione non annullabile, richiede conferma.
 
 Il registro mostra, per ciascun utente (operatore o paziente): numero di
 login riusciti/falliti, tempo **medio** e tempo **totale** sull'app (somma
@@ -1327,9 +1330,7 @@ non è disponibile, così funziona su entrambi senza bisogno di sapere quale
 dei due il tuo progetto sta ancora usando.
 
 Il file è incluso in questo pacchetto in
-`supabase/functions/create-patient/index.ts` — prima non lo era nonostante
-questa sezione lo dicesse (probabilmente perso in una sessione di lavoro
-precedente): se lo stavi cercando qui senza trovarlo, non era un tuo errore.
+`supabase/functions/create-patient/index.ts`.
 
 **Via più semplice — dalla Dashboard, senza installare nulla:**
 

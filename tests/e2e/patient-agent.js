@@ -41,6 +41,7 @@ const EXERCISE_BUTTON_TEXT = {
   antclassico: 'Attenzione (tipo ANT)',
   tapat: { exercise: 'Attenzione (tipo ANT)', subMode: 'TAPAT' },
   simon: 'Simon (conflitto spazio-risposta)',
+  mantenimento: 'Mantenimento (tipo Sternberg)',
   neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' }
 };
 

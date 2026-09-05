@@ -9,7 +9,7 @@ const REPO_ROOT = path.join(__dirname, '..');
 // (domini, tipi, etichette), quindi non serve fornirle: una funzione non
 // eseguita non fa fallire l'estrazione anche se referenzia variabili
 // libere non presenti nel sandbox.
-const SCREENING_BLOCKS_END = "patch:()=>({taskMode:'neglect', neglectMode:'regola', neglectRuleLevel:2, stimType:'lettere', neglectBoardSize:40, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}) }\n  ];";
+const SCREENING_BLOCKS_END = "suggestTaskMode:'mantenimento', suggestLabel:'Mantenimento (tipo Sternberg)',\n      patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:5, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}) }\n  ];";
 
 const mod = loadPure(REPO_ROOT, [
   { name: 'SCREENING_BLOCKS', start: '  const SCREENING_BLOCKS = [', end: SCREENING_BLOCKS_END }
@@ -18,9 +18,9 @@ const mod = loadPure(REPO_ROOT, [
 const { SCREENING_BLOCKS } = mod;
 
 module.exports = function run(t) {
-  t.group('Screening — struttura a 4 domini (Attenzione divisa rimossa)', () => {
+  t.group('Screening — struttura a 5 domini (Attenzione divisa rimossa, Mantenimento aggiunto)', () => {
     const domains = [...new Set(SCREENING_BLOCKS.map(b => b.domain))];
-    t.eq(domains.length, 4, 'esattamente 4 domini (Attenzione, Memoria, Flessibilità, Esplorazione — Attenzione divisa rimossa deliberatamente)');
+    t.eq(domains.length, 5, 'esattamente 5 domini (Attenzione, Memoria, Flessibilità, Esplorazione, Mantenimento — Attenzione divisa rimossa deliberatamente)');
     t.ok(!domains.includes('divisa'), 'nessun blocco con domain "divisa" — se ricompare, è un refactor che ha reintrodotto senza volerlo ciò che era stato tolto apposta');
 
     domains.forEach(d => {
@@ -38,7 +38,7 @@ module.exports = function run(t) {
       }
     });
 
-    t.eq(SCREENING_BLOCKS.length, 7, 'totale 7 blocchi (3 domini × base/caricato + 1 dominio a blocco singolo split)');
+    t.eq(SCREENING_BLOCKS.length, 9, 'totale 9 blocchi (4 domini × base/caricato + 1 dominio a blocco singolo split)');
 
     SCREENING_BLOCKS.forEach(b => {
       t.ok(typeof b.patch === 'function', 'blocco "' + b.label + '": ha una funzione patch()');

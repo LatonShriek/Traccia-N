@@ -1361,8 +1361,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -4270,7 +4270,16 @@
       // fantasma senza etichetta italiana — e 'colori', le cui uniche due
       // regole (Caldo/Freddo, Primario/Non primario) sono state rimosse in
       // quanto categorizzazioni troppo arbitrarie per un compito clinico.
-      card.appendChild(field('Materiale', segButtons(['numeri','lettere','simboli','bivalente'], cfg.switchMaterial, v=>{ cfg.switchMaterial=v; render(); }, {numeri:'Numeri', lettere:'Lettere', simboli:'Simboli', bivalente:'Bivalente (conflitto)'})));
+      card.appendChild(field('Materiale', segButtons(['numeri','lettere','simboli','bivalente'], cfg.switchMaterial, v=>{
+        cfg.switchMaterial=v;
+        // Selezionare "bivalente" introduce un conflitto in stile Stroop
+        // che non ha senso raggiungere da un livello troppo basso — sposta
+        // il livello di partenza alla soglia minima, coerentemente con lo
+        // stesso principio già applicato altrove (es. Go/No-Go che
+        // risuggerisce gli elementi quando cambia il materiale mescolato).
+        if(v==='bivalente' && cfg.adaptStartLevel < TASK_SWITCHING_BIVALENTE_MIN_LEVEL) cfg.adaptStartLevel = TASK_SWITCHING_BIVALENTE_MIN_LEVEL;
+        render();
+      }, {numeri:'Numeri', lettere:'Lettere', simboli:'Simboli', bivalente:'Bivalente (conflitto)'})));
       const rs = SWITCH_RULESETS[cfg.switchMaterial];
       card.appendChild(el('p',{class:'hint'},['Regole di questa sessione: "'+rs.ruleA.label+'" ↔ "'+rs.ruleB.label+'". Un\'etichetta prima di ogni stimolo indica quale regola è attiva in quel momento.']));
       if(cfg.switchMaterial==='bivalente'){
@@ -4668,6 +4677,16 @@
 
   /* ---------- TASK ENGINE ---------- */
   function startSession(){
+    // Rete di sicurezza per configurazioni salvate PRIMA di questo vincolo
+    // (preset nominali, "ultimo livello raggiunto", suggerimento da
+    // screening): se il materiale bivalente risulta comunque associato a
+    // un livello di partenza sotto la soglia, lo si corregge qui, all'unico
+    // punto in cui OGNI percorso converge prima che una sessione parta
+    // davvero — non solo nel selettore di Setup, che non vede le
+    // configurazioni caricate da altrove.
+    if(cfg.taskMode==='switching' && cfg.switchMaterial==='bivalente' && cfg.adaptStartLevel < TASK_SWITCHING_BIVALENTE_MIN_LEVEL){
+      cfg.adaptStartLevel = TASK_SWITCHING_BIVALENTE_MIN_LEVEL;
+    }
     regenerateNumeriPool();
     regenerateParolePool();
     if(cfg.taskMode==='neglect'){ startNeglectSession(); return; }
@@ -5313,8 +5332,18 @@
     gonogo: [[1,4],[5,7],[8,9],[10,10]], // ADAPT_GONOGO_COUNT: 1,2,3,4 elementi noti
     categorizzazione: [[1,2],[3,4],[5,6],[7,8],[9,10]], // CATEG_STRUCTURE_OF_LEVEL
     neglectProgressiva: [[1,10],[11,20],[21,30]], // classico / intruso / regola
-    neglectRegola: [[1,2],[3,4],[5,6],[7,10]] // condizioni cumulative della regola composta
+    neglectRegola: [[1,2],[3,4],[5,6],[7,10]], // condizioni cumulative della regola composta
+    mantenimento: [[1,5],[6,10]] // ADAPT_MANTENIMENTO: 1-5 Riconoscimento, 6-10 Riconoscimento seriale — il salto 5→6 è un cambio di MODALITÀ (non solo di lunghezza lista), stesso principio di n nell'N-back
   };
+  // Task-switching bivalente non ha una struttura DERIVATA dal livello
+  // (come n nell'N-back o la modalità del Mantenimento) — è una scelta
+  // manuale del materiale in Setup, indipendente dal livello. Ma introduce
+  // comunque una dimensione di conflitto in stile Stroop che non dovrebbe
+  // essere raggiungibile a qualunque livello: da qui in poi selezionarla
+  // sposta il livello di partenza ad almeno questa soglia (vedi Setup e
+  // sessionLevelBounds), e la sessione/continuità fra sedute non scende
+  // mai sotto, finché il materiale resta bivalente.
+  const TASK_SWITCHING_BIVALENTE_MIN_LEVEL = 6;
   function structuralBandBounds(taskKey, startLevel){
     const bands = STRUCTURAL_BANDS[taskKey];
     if(!bands) return null;
@@ -5335,6 +5364,12 @@
     }
     if(key==='adaptLevel' && cfg.taskMode==='gonogo'){
       return structuralBandBounds('gonogo', cfg.adaptStartLevel) || {min:1, max:currentLevelMax()};
+    }
+    if(key==='adaptLevel' && cfg.taskMode==='mantenimento'){
+      return structuralBandBounds('mantenimento', cfg.adaptStartLevel) || {min:1, max:currentLevelMax()};
+    }
+    if(key==='adaptLevel' && cfg.taskMode==='switching' && cfg.switchMaterial==='bivalente'){
+      return {min:TASK_SWITCHING_BIVALENTE_MIN_LEVEL, max:currentLevelMax()};
     }
     if(key==='categLevel'){
       return structuralBandBounds('categorizzazione', cfg.categLivello) || {min:1, max:currentLevelMax()};

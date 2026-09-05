@@ -269,6 +269,12 @@
   }
   const STOP_TONE = {f:140, type:'square'}; // segnale di stop uditivo, sempre lo stesso, distinto dagli stimoli
   const TAPAT_CUE_TONE = {f:880, type:'sine'}; // segnale di allerta fasico TAPAT — acuto e breve, non lateralizzato: raggiunge il paziente indipendentemente da dove guarda (importante per la variante spaziale/neglect, dove un cue solo visivo rischierebbe di cadere nell'emicampo trascurato)
+  // Dimensione "tono" (grave/acuto) equivalente al colore per Task-switching
+  // bivalente e Categorizzazione condizionale strutture 2/3/5 — stesse
+  // frequenze già usate per la regola grave/acuto di Stop-Signal/Simon
+  // (STOPSIGNAL_RULES.suoni, soglia 380Hz), non una nuova coppia inventata.
+  const BIVALENTE_TONE_GRAVE = {f:220, type:'sine'};
+  const BIVALENTE_TONE_ACUTO = {f:523, type:'sine'};
   const TAPAT_TARGET_TONE = {f:330, type:'square'}; // bersaglio della variante uditiva del TAPAT — deliberatamente distinto dal cue (più grave, timbro diverso): il paziente deve poter distinguere "sta per arrivare qualcosa" (cue, 880Hz sine) da "è arrivato, rispondi" (bersaglio, 330Hz square), non confonderli
   // Come playTone, ma con panning stereo opzionale (-1 tutto a sinistra,
   // 0 centro, 1 tutto a destra) — usato solo dalla componente spaziale
@@ -397,7 +403,7 @@
         return 'Vedrai una freccia al centro dello schermo, a volte circondata da altre frecce. Indica la direzione della freccia centrale il più velocemente possibile, toccando il pulsante sinistra o destra.';
       }},
     tapat:      {label:'TAPAT (allerta tonica/fasica)', usesStimType:true, usesTargetSeq:false, family:'choice',
-      domini:['Allerta'],
+      domini:['Allerta tonica/sostenuta'],
       // Separato da ANT classico in questa sessione: non ha flanker né cue
       // spaziale predittivo, isola solo l'allerta (blocco tonico + blocco
       // fasico), con variante uditiva a panning stereo (DeGutis & Van
@@ -417,7 +423,10 @@
     switching:  {label:'Task-switching',          usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Flessibilità cognitiva','Funzioni esecutive'],
       instructions:c=>{
-        if(c.switchMaterial==='bivalente') return 'Vedrai un carattere che può essere un numero o una lettera, scritto in bianco o in rosso. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere, ignora il colore) oppure "Bianco / Rosso" (rispondi in base al colore, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
+        if(c.switchMaterial==='bivalente'){
+          if(c.switchSecondaria==='tono') return 'Sentirai un carattere pronunciato (un numero o una lettera), insieme a un tono grave o acuto. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere pronunciato, ignora il tono) oppure "Grave / Acuto" (rispondi in base all\'altezza del tono, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
+          return 'Vedrai un carattere che può essere un numero o una lettera, scritto in bianco o in rosso. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere, ignora il colore) oppure "Bianco / Rosso" (rispondi in base al colore, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
+        }
         const rs=SWITCH_RULESETS[c.switchMaterial]; const matName = c.switchMaterial==='numeri'?'un numero':c.switchMaterial==='lettere'?'una lettera':c.switchMaterial==='simboli'?'un simbolo':'un colore'; return 'Vedrai '+matName+', con accanto un\'indicazione che cambia: a volte devi classificarlo come "'+rs.ruleA.label+'", altre volte come "'+rs.ruleB.label+'". Segui l\'indicazione mostrata in quel momento.'; }},
     simon: {label:'Simon (conflitto spazio-risposta)', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Inibizione competitiva','Controllo esecutivo/conflitto'],
@@ -425,7 +434,7 @@
         return 'Vedrai un cerchio colorato, blu o verde, comparire a sinistra o a destra dello schermo. Tocca "Blu" se è blu, "Verde" se è verde — rispondi in base al COLORE, non alla posizione in cui compare: la posizione non conta mai per la risposta, anche se a volte può sembrare "attirare" verso il pulsante sbagliato.';
       }},
     categorizzazione: {label:'Categorizzazione condizionale', usesStimType:false, usesTargetSeq:false, family:'choice',
-      domini:['Funzioni esecutive','Categorizzazione','Memoria di lavoro'],
+      domini:['Memoria di lavoro (capacità/complessità relazionale)'],
       instructions:c=>{
         const liv = categEffectiveStructure(c);
         const matSpoken = isSpokenStim(c.categMateriale);
@@ -547,8 +556,17 @@
   // spostare blocchi di codice dentro EXERCISES, solo questa lista.
   const EXERCISE_GROUPS = [
     {label:'Attenzione e inibizione', keys:['gonogo','stopsignal','ant','tapat','simon']},
-    {label:'Memoria di lavoro e mantenimento', keys:['nback','sequenza','mantenimento']},
-    {label:'Flessibilità cognitiva', keys:['switching','categorizzazione']},
+    // Memoria di lavoro e mantenimento include qui anche la Categorizzazione
+    // condizionale: la teoria della complessità relazionale (Halford, Wilson
+    // & Phillips, 1998) la inquadra esplicitamente come un limite di
+    // CAPACITÀ della memoria di lavoro (quante relazioni si processano in
+    // parallelo), non come un dominio di "ragionamento" a sé — più vicina
+    // concettualmente a N-back/Mantenimento di quanto sembrasse a prima
+    // vista, pur misurando qualcosa di diverso da entrambi (integrazione
+    // relazionale sotto una regola fissa, non aggiornamento continuo né
+    // mantenimento passivo).
+    {label:'Memoria di lavoro e mantenimento', keys:['nback','sequenza','mantenimento','categorizzazione']},
+    {label:'Flessibilità cognitiva', keys:['switching']},
     {label:'Esplorazione visuospaziale', keys:['neglect']},
     {label:'Attenzione divisa e multitasking', keys:['dualtask','goaltask']},
     {label:'Memoria strategica', keys:['memoria']}
@@ -577,6 +595,7 @@
     titrationMode:'manuale',
     switchMaterial:'numeri', // solo per Task-switching
     simonCongruenza:'bilanciato', // solo per Simon — 'bilanciato'|'prevalenza_congruente'|'prevalenza_incongruente', parametro clinico fisso per sessione, non una leva di titolazione (vedi ADAPT_ISI.simon per la vera leva adattiva)
+    simonMateriale:'colori', // 'colori'|'lettere'|'numeri'|'suoni' — stessa dimensione rilevante di sempre (classificare in base all'identità), cambia solo il canale percettivo; con 'suoni' la posizione irrilevante non è più a schermo ma nel panning stereo del tono (richiede cuffie/casse stereo, vedi Setup)
     antMode:'classico', antMaterial:'frecce', // antMode: legacy, letto solo per riconoscere sessioni salvate prima della separazione ANT/TAPAT (mai scritto da sessioni nuove); materiale: 'frecce' | 'lettere' | 'simboli' — solo ANT classico
     showTrail:true, // mostra i pallini di esito prova-per-prova durante la sessione
     numDigits:1, wordComplexity:'breve', // solo per stimolo "numeri"/"parole"
@@ -596,6 +615,7 @@
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
     categLivello:1, categMateriale:'simboli', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('simboli'|'lettereVoce'|'numeriVoce' — 'colori' rimosso dalla selezione, la sua unica regola era Caldo/Freddo, troppo arbitraria; resta leggibile nello storico di sedute già registrate)
+    categSecondaria:'colore', switchSecondaria:'colore', // 'colore'|'tono' — seconda dimensione delle strutture a doppia dimensione (Categorizzazione strutture 2/3/5, Task-switching bivalente): 'tono' sostituisce il colore con un tono grave/acuto di pari complessità binaria, per l'accessibilità a chi ha difficoltà di riconoscimento colori o preferisce il canale uditivo
     categStructManual:1, // solo in modalità Manuale: struttura (1-5) scelta liberamente dal clinico, indipendente da categLivello — vedi categEffectiveStructure()
     zoneGrandi:false, // accessibilità: zone di risposta molto più grandi (metà schermo per 2 risposte) invece di pulsanti piccoli — utile su tablet/smartphone per bassa vista
     inputDevice:'touch', // 'touch' | 'tastiera' — dichiarato dall'operatore prima di iniziare, usato solo per decidere COSA evidenziare (badge dei tasti sui pulsanti, promemoria nelle istruzioni), la tastiera funziona comunque sempre in background indipendentemente da questa scelta
@@ -841,6 +861,8 @@
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
       categLivello:c.categLivello, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
+      categSecondaria:c.categSecondaria, switchSecondaria:c.switchSecondaria,
+      simonCongruenza:c.simonCongruenza, simonMateriale:c.simonMateriale,
       inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'
     };
   }
@@ -948,6 +970,8 @@
     cfg.memoriaLociTipo = pc.memoriaLociTipo || 'casa'; cfg.memoriaLociCustom = pc.memoriaLociCustom || '';
     cfg.chunkingMetodi = (pc.chunkingMetodi && pc.chunkingMetodi.length) ? pc.chunkingMetodi : ['categoria']; cfg.chunkingNota = pc.chunkingNota || '';
     cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'simboli'; cfg.categStructManual = pc.categStructManual || 1; cfg.zoneGrandi = !!pc.zoneGrandi;
+    cfg.categSecondaria = pc.categSecondaria || 'colore'; cfg.switchSecondaria = pc.switchSecondaria || 'colore';
+    cfg.simonCongruenza = pc.simonCongruenza || 'bilanciato'; cfg.simonMateriale = pc.simonMateriale || 'colori';
     cfg.inputDevice = pc.inputDevice || 'touch'; cfg.keyLayout = pc.keyLayout || 'standard';
     // Retrocompatibilità: preset/programmi salvati prima di questa versione
     // avevano sequenzaMista/nbackMista/gonogoMista come booleano — true
@@ -1361,8 +1385,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1373,6 +1397,7 @@
   let cloudBusy = false;
   let patientProfile = null; // riga di "pazienti" se l'utente loggato è un paziente, altrimenti null (operatore)
   let isSuperOperatore = false; // vero solo se la riga 'operatori' del cloudUser ha super=true (tabella 'operatori', vedi checkRole)
+  let operatorInactive = false; // vero se l'operatore è stato archiviato da un super-operatore (colonna 'attivo' su operatori, vedi checkRole) — blocca l'accesso, stesso principio già in uso per i pazienti
   let accessLogCache = null; // cache in-memory della tabella 'accessi', solo per il super-operatore
   let cloudLoginMode = 'operatore'; // 'operatore' | 'paziente' — quale form di accesso mostrare
   let editingPatient = null; // riga paziente correntemente aperta in "Gestisci programma"
@@ -1905,9 +1930,20 @@
   };
   const SWITCH_BIVALENTE_NUM_POOL = ['1','2','3','4','6','7','8','9'];
   const SWITCH_BIVALENTE_LETTERE = ['A','B','D','E','F','G','H','I','J','K','L','M','O','P','U']; // identità della lettera irrilevante per entrambe le regole bivalenti (Numero/Lettera, Bianco/Rosso) — include vocali e consonanti, nessuna ragione per escluderle
+  // Ruleset effettivo per la sessione — override locale di ruleB quando il
+  // bivalente usa la dimensione acustica (tono) invece del colore. Unica
+  // fonte usata sia da buildSwitching() sia da qualunque schermata mostri
+  // le etichette delle regole, così restano sempre coerenti fra loro.
+  function switchRulesetFor(c){
+    let rs = SWITCH_RULESETS[c.switchMaterial];
+    if(c.switchMaterial==='bivalente' && c.switchSecondaria==='tono'){
+      rs = { ruleA: rs.ruleA, ruleB: {label:'Grave / Acuto', labelA:'Grave', labelB:'Acuto', classify:v=> v.tono==='grave'} };
+    }
+    return rs;
+  }
   function buildSwitching(){
     const material = cfg.switchMaterial;
-    const rs = SWITCH_RULESETS[material];
+    const rs = switchRulesetFor(cfg);
     const SWITCH_NUM_POOL = ['1','2','3','4','6','7','8','9']; // fisso: la regola >5/<5 richiede numeri a una cifra
     const pool = (material==='numeri') ? SWITCH_NUM_POOL : (material==='bivalente') ? null : POOLS[material];
     const seq = [];
@@ -1930,7 +1966,9 @@
         const valore = isNumero
           ? SWITCH_BIVALENTE_NUM_POOL[Math.floor(Math.random()*SWITCH_BIVALENTE_NUM_POOL.length)]
           : SWITCH_BIVALENTE_LETTERE[Math.floor(Math.random()*SWITCH_BIVALENTE_LETTERE.length)];
-        item = {valore, tipo: isNumero?'numero':'lettera', colore: Math.random()<0.5?'nero':'rosso'};
+        item = { valore, tipo: isNumero?'numero':'lettera' };
+        if(cfg.switchSecondaria==='tono') item.tono = Math.random()<0.5?'grave':'acuto';
+        else item.colore = Math.random()<0.5?'nero':'rosso';
       } else {
         item = pool[Math.floor(Math.random()*pool.length)];
       }
@@ -2035,11 +2073,23 @@
   const SIMON_CONGRUENCE_PROB = { bilanciato:0.5, prevalenza_congruente:0.75, prevalenza_incongruente:0.25 };
   function buildSimon(){
     const congProb = SIMON_CONGRUENCE_PROB[cfg.simonCongruenza] || 0.5;
+    const mat = cfg.simonMateriale || 'colori';
     const seq = [];
     for(let i=0;i<cfg.trials;i++){
-      const isBlu = Math.random()<0.5;
-      const val = isBlu ? SIMON_COLORS.blu : SIMON_COLORS.verde;
-      const correctAnswer = isBlu ? 'left' : 'right'; // mappatura fissa Blu→sinistra, Verde→destra
+      let val, correctAnswer;
+      if(mat==='colori'){
+        const isBlu = Math.random()<0.5;
+        val = isBlu ? SIMON_COLORS.blu : SIMON_COLORS.verde;
+        correctAnswer = isBlu ? 'left' : 'right'; // mappatura fissa Blu→sinistra, Verde→destra
+      } else {
+        // lettere/numeri/suoni: stessa regola di classificazione già usata
+        // in Stop-Signal (STOPSIGNAL_RULES), non una nuova inventata qui —
+        // la dimensione rilevante resta binaria e di pari complessità al
+        // colore (vocale/consonante, pari/dispari, grave/acuto).
+        const pool = POOLS[mat];
+        val = pool[Math.floor(Math.random()*pool.length)];
+        correctAnswer = STOPSIGNAL_RULES[mat].classify(val) ? 'left' : 'right';
+      }
       const congruent = Math.random() < congProb;
       const side = congruent ? correctAnswer : (correctAnswer==='left' ? 'right' : 'left');
       seq.push({val, side, correctAnswer, congruency: congruent?'congruent':'incongruent', valid:true});
@@ -2069,21 +2119,29 @@
     const valore = isLettera
       ? CATEG_LETTERE[Math.floor(Math.random()*CATEG_LETTERE.length)]
       : CATEG_NUMERI[Math.floor(Math.random()*CATEG_NUMERI.length)];
-    return { tipo: isLettera?'lettera':'numero', valore, colore: Math.random()<0.5?'nero':'rosso' };
+    const item = { tipo: isLettera?'lettera':'numero', valore };
+    if(cfg.categSecondaria==='tono') item.tono = Math.random()<0.5?'grave':'acuto';
+    else item.colore = Math.random()<0.5?'nero':'rosso';
+    return item;
   }
+  // "Polo A" della seconda dimensione (nero/grave) vs "polo B" (rosso/
+  // acuto) — stessa distinzione binaria, quale delle due proprietà venga
+  // letta dipende solo da quale dimensione secondaria è configurata, non
+  // da una scelta clinica diversa per ognuna delle tre strutture.
+  function categDim2IsA(item){ return item.tono!=null ? item.tono==='grave' : item.colore==='nero'; }
   function categL2Outcome(item){
-    if(item.tipo==='lettera' && item.colore==='nero') return 'a';
-    if(item.tipo==='lettera' && item.colore==='rosso') return 'nogo';
-    if(item.tipo==='numero' && item.colore==='rosso') return 'b';
-    return 'c'; // numero nero
+    if(item.tipo==='lettera' && categDim2IsA(item)) return 'a';
+    if(item.tipo==='lettera' && !categDim2IsA(item)) return 'nogo';
+    if(item.tipo==='numero' && !categDim2IsA(item)) return 'b';
+    return 'c'; // numero, polo A (nero/grave)
   }
   function categL3Outcome(item){
-    const isA = (item.tipo==='lettera' && item.colore==='nero') || (item.tipo==='numero' && item.colore==='rosso');
+    const isA = (item.tipo==='lettera' && categDim2IsA(item)) || (item.tipo==='numero' && !categDim2IsA(item));
     return isA ? 'a' : 'b';
   }
   function categL5Outcome(item){
-    if(item.tipo==='lettera') return item.colore==='nero' ? 'a' : 'l';
-    return item.colore==='nero' ? 'z' : 'm';
+    if(item.tipo==='lettera') return categDim2IsA(item) ? 'a' : 'l';
+    return categDim2IsA(item) ? 'z' : 'm';
   }
   // Generazione incrementale, necessaria per l'adattivo: la struttura
   // (quale regola sta seguendo il paziente) resta SEMPRE quella del
@@ -3336,11 +3394,22 @@
       cloudUser = data && data.session ? data.session.user : null;
     }catch(e){ cloudUser = null; }
     await checkRole();
+    if(cloudUser && !patientProfile && operatorInactive){
+      // Sessione già aperta prima che l'operatore venisse archiviato: senza
+      // questo controllo qui (non solo al login), l'accesso resterebbe
+      // valido finché il token non scade da solo — stesso principio del
+      // controllo già fatto al login, ma applicato anche a chi la scheda
+      // non l'ha mai richiusa.
+      const emailForLog = cloudUser.email;
+      cloudUser=null; await cloudSignOut();
+      logAccessEvent('login','fallito','operatore',null,emailForLog);
+      return;
+    }
     if(cloudUser) await claimSession();
   }
   // Un account è "paziente" se esiste una riga in pazienti con id = auth.uid().
   async function checkRole(){
-    patientProfile = null; isSuperOperatore = false;
+    patientProfile = null; isSuperOperatore = false; operatorInactive = false;
     if(!sb || !cloudUser) return;
     try{
       const { data } = await sb.from('pazienti').select('*').eq('id', cloudUser.id).maybeSingle();
@@ -3348,9 +3417,15 @@
     }catch(e){ patientProfile = null; }
     if(!patientProfile){
       try{
-        const { data } = await sb.from('operatori').select('super').eq('id', cloudUser.id).maybeSingle();
+        const { data } = await sb.from('operatori').select('super, attivo').eq('id', cloudUser.id).maybeSingle();
         isSuperOperatore = !!(data && data.super);
-      }catch(e){ isSuperOperatore = false; } // tabella 'operatori' assente o non ancora migrata: nessun accesso al registro, nessun blocco dell'app
+        // 'attivo' potrebbe non esistere ancora se la migrazione SQL di
+        // questa funzione (colonne nome/attivo, vedi README) non è ancora
+        // stata eseguita su questo progetto — data.attivo sarebbe allora
+        // undefined, mai false: nessun blocco per errore prima che la
+        // colonna esista davvero.
+        operatorInactive = !!(data && data.attivo === false);
+      }catch(e){ isSuperOperatore = false; operatorInactive = false; } // tabella 'operatori' assente o non ancora migrata: nessun accesso al registro, nessun blocco dell'app
     }
   }
   // ---------- Registro accessi (solo lettura per il super-operatore) ----------
@@ -3408,6 +3483,36 @@
       accessLogCache = null;
       return true;
     }catch(e){ alert('Eliminazione non riuscita: '+((e&&e.message)||e)); return false; }
+  }
+  // Gestione operatori (archiviazione) — richiede la migrazione SQL delle
+  // colonne nome/attivo su 'operatori' e la policy che permette al
+  // super-operatore di leggerle/aggiornarle tutte (vedi README). Se la
+  // migrazione non è stata ancora eseguita, la select fallisce e questa
+  // funzione torna un array vuoto — degrado silenzioso, coerente con
+  // isSuperOperatore/operatorInactive sopra (mai un errore bloccante).
+  async function loadOperatoriList(){
+    if(!sb || !isSuperOperatore) return [];
+    try{
+      const { data, error } = await sb.from('operatori').select('id, nome, attivo, super, creato_il').order('creato_il',{ascending:true});
+      if(error) throw error;
+      return data || [];
+    }catch(e){ return []; }
+  }
+  async function setOperatoreAttivo(id, attivo){
+    if(!sb || !isSuperOperatore) return false;
+    try{
+      const { error } = await sb.from('operatori').update({attivo}).eq('id', id);
+      if(error) throw error;
+      return true;
+    }catch(e){ alert('Operazione non riuscita: '+((e&&e.message)||e)+' — probabile causa: la migrazione SQL delle colonne nome/attivo (vedi README) non è ancora stata eseguita su questo progetto Supabase.'); return false; }
+  }
+  async function setOperatoreNome(id, nome){
+    if(!sb || !isSuperOperatore) return false;
+    try{
+      const { error } = await sb.from('operatori').update({nome}).eq('id', id);
+      if(error) throw error;
+      return true;
+    }catch(e){ alert('Operazione non riuscita: '+((e&&e.message)||e)); return false; }
   }
   // Soglia "online adesso": il battito è ogni 25s (startSessionGuard), 90s
   // di margine tollera un giro mancato senza dichiarare offline chi in
@@ -3530,6 +3635,11 @@
     cloudBusy=false;
     if(error){ alert('Errore accesso: '+error.message); logAccessEvent('login','fallito','operatore',null,email); render(); return; }
     cloudUser = data.user; await checkRole(); await claimSession(); historyCache=null;
+    if(!patientProfile && operatorInactive){
+      alert('Questo account operatore è stato archiviato e non può accedere. Contatta il super-operatore della struttura.');
+      logAccessEvent('login','fallito','operatore',cloudUser.id,email);
+      cloudUser=null; await cloudSignOut(); return;
+    }
     logAccessEvent('login','successo','operatore',cloudUser.id,email);
     view = patientProfile ? 'patientHome' : 'operatorHome';
     render();
@@ -4177,6 +4287,7 @@
       grid.appendChild(field('Materiale', segButtons(['lettere','numeri'], cfg.mantenimentoMateriale||'lettere', v=>{
         cfg.mantenimentoMateriale=v; render();
       }, {lettere:'Lettere', numeri:'Numeri'})));
+      grid.appendChild(field('Modalità', segButtons(['no','si'], cfg.voice?'si':'no', v=>{cfg.voice = v==='si'; render();}, {no:'Visiva', si:'Visiva + uditiva (sintesi vocale)'})));
       if((cfg.titrationMode||'manuale')==='manuale'){
         grid.appendChild(field('Modalità di prova', segButtons(['riconoscimento','seriale'], cfg.mantenimentoModalita||'riconoscimento', v=>{
           cfg.mantenimentoModalita=v; render();
@@ -4280,15 +4391,25 @@
         if(v==='bivalente' && cfg.adaptStartLevel < TASK_SWITCHING_BIVALENTE_MIN_LEVEL) cfg.adaptStartLevel = TASK_SWITCHING_BIVALENTE_MIN_LEVEL;
         render();
       }, {numeri:'Numeri', lettere:'Lettere', simboli:'Simboli', bivalente:'Bivalente (conflitto)'})));
-      const rs = SWITCH_RULESETS[cfg.switchMaterial];
+      const rs = switchRulesetFor(cfg);
       card.appendChild(el('p',{class:'hint'},['Regole di questa sessione: "'+rs.ruleA.label+'" ↔ "'+rs.ruleB.label+'". Un\'etichetta prima di ogni stimolo indica quale regola è attiva in quel momento.']));
       if(cfg.switchMaterial==='bivalente'){
-        card.appendChild(el('p',{class:'hint'},['Modalità a doppia dimensione (tipo di carattere + colore, assegnati indipendentemente): su metà delle prove le due dimensioni indicano la stessa risposta ("congruenti"), sull\'altra metà indicano risposte opposte ("incongruenti") — genera un indice di conflitto in stile Stroop, oltre allo switch cost. Consigliate almeno 60 prove per un indice di conflitto stabile.']));
+        card.appendChild(field('Seconda dimensione', segButtons(['colore','tono'], cfg.switchSecondaria||'colore', v=>{ cfg.switchSecondaria=v; render(); }, {colore:'Colore (Bianco/Rosso)', tono:'Suono (Grave/Acuto)'})));
+        if(cfg.switchSecondaria==='tono'){
+          card.appendChild(el('p',{class:'hint', style:'color:var(--alert);'},['🎧 Consigliate cuffie o casse funzionanti — il carattere viene letto ad alta voce insieme a un tono grave o acuto, che sostituisce il colore come seconda dimensione. Nessuna componente stereo qui (a differenza di Simon "suoni" o TAPAT spaziale): un solo altoparlante mono basta.']));
+        }
+        card.appendChild(el('p',{class:'hint'},['Modalità a doppia dimensione (tipo di carattere + '+(cfg.switchSecondaria==='tono'?'tono':'colore')+', assegnati indipendentemente): su metà delle prove le due dimensioni indicano la stessa risposta ("congruenti"), sull\'altra metà indicano risposte opposte ("incongruenti") — genera un indice di conflitto in stile Stroop, oltre allo switch cost. Consigliate almeno 60 prove per un indice di conflitto stabile.']));
       }
     }
     if(cfg.taskMode==='simon'){
+      card.appendChild(field('Materiale', segButtons(['colori','lettere','numeri','suoni'], cfg.simonMateriale||'colori', v=>{ cfg.simonMateriale=v; render(); }, {colori:'Colori (classico)', lettere:'Lettere (Vocale/Consonante)', numeri:'Numeri (Pari/Dispari)', suoni:'Suoni (Grave/Acuto)'})));
+      if(cfg.simonMateriale==='suoni'){
+        card.appendChild(el('p',{class:'hint', style:'color:var(--alert);'},['🎧 Richiede cuffie o casse stereo funzionanti. La posizione irrilevante (equivalente alla posizione a schermo delle altre varianti) qui è il lato da cui arriva il suono (panning stereo) — con un solo altoparlante mono il tono si sente comunque, ma quella componente non ha alcun effetto, e il compito perde parte del suo senso.']));
+      } else {
+        card.appendChild(el('p',{class:'hint'},['Il materiale non cambia la difficoltà — cambia solo il canale/la dimensione percettiva. La regola resta binaria e di complessità paragonabile in ogni variante (colore, tipo di carattere, pari/dispari, altezza del suono).']));
+      }
       card.appendChild(field('Proporzione di congruenza', segButtons(['bilanciato','prevalenza_congruente','prevalenza_incongruente'], cfg.simonCongruenza||'bilanciato', v=>{ cfg.simonCongruenza=v; render(); }, {bilanciato:'Bilanciato (50/50)', prevalenza_congruente:'Prevalenza congruente (75/25)', prevalenza_incongruente:'Prevalenza incongruente (25/75)'})));
-      card.appendChild(el('p',{class:'hint'},['Regola fissa per tutta la sessione: "Blu" a sinistra, "Verde" a destra — la posizione in cui compare il cerchio non conta mai per la risposta, ma può coincidere (congruente) o no (incongruente) con il pulsante corretto. La proporzione qui sopra è un parametro clinico fisso, non una leva di difficoltà: un blocco a prevalenza congruente o incongruente permette di misurare quanto il paziente riesce a sfruttare l\'aspettativa generale del blocco per prepararsi in anticipo all\'interferenza (controllo proattivo); un blocco bilanciato non lo permette. Consigliate almeno 60 prove per un indice di conflitto stabile.']));
+      card.appendChild(el('p',{class:'hint'},['Regola fissa per tutta la sessione — la posizione (a schermo, o nel panning stereo per i suoni) non conta mai per la risposta, ma può coincidere (congruente) o no (incongruente) con il pulsante corretto. La proporzione qui sopra è un parametro clinico fisso, non una leva di difficoltà: un blocco a prevalenza congruente o incongruente permette di misurare quanto il paziente riesce a sfruttare l\'aspettativa generale del blocco per prepararsi in anticipo all\'interferenza (controllo proattivo); un blocco bilanciato non lo permette. Consigliate almeno 60 prove per un indice di conflitto stabile.']));
     }
     if(cfg.taskMode==='categorizzazione'){
       grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
@@ -4312,6 +4433,12 @@
         card.appendChild(field('Materiale', segButtons(['simboli','lettereVoce','numeriVoce'], cfg.categMateriale, v=>{cfg.categMateriale=v; render();}, {simboli:'Simboli', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati'})));
         const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
         card.appendChild(el('p',{class:'hint'},['Regola di classificazione per questo materiale: "'+rs.labelA+'" vs "'+rs.labelB+'" ('+rs.label+').']));
+      }
+      if(cStruct===2 || cStruct===3 || cStruct===5){
+        card.appendChild(field('Seconda dimensione', segButtons(['colore','tono'], cfg.categSecondaria||'colore', v=>{ cfg.categSecondaria=v; render(); }, {colore:'Colore (Bianco/Rosso)', tono:'Suono (Grave/Acuto)'})));
+        if(cfg.categSecondaria==='tono'){
+          card.appendChild(el('p',{class:'hint', style:'color:var(--alert);'},['🎧 Consigliate cuffie o casse funzionanti — il carattere viene letto ad alta voce insieme a un tono grave o acuto, che sostituisce il colore come seconda dimensione (tipo/lettera resta comunque leggibile ad alta voce). Nessuna componente stereo richiesta: un solo altoparlante mono basta.']));
+        }
       }
       card.appendChild(el('p',{class:'hint'},[CATEG_STRUCTURE_HINTS[cStruct]]));
       if(manuale){
@@ -5595,6 +5722,7 @@
   function showEncodeItem(trial){
     if(session.encodeIdx >= trial.encodeItems.length){ showTrialStimulus(trial); return; }
     render();
+    if(cfg.voice) speak(String(trial.encodeItems[session.encodeIdx]));
     scheduleStep(()=>{
       session.encodeIdx++;
       showEncodeItem(trial);
@@ -5667,7 +5795,33 @@
       // vis-vis: nessun audio, entrambi i canali sono visivi (mostrati in renderStimulusNode)
       return;
     }
-    if(cfg.taskMode==='ant' || cfg.taskMode==='switching' || cfg.taskMode==='simon') return; // solo visivi
+    if(cfg.taskMode==='simon' && cfg.simonMateriale==='suoni'){
+      // Il tono porta la dimensione rilevante (grave/acuto, STOPSIGNAL_RULES.suoni)
+      // E la posizione irrilevante insieme, nello stesso evento sonoro — il
+      // panning stereo sostituisce la posizione a schermo, non si aggiunge.
+      playTonePanned(trial.val, cfg.stimDuration, trial.side==='left' ? -1 : 1);
+      return;
+    }
+    if(cfg.taskMode==='mantenimento' && cfg.voice){
+      speak(String(trial.val));
+      return;
+    }
+    if(cfg.taskMode==='switching' && cfg.switchMaterial==='bivalente' && trial.val.tono!=null){
+      // Le due dimensioni indipendenti (tipo di carattere, tono) arrivano
+      // insieme in un solo evento uditivo — non in sequenza — altrimenti
+      // l'ordine stesso diventerebbe un indizio non presente nella
+      // versione visiva (dove le due proprietà sono percepite in un solo
+      // colpo d'occhio).
+      speak(String(trial.val.valore));
+      playTone(trial.val.tono==='grave' ? BIVALENTE_TONE_GRAVE : BIVALENTE_TONE_ACUTO, cfg.stimDuration);
+      return;
+    }
+    if(cfg.taskMode==='ant' || cfg.taskMode==='switching' || cfg.taskMode==='simon') return; // solo visivi (Simon: tutte le materiali tranne 'suoni', già gestita sopra; switching bivalente+tono già gestito sopra)
+    if(cfg.taskMode==='categorizzazione' && !trial.categMateriale && trial.val.tono!=null){
+      speak(String(trial.val.valore));
+      playTone(trial.val.tono==='grave' ? BIVALENTE_TONE_GRAVE : BIVALENTE_TONE_ACUTO, cfg.stimDuration);
+      return;
+    }
     if(cfg.taskMode==='categorizzazione' && isSpokenStim(cfg.categMateriale)){
       speak(String(trial.val));
       return;
@@ -6028,8 +6182,12 @@
         return [{action:'a', label:'—', cls:'match'}, {action:'b', label:'—', cls:'nomatch'}];
       case 'mantenimento':
         return [{action:'a', label:'Sì, c\'era', cls:'match'}, {action:'b', label:'No, non c\'era', cls:'nomatch'}];
-      case 'simon':
-        return [{action:'left', label:'⬤ Blu', cls:'match'}, {action:'right', label:'⬤ Verde', cls:'nomatch'}];
+      case 'simon': {
+        const mat = cfg.simonMateriale || 'colori';
+        if(mat==='colori') return [{action:'left', label:'⬤ Blu', cls:'match'}, {action:'right', label:'⬤ Verde', cls:'nomatch'}];
+        const rule = STOPSIGNAL_RULES[mat];
+        return [{action:'left', label:rule.labelA, cls:'match'}, {action:'right', label:rule.labelB, cls:'nomatch'}];
+      }
       case 'categorizzazione': {
         const liv = categEffectiveStructure(cfg);
         if(liv===1){
@@ -6179,8 +6337,24 @@
       d.stimSlot.appendChild(el('div',{class:'stopcue-full'},['STOP']));
     } else if(trial && session.phase==='cue' && cfg.taskMode==='switching'){
       d.stimSlot.appendChild(el('div',{style:'color:var(--accent); font-size:26px; letter-spacing:.06em; font-weight:800;'},[trial.ruleDef.label.toUpperCase()+'?']));
-    } else if(trial && session.phase==='cue' && cfg.taskMode==='ant'){
+    } else if(trial && session.phase==='cue' && (cfg.taskMode==='ant' || cfg.taskMode==='tapat')){
+      // BUG REALE corretto qui: renderCueNode() ha sempre avuto un ramo
+      // completo per TAPAT (asterisco, o "🔊 Ascolta" in uditivo), ma
+      // questo dispatcher lo richiamava solo per taskMode==='ant' — il
+      // cue visivo/il placeholder uditivo del TAPAT non comparivano mai
+      // a schermo, nonostante il meccanismo (fase di solo cue prima del
+      // bersaglio, vedi presentCue) fosse corretto e il tono suonasse
+      // comunque. Stessa classe di bug della fase 'encode' del
+      // Mantenimento corretta poco sopra in questa stessa sessione.
       d.stimSlot.appendChild(renderCueNode(trial));
+    } else if(trial && session.phase==='encode' && cfg.taskMode==='mantenimento'){
+      // BUG REALE corretto qui: prima di questa modifica, la fase di
+      // codifica del Mantenimento non aveva alcun ramo di rendering — il
+      // paziente vedeva solo il placeholder generico "· · ·" invece
+      // dell'elemento da memorizzare, per l'intera lista. Non un problema
+      // di audio, un problema di visualizzazione, trovato mentre si
+      // aggiungeva la sintesi vocale allo stesso punto del codice.
+      d.stimSlot.appendChild(el('div',{class:'stimulus'},[String(trial.encodeItems[session.encodeIdx])]));
     } else if(trial && session.phase==='show'){
       d.stimSlot.appendChild(renderStimulusNode(trial));
     } else {
@@ -6262,8 +6436,17 @@
       return wrap;
     }
     if(cfg.taskMode==='simon'){
+      const mat = cfg.simonMateriale || 'colori';
+      if(mat==='suoni'){
+        // Il tono è già stato/sta per essere riprodotto con panning
+        // stereo in presentStimulus() — qui non c'è nulla da mostrare a
+        // schermo che non anticipi la posizione (che deve restare
+        // percepibile solo dall'udito, mai dalla vista).
+        return el('div',{class:'audio-pulse active'},['♪']);
+      }
       const outer = el('div',{style:'display:flex; width:100%; justify-content:'+(trial.side==='left'?'flex-start':'flex-end')+'; padding:0 8vw;'});
-      outer.appendChild(el('div',{class:'colorcircle', style:'width:110px; height:110px; background:'+trial.val.hex+';'},[]));
+      if(mat==='colori') outer.appendChild(el('div',{class:'colorcircle', style:'width:110px; height:110px; background:'+trial.val.hex+';'},[]));
+      else outer.appendChild(el('div',{class:'stimulus symbolwrap'},[trial.val]));
       return outer;
     }
     if(cfg.taskMode==='switching'){
@@ -6272,7 +6455,9 @@
       if(cfg.switchMaterial==='colori'){
         wrap.appendChild(el('div',{class:'colorcircle', style:'width:140px; height:140px; background:'+trial.val.hex+';'},[]));
       } else if(cfg.switchMaterial==='bivalente'){
-        wrap.appendChild(el('div',{class:'stimulus', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]));
+        wrap.appendChild(trial.val.tono!=null
+          ? el('div',{class:'stimulus'},[trial.val.valore]) // il tono è riprodotto a parte in presentStimulus(), niente colore da mostrare
+          : el('div',{class:'stimulus', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]));
       } else if(trial.sizeVariant){
         const sizePx = trial.sizeVariant==='grande' ? 'min(28vw,220px)' : 'min(9vw,64px)';
         wrap.appendChild(el('div',{class:'stimulus', style:'font-size:'+sizePx+' !important;'},[seqLabel(trial.val)]));
@@ -6288,8 +6473,11 @@
         return el('div',{class:'stimulus symbolwrap'},[trial.val]);
       }
       // livelli 2/3/5: stesso stile del bivalente dello switching — testo
-      // bianco o rosso su sfondo scuro, a seconda della dimensione colore.
-      return el('div',{class:'stimulus', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]);
+      // bianco o rosso su sfondo scuro (dimensione colore), o testo
+      // neutro col tono riprodotto a parte (dimensione tono).
+      return trial.val.tono!=null
+        ? el('div',{class:'stimulus'},[trial.val.valore])
+        : el('div',{class:'stimulus', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]);
     }
     if(cfg.taskMode==='dualtask'){
       const pairing = cfg.dualPairing || 'vis-aud';
@@ -6540,8 +6728,12 @@
       return ok ? 'Giusto — hai indicato la direzione corretta.'+cueNote : 'La direzione indicata non era corretta — guarda solo la freccia centrale, ignora quelle intorno.'+cueNote;
     }
     if(cfg.taskMode==='simon'){
-      const posNote = trial.congruency==='incongruent' ? ' Qui la posizione del cerchio "tirava" verso il pulsante sbagliato — conta solo il colore, mai la posizione.' : '';
-      return ok ? 'Giusto — hai risposto in base al colore.'+posNote : 'Risposta sbagliata: la regola è sempre e solo il colore (Blu=sinistra, Verde=destra), mai la posizione in cui compare il cerchio.'+posNote;
+      const mat = cfg.simonMateriale || 'colori';
+      const dimNames = {colori:'il colore', lettere:'vocale o consonante', numeri:'pari o dispari', suoni:'l\'altezza del suono (grave/acuto)'};
+      const posNames = {colori:'del cerchio', lettere:'della lettera', numeri:'del numero', suoni:'da cui arriva il suono'};
+      const dim = dimNames[mat], pos = posNames[mat];
+      const posNote = trial.congruency==='incongruent' ? ' Qui la posizione '+pos+' "tirava" verso il pulsante sbagliato — conta solo '+dim+', mai la posizione.' : '';
+      return ok ? 'Giusto — hai risposto in base a '+dim+'.'+posNote : 'Risposta sbagliata: la regola è sempre e solo '+dim+', mai la posizione '+pos+'.'+posNote;
     }
     return ok ? 'Giusto.' : 'Risposta non corretta per questa prova.';
   }
@@ -6746,6 +6938,7 @@
     }
     if(isTapatLike(c)) return 'TAPAT · '+(c.tapatModalita==='uditivo'?'Uditivo':'Visivo');
     if(c.taskMode==='ant') return ANT_MATERIAL_TOKENS[c.antMaterial] ? (c.antMaterial==='lettere'?'Lettere H/S':'Simboli') : 'Frecce';
+    if(c.taskMode==='simon') return {colori:'Colori', lettere:'Lettere', numeri:'Numeri', suoni:'Suoni (stereo)'}[c.simonMateriale||'colori'];
     if(c.taskMode==='neglect'){
       if(c.neglectMode==='intruso') return 'Trova l\'intruso';
       if(c.neglectMode==='regola') return 'Conteggio a regola · '+STIM_LABELS[c.stimType==='numeri'?'numeri':'lettere'];
@@ -7126,7 +7319,8 @@
           el('div',{},[
             el('div',{style: done?'text-decoration:line-through;':''},[item.testo]),
             ...noteBits.map(t=> el('div',{class:'l'},[t]))
-          ])
+          ]),
+          el('button',{class:'ghost', style:'padding:2px 8px; font-size:14px; align-self:flex-start;', onclick:(ev)=>{ ev.stopPropagation(); speak(item.testo); }},['🔊'])
         ]),
         done ? el('div',{style:'color:var(--signal); font-weight:600;'},['✓']) :
           el('button',{class:'ghost', onclick:()=>{ session = completeGoalTaskItem(session, item.id); updateGoalTaskScreen(); }},['Completa'])
@@ -7314,6 +7508,7 @@
         if(isBrano && !session.lociReadDone){
           content.appendChild(el('h3',{},[m.titolo]));
           content.appendChild(el('p',{style:'font-size:17px; line-height:1.7; background:var(--paper-dim); border-radius:12px; padding:16px 18px;'},[m.testo]));
+          content.appendChild(speakControls(()=>m.testo));
           content.appendChild(el('p',{class:'hint'},['Leggi il brano una volta. Poi percorrerai un tragitto mentale, posizionando ogni idea principale in una tappa.']));
           content.appendChild(el('button',{class:'primary', style:'margin-top:12px;', onclick:()=>{ session.lociReadDone=true; updateMemoriaScreen(); }},['Ho letto — inizia il percorso →']));
         } else {
@@ -7820,7 +8015,7 @@
       mg.appendChild(metric(fmtPct(r.choice.accuracy), 'Accuratezza'));
       mg.appendChild(metric(String(r.choice.omitted), 'Omesse'));
       if(r.choice.meanRT!=null) mg.appendChild(metric(Math.round(r.choice.meanRT)+' ms', 'RT medio (corrette)'));
-      if(r.choice.alerting!=null) mg.appendChild(metric(r.choice.alerting+' ms', 'Indice allerta'));
+      if(r.choice.alerting!=null) mg.appendChild(metric(r.choice.alerting+' ms', 'Allerta fasica (cue vs. nessun cue)'));
       if(r.choice.orienting!=null) mg.appendChild(metric(r.choice.orienting+' ms', 'Indice orienting'));
       if(r.choice.conflict!=null) mg.appendChild(metric(r.choice.conflict+' ms', r.taskMode==='simon' ? 'Effetto Simon (RT incongruente − congruente)' : 'Indice conflitto'));
       if(r.choice.congAccuracy!=null) mg.appendChild(metric(fmtPct(r.choice.congAccuracy), 'Accuratezza — prove congruenti'));
@@ -9235,8 +9430,12 @@
     return (h>0? h+'h ':'')+m+'min';
   }
   let accessLogExpanded = null; // key del gruppo attualmente espanso (drill-down), o null
-  let accessLogFilterOp = null; // key dell'operatore selezionato nel menù a tendina, o null = tutti
-  let accessLogFilterPat = null; // key del paziente selezionato nel menù a tendina, o null = tutti
+  let accessLogFilter = null; // key della persona selezionata nel menù a tendina, o null = tutti — un solo filtro ora, non due, perché ogni sotto-registro mostra un solo tipo
+  let accessLogKind = 'operatore'; // 'operatore' | 'paziente' — quale sotto-registro è aperto, impostato da ScreenAccessLog prima di navigare
+  // Registro accessi: prima schermata con due pulsanti (Operatori/
+  // Pazienti), non più le due liste e i due menù a tendina insieme sulla
+  // stessa schermata — quelli vivono ora in ScreenAccessLogKind, aperta
+  // scegliendo uno dei due pulsanti qui sotto.
   function ScreenAccessLog(root){
     root.appendChild(el('div',{class:'topbar'},[
       el('div',{class:'info'},['Registro accessi']),
@@ -9250,45 +9449,114 @@
     }
     card.appendChild(el('h2',{},['Registro accessi']));
     card.appendChild(el('p',{class:'hint'},[
+      'Chi è online ora e da quanto tempo, chi è stato online in passato e per quanto — operatori e pazienti in due registri separati, ciascuno con il proprio elenco e il proprio dettaglio sessione per sessione.'
+    ]));
+    const btnRow = el('div',{class:'rowbtns', style:'margin-top:12px; flex-direction:column;'});
+    btnRow.appendChild(el('button',{class:'primary', onclick:()=>{ accessLogKind='operatore'; accessLogFilter=null; accessLogExpanded=null; view='accessLogKind'; render(); }},['Registro operatori']));
+    btnRow.appendChild(el('button',{class:'primary', onclick:()=>{ accessLogKind='paziente'; accessLogFilter=null; accessLogExpanded=null; view='accessLogKind'; render(); }},['Registro pazienti']));
+    card.appendChild(btnRow);
+    card.appendChild(el('div',{class:'rowbtns', style:'margin-top:16px;'},[
+      el('button',{class:'ghost', onclick: async ()=>{ exportAccessLogCSV(await loadAccessLog()); }},['Esporta CSV (tutto — operatori + pazienti insieme)'])
+    ]));
+    s.appendChild(card); root.appendChild(s);
+  }
+  // Unisce due fonti diverse per utente: lo storico da 'accessi' (sessioni
+  // chiuse da un logout esplicito registrato, con durata esatta) e lo
+  // stato live da 'sessioni_login' (battito ogni 25s, comprese le riprese
+  // senza login esplicito — che lo storico da solo non vede mai, perché
+  // non generano un evento 'login' in accessi). Una sessione ancora
+  // aperta (nessun logout corrispondente) compare quindi due volte nelle
+  // fonti grezze per lo stesso login: qui viene mostrata una sola volta,
+  // come riga "in corso" nel dettaglio, usando openLoginTs per abbinarla
+  // al gettone live dello stesso utente.
+  function accessLogMergeGroups(historical, live){
+    const byKey = {};
+    historical.forEach(g=> byKey[g.key] = Object.assign({}, g, {liveOnline:false, liveDurataMs:null, liveUltimoVistoMs:null}));
+    live.forEach(x=>{
+      const key = x.userId;
+      if(!byKey[key]) byKey[key] = {key, label:x.etichetta||x.userId, userType:x.userType, loginsOk:0, loginsFail:0, logouts:0, lastTs:null, avgDurationMs:null, totalDurationMs:null, sessions:[], openLoginTs:null, events:[]};
+      byKey[key].liveOnline = x.online;
+      byKey[key].liveDurataMs = x.durataMs;
+      byKey[key].liveUltimoVistoMs = x.ultimoVistoMs;
+    });
+    return Object.values(byKey);
+  }
+  function accessLogStatusLine(g){
+    if(g.liveOnline) return '🟢 online da '+(g.liveDurataMs!=null ? fmtTime(g.liveDurataMs) : '—');
+    if(g.liveUltimoVistoMs) return '⚪ visto l\'ultima volta: '+new Date(g.liveUltimoVistoMs).toLocaleString('it-IT');
+    return '⚪ nessuna sessione registrata';
+  }
+  function ScreenAccessLogKind(root){
+    const kindLabel = accessLogKind==='operatore' ? 'Registro operatori' : 'Registro pazienti';
+    root.appendChild(el('div',{class:'topbar'},[
+      el('div',{class:'info'},[kindLabel]),
+      el('button',{onclick:()=>{ view='accessLog'; render(); }},['← Indietro'])
+    ]));
+    const s = el('div',{class:'screen'});
+    if(isSuperOperatore && accessLogKind==='operatore'){
+      const mgmtCard = el('div',{class:'card'});
+      mgmtCard.appendChild(el('h2',{},['Gestione operatori']));
+      mgmtCard.appendChild(el('p',{class:'hint'},[
+        'Archiviare un operatore blocca il suo accesso (login rifiutato, anche con una scheda già aperta) senza toccare nulla di quello che ha già fatto — programmi assegnati, storico sessioni dei suoi pazienti restano intatti. Il nome è solo un\'etichetta leggibile al posto dell\'identificativo tecnico, non cambia nulla dei permessi.'
+      ]));
+      const mgmtBody = el('div',{style:'min-height:40px;'},[el('p',{class:'hint'},['Caricamento…'])]);
+      mgmtCard.appendChild(mgmtBody);
+      s.appendChild(mgmtCard);
+      (async ()=>{
+        const rows = await loadOperatoriList();
+        mgmtBody.innerHTML = '';
+        if(!rows.length){
+          mgmtBody.appendChild(el('p',{class:'hint'},[
+            'Nessun operatore trovato — probabile causa: la migrazione SQL delle colonne "nome"/"attivo" e delle policy di lettura/scrittura per il super-operatore (vedi README, sezione "Gestione operatori") non è ancora stata eseguita su questo progetto Supabase.'
+          ]));
+          return;
+        }
+        rows.forEach(o=>{
+          const isMe = cloudUser && o.id===cloudUser.id;
+          const row = el('div',{class:'histrow'},[
+            el('div',{},[
+              el('div',{},[(o.nome || '(nessun nome — '+o.id.slice(0,8)+'…)')+(o.super?' · super-operatore':'')+(isMe?' · tu':'')]),
+              el('div',{class:'hint', style:'margin-top:2px;'},[o.attivo===false ? '⚪ Archiviato' : '🟢 Attivo'])
+            ]),
+            el('div',{class:'rowbtns'},[
+              el('button',{class:'ghost', onclick: async ()=>{
+                const nuovo = prompt('Nome da mostrare per questo operatore:', o.nome||'');
+                if(nuovo===null) return;
+                if(await setOperatoreNome(o.id, nuovo.trim()||null)) render();
+              }},['✏️ Nome']),
+              isMe ? null : el('button',{class:'ghost', style: o.attivo===false ? '' : 'color:var(--alert);', onclick: async ()=>{
+                const archivia = o.attivo!==false;
+                if(!confirm((archivia?'Archiviare':'Riattivare')+' l\'accesso di "'+(o.nome||o.id)+'"?'+(archivia?' Non potrà più accedere finché non lo riattivi.':''))) return;
+                if(await setOperatoreAttivo(o.id, !archivia)){ o.attivo = !archivia; render(); }
+              }},[o.attivo===false ? '✅ Riattiva' : '🗄 Archivia'])
+            ].filter(Boolean))
+          ]);
+          mgmtBody.appendChild(row);
+        });
+      })();
+    }
+    const card = el('div',{class:'card'});
+    if(!isSuperOperatore){
+      card.appendChild(el('p',{class:'hint'},['Sezione riservata al super-operatore.']));
+      s.appendChild(card); root.appendChild(s); return;
+    }
+    card.appendChild(el('h2',{},[kindLabel]));
+    card.appendChild(el('p',{class:'hint'},[
       'Una riga per persona: stato attuale (compresa una scheda riaperta con le credenziali salvate, senza login digitato) e storico delle sessioni passate con durata. Tocca una riga per il dettaglio sessione per sessione.'
     ]));
     const body = el('div',{style:'min-height:60px;'},[el('p',{class:'hint'},['Caricamento…'])]);
     card.appendChild(body);
     const btnRow = el('div',{class:'rowbtns', style:'margin-top:16px;'});
-    btnRow.appendChild(el('button',{class:'ghost', onclick: async ()=>{ await loadAccessLog(true); renderBody(); }},['Aggiorna']));
-    btnRow.appendChild(el('button',{class:'ghost', onclick: async ()=>{ exportAccessLogCSV(await loadAccessLog()); }},['Esporta CSV (tutto)']));
+    // "Aggiorna" forza un ricaricamento immediato invece di aspettare fino
+    // a 20s l'aggiornamento automatico qui sotto — utile subito dopo
+    // un'azione (es. un paziente che si è appena disconnesso).
+    btnRow.appendChild(el('button',{class:'ghost', onclick: async ()=>{ await loadAccessLog(true); renderBody(); }},['Aggiorna ora']));
+    btnRow.appendChild(el('button',{class:'ghost', onclick: async ()=>{ exportAccessLogCSV((await loadAccessLog()).filter(r=>r.userType===accessLogKind)); }},['Esporta CSV ('+kindLabel.toLowerCase()+')']));
     card.appendChild(btnRow);
     s.appendChild(card); root.appendChild(s);
 
-    // Unisce due fonti diverse per utente: lo storico da 'accessi' (sessioni
-    // chiuse da un logout esplicito registrato, con durata esatta) e lo
-    // stato live da 'sessioni_login' (battito ogni 25s, comprese le riprese
-    // senza login esplicito — che lo storico da solo non vede mai, perché
-    // non generano un evento 'login' in accessi). Una sessione ancora
-    // aperta (nessun logout corrispondente) compare quindi due volte nelle
-    // fonti grezze per lo stesso login: qui viene mostrata una sola volta,
-    // come riga "in corso" nel dettaglio, usando openLoginTs per abbinarla
-    // al gettone live dello stesso utente.
-    function mergeGroups(historical, live){
-      const byKey = {};
-      historical.forEach(g=> byKey[g.key] = Object.assign({}, g, {liveOnline:false, liveDurataMs:null, liveUltimoVistoMs:null}));
-      live.forEach(x=>{
-        const key = x.userId;
-        if(!byKey[key]) byKey[key] = {key, label:x.etichetta||x.userId, userType:x.userType, loginsOk:0, loginsFail:0, logouts:0, lastTs:null, avgDurationMs:null, totalDurationMs:null, sessions:[], openLoginTs:null, events:[]};
-        byKey[key].liveOnline = x.online;
-        byKey[key].liveDurataMs = x.durataMs;
-        byKey[key].liveUltimoVistoMs = x.ultimoVistoMs;
-      });
-      return Object.values(byKey);
-    }
-    function statusLine(g){
-      if(g.liveOnline) return '🟢 online da '+(g.liveDurataMs!=null ? fmtTime(g.liveDurataMs) : '—');
-      if(g.liveUltimoVistoMs) return '⚪ visto l\'ultima volta: '+new Date(g.liveUltimoVistoMs).toLocaleString('it-IT');
-      return '⚪ nessuna sessione registrata';
-    }
-    function renderGroupTable(title, groups){
-      const wrap = el('div',{style:'margin-top:18px;'});
-      wrap.appendChild(el('div',{style:'font-weight:600; margin-bottom:8px;'},[title+' ('+groups.length+')']));
+    function renderGroupTable(groups){
+      const wrap = el('div',{style:'margin-top:4px;'});
       if(!groups.length){ wrap.appendChild(el('p',{class:'hint'},['Nessun evento registrato.'])); return wrap; }
       groups.sort((a,b)=> (b.liveOnline-a.liveOnline) || ((b.liveUltimoVistoMs||b.lastTs||0)-(a.liveUltimoVistoMs||a.lastTs||0)));
       groups.forEach(g=>{
@@ -9296,7 +9564,7 @@
         const summary = el('div',{style:'display:flex; flex:none; justify-content:space-between; gap:10px; width:100%; flex-wrap:wrap;', onclick:()=>{ accessLogExpanded = accessLogExpanded===g.key ? null : g.key; renderBody(); }},[
           el('div',{},[
             el('div',{},[g.label]),
-            el('div',{class:'hint', style:'margin-top:2px;'},[statusLine(g)])
+            el('div',{class:'hint', style:'margin-top:2px;'},[accessLogStatusLine(g)])
           ]),
           el('div',{style:'text-align:right; font-size:13px; color:var(--ink-soft);'},[
             '✓ '+g.loginsOk+' · ✗ '+g.loginsFail+' · media '+fmtDuration(g.avgDurationMs)+' · totale '+fmtDuration(g.totalDurationMs)
@@ -9337,12 +9605,16 @@
               ]));
             });
           }
+          // Etichetta esplicita su cosa fa davvero questo pulsante — cancella
+          // solo le righe di login/logout/tentativi di QUESTA persona da
+          // questo registro, mai l'account stesso (che resta attivo o
+          // archiviato quel che era, invariato).
           detail.appendChild(el('button',{class:'ghost', style:'margin-top:12px; color:var(--alert);', onclick: async (ev)=>{
             ev.stopPropagation();
-            if(!confirm('Eliminare dal registro tutto lo storico di "'+g.label+'"? Non tocca l\'account (resta attivo o archiviato quel che era), solo le righe di login/logout/tentativi. Non annullabile.')) return;
+            if(!confirm('Eliminare SOLO le righe di login/logout/tentativi di "'+g.label+'" da questo registro? L\'account non viene toccato: resta attivo (o archiviato) esattamente come adesso. Storico sessioni ed esercizi non c\'entrano — restano intatti. Operazione non annullabile.')) return;
             const ok = await deleteAccessHistoryForUser(g.key);
             if(ok) renderBody();
-          }},['Elimina storico di questa persona dal registro']));
+          }},['🗑 Elimina solo il registro accessi di questa persona (non l\'account)']));
           row.appendChild(detail);
         }
         wrap.appendChild(row);
@@ -9359,42 +9631,35 @@
           'Stato "online adesso" non disponibile: '+liveResult.error+'. Probabile causa: l\'aggiornamento SQL di sessioni_login (colonne iniziata_il/user_type/etichetta + policy di lettura per il super-operatore, vedi README) non è ancora stato eseguito su questo progetto Supabase. Lo storico sotto resta comunque affidabile.'
         ]));
       }
-      const opGroups = mergeGroups(summarizeAccessLog(rows,'operatore'), live.filter(x=>x.userType==='operatore'));
-      const patGroups = mergeGroups(summarizeAccessLog(rows,'paziente'), live.filter(x=>x.userType==='paziente'));
-      // Due menù a tendina, uno per tipo, per saltare direttamente a una
-      // persona invece di scorrere l'elenco intero — utile con molte righe.
-      // "Tutti" (default) non filtra nulla.
+      const groups = accessLogMergeGroups(summarizeAccessLog(rows, accessLogKind), live.filter(x=>x.userType===accessLogKind));
+      // Un solo menù a tendina qui (non due): questa schermata mostra già
+      // un solo tipo di persona, un secondo filtro per l'altro tipo non
+      // avrebbe senso in questa vista.
       const filterRow = el('div',{style:'display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;'});
-      function makeFilterSelect(groups, current, onChange){
-        const sel = el('select',{style:'padding:8px 10px; border-radius:8px; border:1px solid var(--line,#ccc); font-size:13px;', onchange:(ev)=>onChange(ev.target.value)});
-        sel.appendChild(el('option',{value:''},['Tutti']));
-        groups.slice().sort((a,b)=>a.label.localeCompare(b.label,'it')).forEach(g=>{
-          const optAttrs = {value:g.key};
-          if(current===g.key) optAttrs.selected = 'selected';
-          sel.appendChild(el('option',optAttrs,[g.label]));
-        });
-        return sel;
-      }
-      filterRow.appendChild(makeFilterSelect(opGroups, accessLogFilterOp, v=>{ accessLogFilterOp=v||null; renderBody(); }));
-      filterRow.appendChild(makeFilterSelect(patGroups, accessLogFilterPat, v=>{ accessLogFilterPat=v||null; renderBody(); }));
+      const sel = el('select',{style:'padding:8px 10px; border-radius:8px; border:1px solid var(--line,#ccc); font-size:13px;', onchange:(ev)=>{ accessLogFilter=ev.target.value||null; renderBody(); }});
+      sel.appendChild(el('option',{value:''},['Tutti']));
+      groups.slice().sort((a,b)=>a.label.localeCompare(b.label,'it')).forEach(g=>{
+        const optAttrs = {value:g.key};
+        if(accessLogFilter===g.key) optAttrs.selected = 'selected';
+        sel.appendChild(el('option',optAttrs,[g.label]));
+      });
+      filterRow.appendChild(sel);
       body.appendChild(filterRow);
-      const opGroupsShown = accessLogFilterOp ? opGroups.filter(g=>g.key===accessLogFilterOp) : opGroups;
-      const patGroupsShown = accessLogFilterPat ? patGroups.filter(g=>g.key===accessLogFilterPat) : patGroups;
-      body.appendChild(renderGroupTable('Operatori', opGroupsShown));
-      body.appendChild(renderGroupTable('Pazienti', patGroupsShown));
+      const groupsShown = accessLogFilter ? groups.filter(g=>g.key===accessLogFilter) : groups;
+      body.appendChild(renderGroupTable(groupsShown));
     }
     renderBody();
     // Auto-aggiornamento ogni 20s finché questa schermata resta aperta —
     // così lo stato "online ora" resta corrente senza dover premere
-    // "Aggiorna" a mano.
-    autoTimer = setInterval(()=>{ if(view==='accessLog') renderBody(); else clearInterval(autoTimer); }, 20000);
+    // "Aggiorna ora" a mano ogni volta.
+    autoTimer = setInterval(()=>{ if(view==='accessLogKind') renderBody(); else clearInterval(autoTimer); }, 20000);
   }
 
   const SCREENS = {
     setup: ScreenSetup, instructions: ScreenInstructions, countdown: ScreenCountdown,
     manualEntry: ScreenManualEntry, results: ScreenResults, history: ScreenHistory,
     cloud: ScreenCloud, patients: ScreenPatients, patientHome: ScreenPatientHome, patientProgram: ScreenPatientProgram,
-    operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode, accessLog: ScreenAccessLog,
+    operatorHome: ScreenOperatorHome, localPatientPicker: ScreenLocalPatientPicker, accessCode: ScreenAccessCode, accessLog: ScreenAccessLog, accessLogKind: ScreenAccessLogKind,
     screeningIntro: ScreenScreeningIntro, screeningResults: ScreenScreeningResults, archive: ScreenArchive, demoDone: ScreenDemoDone,
     motorIntro: ScreenMotorIntro, motorTask: ScreenMotorTask, motorResults: ScreenMotorResults
   };
@@ -9445,7 +9710,7 @@
   // dipendono da un oggetto di sessione in memoria che il reload cancella
   // (session, screeningState, pendingAccessCode...) — solo da id di
   // paziente/filtro, tutti ricostruibili da localStorage/Supabase.
-  const RELOAD_SAFE_VIEWS = new Set(['setup','patients','localPatientPicker','history','archive','cloud','accessLog','operatorHome','patientHome','patientProgram']);
+  const RELOAD_SAFE_VIEWS = new Set(['setup','patients','localPatientPicker','history','archive','cloud','accessLog','accessLogKind','operatorHome','patientHome','patientProgram']);
   // priorState: lo stato di history.state COM'ERA prima di spingere la
   // sentinella anti-uscita qui sotto — deve essere catturato subito
   // all'avvio, perché dopo il pushState della sentinella history.state

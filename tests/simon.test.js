@@ -8,10 +8,12 @@ const REPO_ROOT = path.join(__dirname, '..');
 // stopsignal.test.js: uno stub condiviso, mutato prima di ogni chiamata.
 const cfgStub = {};
 const mod = loadPure(REPO_ROOT, [
+  { name: 'POOLS', start: '  const POOLS = {', end: 'POOLS.numeriVoce = POOLS.numeri;' },
+  { name: 'SWITCH_RULESETS+STOPSIGNAL_RULES', start: '  const SWITCH_RULESETS = {', end: "suoni:  {labelA:'Grave', labelB:'Acuto', classify:v=> v.f < 380}\n  };" },
   { name: 'SIMON_COLORS+PROB+buildSimon', start: "  const SIMON_COLORS = { blu:{hex:'#3B72D6', icon:'Blu'}, verde:{hex:'#3FA34D', icon:'Verde'} };", end: '    return seq;\n  }' }
-], ['SIMON_COLORS', 'SIMON_CONGRUENCE_PROB', 'buildSimon'], { cfg: cfgStub });
+], ['SIMON_COLORS', 'SIMON_CONGRUENCE_PROB', 'buildSimon', 'POOLS', 'STOPSIGNAL_RULES'], { cfg: cfgStub });
 
-const { SIMON_COLORS, SIMON_CONGRUENCE_PROB, buildSimon } = mod;
+const { SIMON_COLORS, SIMON_CONGRUENCE_PROB, buildSimon, POOLS, STOPSIGNAL_RULES } = mod;
 
 module.exports = function run(t) {
   t.group('Simon — costanti', () => {
@@ -55,5 +57,27 @@ module.exports = function run(t) {
     const seq = buildSimon();
     const bluFrac = seq.filter(x => x.val === SIMON_COLORS.blu).length / seq.length;
     t.approx(bluFrac, 0.5, 0.03, 'blu/verde restano 50/50 anche con congruenza sbilanciata (sono due manipolazioni indipendenti)');
+  });
+
+  t.group('buildSimon — varianti materiale (lettere/numeri/suoni): riusano le regole di Stop-Signal, non ne inventano di nuove', () => {
+    ['lettere', 'numeri', 'suoni'].forEach(mat => {
+      cfgStub.trials = 800; cfgStub.simonCongruenza = 'bilanciato'; cfgStub.simonMateriale = mat;
+      const seq = buildSimon();
+      const rule = STOPSIGNAL_RULES[mat];
+      t.eq(seq.length, 800, mat + ': genera il numero di prove richiesto');
+      const mismatches = seq.filter(x => x.correctAnswer !== (rule.classify(x.val) ? 'left' : 'right'));
+      t.eq(mismatches.length, 0, mat + ': correctAnswer coerente con STOPSIGNAL_RULES.' + mat + ' su tutte le prove (stessa regola, non una copia divergente)');
+      t.ok(seq.every(x => POOLS[mat].includes(x.val)), mat + ': ogni stimolo generato viene dal pool giusto, nessun valore fuori posto');
+      // La congruenza resta la stessa manipolazione indipendente dal
+      // materiale: side coincide o no con correctAnswer, mai altro.
+      const badCongruency = seq.filter(x => x.congruency !== (x.side === x.correctAnswer ? 'congruent' : 'incongruent'));
+      t.eq(badCongruency.length, 0, mat + ': congruenza dichiarata coerente con side vs correctAnswer, come per i colori');
+    });
+  });
+
+  t.group('buildSimon — materiale non impostato: il default resta "colori" (nessuna regressione per config vecchie)', () => {
+    cfgStub.trials = 200; cfgStub.simonCongruenza = 'bilanciato'; cfgStub.simonMateriale = undefined;
+    const seq = buildSimon();
+    t.ok(seq.every(x => x.val === SIMON_COLORS.blu || x.val === SIMON_COLORS.verde), 'senza simonMateriale impostato, genera sempre colori come prima di questa modifica');
   });
 };

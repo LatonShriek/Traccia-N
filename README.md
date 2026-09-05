@@ -58,14 +58,25 @@ dieci varianti dello stesso compito.
 |---|---|---|---|
 | N-back | Aggiornamento della memoria di lavoro (updating) | Fronto-parietale, DLPFC | Owen, McMillan, Laird & Bullmore (2005), *Human Brain Mapping*, 25(1), 46-59 |
 | Sequenza bersaglio | Context processing, controllo proattivo/reattivo (ispirato all'AX-CPT) | DLPFC (proattivo) + ACC (reattivo) | Cohen, Barch, Carter & Servan-Schreiber (1999), *Journal of Abnormal Psychology*, 108(1), 120-133 |
-| Mantenimento (tipo Sternberg) | Mantenimento in memoria a breve termine (non aggiornamento continuo) | Circuito fronto-parietale di mantenimento, solo in parte sovrapposto a quello dell'updating | Sternberg (1966), *Science*, 153(3736), 652-654 |
+| Mantenimento (tipo Sternberg) | Mantenimento passivo in memoria a breve termine (non aggiornamento continuo) | Circuito fronto-parietale di mantenimento, solo in parte sovrapposto a quello dell'updating | Sternberg (1966), *Science*, 153(3736), 652-654 |
+| Categorizzazione condizionale | Capacità di integrazione relazionale: quante relazioni si processano in parallelo per applicare correttamente UNA regola fissa (non aggiornamento né mantenimento passivo) | Corteccia prefrontale dorsolaterale, striato (apprendimento di regole condizionali) | Halford, Wilson & Phillips (1998), *Behavioral and Brain Sciences*, 21(6), 803-831 — la teoria della complessità relazionale inquadra esplicitamente questo come un limite di capacità della memoria di lavoro, non come un dominio di ragionamento a sé |
 
 **Flessibilità cognitiva**
 
 | Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
 |---|---|---|---|
 | Task-switching | Flessibilità cognitiva (shifting), switch cost | Rete fronto-parietale dominio-generale, solco frontale inferiore | Monsell (2003), *Trends in Cognitive Sciences*, 7(3), 134-140 |
-| Categorizzazione condizionale | Applicazione di regole di classificazione di complessità crescente (fissa, non a costo di switch) | Corteccia prefrontale dorsolaterale, striato (apprendimento di regole condizionali) | Halford, Wilson & Phillips (1998), *Behavioral and Brain Sciences*, 21(6), 803-831 |
+
+Categorizzazione condizionale è qui insieme a N-back/Mantenimento, non
+sotto Flessibilità cognitiva: non cambia mai regola entro la stessa
+seduta (nessuno shifting, nessun costo di switch) — quello che cresce con
+il livello è quante condizioni bisogna integrare per applicare la stessa
+regola fissa, che Halford e colleghi trattano esplicitamente come un
+limite di capacità della memoria di lavoro. Resta comunque una misura
+diversa sia da N-back (che aggiorna continuamente, non applica una
+regola fissa) sia da Mantenimento (che non integra relazioni, mantiene
+soltanto) — vicinanza di gruppo, non equivalenza di costrutto, stesso
+principio di lettura richiamato più sopra per "Attenzione e inibizione".
 
 **Esplorazione visuospaziale**
 
@@ -90,14 +101,25 @@ I sei raggruppamenti sopra sono gli stessi usati nel selettore dell'app
 (`EXERCISE_GROUPS` in index.html) — un solo criterio di vicinanza
 concettuale, non due tassonomie parallele da mantenere sincronizzate.
 Il raggruppamento riflette prossimità di costrutto/dominio, non
-equivalenza: dentro "Attenzione e inibizione", ad esempio, ANT classico
-(conflitto percettivo, flanker) e Simon (conflitto spazio-risposta) sono
-entrambi paradigmi da conflitto ma isolano meccanismi non identici (vedi
-sotto, nota su ridondanza fra esercizi); Stop-Signal (cancellazione di
-un'azione già in corso) resta il caso più resistente a una piena
-riconduzione allo stesso fattore comune di controllo inibitorio (Miyake
-& Friedman, 2012; Munakata, Herd, Chatham, Depue, Banich & O'Reilly,
-2011).
+equivalenza, ed è bene non aspettarsi covarianza fra le prestazioni sugli
+esercizi di uno stesso gruppo: dentro "Attenzione e inibizione", ANT
+classico (conflitto percettivo, flanker) e Simon (conflitto
+spazio-risposta) sono entrambi paradigmi da conflitto ma isolano
+meccanismi che, individualmente, correlano debolmente o per nulla fra
+loro (Hedge, Powell, Bompas & Sumner, 2022, *Journal of Experimental
+Psychology: Learning, Memory, and Cognition*, 48(10); lo stesso vale più
+in generale per i compiti di conflitto come misure di differenze
+individuali: Hedge, Powell & Sumner, 2018, *Behavior Research Methods*,
+50(3), 1166-1186, sul "paradosso dell'affidabilità"); Stop-Signal
+(cancellazione di un'azione già in corso) resta il caso più resistente a
+una piena riconduzione allo stesso fattore comune di controllo inibitorio
+(Miyake & Friedman, 2012; Munakata, Herd, Chatham, Depue, Banich &
+O'Reilly, 2011). Stesso principio dentro "Memoria di lavoro e
+mantenimento": N-back (aggiornamento) e Mantenimento (mantenimento
+passivo) sono stati tenuti distinti fin dal disegno originale, e una
+meta-analisi conferma che n-back e compiti di span/mantenimento
+correlano solo debolmente (r ≈ 0.20 — Redick & Lindsey, 2013,
+*Psychonomic Bulletin & Review*, 20(6), 1102-1113).
 
 Ogni citazione qui sopra è stata verificata singolarmente (autori, anno,
 rivista, volume, pagine) prima di essere inserita — nessuna a memoria,
@@ -1264,8 +1286,21 @@ create table if not exists operatori (
 );
 alter table operatori enable row level security;
 drop policy if exists "un operatore vede solo la propria riga di ruolo" on operatori;
-create policy "un operatore vede solo la propria riga di ruolo" on operatori for select
-  using (auth.uid() = id);
+
+-- Gestione operatori (archiviazione): nome leggibile al posto
+-- dell'identificativo tecnico, e 'attivo' con lo stesso significato già
+-- in uso per i pazienti (false = archiviato, login rifiutato). Il
+-- super-operatore deve poter leggere/aggiornare la riga di CHIUNQUE, non
+-- solo la propria — da qui le due policy aggiuntive sotto, in sostituzione
+-- della singola policy "vede solo la propria riga" di prima.
+alter table operatori add column if not exists nome text;
+alter table operatori add column if not exists attivo boolean not null default true;
+create policy "un operatore vede la propria riga; il super-operatore le vede tutte" on operatori for select
+  using (auth.uid() = id or exists(select 1 from operatori o2 where o2.id = auth.uid() and o2.super = true));
+drop policy if exists "il super-operatore aggiorna nome/attivo di qualunque operatore" on operatori;
+create policy "il super-operatore aggiorna nome/attivo di qualunque operatore" on operatori for update
+  using (exists(select 1 from operatori o2 where o2.id = auth.uid() and o2.super = true))
+  with check (exists(select 1 from operatori o2 where o2.id = auth.uid() and o2.super = true));
 
 -- Registro accessi: eventi discreti di login (riuscito/fallito) e logout,
 -- per operatori e pazienti. L'insert è volutamente aperto a chiunque
@@ -1304,6 +1339,19 @@ Dopo aver eseguito lo script sopra:
    on conflict (id) do update set super = true;
    ```
 3. Ricarica l'app e accedi di nuovo: nella home operatore comparirà una sezione "Solo super-operatore" con il Registro accessi. Gli altri operatori non la vedranno, e un tentativo di lettura diretto della tabella `accessi` con le loro credenziali restituirà righe vuote per via della RLS.
+
+Il Registro accessi si apre su una schermata con due pulsanti, "Registro
+operatori" e "Registro pazienti" — ciascuno con la propria tabella,
+filtro e dettaglio sessione per sessione, non più tutto insieme sulla
+stessa schermata. Il registro operatori include anche **"Gestione
+operatori"**: archiviare un operatore blocca il suo accesso (login
+rifiutato, anche da una scheda già aperta in precedenza) senza toccare
+nulla di quello che ha già fatto — programmi assegnati e storico sessioni
+dei suoi pazienti restano intatti, esattamente come l'archiviazione di un
+paziente non cancella le sue sedute passate. Il campo "nome" è solo
+un'etichetta leggibile al posto dell'identificativo tecnico, impostabile
+da lì in qualunque momento; non richiede altro oltre alla migrazione SQL
+sopra (colonne `nome`/`attivo` + le due policy aggiuntive).
 
 **Registro accessi — una sola schermata, stato attuale e storico insieme.**
 Una riga per persona (operatore o paziente): stato attuale (🟢 online da

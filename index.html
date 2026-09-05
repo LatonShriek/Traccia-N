@@ -1123,8 +1123,7 @@
       : activeRemotePatientId ? 'Paziente remoto selezionato'
       : 'Esercizi liberi';
     const row = el('div',{style:'display:flex; align-items:center; justify-content:space-between; background:var(--paper-dim); border-radius:10px; padding:10px 14px;'},[
-      el('div',{style:'font-size:13px; font-weight:600;'},[label]),
-      el('button',{style:'background:none; border:none; color:var(--ink-soft); text-decoration:underline; font-size:12.5px; cursor:pointer; font-family:Inter;', onclick:()=>{ view='operatorHome'; render(); }},['Cambia'])
+      el('div',{style:'font-size:13px; font-weight:600;'},[label])
     ]);
     wrap.appendChild(row);
     if(activeLocal){
@@ -1344,8 +1343,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''

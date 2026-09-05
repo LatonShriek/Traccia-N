@@ -96,7 +96,7 @@ module.exports = function run(t) {
       'N-back ha un campo livello proprio (nLevel) — leggere adaptStartLevel per sbaglio è esattamente il bug che ha causato un messaggio "Livello X" errato in Setup');
     t.eq(levelOfCfg({ taskMode: 'gonogo', adaptStartLevel: 4, nLevel: 99 }), 4,
       'Go/No-Go usa adaptStartLevel, non nLevel');
-    t.eq(levelOfCfg({ taskMode: 'ant', antMode: 'tapat', tapatStartLevel: 3, adaptStartLevel: 99 }), 3,
+    t.eq(levelOfCfg({ taskMode: 'tapat', tapatStartLevel: 3, adaptStartLevel: 99 }), 3,
       'TAPAT usa il proprio tapatStartLevel, non adaptStartLevel');
   });
 

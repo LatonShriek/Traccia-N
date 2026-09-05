@@ -34,12 +34,11 @@ const EXERCISE_BUTTON_TEXT = {
   switching: 'Task-switching',
   categorizzazione: 'Categorizzazione condizionale',
   dualtask: 'Doppio compito',
-  // TAPAT e ANT classico non sono due esercizi a sé nel selettore — sono
-  // due sotto-modalità di "Attenzione (tipo ANT)". Classico è la
-  // modalità di default (nessun secondo tocco necessario), TAPAT
-  // richiede un secondo tocco esplicito (subMode sotto).
-  antclassico: 'Attenzione (tipo ANT)',
-  tapat: { exercise: 'Attenzione (tipo ANT)', subMode: 'TAPAT' },
+  // TAPAT è stato separato da ANT classico in questa sessione: ora sono
+  // due voci distinte nel selettore, ciascuna con il proprio pulsante —
+  // nessun secondo tocco su una sotto-modalità è più necessario.
+  ant: 'Attenzione (tipo ANT)',
+  tapat: 'TAPAT (allerta tonica/fasica)',
   simon: 'Simon (conflitto spazio-risposta)',
   mantenimento: 'Mantenimento (tipo Sternberg)',
   neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' }

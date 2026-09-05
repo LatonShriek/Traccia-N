@@ -254,6 +254,13 @@
   // stimolo autonomo utilizzabile in qualunque esercizio con usesStimType.
   function isSpokenStim(t){ return t==='lettereVoce' || t==='numeriVoce' || t==='paroleVoce'; }
   function isAudioOnlyStim(t){ return t==='suoni' || isSpokenStim(t); }
+  // TAPAT era una sotto-modalità di ANT (taskMode:'ant', antMode:'tapat')
+  // prima della separazione in due esercizi distinti. Le sessioni già
+  // salvate con il formato vecchio restano leggibili/esportabili con
+  // questo helper, usato ovunque occorra riconoscere "è una sessione
+  // TAPAT" su un cfg o un record storico, vecchio o nuovo formato che sia.
+  // Le sessioni NUOVE scrivono sempre taskMode:'tapat' direttamente.
+  function isTapatLike(o){ return !!o && (o.taskMode==='tapat' || (o.taskMode==='ant' && o.antMode==='tapat')); }
   // Riproduce lo stimolo per il tipo corrente — un'unica chiamata invece di
   // ripetere ovunque il branch toni/voce.
   function playStimulusAudio(stimType, val, dur){
@@ -379,22 +386,33 @@
         return verbo+' '+matName+' e devi rispondere il più velocemente possibile toccando "'+rule.labelA+'" o "'+rule.labelB+'", a seconda di quale delle due si applica. A volte, subito dopo, comparirà la scritta STOP: in quel caso non toccare nessuno dei due pulsanti, anche se avevi già iniziato il movimento.';
       }},
     ant:        {label:'Attenzione (tipo ANT)',   usesStimType:true,  usesTargetSeq:false, family:'choice',
-      domini:['Allerta','Orienting spaziale','Controllo esecutivo/conflitto'],
+      domini:['Orienting spaziale','Controllo esecutivo/conflitto'],
+      // Da questa sessione, ANT classico e TAPAT sono due esercizi distinti
+      // (vedi 'tapat' più sotto). ANT classico è visivo con flanker
+      // (conflitto percettivo) e cue spaziale predittivo (orienting); non
+      // isola più da solo l'allerta tonica/fasica, che è materia di TAPAT.
       instructions:c=>{
-        if(c.antMode==='tapat'){
-          const isUditivo = c.tapatModalita==='uditivo';
-          const matName = isUditivo ? 'il tono' : (c.stimType==='colori' ? 'il cerchio colorato' : c.stimType==='simboli' ? 'il simbolo' : 'lo stimolo');
-          const verbo = isUditivo ? 'senti' : 'vedi';
-          const spaziale = c.tapatSpatial
-            ? (isUditivo ? ' Il tono può arrivare da sinistra o da destra invece che dal centro — ascolta con attenzione da entrambi i lati, non concentrarti su uno solo.'
-              : ' Il bersaglio può comparire a sinistra o a destra invece che al centro — esplora tutto lo schermo, non fissare un punto solo.')
-            : '';
-          const cuffie = isUditivo ? ' Indossa cuffie, o siediti fra due casse: senza un vero audio stereo il tono si sente comunque, ma non da una direzione precisa.' : '';
-          return 'Nella prima parte, gli intervalli tra uno stimolo e l\'altro sono lunghi e imprevedibili: mantieni l\'attenzione anche se sembra non succedere nulla, e tocca il pulsante appena '+verbo+' '+matName+'.'+spaziale+cuffie+' Nella seconda parte, gli intervalli sono più brevi e a volte un piccolo segnale sonoro ti avviserà poco prima — rispondi comunque il più velocemente possibile, ogni volta.';
-        }
         const tokens = ANT_MATERIAL_TOKENS[c.antMaterial];
         if(tokens) return 'Vedrai "'+tokens[0]+'" o "'+tokens[1]+'" al centro dello schermo, a volte circondato da altri elementi uguali o diversi. Tocca il pulsante corrispondente a quello al centro, il più velocemente possibile.';
         return 'Vedrai una freccia al centro dello schermo, a volte circondata da altre frecce. Indica la direzione della freccia centrale il più velocemente possibile, toccando il pulsante sinistra o destra.';
+      }},
+    tapat:      {label:'TAPAT (allerta tonica/fasica)', usesStimType:true, usesTargetSeq:false, family:'choice',
+      domini:['Allerta'],
+      // Separato da ANT classico in questa sessione: non ha flanker né cue
+      // spaziale predittivo, isola solo l'allerta (blocco tonico + blocco
+      // fasico), con variante uditiva a panning stereo (DeGutis & Van
+      // Vleet, 2010; Van Vleet & DeGutis, 2013, Cortex, per il cross-
+      // training uditivo→visivo nel neglect).
+      instructions:c=>{
+        const isUditivo = c.tapatModalita==='uditivo';
+        const matName = isUditivo ? 'il tono' : (c.stimType==='colori' ? 'il cerchio colorato' : c.stimType==='simboli' ? 'il simbolo' : 'lo stimolo');
+        const verbo = isUditivo ? 'senti' : 'vedi';
+        const spaziale = c.tapatSpatial
+          ? (isUditivo ? ' Il tono può arrivare da sinistra o da destra invece che dal centro — ascolta con attenzione da entrambi i lati, non concentrarti su uno solo.'
+            : ' Il bersaglio può comparire a sinistra o a destra invece che al centro — esplora tutto lo schermo, non fissare un punto solo.')
+          : '';
+        const cuffie = isUditivo ? ' Indossa cuffie, o siediti fra due casse: senza un vero audio stereo il tono si sente comunque, ma non da una direzione precisa.' : '';
+        return 'Nella prima parte, gli intervalli tra uno stimolo e l\'altro sono lunghi e imprevedibili: mantieni l\'attenzione anche se sembra non succedere nulla, e tocca il pulsante appena '+verbo+' '+matName+'.'+spaziale+cuffie+' Nella seconda parte, gli intervalli sono più brevi e a volte un piccolo segnale sonoro ti avviserà poco prima — rispondi comunque il più velocemente possibile, ogni volta.';
       }},
     switching:  {label:'Task-switching',          usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Flessibilità cognitiva','Funzioni esecutive'],
@@ -528,7 +546,7 @@
   // vengono mostrati — così un domani riordinare la vetrina non richiede
   // spostare blocchi di codice dentro EXERCISES, solo questa lista.
   const EXERCISE_GROUPS = [
-    {label:'Attenzione e inibizione', keys:['gonogo','stopsignal','ant','simon']},
+    {label:'Attenzione e inibizione', keys:['gonogo','stopsignal','ant','tapat','simon']},
     {label:'Memoria di lavoro e mantenimento', keys:['nback','sequenza','mantenimento']},
     {label:'Flessibilità cognitiva', keys:['switching','categorizzazione']},
     {label:'Esplorazione visuospaziale', keys:['neglect']},
@@ -558,7 +576,7 @@
     titrationMode:'manuale',
     switchMaterial:'numeri', // solo per Task-switching
     simonCongruenza:'bilanciato', // solo per Simon — 'bilanciato'|'prevalenza_congruente'|'prevalenza_incongruente', parametro clinico fisso per sessione, non una leva di titolazione (vedi ADAPT_ISI.simon per la vera leva adattiva)
-    antMode:'classico', antMaterial:'frecce', // 'classico' | 'tapat'; materiale: 'frecce' | 'lettere' | 'simboli' — solo ANT classico
+    antMode:'classico', antMaterial:'frecce', // antMode: legacy, letto solo per riconoscere sessioni salvate prima della separazione ANT/TAPAT (mai scritto da sessioni nuove); materiale: 'frecce' | 'lettere' | 'simboli' — solo ANT classico
     showTrail:true, // mostra i pallini di esito prova-per-prova durante la sessione
     numDigits:1, wordComplexity:'breve', // solo per stimolo "numeri"/"parole"
     tapatStartLevel:3, adaptStartLevel:3, neglectStartLevel:3, // livello di partenza, aggiornato dopo ogni sessione adattiva
@@ -685,7 +703,7 @@
   function resolvedIsiForDisplay(taskMode, c){
     if(taskMode==='sequenza') return ADAPT_ISI.sequenza[c.adaptStartLevel];
     if(taskMode==='stopsignal') return ADAPT_ISI.stopsignal[c.adaptStartLevel];
-    if(taskMode==='ant' && c.antMode==='classico') return ADAPT_ISI.ant[c.adaptStartLevel];
+    if(taskMode==='ant') return ADAPT_ISI.ant[c.adaptStartLevel];
     return null;
   }
   // Trasparenza per Cancellazione (Neglect) — parametri diversi dai 6
@@ -790,7 +808,7 @@
       else if(taskMode==='gonogo') parts.push((c.targetSeq||[]).length+' elementi no-go attivi', 'frequenza no-go '+Math.round(c.targetRate*100)+'%');
       else if(taskMode==='switching') parts.push('nessun intervallo cue→stimolo dedicato (regola e stimolo mostrati insieme)', 'nessuno sbilanciamento fra le due regole (50/50)');
       else if(taskMode==='sequenza') parts.push('lunghezza sequenza bersaglio: '+c.targetSeq.length);
-      else if(taskMode==='stopsignal' || (taskMode==='ant' && c.antMode==='classico')) parts.push('ISI '+c.isi+' ms (non collegato al livello)');
+      else if(taskMode==='stopsignal' || taskMode==='ant') parts.push('ISI '+c.isi+' ms (non collegato al livello)');
       return 'Modalità Manuale: ogni parametro resta quello impostato qui sotto, indipendente dal livello.'+(parts.length?' Oggi: '+parts.join(', ')+'.':'');
     }
     if(mode==='livello'){
@@ -849,7 +867,8 @@
   // una configurazione specifica da caricare (vedi applyLevelBaselineOrSuggestion).
   const LEVEL_FIELD_OF_TASKMODE = {
     nback:'nLevel', categorizzazione:'categLivello',
-    sequenza:'adaptStartLevel', switching:'adaptStartLevel', gonogo:'adaptStartLevel', stopsignal:'adaptStartLevel', ant:'adaptStartLevel',
+    sequenza:'adaptStartLevel', switching:'adaptStartLevel', gonogo:'adaptStartLevel', stopsignal:'adaptStartLevel', ant:'adaptStartLevel', simon:'adaptStartLevel',
+    tapat:'tapatStartLevel',
     neglect:'neglectStartLevel', dualtask:['dualStartLevel1','dualStartLevel2'],
     goaltask:'goaltaskLivello', memoria:'memoriaLivello'
   };
@@ -857,14 +876,12 @@
     const field = LEVEL_FIELD_OF_TASKMODE[taskMode];
     if(Array.isArray(field)) field.forEach(k=>{ cfg[k]=1; });
     else if(field) cfg[field]=1;
-    if(taskMode==='ant' && cfg.antMode==='tapat') cfg.tapatStartLevel=1;
     if(taskMode==='neglect') cfg.neglectRuleLevel=1;
   }
   // Estrae un valore di livello leggibile da una cfg, per confronti (es. "il
   // suggerimento originale dello screening diceva livello X, oggi è Y") e
   // per mostrarlo ovunque serva (nome proposto, "già nel programma"...).
   function levelOfCfg(c){
-    if(c.taskMode==='ant' && c.antMode==='tapat') return c.tapatStartLevel;
     const field = LEVEL_FIELD_OF_TASKMODE[c.taskMode];
     if(!field) return null;
     if(Array.isArray(field)) return field.map(k=>c[k]).join('/');
@@ -1343,8 +1360,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1605,6 +1622,7 @@
       case 'sequenza': return buildSequenceTarget();
       case 'stopsignal': return buildStopSignal();
       case 'ant': return buildANT();
+      case 'tapat': return buildTAPAT();
       case 'switching': return buildSwitching();
       case 'simon': return buildSimon();
       case 'mantenimento': return buildMantenimento();
@@ -1761,7 +1779,6 @@
   const ANT_MATERIAL_TOKENS = { lettere:['H','S'], simboli:['●','■'] };
   const ANT_MATERIAL_OPTIONS = ['frecce','lettere','simboli'];
   function buildANT(){
-    if(cfg.antMode==='tapat') return buildTAPAT();
     const seq = [];
     const cueTypes = ['none','center','spatial'];
     const congruencies = ['congruent','incongruent','neutral'];
@@ -3563,7 +3580,16 @@
   function configForExercise(patientLike, taskMode){
     if(!patientLike) return null;
     const map = patientLike.livelli_esercizi || patientLike.livelliEsercizi;
-    return (map && map[taskMode]) ? map[taskMode] : null;
+    if(map && map[taskMode]) return map[taskMode];
+    // Migrazione: prima della separazione ANT/TAPAT, il livello raggiunto
+    // in TAPAT veniva salvato sotto la stessa chiave 'ant' dell'ANT
+    // classico (un solo slot "ultima raggiunta", chiunque dei due fosse
+    // stato fatto per ultimo). Se quello slot risulta essere in realtà
+    // una sessione TAPAT, va recuperato qui — altrimenti il livello del
+    // paziente sembrerebbe azzerato per un motivo puramente di refactor,
+    // non di dati mancanti davvero.
+    if(taskMode==='tapat' && map && map.ant && isTapatLike(map.ant)) return map.ant;
+    return null;
   }
   // Slot nominali per paziente/esercizio — a differenza di
   // livelli_esercizi/livelliEsercizi (UN solo slot, "ultima raggiunta",
@@ -3577,7 +3603,16 @@
   function namedConfigsFor(patientLike, taskMode){
     if(!patientLike) return [];
     const map = patientLike.configurazioni_salvate || patientLike.configurazioniSalvate;
-    return (map && map[taskMode]) ? map[taskMode] : [];
+    const own = (map && map[taskMode]) ? map[taskMode] : [];
+    // Migrazione: prima della separazione ANT/TAPAT, le configurazioni
+    // nominali di entrambi finivano mescolate nello stesso array sotto la
+    // chiave 'ant', distinguibili solo dal cfg salvato in ciascuna voce.
+    // 'ant' oggi mostra solo le voci che NON sono TAPAT; 'tapat' recupera
+    // quelle che lo sono, da qualunque delle due chiavi provengano.
+    if(!map) return own;
+    if(taskMode==='tapat') return own.concat((map.ant||[]).filter(x=> isTapatLike(x.cfg)));
+    if(taskMode==='ant') return own.filter(x=> !isTapatLike(x.cfg));
+    return own;
   }
   async function saveNamedConfig(kind, id, taskMode, nome, snap){
     if(kind==='local'){
@@ -3801,8 +3836,8 @@
 
     // stimulus type — solo per gli esercizi che ne hanno uno configurabile
     // (l'ANT classico usa sempre frecce fisse, il TAPAT invece sceglie il materiale)
-    const isClassicAnt = cfg.taskMode==='ant' && cfg.antMode==='classico';
-    const isTapat = cfg.taskMode==='ant' && cfg.antMode==='tapat';
+    const isClassicAnt = cfg.taskMode==='ant';
+    const isTapat = cfg.taskMode==='tapat';
     const MISTA_LABELS = {no:'Un solo tipo', visivo:'Mescolato visivo (lettere/numeri/colori/simboli)', uditivo:'Mescolato uditivo (suoni/lettere e numeri pronunciati)', misto:'Mescolato visivo + uditivo (tutti insieme)'};
     const isSequenzaMista = cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no';
     const isNbackMista = cfg.taskMode==='nback' && cfg.nbackMista && cfg.nbackMista!=='no';
@@ -3873,7 +3908,7 @@
       grid.appendChild(field('Livello', stepper(cfg.nLevel,1,10,v=>{cfg.nLevel=v; render();})));
       grid.appendChild(el('p',{class:'hint'},['n='+nbackParamsForLevel(cfg.nLevel).n+' a questo livello. Il livello combina n (1-3, cresce solo ai passaggi di banda) con frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso).']));
     }
-    if(cfg.taskMode==='sequenza' || cfg.taskMode==='switching' || cfg.taskMode==='gonogo' || cfg.taskMode==='stopsignal' || (cfg.taskMode==='ant' && cfg.antMode==='classico')){
+    if(cfg.taskMode==='sequenza' || cfg.taskMode==='switching' || cfg.taskMode==='gonogo' || cfg.taskMode==='stopsignal' || cfg.taskMode==='ant' || cfg.taskMode==='simon'){
       grid.appendChild(field('Livello', stepper(cfg.adaptStartLevel,1,10,v=>{
         cfg.adaptStartLevel=v;
         if(cfg.taskMode==='sequenza' && cfg.titrationMode!=='manuale') adjustTargetSeqToLength(ADAPT_SEQ_LEN[v]);
@@ -3881,7 +3916,7 @@
         render();
       })));
     }
-    if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+    if(cfg.taskMode==='tapat'){
       grid.appendChild(field('Livello', stepper(cfg.tapatStartLevel,1,10,v=>{cfg.tapatStartLevel=v; render();})));
     }
     if(cfg.taskMode==='neglect' && (cfg.neglectMode==='classico' || cfg.neglectMode==='intruso')){
@@ -3897,7 +3932,7 @@
       grid.appendChild(field('Livello canale 1', stepper(cfg.dualStartLevel1,1,10,v=>{cfg.dualStartLevel1=v; render();})));
       grid.appendChild(field('Livello canale 2', stepper(cfg.dualStartLevel2,1,10,v=>{cfg.dualStartLevel2=v; render();})));
     }
-    if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+    if(cfg.taskMode==='tapat'){
       grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
         cfg.titrationMode = v;
         cfg.adaptive = v==='adattivo';
@@ -3921,7 +3956,7 @@
       }, {manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'})));
       card.appendChild(el('p',{class:'hint'},[dualTitrationModeHint(cfg, cfg.titrationMode||'manuale')]));
     }
-    if(TITRATION_EXERCISES.includes(cfg.taskMode) && !(cfg.taskMode==='ant' && cfg.antMode==='tapat')){
+    if(TITRATION_EXERCISES.includes(cfg.taskMode)){
       grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
         cfg.titrationMode = v;
         cfg.adaptive = v==='adattivo';
@@ -4142,29 +4177,27 @@
         card.appendChild(el('p',{class:'hint'},['Con l\'adattivo attivo, elementi per tavola e tempo limite crescono/calano insieme in base all\'accuratezza (regola 70-85%)'+((cfg.neglectMode==='classico'||cfg.neglectMode==='progressiva')?'; il gradiente si sposta automaticamente verso il lato che va peggio tavola dopo tavola, fino a un massimo di 75/25 (solo nella fase Classico, se progressiva).':'.')]));
       }
     }
+    if(cfg.taskMode==='tapat'){
+      card.appendChild(el('p',{class:'hint'},['Variante orientata al training, non alla misura: prima metà delle prove senza cue e con intervalli lunghi e imprevedibili (allerta tonica/sostenuta), seconda metà con intervalli più brevi e un cue di allerta in metà dei casi (allerta fasica). Risposta: tocca appena vedi il bersaglio, non c\'è scelta di direzione. Nota terminologica: il blocco tonico richiede di sostenere l\'attivazione da soli nel tempo, il blocco fasico la innesca un cue esterno appena prima del bersaglio — un\'analogia concettuale con proattivo/reattivo (Braver, 2012), non un\'equivalenza dimostrata nello stesso paradigma.']));
+      if(cfg.adaptive){
+        card.appendChild(el('p',{class:'hint'},['La difficoltà del blocco tonico (durata delle attese) sale se l\'accuratezza supera l\'85% negli ultimi 8 trial validi, scende sotto il 70% — 5 livelli, dalle attese brevi (2-4s) a quelle lunghe e imprevedibili (8-15s). Puoi comunque forzare il livello con i pulsanti +/– nella barra in alto durante la sessione.']));
+      }
+      card.appendChild(field('Modalità', segButtons(['visivo','uditivo'], cfg.tapatModalita, v=>{cfg.tapatModalita=v; render();}, {visivo:'Visivo (bersaglio a schermo)', uditivo:'Uditivo (bersaglio sonoro)'})));
+      if(cfg.tapatModalita==='uditivo'){
+        card.appendChild(el('p',{class:'hint'},['Il bersaglio è un tono dedicato, non uno stimolo visivo — a schermo non compare nulla che anticipi comparsa o posizione del bersaglio, nemmeno il cue fasico (che resta comunque un suono, invariato). Protocollo con base in letteratura: allenamento tonico/fasico dell\'attenzione (DeGutis & Van Vleet, 2010, validato su pazienti con neglect emispaziale) e un precedente diretto di cross-training uditivo-visivo nel neglect (Van Vleet & DeGutis, 2013, Cortex). Richiede cuffie o casse stereo funzionanti — con un solo altoparlante mono (es. telefono appoggiato sul tavolo) il bersaglio si sente comunque, ma la componente spaziale sinistra/destra sotto non ha alcun effetto.']));
+      }
+      card.appendChild(field('Componente spaziale (neglect)', segButtons(['no','si'], cfg.tapatSpatial?'si':'no', v=>{cfg.tapatSpatial = v==='si'; render();}, {no:'Solo centrale', si:'Bersaglio a sinistra/destra'})));
+      if(cfg.tapatSpatial){
+        card.appendChild(field('Gradiente sinistra/destra', stepper(cfg.tapatGradient,0,100,v=>{cfg.tapatGradient=v; render();},5,v=> v+'% sin. / '+(100-v)+'% des.')));
+        card.appendChild(el('p',{class:'hint'},['Il bersaglio compare a sinistra o a destra invece che al centro, nella proporzione impostata'+(cfg.tapatModalita==='uditivo'?' (in modalità uditiva, tramite panning stereo del tono invece che posizione a schermo — richiede cuffie/casse stereo, vedi sopra)':'')+'. Con l\'adattivo attivo, il gradiente si sposta da solo verso il lato dove l\'accuratezza è più bassa — favorendo l\'esplorazione proprio dello spazio più trascurato, seduta dopo seduta.']));
+      }
+    }
     if(cfg.taskMode==='ant'){
-      card.appendChild(field('Modalità', segButtons(['classico','tapat'], cfg.antMode, v=>{cfg.antMode=v; render();}, {classico:'ANT classico (misura)', tapat:'TAPAT (training tonico/fasico)'})));
-      if(cfg.antMode==='tapat'){
-        card.appendChild(el('p',{class:'hint'},['Variante orientata al training, non alla misura: prima metà delle prove senza cue e con intervalli lunghi e imprevedibili (allerta tonica/sostenuta), seconda metà con intervalli più brevi e un cue di allerta in metà dei casi (allerta fasica). Risposta: tocca appena vedi il bersaglio, non c\'è scelta di direzione. Nota terminologica: il blocco tonico richiede di sostenere l\'attivazione da soli nel tempo, il blocco fasico la innesca un cue esterno appena prima del bersaglio — un\'analogia concettuale con proattivo/reattivo (Braver, 2012), non un\'equivalenza dimostrata nello stesso paradigma.']));
-        if(cfg.adaptive){
-          card.appendChild(el('p',{class:'hint'},['La difficoltà del blocco tonico (durata delle attese) sale se l\'accuratezza supera l\'85% negli ultimi 8 trial validi, scende sotto il 70% — 5 livelli, dalle attese brevi (2-4s) a quelle lunghe e imprevedibili (8-15s). Puoi comunque forzare il livello con i pulsanti +/– nella barra in alto durante la sessione.']));
-        }
-        card.appendChild(field('Modalità', segButtons(['visivo','uditivo'], cfg.tapatModalita, v=>{cfg.tapatModalita=v; render();}, {visivo:'Visivo (bersaglio a schermo)', uditivo:'Uditivo (bersaglio sonoro)'})));
-        if(cfg.tapatModalita==='uditivo'){
-          card.appendChild(el('p',{class:'hint'},['Il bersaglio è un tono dedicato, non uno stimolo visivo — a schermo non compare nulla che anticipi comparsa o posizione del bersaglio, nemmeno il cue fasico (che resta comunque un suono, invariato). Protocollo con base in letteratura: allenamento tonico/fasico dell\'attenzione (DeGutis & Van Vleet, 2010, validato su pazienti con neglect emispaziale) e un precedente diretto di cross-training uditivo-visivo nel neglect (Van Vleet & DeGutis, 2013, Cortex). Richiede cuffie o casse stereo funzionanti — con un solo altoparlante mono (es. telefono appoggiato sul tavolo) il bersaglio si sente comunque, ma la componente spaziale sinistra/destra sotto non ha alcun effetto.']));
-        }
-        card.appendChild(field('Componente spaziale (neglect)', segButtons(['no','si'], cfg.tapatSpatial?'si':'no', v=>{cfg.tapatSpatial = v==='si'; render();}, {no:'Solo centrale', si:'Bersaglio a sinistra/destra'})));
-        if(cfg.tapatSpatial){
-          card.appendChild(field('Gradiente sinistra/destra', stepper(cfg.tapatGradient,0,100,v=>{cfg.tapatGradient=v; render();},5,v=> v+'% sin. / '+(100-v)+'% des.')));
-          card.appendChild(el('p',{class:'hint'},['Il bersaglio compare a sinistra o a destra invece che al centro, nella proporzione impostata'+(cfg.tapatModalita==='uditivo'?' (in modalità uditiva, tramite panning stereo del tono invece che posizione a schermo — richiede cuffie/casse stereo, vedi sopra)':'')+'. Con l\'adattivo attivo, il gradiente si sposta da solo verso il lato dove l\'accuratezza è più bassa — favorendo l\'esplorazione proprio dello spazio più trascurato, seduta dopo seduta.']));
-        }
-      } else {
-        card.appendChild(field('Materiale', segButtons(['frecce','lettere','simboli','misto'], cfg.antMaterial, v=>{cfg.antMaterial=v; render();}, {frecce:'Frecce (classico)', lettere:'Lettere (H/S)', simboli:'Simboli (●/■)', misto:'Mescolato (a caso ogni prova)'})));
-        card.appendChild(el('p',{class:'hint'},['Versione semplificata dell\'Attention Network Test: allerta (cue presente/assente), orienting (cue spaziale valido/invalido), conflitto (flanker congruenti/incongruenti/neutri). Il paziente indica quale dei due elementi designati vede al centro.']));
-        card.appendChild(el('p',{class:'hint'},['Il materiale non cambia la difficoltà — cambia solo il canale percettivo coinvolto. Utile per varietà tra sedute, o per evitare le frecce con pazienti con difficoltà visuospaziali specifiche.'+(cfg.antMaterial==='misto'?' In "Mescolato" ogni prova pesca a caso fra i tre — indici di allerta/orienting/conflitto calcolati sullo stesso identico modo, indipendentemente dal materiale pescato in quella prova.':'')]));
-        if(cfg.trials<60){
-          card.appendChild(el('p',{class:'hint', style:'color:var(--alert);'},['⚠ Gli indici si calcolano su 9 combinazioni cue×congruenza: con meno di 60 prove, ciascuna media poggia su troppo pochi trial per essere affidabile. Consigliate almeno 60–90 prove per questo esercizio.']));
-        }
+      card.appendChild(field('Materiale', segButtons(['frecce','lettere','simboli','misto'], cfg.antMaterial, v=>{cfg.antMaterial=v; render();}, {frecce:'Frecce (classico)', lettere:'Lettere (H/S)', simboli:'Simboli (●/■)', misto:'Mescolato (a caso ogni prova)'})));
+      card.appendChild(el('p',{class:'hint'},['Versione semplificata dell\'Attention Network Test: allerta (cue presente/assente), orienting (cue spaziale valido/invalido), conflitto (flanker congruenti/incongruenti/neutri). Il paziente indica quale dei due elementi designati vede al centro.']));
+      card.appendChild(el('p',{class:'hint'},['Il materiale non cambia la difficoltà — cambia solo il canale percettivo coinvolto. Utile per varietà tra sedute, o per evitare le frecce con pazienti con difficoltà visuospaziali specifiche.'+(cfg.antMaterial==='misto'?' In "Mescolato" ogni prova pesca a caso fra i tre — indici di allerta/orienting/conflitto calcolati sullo stesso identico modo, indipendentemente dal materiale pescato in quella prova.':'')]));
+      if(cfg.trials<60){
+        card.appendChild(el('p',{class:'hint', style:'color:var(--alert);'},['⚠ Gli indici si calcolano su 9 combinazioni cue×congruenza: con meno di 60 prove, ciascuna media poggia su troppo pochi trial per essere affidabile. Consigliate almeno 60–90 prove per questo esercizio.']));
       }
     }
     if(cfg.taskMode==='switching'){
@@ -4577,7 +4610,7 @@
     if(cfg.taskMode==='neglect'){ startNeglectSession(); return; }
     if(cfg.taskMode==='goaltask'){ startGoalTaskSession(); return; }
     if(cfg.taskMode==='memoria'){ startMemoriaSession(); return; }
-    const isTapat = cfg.taskMode==='ant' && cfg.antMode==='tapat';
+    const isTapat = cfg.taskMode==='tapat';
     const isIncremental = cfg.taskMode==='nback' || isTapat || cfg.taskMode==='gonogo' || cfg.taskMode==='dualtask' || cfg.taskMode==='categorizzazione';
     session = {
       // n-back, TAPAT e Go/No-Go generano le prove una alla volta (serve
@@ -5178,7 +5211,7 @@
   // l'esercizio corrente, o null se quell'esercizio non è adattivo.
   function adaptLevelKey(){
     if(cfg.taskMode==='nback') return 'liveNLevel';
-    if(cfg.taskMode==='ant' && cfg.antMode==='tapat') return 'tapatLevel';
+    if(cfg.taskMode==='tapat') return 'tapatLevel';
     if(cfg.taskMode==='neglect') return 'liveBoardLevel';
     if(cfg.taskMode==='categorizzazione') return 'categLevel';
     if(cfg.taskMode==='dualtask') return null; // gestito a parte da bumpDualLevel/maybeAdaptDualChannel — mai session.adaptLevel, anche se ADAPT_ISI['dualtask'] esiste (usata solo per l'ISI condiviso, non per il livello)
@@ -5409,7 +5442,7 @@
   function nextTrial(){
     session.idx++;
     if(session.idx >= cfg.trials){ finishSession(); return; }
-    const isTapat = cfg.taskMode==='ant' && cfg.antMode==='tapat';
+    const isTapat = cfg.taskMode==='tapat';
     const trial = cfg.taskMode==='nback' ? genNbackTrial()
       : isTapat ? genTapatTrial()
       : cfg.taskMode==='gonogo' ? genGoNoGoTrial()
@@ -5492,7 +5525,7 @@
         // con la tabella ADAPT_ISI.dualtask (10 livelli).
         const avgLevel = Math.round(((session.dualLevel1||1)+(session.dualLevel2||1))/2);
         isi = ADAPT_ISI.dualtask[Math.max(1,Math.min(10,avgLevel))] || cfg.isi;
-      } else if(!trial.isiOverride && TITRATION_EXERCISES.includes(cfg.taskMode) && cfg.titrationMode!=='manuale' && ADAPT_ISI[cfg.taskMode] && !(cfg.taskMode==='ant' && cfg.antMode==='tapat')){
+      } else if(!trial.isiOverride && TITRATION_EXERCISES.includes(cfg.taskMode) && cfg.titrationMode!=='manuale' && ADAPT_ISI[cfg.taskMode]){
         isi = ADAPT_ISI[cfg.taskMode][session.adaptLevel];
       }
       scheduleStep(()=> maybeResolveWithGrace(trial), Math.max(50,isi-cfg.stimDuration));
@@ -5518,7 +5551,7 @@
   // visivo (disegnato da renderCueNode, niente da fare qui). Per il TAPAT,
   // il cue è un tono, disaccoppiato dalla modalità del bersaglio stesso.
   function presentCue(trial){
-    if(cfg.taskMode==='ant' && cfg.antMode==='tapat' && trial.cueType==='center'){
+    if(cfg.taskMode==='tapat' && trial.cueType==='center'){
       playTone(TAPAT_CUE_TONE, ANT_CUE_DURATION+50);
     }
   }
@@ -5536,12 +5569,12 @@
       // vis-vis: nessun audio, entrambi i canali sono visivi (mostrati in renderStimulusNode)
       return;
     }
-    if((cfg.taskMode==='ant' && cfg.antMode!=='tapat') || cfg.taskMode==='switching' || cfg.taskMode==='simon') return; // solo visivi
+    if(cfg.taskMode==='ant' || cfg.taskMode==='switching' || cfg.taskMode==='simon') return; // solo visivi
     if(cfg.taskMode==='categorizzazione' && isSpokenStim(cfg.categMateriale)){
       speak(String(trial.val));
       return;
     }
-    if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+    if(cfg.taskMode==='tapat'){
       // Il tono di cue è già stato suonato nella fase 'cue' separata (vedi
       // presentCue) quando trial.cueType==='center' — qui parte solo il
       // bersaglio, mai il cue di nuovo.
@@ -5661,7 +5694,7 @@
       correct, rt: correct ? session.respTime : null, omitted: given===null,
       isSwitch: !!trial.isSwitch, cueType: trial.cueType, congruency: trial.congruency, block: trial.block, side: trial.side
     });
-    const isTapatSpatial = cfg.taskMode==='ant' && cfg.antMode==='tapat' && cfg.tapatSpatial;
+    const isTapatSpatial = cfg.taskMode==='tapat' && cfg.tapatSpatial;
     if(isTapatSpatial){
       session.spatialBlock = session.spatialBlock || [];
       session.spatialBlock.push({side:trial.side, correct});
@@ -5879,8 +5912,9 @@
         const rule = STOPSIGNAL_RULES[cfg.stimType] || STOPSIGNAL_RULES.frecce;
         return [{action:'a', label:rule.labelA, cls:'match'}, {action:'b', label:rule.labelB, cls:'nomatch'}];
       }
+      case 'tapat':
+        return [{action:'go', label: cfg.tapatModalita==='uditivo' ? 'Rilevato — tocca appena lo senti' : 'Rilevato — tocca appena lo vedi', cls:'match', full:true}];
       case 'ant': {
-        if(cfg.antMode==='tapat') return [{action:'go', label: cfg.tapatModalita==='uditivo' ? 'Rilevato — tocca appena lo senti' : 'Rilevato — tocca appena lo vedi', cls:'match', full:true}];
         const tokens = ANT_MATERIAL_TOKENS[cfg.antMaterial];
         return tokens
           ? [{action:'left', label:'◀ '+tokens[0], cls:'match'}, {action:'right', label:tokens[1]+' ▶', cls:'nomatch'}]
@@ -6005,17 +6039,17 @@
       : cfg.taskMode==='nback' ? 'livello '+session.liveNLevel+' · n='+nbackParamsForLevel(session.liveNLevel).n+(cfg.adaptive?' (adattivo)':'')
       : cfg.taskMode==='gonogo' ? 'go/no-go · livello '+session.adaptLevel
       : cfg.taskMode==='stopsignal' ? 'SSD '+Math.round(session.currentSSD)+'ms · ritmo livello '+session.adaptLevel
-      : (cfg.taskMode==='ant' && cfg.antMode==='tapat' && trial) ? 'TAPAT — blocco '+(trial.block==='tonic'?'tonico':'fasico')+' · livello '+session.tapatLevel+(cfg.adaptive?' (adattivo)':'')
-      : (cfg.taskMode==='ant' && cfg.antMode==='classico') ? 'ANT · livello '+session.adaptLevel
+      : (cfg.taskMode==='tapat' && trial) ? 'TAPAT — blocco '+(trial.block==='tonic'?'tonico':'fasico')+' · livello '+session.tapatLevel+(cfg.adaptive?' (adattivo)':'')
+      : cfg.taskMode==='ant' ? 'ANT · livello '+session.adaptLevel
       : cfg.taskMode==='switching' ? EXERCISES[cfg.taskMode].label+' · livello '+session.adaptLevel
       : cfg.taskMode==='dualtask' ? 'doppio compito · C1 livello '+session.dualLevel1+' · C2 livello '+session.dualLevel2
       : cfg.taskMode==='categorizzazione' ? EXERCISES[cfg.taskMode].label+' · livello '+cfg.categLivello+' · ISI/lure livello '+session.categLevel+(cfg.adaptive?' (adattivo)':'')
       : EXERCISES[cfg.taskMode].label;
     const curMista = cfg.taskMode==='sequenza' ? cfg.sequenzaMista : cfg.taskMode==='nback' ? cfg.nbackMista : cfg.taskMode==='gonogo' ? cfg.gonogoMista : 'no';
-    const isTapatSession = cfg.taskMode==='ant' && cfg.antMode==='tapat';
+    const isTapatSession = cfg.taskMode==='tapat';
     d.infoSpan.textContent = 'prova '+(Math.min(session.idx+1,cfg.trials))+' / '+cfg.trials+' · '+modeLabel+
       (isTapatSession ? (cfg.tapatModalita==='uditivo' ? ' · Uditivo' : '')
-        : (EXERCISES[cfg.taskMode].usesStimType && !(cfg.taskMode==='ant' && cfg.antMode==='classico')) ? ' · '+((curMista && curMista!=='no') ? MISTA_LABELS_SHORT[curMista] : STIM_LABELS[cfg.stimType]) : '');
+        : (EXERCISES[cfg.taskMode].usesStimType && cfg.taskMode!=='ant') ? ' · '+((curMista && curMista!=='no') ? MISTA_LABELS_SHORT[curMista] : STIM_LABELS[cfg.stimType]) : '');
     d.pauseBtn.textContent = session.paused ? '▶ Riprendi' : '❚❚ Pausa';
 
     // switching: le etichette dei pulsanti dipendono dalla regola del trial corrente
@@ -6070,7 +6104,7 @@
   // costruzione — stesso principio già usato per il cue acustico, un
   // segnale di allerta non deve anticipare la posizione del bersaglio.
   function renderCueNode(trial){
-    if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+    if(cfg.taskMode==='tapat'){
       if(cfg.tapatModalita==='uditivo') return el('div',{style:'display:flex; width:100%; justify-content:center; padding:0 8vw;'},[el('div',{style:'color:var(--ink-soft); font-size:15px; text-align:center;'},['🔊 Ascolta'])]);
       return el('div',{style:'display:flex; width:100%; justify-content:center; padding:0 8vw;'},[
         el('div',{style:'color:var(--accent); font-size:28px;'},['✦'])
@@ -6083,7 +6117,7 @@
     ]);
   }
   function renderStimulusNode(trial){
-    if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+    if(cfg.taskMode==='tapat'){
       if(cfg.tapatModalita==='uditivo'){
         // Nessun accompagnamento visivo, nemmeno per il cue: un segnale
         // sullo schermo (anche solo "sta per arrivare qualcosa") vanificherebbe
@@ -6305,7 +6339,7 @@
   // compito) i valori sono una scelta di comodo per un ritmo non
   // frettoloso — ipotesi di costruzione, non un dato di letteratura.
   const DEMO_TRIALS = 6;
-  const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','antclassico','simon'];
+  const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','ant','simon'];
   const DEMO_PATCHES = {
     nback: ()=>({taskMode:'nback', nLevel:1, isi:2200, stimDuration:700, trials:DEMO_TRIALS}),
     sequenza: ()=>({taskMode:'sequenza', adaptStartLevel:1, isi:2200, stimDuration:700, trials:DEMO_TRIALS}),
@@ -6314,17 +6348,14 @@
     stopsignal: ()=>({taskMode:'stopsignal', adaptStartLevel:1, isi:2000, stimDuration:800, trials:DEMO_TRIALS}),
     categorizzazione: ()=>({taskMode:'categorizzazione', categLivello:1, isi:1800, stimDuration:700, trials:DEMO_TRIALS}),
     dualtask: ()=>({taskMode:'dualtask', dualStartLevel1:1, dualStartLevel2:1, isi:2200, stimDuration:800, trials:DEMO_TRIALS}),
-    tapat: ()=>({taskMode:'ant', antMode:'tapat', tapatStartLevel:1, trials:DEMO_TRIALS}),
-    antclassico: ()=>({taskMode:'ant', antMode:'classico', adaptStartLevel:1, isi:3200, stimDuration:700, trials:DEMO_TRIALS}),
+    tapat: ()=>({taskMode:'tapat', tapatStartLevel:1, trials:DEMO_TRIALS}),
+    ant: ()=>({taskMode:'ant', adaptStartLevel:1, isi:3200, stimDuration:700, trials:DEMO_TRIALS}),
     simon: ()=>({taskMode:'simon', adaptStartLevel:1, simonCongruenza:'bilanciato', isi:3200, stimDuration:700, trials:DEMO_TRIALS})
   };
   function demoLabelFor(key){
-    if(key==='tapat') return 'TAPAT';
-    if(key==='antclassico') return 'ANT';
     return EXERCISES[key].label;
   }
   function demoKeyForCurrentCfg(){
-    if(cfg.taskMode==='ant') return cfg.antMode==='tapat' ? 'tapat' : 'antclassico';
     return DEMO_ELIGIBLE.includes(cfg.taskMode) ? cfg.taskMode : null;
   }
   // Stessi controlli già usati da "Avvia sessione" — una demo su Sequenza
@@ -6385,11 +6416,11 @@
     if(cfg.taskMode==='dualtask'){
       return ok ? 'Giusto su entrambi i canali — ricorda: qui si risponde a due cose insieme, ciascuna con la propria regola.' : 'Qui manca o è sbagliata la risposta su almeno uno dei due canali — ricorda: vanno seguiti insieme, ciascuno con la propria regola.';
     }
-    if(cfg.taskMode==='ant' && cfg.antMode==='tapat'){
+    if(cfg.taskMode==='tapat'){
       if(trial.block==='tonic') return ok ? 'Giusto — hai risposto al bersaglio anche senza nessun segnale d\'aiuto.' : 'Il bersaglio è comparso senza preavviso: in questo blocco bisogna restare pronti da soli, senza aiuti.';
       return ok ? 'Giusto — hai risposto al bersaglio dopo il segnale di allerta.' : 'Ricorda: il segnale che precede il bersaglio serve ad anticiparne l\'arrivo.';
     }
-    if(cfg.taskMode==='ant' && cfg.antMode==='classico'){
+    if(cfg.taskMode==='ant'){
       const cueNote = trial.cueType && trial.cueType!=='none' ? ' Il segnale visto poco prima anticipava l\'arrivo del bersaglio.' : '';
       return ok ? 'Giusto — hai indicato la direzione corretta.'+cueNote : 'La direzione indicata non era corretta — guarda solo la freccia centrale, ignora quelle intorno.'+cueNote;
     }
@@ -6598,7 +6629,7 @@
       if(pairing==='vis-vis') return STIM_LABELS[c.dualVisual]+' + '+STIM_LABELS[c.dualVisual2];
       return 'Uditivo × 2';
     }
-    if(c.taskMode==='ant' && c.antMode==='tapat') return 'TAPAT · '+(c.tapatModalita==='uditivo'?'Uditivo':'Visivo');
+    if(isTapatLike(c)) return 'TAPAT · '+(c.tapatModalita==='uditivo'?'Uditivo':'Visivo');
     if(c.taskMode==='ant') return ANT_MATERIAL_TOKENS[c.antMaterial] ? (c.antMaterial==='lettere'?'Lettere H/S':'Simboli') : 'Frecce';
     if(c.taskMode==='neglect'){
       if(c.neglectMode==='intruso') return 'Trova l\'intruso';
@@ -7326,8 +7357,8 @@
       respMode: cfg.respMode, patientCode: cfg.patientCode, notes: cfg.notes,
       taskMode: cfg.taskMode, targetSeq: EXERCISES[cfg.taskMode].usesTargetSeq ? cfg.targetSeq.map(seqLabel) : null,
       sequenzaMista: (cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no') ? cfg.sequenzaMista : null,
-      antMode: cfg.taskMode==='ant' ? cfg.antMode : null,
-      tapatModalita: (cfg.taskMode==='ant' && cfg.antMode==='tapat') ? cfg.tapatModalita : null,
+      antMode: cfg.taskMode==='ant' ? 'classico' : null,
+      tapatModalita: cfg.taskMode==='tapat' ? cfg.tapatModalita : null,
       // Livello raggiunto a fine sessione, in un unico campo generico —
       // prima esisteva solo per l'N-back (finalNLevel sotto): senza
       // questo, lo storico non poteva mostrare il livello per nessun
@@ -7335,7 +7366,7 @@
       finalLevel: (()=>{
         if(cfg.taskMode==='nback') return session.liveNLevel;
         if(cfg.taskMode==='categorizzazione') return session.categLevel;
-        if(cfg.taskMode==='ant' && cfg.antMode==='tapat') return session.tapatLevel;
+        if(cfg.taskMode==='tapat') return session.tapatLevel;
         if(cfg.taskMode==='neglect') return session.liveBoardLevel;
         if(cfg.taskMode==='dualtask') return session.dualLevel1+'/'+session.dualLevel2;
         if(cfg.taskMode==='goaltask') return cfg.goaltaskLivello;
@@ -7376,16 +7407,16 @@
         rec.choice.alerting = (noneRT!=null && centerRT!=null) ? Math.round(noneRT-centerRT) : null;
         rec.choice.orienting = (centerRT!=null && spatialRT!=null) ? Math.round(centerRT-spatialRT) : null;
         rec.choice.conflict = (congRT!=null && incongRT!=null) ? Math.round(incongRT-congRT) : null;
-        if(cfg.antMode==='tapat'){
-          const tonicTrials = log.filter(x=>x.block==='tonic');
-          const phasicTrials = log.filter(x=>x.block==='phasic');
-          rec.choice.tonicMeanRT = rtMeanOf(tonicTrials.filter(x=>x.correct).map(x=>x.rt));
-          rec.choice.tonicOmissions = tonicTrials.filter(x=>x.omitted).length;
-          rec.choice.tonicTotal = tonicTrials.length;
-          rec.choice.phasicMeanRT = rtMeanOf(phasicTrials.filter(x=>x.correct).map(x=>x.rt));
-          rec.choice.finalTapatLevel = session.tapatLevel;
-          rec.choice.adaptive = cfg.adaptive;
-        }
+      }
+      if(cfg.taskMode==='tapat'){
+        const tonicTrials = log.filter(x=>x.block==='tonic');
+        const phasicTrials = log.filter(x=>x.block==='phasic');
+        rec.choice.tonicMeanRT = rtMeanOf(tonicTrials.filter(x=>x.correct).map(x=>x.rt));
+        rec.choice.tonicOmissions = tonicTrials.filter(x=>x.omitted).length;
+        rec.choice.tonicTotal = tonicTrials.length;
+        rec.choice.phasicMeanRT = rtMeanOf(phasicTrials.filter(x=>x.correct).map(x=>x.rt));
+        rec.choice.finalTapatLevel = session.tapatLevel;
+        rec.choice.adaptive = cfg.adaptive;
       }
       if(cfg.taskMode==='switching'){
         const swRT = rtMeanOf(log.filter(x=>x.isSwitch && x.correct).map(x=>x.rt));
@@ -7520,7 +7551,7 @@
     // riporta il livello raggiunto nella config, così "Ripeti" e la
     // continuità del profilo partono davvero da dove ci si era fermati
     if(cfg.taskMode==='nback') cfg.nLevel = session.liveNLevel;
-    else if(cfg.taskMode==='ant' && cfg.antMode==='tapat') cfg.tapatStartLevel = session.tapatLevel;
+    else if(cfg.taskMode==='tapat') cfg.tapatStartLevel = session.tapatLevel;
     else if(cfg.taskMode==='neglect' && cfg.neglectMode==='regola') cfg.neglectRuleLevel = session.liveBoardLevel;
     else if(cfg.taskMode==='neglect') cfg.neglectStartLevel = session.liveBoardLevel;
     else if(cfg.taskMode==='categorizzazione') cfg.categLivello = session.categLevel;
@@ -7642,8 +7673,8 @@
       }
       card.appendChild(el('p',{class:'hint', style:'font-size:15px; margin-top:-4px;'},[msg]));
     }
-    const subLabel = (r.taskMode==='ant' && r.antMode==='tapat') ? (r.tapatModalita==='uditivo' ? 'Uditivo · ' : '')
-      : (EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && !(r.taskMode==='ant' && r.antMode==='classico')) ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ' : '';
+    const subLabel = isTapatLike(r) ? (r.tapatModalita==='uditivo' ? 'Uditivo · ' : '')
+      : (EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && r.taskMode!=='ant') ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ' : '';
     card.appendChild(el('p',{class:'hint'},[
       (r.family==='goaltask')
         ? (r.goaltask.scenarioLabel+' · livello '+r.goaltask.livello+' · '+(r.patientCode? 'paziente '+r.patientCode+' · ':'')+r.dateLabel)
@@ -8358,7 +8389,7 @@
             ])
           ]),
           levelChanged ? el('div',{style:'font-size:12px; color:var(--ink-soft); margin-top:4px;'},['Suggerito dallo screening: livello '+origLevel+' — oggi: livello '+curLevel]) : null,
-          (TITRATION_EXERCISES.includes(entry.cfg.taskMode) && !(entry.cfg.taskMode==='ant' && entry.cfg.antMode==='tapat')) || TITRATION_MODE_EXTRA.includes(entry.cfg.taskMode) || (entry.cfg.taskMode==='ant' && entry.cfg.antMode==='tapat') ? el('div',{style:'margin-top:6px;'},[
+          (TITRATION_EXERCISES.includes(entry.cfg.taskMode) && !isTapatLike(entry.cfg)) || TITRATION_MODE_EXTRA.includes(entry.cfg.taskMode) || isTapatLike(entry.cfg) ? el('div',{style:'margin-top:6px;'},[
             el('div',{style:'display:flex; align-items:center; gap:6px; flex-wrap:wrap;'},[
               el('span',{style:'font-size:12px; color:var(--ink-soft);'},['Modalità:']),
               ...['manuale','livello','adattivo'].map(m=>{
@@ -8386,7 +8417,7 @@
               entry.cfg.taskMode==='neglect' ? neglectTitrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
                 : entry.cfg.taskMode==='dualtask' ? dualTitrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
                 : entry.cfg.taskMode==='categorizzazione' ? categTitrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
-                : (entry.cfg.taskMode==='ant' && entry.cfg.antMode==='tapat') ? tapatTitrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
+                : isTapatLike(entry.cfg) ? tapatTitrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
                 : titrationModeHint(effectiveCfg, effectiveCfg.titrationMode||'manuale')
             ])
           ]) : null,
@@ -8954,8 +8985,8 @@
         const forPatientView = !!patientProfile;
         const rowLine1 = forPatientView
           ? detail
-          : ((r.taskMode==='ant' && r.antMode==='tapat') ? (r.tapatModalita==='uditivo' ? 'Uditivo · ' : '')
-            : (EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && !(r.taskMode==='ant' && r.antMode==='classico')) ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ':'')+detail+' · '+r.trials+' prove'+(r.patientCode?' · '+r.patientCode:'')+origineTag;
+          : (isTapatLike(r) ? (r.tapatModalita==='uditivo' ? 'Uditivo · ' : '')
+            : (EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && r.taskMode!=='ant') ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ':'')+detail+' · '+r.trials+' prove'+(r.patientCode?' · '+r.patientCode:'')+origineTag;
         const rowScore = forPatientView
           ? (family==='choice' ? fmtPct(r.choice.accuracy)+' corr.'
             : family==='dual' ? fmtPct(r.metrics.acc)+' vis · '+fmtPct(r.metricsAud.acc)+' ud.'

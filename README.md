@@ -1,16 +1,16 @@
 # TracciaN — batteria di attenzione e controllo esecutivo per tablet
 
-Applicazione web standalone per la somministrazione di una batteria di 11
+Applicazione web standalone per la somministrazione di una batteria di 14
 esercizi di attenzione, memoria di lavoro, controllo esecutivo e memoria
-strategica: N-back, Sequenza bersaglio, Go/No-Go, Stop-Signal, Attenzione
-(tipo ANT/TAPAT), Task-switching, Categorizzazione condizionale, Doppio
-compito, Cancellazione (neglect), Scenari ecologici
-(pianificazione/multitasking) e Strategie di memoria (PQRST/chunking
-multi-metodo/metodo dei loci/errorless learning/vanishing cues). Raccolta
-risposte touch o manuale, punteggio automatico, istruzioni leggibili e
-ascoltabili prima di ogni esercizio, storico sessioni sincronizzabile, ed
-è utilizzabile da più operatori insieme e da pazienti in autonomia da
-propri dispositivi.
+strategica: N-back, Sequenza bersaglio, Mantenimento (tipo Sternberg),
+Go/No-Go, Stop-Signal, Attenzione (tipo ANT), TAPAT, Simon, Task-
+switching, Categorizzazione condizionale, Doppio compito, Cancellazione
+(neglect), Scenari ecologici (pianificazione/multitasking) e Strategie di
+memoria (PQRST/chunking multi-metodo/metodo dei loci/errorless
+learning/vanishing cues). Raccolta risposte touch o manuale, punteggio
+automatico, istruzioni leggibili e ascoltabili prima di ogni esercizio,
+storico sessioni sincronizzabile, ed è utilizzabile da più operatori
+insieme e da pazienti in autonomia da propri dispositivi.
 
 **Nessun server obbligatorio, nessun account richiesto per l'uso base.**
 I dati restano salvati in locale nel browser del dispositivo
@@ -41,19 +41,63 @@ dieci varianti dello stesso compito.
 
 | Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
 |---|---|---|---|
-| N-back | Aggiornamento della memoria di lavoro (updating) | Fronto-parietale, DLPFC | Owen, McMillan, Laird & Bullmore (2005), *Human Brain Mapping*, 25(1), 46-59 |
-| Mantenimento (tipo Sternberg) | Mantenimento in memoria a breve termine (non aggiornamento continuo) | Circuito fronto-parietale di mantenimento, solo in parte sovrapposto a quello dell'updating | Sternberg (1966), *Science*, 153(3736), 652-654 |
-| Simon | Risoluzione di conflitto spazio-risposta (posizione dello stimolo irrilevante al compito) | Monitoraggio del conflitto (ACC/pre-SMA), controllo inibitorio | Simon & Rudell (1967), *Journal of Applied Psychology*, 51(3), 300-304 |
-| Sequenza bersaglio | Context processing, controllo proattivo/reattivo (ispirato all'AX-CPT) | DLPFC (proattivo) + ACC (reattivo) | Cohen, Barch, Carter & Servan-Schreiber (1999), *Journal of Abnormal Psychology*, 108(1), 120-133 |
+
+**Attenzione e inibizione**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
 | Go/No-Go | Inibizione di un'azione non ancora iniziata (action restraint) | Giro frontale inferiore sinistro + parietale | Eagle, Bari & Robbins (2008), *Psychopharmacology*, 199(3), 439-456 |
 | Stop-Signal | Cancellazione di un'azione già in corso (action cancellation), con stima di SSRT | Via fronto-striatale destra (RIFG–preSMA–STN) | Eagle, Bari & Robbins (2008), come sopra; Aron, Fletcher, Bullmore, Sahakian & Robbins (2003), *Nature Neuroscience*, 6(2), 115-116; Verbruggen, Aron, Band, Logan et al. (2019), *eLife*, 8, e46323 (go-task a scelta discreta) |
-| Attenzione (ANT / TAPAT) | Allerta (tonica/fasica), orienting spaziale, conflitto percettivo | Locus coeruleus-NA; reti dorsale/ventrale; ACC-DLPFC | Fan, McCandliss, Sommer, Raz & Posner (2002), *Journal of Cognitive Neuroscience*, 14(3), 340-347 (ANT); DeGutis & Van Vleet (2010), *Frontiers in Human Neuroscience*, 4:60 (TAPAT) |
+| Attenzione (tipo ANT) | Orienting spaziale, conflitto percettivo (flanker) | Reti dorsale/ventrale; ACC-DLPFC | Fan, McCandliss, Sommer, Raz & Posner (2002), *Journal of Cognitive Neuroscience*, 14(3), 340-347 |
+| TAPAT | Allerta (tonica/fasica) | Locus coeruleus-NA | DeGutis & Van Vleet (2010), *Frontiers in Human Neuroscience*, 4:60 |
+| Simon | Risoluzione di conflitto spazio-risposta (posizione dello stimolo irrilevante al compito) | Monitoraggio del conflitto (ACC/pre-SMA), controllo inibitorio | Simon & Rudell (1967), *Journal of Applied Psychology*, 51(3), 300-304 |
+
+**Memoria di lavoro e mantenimento**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
+| N-back | Aggiornamento della memoria di lavoro (updating) | Fronto-parietale, DLPFC | Owen, McMillan, Laird & Bullmore (2005), *Human Brain Mapping*, 25(1), 46-59 |
+| Sequenza bersaglio | Context processing, controllo proattivo/reattivo (ispirato all'AX-CPT) | DLPFC (proattivo) + ACC (reattivo) | Cohen, Barch, Carter & Servan-Schreiber (1999), *Journal of Abnormal Psychology*, 108(1), 120-133 |
+| Mantenimento (tipo Sternberg) | Mantenimento in memoria a breve termine (non aggiornamento continuo) | Circuito fronto-parietale di mantenimento, solo in parte sovrapposto a quello dell'updating | Sternberg (1966), *Science*, 153(3736), 652-654 |
+
+**Flessibilità cognitiva**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
 | Task-switching | Flessibilità cognitiva (shifting), switch cost | Rete fronto-parietale dominio-generale, solco frontale inferiore | Monsell (2003), *Trends in Cognitive Sciences*, 7(3), 134-140 |
 | Categorizzazione condizionale | Applicazione di regole di classificazione di complessità crescente (fissa, non a costo di switch) | Corteccia prefrontale dorsolaterale, striato (apprendimento di regole condizionali) | Halford, Wilson & Phillips (1998), *Behavioral and Brain Sciences*, 21(6), 803-831 |
-| Doppio compito | Attenzione divisa, coordinamento di due compiti concorrenti | Corteccia frontopolare (BA10), colli di bottiglia prefrontali laterali | Pashler (1994), *Psychological Bulletin*, 116(2), 220-244 |
+
+**Esplorazione visuospaziale**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
 | Cancellazione (neglect) | Ricerca visiva ed esplorazione spaziale simmetrica/asimmetrica | Rete attentiva parietale destra; asimmetria sinistra/destra come indice di neglect | Mesulam (1981), *Annals of Neurology*, 10(4), 309-325 |
+
+**Attenzione divisa e multitasking**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
+| Doppio compito | Attenzione divisa, coordinamento di due compiti concorrenti | Corteccia frontopolare (BA10), colli di bottiglia prefrontali laterali | Pashler (1994), *Psychological Bulletin*, 116(2), 220-244 |
 | Scenari ecologici | Pianificazione, multitasking, autogestione sotto vincoli (Six Elements/Multiple Errands) | Corteccia prefrontale dorsolaterale e frontopolare (BA10), monitoraggio prospettico | Shallice & Burgess (1991), *Brain*, 114(2), 727-741 |
+
+**Memoria strategica**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
 | Strategie di memoria | Memoria a lungo termine, apprendimento strategico | Ippocampo/lobo temporale mediale (codifica); prefrontale per il controllo strategico | Glisky, Schacter & Tulving (1986), *Journal of Clinical and Experimental Neuropsychology*, 8(3), 292-312 (vanishing cues); Baddeley & Wilson (1994), *Neuropsychologia*, 32(1), 53-68 (errorless learning); Ciaramelli, Neri, Marini & Braghittoni (2015), *Frontiers in Behavioral Neuroscience*, 9, 211 (PQRST, popolazione a lesione prefrontale — la fonte più direttamente pertinente qui, non solo l'origine generica del metodo); Huntley, Hampshire, Bor, Owen & Howard (2017), *British Journal of Psychiatry*, 210(1), 61-66 (chunking, trial randomizzato in Alzheimer lieve); Gross, Brandt, Bandeen-Roche, Carlson, Stuart, Marsiske & Rebok (2014), *Experimental Aging Research*, 40(2), 140-163 (metodo dei loci, anziani) |
+
+I sei raggruppamenti sopra sono gli stessi usati nel selettore dell'app
+(`EXERCISE_GROUPS` in index.html) — un solo criterio di vicinanza
+concettuale, non due tassonomie parallele da mantenere sincronizzate.
+Il raggruppamento riflette prossimità di costrutto/dominio, non
+equivalenza: dentro "Attenzione e inibizione", ad esempio, ANT classico
+(conflitto percettivo, flanker) e Simon (conflitto spazio-risposta) sono
+entrambi paradigmi da conflitto ma isolano meccanismi non identici (vedi
+sotto, nota su ridondanza fra esercizi); Stop-Signal (cancellazione di
+un'azione già in corso) resta il caso più resistente a una piena
+riconduzione allo stesso fattore comune di controllo inibitorio (Miyake
+& Friedman, 2012; Munakata, Herd, Chatham, Depue, Banich & O'Reilly,
+2011).
 
 Ogni citazione qui sopra è stata verificata singolarmente (autori, anno,
 rivista, volume, pagine) prima di essere inserita — nessuna a memoria,
@@ -501,27 +545,27 @@ qui lo stesso bug di sincronizzazione silenzioso già visto altrove
 (l'ISI seguiva sempre la tabella, mai il campo libero, a prescindere
 dalla modalità).
 
-**Estesa infine anche al TAPAT — l'ultimo degli 11 esercizi.** Stesso
-principio degli altri: in Manuale, l'intervallo fra stimoli del blocco
-tonico (quello a ritmo lento e imprevedibile, pensato per misurare
-l'allerta sostenuta) diventa un range libero (minimo/massimo impostabili
-separatamente, non un singolo ISI — l'imprevedibilità dell'intervallo è
-parte del costrutto, non un dettaglio) invece di seguire sempre la
-tabella per livello. Il blocco fasico (quello con il cue, a metà seduta)
-usa sempre il campo ISI generico di Setup, in ogni modalità — non è
-legato al livello. In Livello/Adattivo tutto resta come sempre.
+**TAPAT** segue lo stesso principio degli altri: in Manuale, l'intervallo
+fra stimoli del blocco tonico (quello a ritmo lento e imprevedibile,
+pensato per misurare l'allerta sostenuta) è un range libero
+(minimo/massimo impostabili separatamente, non un singolo ISI —
+l'imprevedibilità dell'intervallo è parte del costrutto, non un
+dettaglio) invece di seguire sempre la tabella per livello. Il blocco
+fasico (quello con il cue, a metà seduta) usa sempre il campo ISI
+generico di Setup, in ogni modalità — non è legato al livello. In
+Livello/Adattivo tutto resta come sempre.
 
-Con questi due esercizi, **tutti gli 11 esercizi hanno una gestione
-esplicita e coerente della titolazione** — i primi 8 (compresi i 6
-originali) con il selettore Manuale/Livello/Adattivo pienamente
-condiviso, Categorizzazione condizionale con la stessa idea adattata al
-suo caso particolare (struttura disaccoppiata dal livello in Manuale),
-Doppio compito e TAPAT con le loro varianti dichiarate (un solo
-selettore condiviso per due canali; range libero invece di ISI singolo).
-Scenari ecologici e Strategie di memoria restano fuori per un motivo
-diverso, non tecnico: non hanno mai avuto un concetto di "livello
-adattivo" nello stesso senso — la loro scala di complessità/i loro
-materiali sono sempre stati scelti a mano, non titolati.
+Tutti gli esercizi con una scala 1-10 hanno una gestione esplicita e
+coerente della titolazione: la maggioranza con il selettore
+Manuale/Livello/Adattivo pienamente condiviso, Categorizzazione
+condizionale con la stessa idea adattata al suo caso particolare
+(struttura disaccoppiata dal livello in Manuale), Doppio compito e TAPAT
+con le loro varianti dichiarate (un solo selettore condiviso per due
+canali; range libero invece di ISI singolo). Scenari ecologici e
+Strategie di memoria restano fuori per un motivo diverso, non tecnico:
+non hanno mai avuto un concetto di "livello adattivo" nello stesso senso
+— la loro scala di complessità/i loro materiali sono sempre stati scelti
+a mano, non titolati.
 
 | Esercizio | Livelli | Cosa varia col livello |
 |---|---|---|

@@ -23,9 +23,9 @@ module.exports = function run(t) {
   });
 
   t.group('TAPAT — il cue è coerente con la modalità (visivo vs uditivo)', () => {
-    Object.assign(cfgStub, { taskMode: 'ant', antMode: 'tapat', tapatModalita: 'visivo' });
+    Object.assign(cfgStub, { taskMode: 'tapat', tapatModalita: 'visivo' });
     t.eq(renderCueNode({ cueType: 'center' }).text, '✦', 'TAPAT visivo: asterisco centrale, non lateralizzato per costruzione');
-    Object.assign(cfgStub, { taskMode: 'ant', antMode: 'tapat', tapatModalita: 'uditivo' });
+    Object.assign(cfgStub, { taskMode: 'tapat', tapatModalita: 'uditivo' });
     t.ok(renderCueNode({ cueType: 'center' }).text.includes('Ascolta'), 'TAPAT uditivo: nessun elemento visivo del cue, solo il placeholder "Ascolta" (il cue vero è il tono, gestito da presentCue)');
   });
 };

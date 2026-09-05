@@ -6,16 +6,17 @@ const REPO_ROOT = path.join(__dirname, '..');
 // Blocchi puri: dipendono solo da `cfg` ed `EXERCISES`, forniti come stub
 // mutabili qui sotto (mai una copia a mano della logica — estratta dal vero
 // index.html, come tutti gli altri test di questo progetto).
-const cfg = { taskMode: 'nback', antMode: null, targetSeq: ['a','b'] };
+const cfg = { taskMode: 'nback', targetSeq: ['a','b'] };
 const EXERCISES = {
   nback: { label: 'N-back' }, sequenza: { label: 'Sequenza bersaglio' }, gonogo: { label: 'Go/No-Go' },
   switching: { label: 'Task-switching' }, stopsignal: { label: 'Stop-Signal' },
   categorizzazione: { label: 'Categorizzazione condizionale' }, dualtask: { label: 'Doppio compito' },
-  simon: { label: 'Simon (conflitto spazio-risposta)' }
+  simon: { label: 'Simon (conflitto spazio-risposta)' }, ant: { label: 'Attenzione (tipo ANT)' },
+  tapat: { label: 'TAPAT (allerta tonica/fasica)' }
 };
 
 const mod = loadPure(REPO_ROOT, [
-  { name: 'DEMO_CONSTS', start: '  const DEMO_TRIALS = 6;', end: "  const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','antclassico','simon'];" },
+  { name: 'DEMO_CONSTS', start: '  const DEMO_TRIALS = 6;', end: "  const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','ant','simon'];" },
   { name: 'DEMO_PATCHES', start: '  const DEMO_PATCHES = {', end: "    simon: ()=>({taskMode:'simon', adaptStartLevel:1, simonCongruenza:'bilanciato', isi:3200, stimDuration:700, trials:DEMO_TRIALS})\n  };" },
   { name: 'demoLabelFor', start: '  function demoLabelFor(key){', end: "    return EXERCISES[key].label;\n  }" },
   { name: 'demoKeyForCurrentCfg', start: '  function demoKeyForCurrentCfg(){', end: "    return DEMO_ELIGIBLE.includes(cfg.taskMode) ? cfg.taskMode : null;\n  }" },
@@ -28,7 +29,7 @@ const { DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoLabelFor, demoKeyForCurren
 module.exports = function run(t) {
   t.group('Demo — idoneità e parametri fissi', () => {
     t.eq(DEMO_TRIALS, 6, 'la demo dura 6 prove');
-    const eligible = ['nback', 'sequenza', 'gonogo', 'switching', 'stopsignal', 'categorizzazione', 'dualtask', 'tapat', 'antclassico', 'simon'];
+    const eligible = ['nback', 'sequenza', 'gonogo', 'switching', 'stopsignal', 'categorizzazione', 'dualtask', 'tapat', 'ant', 'simon'];
     eligible.forEach(k => {
       t.ok(DEMO_ELIGIBLE.includes(k), 'esercizio idoneo alla demo: ' + k);
       t.ok(typeof DEMO_PATCHES[k] === 'function', 'DEMO_PATCHES ha una patch per: ' + k);
@@ -49,12 +50,10 @@ module.exports = function run(t) {
     t.eq(DEMO_PATCHES.dualtask().dualStartLevel1, 1, 'Doppio compito demo: canale 1 a livello 1');
     t.eq(DEMO_PATCHES.dualtask().dualStartLevel2, 1, 'Doppio compito demo: canale 2 a livello 1');
     const tapatPatch = DEMO_PATCHES.tapat();
-    t.eq(tapatPatch.taskMode, 'ant', 'TAPAT demo: taskMode resta "ant"');
-    t.eq(tapatPatch.antMode, 'tapat', 'TAPAT demo: antMode "tapat"');
+    t.eq(tapatPatch.taskMode, 'tapat', 'TAPAT demo: taskMode proprio "tapat" (esercizio separato da ANT)');
     t.eq(tapatPatch.tapatStartLevel, 1, 'TAPAT demo: livello 1');
-    const antPatch = DEMO_PATCHES.antclassico();
-    t.eq(antPatch.taskMode, 'ant', 'ANT classico demo: taskMode resta "ant"');
-    t.eq(antPatch.antMode, 'classico', 'ANT classico demo: antMode "classico"');
+    const antPatch = DEMO_PATCHES.ant();
+    t.eq(antPatch.taskMode, 'ant', 'ANT classico demo: taskMode "ant"');
     t.eq(antPatch.adaptStartLevel, 1, 'ANT classico demo: livello 1');
     const simonPatch = DEMO_PATCHES.simon();
     t.eq(simonPatch.taskMode, 'simon', 'Simon demo: taskMode "simon"');
@@ -63,13 +62,13 @@ module.exports = function run(t) {
   });
 
   t.group('Demo — demoKeyForCurrentCfg', () => {
-    cfg.taskMode = 'nback'; cfg.antMode = null;
+    cfg.taskMode = 'nback';
     t.eq(demoKeyForCurrentCfg(), 'nback', 'N-back riconosciuto come idoneo');
-    cfg.taskMode = 'ant'; cfg.antMode = 'classico';
-    t.eq(demoKeyForCurrentCfg(), 'antclassico', 'ANT classico riconosciuto come "antclassico"');
-    cfg.taskMode = 'ant'; cfg.antMode = 'tapat';
-    t.eq(demoKeyForCurrentCfg(), 'tapat', 'ANT in modalità TAPAT è riconosciuto come "tapat"');
-    cfg.taskMode = 'neglect'; cfg.antMode = null;
+    cfg.taskMode = 'ant';
+    t.eq(demoKeyForCurrentCfg(), 'ant', 'ANT classico riconosciuto come "ant"');
+    cfg.taskMode = 'tapat';
+    t.eq(demoKeyForCurrentCfg(), 'tapat', 'TAPAT (esercizio separato) è riconosciuto come "tapat"');
+    cfg.taskMode = 'neglect';
     t.eq(demoKeyForCurrentCfg(), null, 'Cancellazione non è idonea (motore diverso)');
     cfg.taskMode = 'memoria';
     t.eq(demoKeyForCurrentCfg(), null, 'Strategie di memoria non idonee');
@@ -94,7 +93,7 @@ module.exports = function run(t) {
   });
 
   t.group('Demo — demoFeedbackText: riusa la classificazione del trial, non ne inventa una nuova', () => {
-    cfg.taskMode = 'nback'; cfg.antMode = null;
+    cfg.taskMode = 'nback';
     t.ok(/andava toccato/.test(demoFeedbackText({ isTarget: true }, 'hit')), 'n-back: hit su target spiega che andava toccato');
     t.ok(/trappola/.test(demoFeedbackText({ isTarget: false, isLure: true }, 'hit')), 'n-back: hit su lure nomina la "trappola"');
     t.ok(/trappola/.test(demoFeedbackText({ isTarget: false, isLure: true }, 'err')), 'n-back: err su lure nomina comunque la "trappola"');
@@ -117,15 +116,15 @@ module.exports = function run(t) {
     cfg.taskMode = 'categorizzazione';
     t.ok(/non andava data nessuna risposta/.test(demoFeedbackText({ correctAnswer: 'nogo' }, 'err')), 'categorizzazione: spiega il "nogo" mancato');
 
-    cfg.taskMode = 'ant'; cfg.antMode = 'tapat';
+    cfg.taskMode = 'tapat';
     t.ok(/senza preavviso/.test(demoFeedbackText({ block: 'tonic' }, 'err')), 'tapat: blocco tonico spiega l\'assenza di preavviso');
     t.ok(/segnale che precede/.test(demoFeedbackText({ block: 'phasic' }, 'err')), 'tapat: blocco fasico richiama il segnale');
 
-    cfg.taskMode = 'ant'; cfg.antMode = 'classico';
+    cfg.taskMode = 'ant';
     t.ok(/freccia centrale/.test(demoFeedbackText({ cueType: 'none' }, 'err')), 'ant classico: ricorda di guardare solo la freccia centrale');
     t.ok(/segnale visto poco prima/.test(demoFeedbackText({ cueType: 'spatial' }, 'hit')), 'ant classico: nomina il cue quando presente');
 
-    cfg.taskMode = 'simon'; cfg.antMode = null;
+    cfg.taskMode = 'simon';
     t.ok(/colore/.test(demoFeedbackText({ congruency: 'congruent' }, 'hit')), 'simon: ricorda che la regola è il colore');
     const fbSimonIncong = demoFeedbackText({ congruency: 'incongruent' }, 'err');
     t.ok(/posizione/.test(fbSimonIncong), 'simon: su una prova incongruente sbagliata, nomina esplicitamente la posizione come fonte di interferenza');

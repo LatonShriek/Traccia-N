@@ -178,6 +178,32 @@ risposta (invariati, confrontabili con lo storico pre-redesign); la
 correttezza della scelta è tracciata a parte come nuova metrica
 "accuratezza discriminazione (go)", che non sostituisce le prime.
 
+**Interferenza spaziale (opzionale, in Setup: "Interferenza spaziale").**
+Quarto gradino di una scala gerarchica proposta per Vigilanza/Inibizione
+(TAPAT tonico → Go/No-Go → Stop-Signal → Stop-Signal+conflitto),
+raggiungibile solo dopo che il paziente supera lo Stop-Signal puro. Il
+meccanismo core (2 scelte, stop occasionale, staircase SSD) resta
+identico e invariato; quando l'opzione è attiva, lo stimolo compare a
+sinistra o a destra dello schermo invece che al centro — posizione
+irrilevante alla discriminazione (che resta identità-based), a volte
+coerente col lato del pulsante corretto (congruente), a volte no
+(incongruente), 50/50 indipendentemente dalla frequenza di stop: stesso
+principio del Simon task (Simon & Rudell, 1967), sovrapposto qui invece
+di sostituito. Non rende il Simon ridondante: quello misura il conflitto
+spazio-risposta da solo, questo lo misura **sotto il carico aggiuntivo**
+di dover eventualmente trattenere una risposta — un profilo di
+interazione fra conflitto e inibizione che il Simon isolato non può
+mostrare. Metriche aggiuntive, calcolate solo sui trial "go" con
+risposta (mai su quelli di stop): un indice di conflitto (RT
+incongruente meno RT congruente, stessa interpretazione dell'indice già
+usato per ANT/Task-switching bivalente/Simon) e l'accuratezza di
+discriminazione separata per condizione congruente/incongruente —
+esportate nel CSV in tre colonne dedicate
+(`stopsignal_interferenza_conflitto_ms`,
+`stopsignal_interferenza_acc_congruente`,
+`stopsignal_interferenza_acc_incongruente`), popolate solo quando
+l'opzione è attiva.
+
 **ANT/TAPAT — il cue precede sempre il target, non compare più insieme.**
 Bug corretto: cue (l'asterisco/freccia di allerta o orienting nell'ANT
 classico, il tono di allerta nel TAPAT) e bersaglio venivano mostrati/

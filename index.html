@@ -561,6 +561,7 @@
     taskMode:'nback', targetSeq: POOLS.lettere.slice(0,3),
     mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', // solo per Mantenimento (tipo Sternberg)
     ssd:250, ssdStep:50, // solo per Stop-Signal
+    stopsignalInterferenza:'no', // 'no'|'si' — quarto gradino della scala gerarchica Vigilanza/Inibizione proposta (TAPAT tonico → Go/No-Go → Stop-Signal → Stop-Signal+conflitto): sovrappone un conflitto spaziale tipo Simon (posizione irrilevante) allo stimolo "go", mantenendo intatto il meccanismo core (2 scelte + stop occasionale + staircase SSD) — non sostituisce Simon, misura una cosa diversa (conflitto SOTTO pressione di dover trattenere una risposta, non conflitto da solo)
     adaptive:false, // derivato da titrationMode==='adattivo' — tenuto per compatibilità con tutto il codice di titolazione live (maybeAdapt, ADAPT_ISI, ecc.), va sempre aggiornato insieme a titrationMode, mai impostato da solo
     // Modello triplice di titolazione (solo per i 7 esercizi con livello
     // condiviso: N-back, Go/No-Go, Task-switching, Sequenza bersaglio,
@@ -828,7 +829,7 @@
         : null,
       sequenzaMista: c.sequenzaMista||'no', nbackMista: c.nbackMista||'no', gonogoMista: c.gonogoMista||'no',
       trials:c.trials, isi:c.isi, stimDuration:c.stimDuration, targetRate:c.targetRate,
-      respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, adaptive:c.adaptive,
+      respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, stopsignalInterferenza:c.stopsignalInterferenza, adaptive:c.adaptive,
       titrationMode: hasTitrationMode(c.taskMode) ? (c.titrationMode||'manuale') : undefined,
       switchMaterial:c.switchMaterial, dualVisual:c.dualVisual, dualVisual2:c.dualVisual2, dualPairing:c.dualPairing, antMode:c.antMode,
       tapatSpatial:c.tapatSpatial, tapatGradient:c.tapatGradient, tapatModalita:c.tapatModalita, antMaterial:c.antMaterial,
@@ -933,7 +934,7 @@
     cfg.neglectStartLevel = pc.neglectStartLevel || 1;
     cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
     cfg.targetRate = pc.targetRate; cfg.respMode = pc.respMode; cfg.voice = pc.voice;
-    cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.adaptive = !!pc.adaptive;
+    cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.stopsignalInterferenza = pc.stopsignalInterferenza || 'no'; cfg.adaptive = !!pc.adaptive;
     cfg.switchMaterial = pc.switchMaterial || 'numeri'; cfg.dualVisual = pc.dualVisual || 'lettere'; cfg.dualVisual2 = pc.dualVisual2 || 'numeri'; cfg.dualPairing = pc.dualPairing || 'vis-aud'; cfg.antMode = pc.antMode || 'classico';
     cfg.tapatSpatial = !!pc.tapatSpatial; cfg.tapatGradient = pc.tapatGradient!=null?pc.tapatGradient:50; cfg.tapatModalita = pc.tapatModalita || 'visivo'; cfg.antMaterial = pc.antMaterial || 'frecce';
     cfg.tapatIsiMin = pc.tapatIsiMin || 900; cfg.tapatIsiMax = pc.tapatIsiMax || 1800;
@@ -1360,8 +1361,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1757,12 +1758,28 @@
   function buildStopSignal(){
     const pool = POOLS[cfg.stimType];
     const rule = STOPSIGNAL_RULES[cfg.stimType] || STOPSIGNAL_RULES.frecce;
+    const interferenza = cfg.stopsignalInterferenza==='si';
     const seq = [];
     for(let i=0;i<cfg.trials;i++){
       const val = pool[Math.floor(Math.random()*pool.length)];
       const isStopTrial = Math.random() < cfg.targetRate;
       const correctAnswer = rule.classify(val) ? 'a' : 'b';
-      seq.push({val, correctAnswer, isTarget: !isStopTrial, isStopTrial, valid:true});
+      const trial = {val, correctAnswer, isTarget: !isStopTrial, isStopTrial, valid:true};
+      if(interferenza){
+        // 'a' è sempre il pulsante sinistro, 'b' il destro (stesso ordine
+        // di respondSpec/renderStimulusNode) — side è la posizione a
+        // schermo dello stimolo, IRRILEVANTE alla discriminazione (che
+        // resta identità-based, via rule.classify), a volte coerente con
+        // il lato del pulsante corretto (congruente), a volte no
+        // (incongruente) — stesso principio del Simon task, sovrapposto
+        // qui al meccanismo Stop-Signal invariato, 50/50 indipendente
+        // dalla frequenza di stop.
+        const correctSide = correctAnswer==='a' ? 'left' : 'right';
+        const congruent = Math.random()<0.5;
+        trial.side = congruent ? correctSide : (correctSide==='left'?'right':'left');
+        trial.congruency = congruent ? 'congruent' : 'incongruent';
+      }
+      seq.push(trial);
     }
     return seq;
   }
@@ -2283,6 +2300,43 @@
     if(family==='spatial' && rec.neglect && rec.neglect.pctLeft!=null && rec.neglect.pctRight!=null) return (rec.neglect.pctLeft+rec.neglect.pctRight)/2;
     return null;
   }
+  // Riepilogo per paziente, aggregato per esercizio — tempo totale
+  // allenato, sedute fatte, livello raggiunto, percentuale di successo
+  // media. Il dato grezzo esiste già per ogni singola sessione (durata,
+  // finalLevel, la stessa accuratezza usata da primaryAccuracyOf sopra):
+  // qui si aggrega, non si raccoglie nulla di nuovo. items = TUTTE le
+  // sessioni di UN SOLO paziente (in presenza + remoto insieme, già
+  // filtrate da chi chiama — vedi ScreenHistory), non serve distinguere
+  // qui la provenienza.
+  function isTapatKey(r){ return isTapatLike(r) ? 'tapat' : r.taskMode; }
+  function computeExerciseTimeSummary(items){
+    const groups = {};
+    items.forEach(r=>{
+      const key = isTapatKey(r);
+      if(!EXERCISES[key]) return; // record di un esercizio non più esistente/rinominato: ignorato, non fatto fallire il riepilogo
+      if(!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    });
+    // Ordine coerente con la vetrina dell'app (EXERCISE_GROUPS), non
+    // l'ordine casuale in cui compaiono le chiavi nell'oggetto — stesso
+    // principio già seguito dal selettore Setup.
+    const orderedKeys = EXERCISE_GROUPS.flatMap(g=>g.keys).filter(k=>groups[k]);
+    return orderedKeys.map(key=>{
+      const list = groups[key].slice().sort((a,b)=>a.ts-b.ts);
+      const n = list.length;
+      const tempoTotaleMs = list.reduce((s,r)=> s+(r.durationMs||0), 0);
+      const last = list[n-1];
+      const livelloRaggiunto = last && last.finalLevel!=null ? last.finalLevel
+        : (last && key==='nback' && last.nLevel!=null) ? last.nLevel : null;
+      const accVals = list.map(primaryAccuracyOf).filter(v=>v!=null);
+      const successoMedio = accVals.length ? mean(accVals) : null;
+      return {
+        key, label: EXERCISES[key].label, n,
+        tempoTotaleMs, livelloRaggiunto, successoMedio,
+        ultimaSeduta: last ? last.dateLabel : null
+      };
+    });
+  }
   function rciPrimaryMetric(r){
     const family = r.family || 'signal';
     if(r.taskMode==='stopsignal') return (r.ssrt!=null) ? {value:r.ssrt, higherIsBetter:false} : null;
@@ -2375,8 +2429,9 @@
     items.forEach(r=>{
       const metric = rciPrimaryMetric(r);
       if(!metric) return;
-      if(!groups[r.taskMode]) groups[r.taskMode] = [];
-      groups[r.taskMode].push({r, metric});
+      const key = isTapatKey(r);
+      if(!groups[key]) groups[key] = [];
+      groups[key].push({r, metric});
     });
     const rows = [];
     Object.keys(groups).forEach(taskMode=>{
@@ -3199,7 +3254,8 @@
       'neglect_pct_sinistra','neglect_pct_destra','neglect_omessi_sin','neglect_omessi_des','neglect_asimmetria','neglect_falsi_allarmi',
       'goaltask_scenario','goaltask_livello','goaltask_completati','goaltask_totale','goaltask_percentuale','goaltask_violazioni','goaltask_tempo_sec','goaltask_budget_rispettato',
       'memoria_modo','memoria_livello','memoria_forma','memoria_recuperati','memoria_totale','memoria_percentuale','calo_intra_sessione',
-      'neglect_conteggio_accuratezza','neglect_conteggio_errore_medio','note','switch_cost_relativo','switch_acc_ripetizione','switch_acc_switch'];
+      'neglect_conteggio_accuratezza','neglect_conteggio_errore_medio','note','switch_cost_relativo','switch_acc_ripetizione','switch_acc_switch',
+      'stopsignal_interferenza_conflitto_ms','stopsignal_interferenza_acc_congruente','stopsignal_interferenza_acc_incongruente'];
     const rows = items.map(r=>{
       const family = r.family || 'signal'; // record salvati prima di questa versione
       const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
@@ -3250,7 +3306,10 @@
         (r.notes||'').replace(/[\n,]/g,' '),
         family==='choice' && r.choice.switchCostRelative!=null ? (r.choice.switchCostRelative*100).toFixed(1)+'%' : '',
         family==='choice' && r.choice.repAcc!=null ? (r.choice.repAcc*100).toFixed(1)+'%' : '',
-        family==='choice' && r.choice.switchAcc!=null ? (r.choice.switchAcc*100).toFixed(1)+'%' : ''
+        family==='choice' && r.choice.switchAcc!=null ? (r.choice.switchAcc*100).toFixed(1)+'%' : '',
+        r.taskMode==='stopsignal' && r.conflict!=null ? r.conflict : '',
+        r.taskMode==='stopsignal' && r.congAccuracy!=null ? (r.congAccuracy*100).toFixed(1)+'%' : '',
+        r.taskMode==='stopsignal' && r.incongAccuracy!=null ? (r.incongAccuracy*100).toFixed(1)+'%' : ''
       ];
     });
     const csv = [head.join(';')].concat(rows.map(r=>r.join(';'))).join('\n');
@@ -4153,6 +4212,10 @@
     if(cfg.taskMode==='stopsignal'){
       grid.appendChild(field('Ritardo iniziale segnale di stop (SSD)', stepper(cfg.ssd,0,cfg.isi-100,v=>{cfg.ssd=v; render();},50,ms=>ms+' ms')));
       grid.appendChild(field('Passo di adattamento SSD', stepper(cfg.ssdStep,10,150,v=>{cfg.ssdStep=v; render();},10,ms=>ms+' ms')));
+      card.appendChild(field('Interferenza spaziale', segButtons(['no','si'], cfg.stopsignalInterferenza||'no', v=>{cfg.stopsignalInterferenza=v; render();}, {no:'Assente (standard)', si:'Presente (conflitto tipo Simon)'})));
+      if(cfg.stopsignalInterferenza==='si'){
+        card.appendChild(el('p',{class:'hint'},['Quarto gradino della scala Vigilanza/Inibizione, raggiungibile solo dopo che il paziente supera lo Stop-Signal puro. Lo stimolo compare a sinistra o a destra invece che al centro — la posizione non conta mai per la risposta, ma a volte coincide con il lato del pulsante corretto (congruente) e a volte no (incongruente), esattamente come nel Simon task. Il meccanismo core (le due scelte, lo stop occasionale, lo staircase SSD) resta identico e invariato: questa è un\'aggiunta, non una sostituzione. Misura il conflitto spazio-risposta SOTTO il carico di dover eventualmente trattenere una risposta — una cosa diversa dal Simon task da solo, che misura lo stesso conflitto senza quel carico aggiuntivo: non lo rende ridondante.']));
+      }
     }
 
     card.appendChild(grid);
@@ -4626,7 +4689,7 @@
       fatigueLog:[], // sequenza di bool corretto/scorretto, prova per prova — solo per l'indicatore di calo intra-sessione (famiglia signal)
       trail:[], responses:new Set(), respTime:null, trialStart:0,
       rts:[], startedAt: Date.now(), paused:false, pausedAt:null,
-      currentSSD: cfg.ssd, ssdHistory:[], showStopCue:false, stopCueTimer:null, discrimLog:[],
+      currentSSD: cfg.ssd, ssdHistory:[], showStopCue:false, stopCueTimer:null, discrimLog:[], discrimCongLog:[],
       liveNLevel: cfg.nLevel, tapatLevel: cfg.tapatStartLevel, adaptLevel: cfg.adaptStartLevel, liveTapatGradient: cfg.tapatGradient,
       categLevel: cfg.categLivello, categPrevCat: null, categPrevCat2: null,
       dualLevel1: cfg.dualStartLevel1, dualLevel2: cfg.dualStartLevel2, adaptBlock1:[], adaptBlock2:[], prevDual1:null, prevDual2:null,
@@ -5662,6 +5725,12 @@
       const discCorrect = given===trial.correctAnswer;
       session.discrimLog.push(discCorrect);
       if(!discCorrect){ outcome='err'; correct=false; }
+      // Interferenza spaziale (variante Stop-Signal+conflitto): traccia
+      // correttezza/RT separatamente per prove congruenti/incongruenti,
+      // stesso principio del Simon — solo sui trial "go" con risposta,
+      // mai su quelli di stop (che restano gestiti a parte dallo
+      // staircase SSD, invariato).
+      if(trial.congruency) session.discrimCongLog.push({congruent: trial.congruency==='congruent', correct: discCorrect, rt: session.respTime||null});
     }
     session.fatigueLog.push(correct);
     if(cfg.taskMode==='nback' || cfg.taskMode==='sequenza' || cfg.taskMode==='gonogo'){
@@ -6210,6 +6279,17 @@
       wrap.appendChild(visualNode(cfg.dualVisual, trial.visualVal, true));
       wrap.appendChild(el('div',{class:'audio-pulse active', style:'width:64px;height:64px;font-size:24px;'},['♪']));
       return wrap;
+    }
+    if(cfg.taskMode==='stopsignal'){
+      const inner = (cfg.stimType==='simboli' || cfg.stimType==='forma' || cfg.stimType==='frecce') ? el('div',{class:'stimulus symbolwrap'},[trial.val])
+        : cfg.stimType==='parole' ? el('div',{class:'stimulus word'},[trial.val])
+        : isAudioOnlyStim(cfg.stimType) ? el('div',{class:'audio-pulse active'},['♪'])
+        : cfg.stimType==='colori' ? el('div',{class:'colorcircle', style:'background:'+trial.val.hex+';'},[])
+        : el('div',{class:'stimulus'},[trial.val]);
+      if(!trial.side) return inner; // interferenza spaziale disattivata: stimolo centrato, come sempre
+      const outer = el('div',{style:'display:flex; width:100%; justify-content:'+(trial.side==='left'?'flex-start':'flex-end')+'; padding:0 8vw;'});
+      outer.appendChild(inner);
+      return outer;
     }
     if(cfg.taskMode==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no'){
       return renderTypedStimulus(trial.val.stimType, trial.val.item);
@@ -7390,6 +7470,20 @@
       if(cfg.taskMode==='stopsignal' && session.discrimLog.length){
         rec.goAccuracy = session.discrimLog.filter(Boolean).length / session.discrimLog.length;
       }
+      if(cfg.taskMode==='stopsignal' && session.discrimCongLog.length){
+        // Stessa interpretazione/segno dell'indice di conflitto già usato
+        // per ANT/Task-switching bivalente/Simon — qui però misurato
+        // SOTTO il meccanismo Stop-Signal (2 scelte + stop occasionale),
+        // non da solo: non sostituisce Simon, ne è il quarto gradino
+        // della scala gerarchica Vigilanza/Inibizione.
+        const congLog = session.discrimCongLog.filter(x=>x.congruent);
+        const incongLog = session.discrimCongLog.filter(x=>!x.congruent);
+        const congRT = rtMeanOf(congLog.filter(x=>x.correct).map(x=>x.rt));
+        const incongRT = rtMeanOf(incongLog.filter(x=>x.correct).map(x=>x.rt));
+        rec.conflict = (congRT!=null && incongRT!=null) ? Math.round(incongRT-congRT) : null;
+        rec.congAccuracy = congLog.length ? congLog.filter(x=>x.correct).length/congLog.length : null;
+        rec.incongAccuracy = incongLog.length ? incongLog.filter(x=>x.correct).length/incongLog.length : null;
+      }
       if(cfg.taskMode==='nback'){
         rec.finalNLevel = session.liveNLevel;
         rec.adaptive = cfg.adaptive;
@@ -7767,6 +7861,7 @@
       if(r.avgRT!=null) mg.appendChild(metric(Math.round(r.avgRT)+' ms', 'RT medio (hit)'));
       if(r.ssrt!=null) mg.appendChild(metric(Math.round(r.ssrt)+' ms', 'SSRT (stima)'));
       if(r.taskMode==='stopsignal' && r.goAccuracy!=null) mg.appendChild(metric(fmtPct(r.goAccuracy), 'Accuratezza discriminazione (go)'));
+      if(r.taskMode==='stopsignal' && r.conflict!=null) mg.appendChild(metric(r.conflict+' ms', 'Interferenza (incong. − cong.)'));
       if(r.taskMode==='nback' && r.finalNLevel!=null && r.finalNLevel!==r.nLevel){
         mg.appendChild(metric(r.nLevel+' → '+r.finalNLevel, 'Livello (iniziale → finale)'));
       }
@@ -8942,6 +9037,12 @@
       sb && cloudUser ? 'Sincronizzate con il cloud (' + cloudUser.email + ') e disponibili in locale su questo dispositivo.'
                        : 'Salvate solo in locale su questo dispositivo. Attiva la sincronizzazione cloud per condividerle tra i tuoi dispositivi.'
     ]));
+    // Riepilogo per esercizio (tempo totale, sedute, livello raggiunto,
+    // successo medio) — solo quando lo storico è filtrato su UN paziente
+    // specifico: un riepilogo aggregato sull'intero storico di tutti i
+    // pazienti insieme non avrebbe un significato clinico da mostrare qui.
+    const summaryWrap = filterPatient ? el('div',{style:'margin-bottom:10px;'},[]) : null;
+    if(summaryWrap) card.appendChild(summaryWrap);
     const listWrap = el('div',{},[el('p',{class:'empty'},['Caricamento…'])]);
     card.appendChild(listWrap);
     const rowbtns = el('div',{class:'rowbtns'});
@@ -8959,6 +9060,30 @@
 
     loadHistory().then(allItems=>{
       const items = filterId ? allItems.filter(r=> filterKind==='remote' ? r.pazienteId===filterId : r.localPatientId===filterId) : allItems;
+      if(summaryWrap && items.length){
+        summaryWrap.innerHTML = '';
+        const rows = computeExerciseTimeSummary(items);
+        if(rows.length){
+          const box = el('div',{style:'border:1px solid var(--line); border-radius:10px; padding:4px 10px; margin-bottom:8px;'},[]);
+          box.appendChild(el('div',{style:'font-size:13px; font-weight:600; padding:8px 4px 2px;'},['Riepilogo per esercizio']));
+          rows.forEach(row=>{
+            const bits = [
+              row.n+(row.n===1?' seduta':' sedute'),
+              'tempo tot. '+fmtDuration(row.tempoTotaleMs),
+              row.livelloRaggiunto!=null ? 'livello '+row.livelloRaggiunto : null,
+              row.successoMedio!=null ? 'successo medio '+fmtPct(row.successoMedio) : null
+            ].filter(Boolean).join(' · ');
+            box.appendChild(el('div',{class:'histrow'},[
+              el('div',{},[row.label]),
+              el('div',{class:'l'},[bits])
+            ]));
+          });
+          box.appendChild(el('p',{class:'hint', style:'margin:6px 4px 4px;'},[
+            'Aggregato su tutte le sessioni di questo paziente (in presenza + remoto insieme). "Successo medio" usa la stessa accuratezza mostrata a fine seduta per quell\'esercizio — una media semplice, non l\'RCI (per quello vedi il report dedicato).'
+          ]));
+          summaryWrap.appendChild(box);
+        }
+      }
       listWrap.innerHTML='';
       if(!items.length){ listWrap.appendChild(el('p',{class:'empty'},['Nessuna sessione salvata.'])); return; }
       items.forEach(r=>{

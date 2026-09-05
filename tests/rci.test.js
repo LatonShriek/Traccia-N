@@ -8,16 +8,19 @@ const REPO_ROOT = path.join(__dirname, '..');
 // minimo nel sandbox invece di estrarre l'intera tabella (che trascinerebbe
 // dentro dipendenze non pertinenti a questo test).
 const EXERCISES_STUB = {
-  nback: { label: 'N-back' }, gonogo: { label: 'Go/No-Go' }, stopsignal: { label: 'Stop-Signal' }
+  nback: { label: 'N-back' }, gonogo: { label: 'Go/No-Go' }, stopsignal: { label: 'Stop-Signal' },
+  ant: { label: 'Attenzione (tipo ANT)' }, tapat: { label: 'TAPAT (allerta tonica/fasica)' }
 };
 
 const mod = loadPure(REPO_ROOT, [
+  { name: 'isTapatLike', start: "  function isTapatLike(o){", end: "o.antMode==='tapat')); }" },
+  { name: 'isTapatKey', start: "  function isTapatKey(r){", end: "'tapat' : r.taskMode; }" },
   { name: 'mean+sd', start: '  function mean(arr){', end: 'return Math.sqrt(arr.reduce((s,v)=>s+(v-m)*(v-m),0)/(arr.length-1));\n  }' },
   { name: 'RCI_BASELINE_N+RCI_RELIABILITY+rciPrimaryMetric', start: '  const RCI_BASELINE_N = 3;', end: '      return null;\n    }\n    return null;\n  }' },
   { name: 'sessionMismatchWarnings+computeRCIRows', start: '  function sessionMismatchWarnings(baselineItems, finalItems){', end: '    return rows;\n  }' }
-], ['sessionMismatchWarnings', 'computeRCIRows', 'RCI_BASELINE_N'], { EXERCISES: EXERCISES_STUB });
+], ['sessionMismatchWarnings', 'computeRCIRows', 'RCI_BASELINE_N', 'isTapatKey'], { EXERCISES: EXERCISES_STUB });
 
-const { sessionMismatchWarnings, computeRCIRows } = mod;
+const { sessionMismatchWarnings, computeRCIRows, isTapatKey } = mod;
 
 // Costruisce una sessione finta minima, con solo i campi che
 // sessionMismatchWarnings/computeRCIRows guardano davvero.
@@ -55,6 +58,29 @@ module.exports = function run(t) {
     const baseline = [{ r: fakeSession({ isi: null }) }];
     const final = [{ r: fakeSession({ isi: null }) }];
     t.eq(sessionMismatchWarnings(baseline, final).filter(w => w.includes('ISI')).length, 0, 'se il dato manca su entrambi i lati, quel controllo viene saltato invece di confrontare null con null');
+  });
+
+  t.group('computeRCIRows — TAPAT (vecchio e nuovo formato) non si mescola con ANT classico (bug reale corretto con la separazione ANT/TAPAT)', () => {
+    const items = [
+      // ANT classico, 4 sedute stabili
+      fakeSession({ taskMode: 'ant', antMode: 'classico', ts: 1, finalLevel: 5, metrics: { acc: 0.60 } }),
+      fakeSession({ taskMode: 'ant', antMode: 'classico', ts: 2, finalLevel: 5, metrics: { acc: 0.62 } }),
+      fakeSession({ taskMode: 'ant', antMode: 'classico', ts: 3, finalLevel: 5, metrics: { acc: 0.80 } }),
+      fakeSession({ taskMode: 'ant', antMode: 'classico', ts: 4, finalLevel: 5, metrics: { acc: 0.82 } }),
+      // TAPAT salvato nel formato VECCHIO (prima della separazione)
+      fakeSession({ taskMode: 'ant', antMode: 'tapat', family: 'choice', ts: 5, finalLevel: 3, choice: { total: 20, correct: 10 } }),
+      fakeSession({ taskMode: 'ant', antMode: 'tapat', family: 'choice', ts: 6, finalLevel: 3, choice: { total: 20, correct: 11 } }),
+      // TAPAT salvato nel formato NUOVO (esercizio separato)
+      fakeSession({ taskMode: 'tapat', family: 'choice', ts: 7, finalLevel: 4, choice: { total: 20, correct: 16 } }),
+      fakeSession({ taskMode: 'tapat', family: 'choice', ts: 8, finalLevel: 4, choice: { total: 20, correct: 17 } })
+    ];
+    const rows = computeRCIRows(items);
+    const antRow = rows.find(r => r.exLabel === 'Attenzione (tipo ANT)');
+    const tapatRow = rows.find(r => r.exLabel === 'TAPAT (allerta tonica/fasica)');
+    t.ok(!!antRow, 'esiste una riga per ANT classico');
+    t.ok(!!tapatRow, 'esiste una riga SEPARATA per TAPAT');
+    t.eq(antRow.n, 4, 'ANT classico conta solo le sue 4 sedute, non le 4 di TAPAT mescolate dentro');
+    t.eq(tapatRow.n, 4, 'TAPAT conta le sue 4 sedute TOTALI, vecchio formato (2) + nuovo formato (2) unificati nello stesso bucket');
   });
 
   t.group('computeRCIRows — sopprime il numero (non le medie) quando non comparabile', () => {

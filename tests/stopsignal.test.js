@@ -12,7 +12,7 @@ const REPO_ROOT = path.join(__dirname, '..');
 const cfgStub = {};
 const mod = loadPure(REPO_ROOT, [
   { name: 'POOLS', start: '  const POOLS = {', end: 'POOLS.numeriVoce = POOLS.numeri;' },
-  { name: 'buildStopSignal', start: '  function buildStopSignal(){', end: 'isTarget: !isStopTrial, isStopTrial, valid:true});\n    }\n    return seq;\n  }' },
+  { name: 'buildStopSignal', start: '  function buildStopSignal(){', end: "      seq.push(trial);\n    }\n    return seq;\n  }" },
   { name: 'SWITCH_RULESETS+STOPSIGNAL_RULES', start: '  const SWITCH_RULESETS = {', end: "suoni:  {labelA:'Grave', labelB:'Acuto', classify:v=> v.f < 380}\n  };" }
 ], ['POOLS', 'STOPSIGNAL_RULES', 'buildStopSignal'], { cfg: cfgStub });
 
@@ -42,5 +42,35 @@ module.exports = function run(t) {
       const mismatches = seq.filter(x => x.correctAnswer !== (rule.classify(x.val) ? 'a' : 'b'));
       t.eq(mismatches.length, 0, mat + ': correctAnswer coerente con la regola su tutte le 2000 prove generate');
     });
+  });
+
+  t.group('buildStopSignal — interferenza spaziale DISATTIVATA (default): nessun campo side/congruency', () => {
+    cfgStub.stimType = 'frecce'; cfgStub.trials = 200; cfgStub.targetRate = 0.25; cfgStub.stopsignalInterferenza = 'no';
+    const seq = buildStopSignal();
+    t.ok(seq.every(x => x.side === undefined), 'nessuna prova ha una posizione a schermo quando l\'interferenza è assente — il meccanismo core resta invariato');
+    t.ok(seq.every(x => x.congruency === undefined), 'nessuna prova ha un\'etichetta di congruenza quando l\'interferenza è assente');
+  });
+
+  t.group('buildStopSignal — interferenza spaziale ATTIVATA: side/congruency coerenti con il meccanismo Simon', () => {
+    cfgStub.stimType = 'frecce'; cfgStub.trials = 4000; cfgStub.targetRate = 0.25; cfgStub.stopsignalInterferenza = 'si';
+    const seq = buildStopSignal();
+    t.ok(seq.every(x => x.side === 'left' || x.side === 'right'), 'ogni prova riceve una posizione a schermo (sinistra o destra) quando l\'interferenza è attiva');
+    t.ok(seq.every(x => x.congruency === 'congruent' || x.congruency === 'incongruent'), 'ogni prova è etichettata congruente o incongruente');
+    const congFrac = seq.filter(x => x.congruency === 'congruent').length / seq.length;
+    t.approx(congFrac, 0.5, 0.03, 'proporzione congruente/incongruente vicina al 50/50, indipendente dalla frequenza di stop');
+    // 'a' = pulsante sinistro, 'b' = pulsante destro (stesso ordine di
+    // respondSpec/renderStimulusNode) — su una prova CONGRUENTE il lato
+    // dello stimolo deve coincidere con quello del pulsante corretto.
+    const congTrials = seq.filter(x => x.congruency === 'congruent');
+    const congSideMismatch = congTrials.filter(x => (x.correctAnswer === 'a' && x.side !== 'left') || (x.correctAnswer === 'b' && x.side !== 'right'));
+    t.eq(congSideMismatch.length, 0, 'su OGNI prova congruente, il lato dello stimolo coincide col lato del pulsante corretto (a=sinistra, b=destra)');
+    const incongTrials = seq.filter(x => x.congruency === 'incongruent');
+    const incongSideMismatch = incongTrials.filter(x => (x.correctAnswer === 'a' && x.side !== 'right') || (x.correctAnswer === 'b' && x.side !== 'left'));
+    t.eq(incongSideMismatch.length, 0, 'su OGNI prova incongruente, il lato dello stimolo è OPPOSTO a quello del pulsante corretto');
+    // La discriminazione (quale pulsante è corretto) resta identità-based:
+    // la posizione non deve MAI entrare nel calcolo di correctAnswer.
+    const rule = STOPSIGNAL_RULES.frecce;
+    const mismatches = seq.filter(x => x.correctAnswer !== (rule.classify(x.val) ? 'a' : 'b'));
+    t.eq(mismatches.length, 0, 'correctAnswer resta determinato SOLO dall\'identità dello stimolo, mai dalla posizione a schermo (side)');
   });
 };

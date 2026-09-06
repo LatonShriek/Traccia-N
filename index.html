@@ -1385,8 +1385,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2775,6 +2775,23 @@
   // "lupo-capra-cavolo" — non sono qui: sono problemi di ricerca in uno
   // spazio di stati/percorso, una struttura diversa da "elenco di elementi
   // con vincoli", richiederebbero un motore a parte.
+  // Scenario dedicato solo allo screening (vedi SCREENING_FINAL_GATE più
+  // sotto) — non compare nel selettore di Setup fra gli scenari normali,
+  // serve solo come sonda breve. 2 tipi di vincolo attivi insieme
+  // (alternanza di categoria + prerequisito su 2 dei 4 elementi), budget
+  // di 90 secondi: la brevità voluta per un gate di screening, non un
+  // allenamento — usato a goaltaskLivello:2 (mantiene le regole della
+  // base invariate, non le spoglia come il livello 1 di goalTaskInstanceFor).
+  GOALTASK_SCENARIOS.screening_breve = {
+    chiave:'screening_breve', label:'Screening — mini scenario', budgetSecondi:90,
+    regole:['no_consecutivi_stessa_categoria'],
+    items:[
+      {id:'sb1', testo:'Gruppo A — primo compito', categoria:'gruppoA'},
+      {id:'sb2', testo:'Gruppo B — primo compito', categoria:'gruppoB'},
+      {id:'sb3', testo:'Gruppo A — secondo compito', categoria:'gruppoA', vincoli:{richiede:'sb1'}},
+      {id:'sb4', testo:'Gruppo B — secondo compito', categoria:'gruppoB', vincoli:{richiede:'sb2'}}
+    ]
+  };
   GOALTASK_SCENARIOS.sei_compiti_classico = {
     chiave:'sei_compiti_classico', label:'Sei compiti (Modified Six Elements)', budgetSecondi:600,
     regole:['no_consecutivi_stessa_categoria'],
@@ -4201,7 +4218,7 @@
         }
       }
     } else if(isGoalTask){
-      const scKeys = Object.keys(GOALTASK_SCENARIOS);
+      const scKeys = Object.keys(GOALTASK_SCENARIOS).filter(k=>k!=='screening_breve'); // sonda breve riservata al gate finale dello screening, non un vero scenario da assegnare
       grid.appendChild(field('Scenario', segButtons(scKeys, cfg.goaltaskScenario, v=>{cfg.goaltaskScenario=v; render();}, Object.fromEntries(scKeys.map(k=>[k, GOALTASK_SCENARIOS[k].label])))));
       grid.appendChild(field('Livello di complessità', segButtons(['1','2','3','4','5'], String(cfg.goaltaskLivello), v=>{cfg.goaltaskLivello=parseInt(v,10); render();}, {'1':'1 — molto facile', '2':'2 — facile', '3':'3 — medio', '4':'4 — difficile', '5':'5 — molto difficile'})));
     } else if(!isNeglect){
@@ -4323,9 +4340,13 @@
     if(cfg.taskMode==='stopsignal'){
       grid.appendChild(field('Ritardo iniziale segnale di stop (SSD)', stepper(cfg.ssd,0,cfg.isi-100,v=>{cfg.ssd=v; render();},50,ms=>ms+' ms')));
       grid.appendChild(field('Passo di adattamento SSD', stepper(cfg.ssdStep,10,150,v=>{cfg.ssdStep=v; render();},10,ms=>ms+' ms')));
-      card.appendChild(field('Interferenza spaziale', segButtons(['no','si'], cfg.stopsignalInterferenza||'no', v=>{cfg.stopsignalInterferenza=v; render();}, {no:'Assente (standard)', si:'Presente (conflitto tipo Simon)'})));
+      card.appendChild(field('Interferenza spaziale', segButtons(['no','si'], cfg.stopsignalInterferenza||'no', v=>{
+        cfg.stopsignalInterferenza=v;
+        if(v==='si' && cfg.adaptStartLevel < STOPSIGNAL_INTERFERENZA_MIN_LEVEL) cfg.adaptStartLevel = STOPSIGNAL_INTERFERENZA_MIN_LEVEL;
+        render();
+      }, {no:'Assente (standard)', si:'Presente (conflitto tipo Simon)'})));
       if(cfg.stopsignalInterferenza==='si'){
-        card.appendChild(el('p',{class:'hint'},['Quarto gradino della scala Vigilanza/Inibizione, raggiungibile solo dopo che il paziente supera lo Stop-Signal puro. Lo stimolo compare a sinistra o a destra invece che al centro — la posizione non conta mai per la risposta, ma a volte coincide con il lato del pulsante corretto (congruente) e a volte no (incongruente), esattamente come nel Simon task. Il meccanismo core (le due scelte, lo stop occasionale, lo staircase SSD) resta identico e invariato: questa è un\'aggiunta, non una sostituzione. Misura il conflitto spazio-risposta SOTTO il carico di dover eventualmente trattenere una risposta — una cosa diversa dal Simon task da solo, che misura lo stesso conflitto senza quel carico aggiuntivo: non lo rende ridondante.']));
+        card.appendChild(el('p',{class:'hint'},['Quarto gradino della scala Vigilanza/Inibizione — selezionandolo, il livello di partenza sale automaticamente ad almeno '+STOPSIGNAL_INTERFERENZA_MIN_LEVEL+' se era più basso, e la seduta non può più scendere sotto quella soglia: non è raggiungibile da un livello Stop-Signal ancora basso. Lo stimolo compare a sinistra o a destra invece che al centro — la posizione non conta mai per la risposta, ma a volte coincide con il lato del pulsante corretto (congruente) e a volte no (incongruente), esattamente come nel Simon task. Il meccanismo core (le due scelte, lo stop occasionale, lo staircase SSD) resta identico e invariato: questa è un\'aggiunta, non una sostituzione. Misura il conflitto spazio-risposta SOTTO il carico di dover eventualmente trattenere una risposta — una cosa diversa dal Simon task da solo, che misura lo stesso conflitto senza quel carico aggiuntivo: non lo rende ridondante.']));
       }
     }
 
@@ -4813,6 +4834,9 @@
     // configurazioni caricate da altrove.
     if(cfg.taskMode==='switching' && cfg.switchMaterial==='bivalente' && cfg.adaptStartLevel < TASK_SWITCHING_BIVALENTE_MIN_LEVEL){
       cfg.adaptStartLevel = TASK_SWITCHING_BIVALENTE_MIN_LEVEL;
+    }
+    if(cfg.taskMode==='stopsignal' && cfg.stopsignalInterferenza==='si' && cfg.adaptStartLevel < STOPSIGNAL_INTERFERENZA_MIN_LEVEL){
+      cfg.adaptStartLevel = STOPSIGNAL_INTERFERENZA_MIN_LEVEL;
     }
     regenerateNumeriPool();
     regenerateParolePool();
@@ -5471,6 +5495,14 @@
   // sessionLevelBounds), e la sessione/continuità fra sedute non scende
   // mai sotto, finché il materiale resta bivalente.
   const TASK_SWITCHING_BIVALENTE_MIN_LEVEL = 6;
+  // Stessa logica del bivalente sopra, per lo stesso motivo: "quarto
+  // gradino della scala gerarchica" (vedi cfg.stopsignalInterferenza)
+  // non ha senso raggiungibile da qualunque livello — richiede aver
+  // superato una parte reale della scala Stop-Signal pura. Soglia scelta
+  // per coerenza con le altre due soglie già in uso in questo file
+  // (bivalente, modalità seriale del Mantenimento), non da un dato di
+  // letteratura specifico per questa variante.
+  const STOPSIGNAL_INTERFERENZA_MIN_LEVEL = 6;
   function structuralBandBounds(taskKey, startLevel){
     const bands = STRUCTURAL_BANDS[taskKey];
     if(!bands) return null;
@@ -5497,6 +5529,9 @@
     }
     if(key==='adaptLevel' && cfg.taskMode==='switching' && cfg.switchMaterial==='bivalente'){
       return {min:TASK_SWITCHING_BIVALENTE_MIN_LEVEL, max:currentLevelMax()};
+    }
+    if(key==='adaptLevel' && cfg.taskMode==='stopsignal' && cfg.stopsignalInterferenza==='si'){
+      return {min:STOPSIGNAL_INTERFERENZA_MIN_LEVEL, max:currentLevelMax()};
     }
     if(key==='categLevel'){
       return structuralBandBounds('categorizzazione', cfg.categLivello) || {min:1, max:currentLevelMax()};
@@ -6630,6 +6665,87 @@
       patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:5, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}) }
   ];
   const SCREENING_FLAG_THRESHOLD = 0.70; // coerente con la soglia Wilson già in uso per la titolazione adattiva
+  // Livello 1 — approfondimento gerarchico, si attiva SOLO se il dominio
+  // corrispondente ha flaggato al Livello 0 (vedi buildLevel1Queue). Non
+  // tutti i domini ne hanno uno: Flessibilità cognitiva ha un solo
+  // esercizio, niente da approfondire; Attenzione divisa/Scenari ecologici
+  // restano fuori per la stessa ragione per cui sono già fuori dal
+  // Livello 0 (vedi il commento sopra SCREENING_BLOCKS — livello
+  // concettuale diverso, non un quinto dominio pari agli altri).
+  //
+  // "Scala" (ladder): gradini somministrati in sequenza, ci si FERMA al
+  // primo gradino dove il paziente fallisce (accuratezza sotto soglia) —
+  // è quello il punto di rottura da segnalare. Se tutti i gradini
+  // passano nonostante il Livello 0 avesse flaggato, il problema non è
+  // stato localizzato più in profondità: si ripropone il dominio così
+  // com'era (Go/No-Go, Cancellazione a regola) senza un gradino più
+  // specifico da consigliare.
+  const SCREENING_LEVEL1_LADDERS = {
+    attenzione: [
+      { label:'TAPAT (allerta sostenuta)', suggestTaskMode:'tapat', suggestLabel:'TAPAT',
+        patch:()=>({taskMode:'tapat', tapatModalita:'visivo', tapatSpatial:false, tapatStartLevel:1, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+        scoreOf:r=>primaryAccuracyOf(r) },
+      { label:'Stop-Signal', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal',
+        patch:()=>({taskMode:'stopsignal', stimType:'frecce', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'no', titrationMode:'manuale', trials:SCREENING_TRIALS}),
+        scoreOf:r=>r.goAccuracy },
+      { label:'Stop-Signal con interferenza', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal (variante con interferenza)',
+        patch:()=>({taskMode:'stopsignal', stimType:'frecce', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'si', titrationMode:'manuale', trials:SCREENING_TRIALS}),
+        scoreOf:r=>r.goAccuracy }
+    ],
+    esplorazione: [
+      { label:'Cancellazione — Trova l\'intruso', suggestTaskMode:'neglect', suggestLabel:'Cancellazione — Trova l\'intruso',
+        patch:()=>({taskMode:'neglect', neglectMode:'intruso', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:30, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
+        scoreOf:r=>primaryAccuracyOf(r) }
+      // Il gradino "regola" non ripetuto qui: è già il blocco "caricato"
+      // del Livello 0 per questo dominio (vedi SCREENING_BLOCKS) — la scala
+      // riparte da dove il Livello 0 si è fermato, non da capo.
+    ]
+  };
+  // "Parallelo" (differential): sonde somministrate TUTTE, non in
+  // sequenza con arresto — il pattern dei risultati distingue fra loro,
+  // non un singolo punto di rottura. Se una sonda flagga anch'essa,
+  // localizza un problema condiviso (si consiglia quella); se nessuna
+  // flagga, il problema resta specifico al dominio originale (si consiglia
+  // quello, non le sonde — es. N-back debole ma Mantenimento e
+  // Categorizzazione normali conferma che il problema è l'aggiornamento
+  // continuo, non un deficit di memoria di lavoro più generale).
+  const SCREENING_LEVEL1_PARALLEL = {
+    memoria: [
+      { label:'Mantenimento (tipo Sternberg)', suggestTaskMode:'mantenimento', suggestLabel:'Mantenimento (tipo Sternberg)',
+        patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:4, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+        scoreOf:r=>primaryAccuracyOf(r) },
+      { label:'Categorizzazione condizionale', suggestTaskMode:'categorizzazione', suggestLabel:'Categorizzazione condizionale',
+        patch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'simboli', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+        scoreOf:r=>primaryAccuracyOf(r) }
+    ]
+  };
+  // Gate finale — raggiunto SOLO se l'intero screening (Livello 0 e
+  // qualunque approfondimento di Livello 1) non ha segnalato NULLA, e il
+  // pattern di coordinamento generale (vedi computeCoordinationFlag) non
+  // si è attivato: cioè un profilo pulito su ogni dominio testato finora.
+  // Non è un "se fallisce qualcosa, prova questo" come il resto dello
+  // screening — è l'opposto: solo chi supera TUTTO arriva a una sonda più
+  // esigente, sul principio per cui test strutturati brevi possono non
+  // cogliere difficoltà che emergono solo in compiti più complessi e
+  // realistici (il razionale storico dietro il Six Elements Test/Multiple
+  // Errands Test — Shallice & Burgess, 1991). Se il primo passo (Doppio
+  // compito) fallisce, ci si ferma lì: Scenari ecologici resta manuale,
+  // come deciso esplicitamente, non si somministra la sonda ecologica a
+  // un profilo che ha appena mostrato un problema a un gradino precedente.
+  const SCREENING_FINAL_GATE = {
+    divisa: { label:'Doppio compito (verifica finale)', suggestTaskMode:'dualtask', suggestLabel:'Doppio compito',
+      patch:()=>({taskMode:'dualtask', dualStartLevel1:1, dualStartLevel2:1, dualPairing:'vis-aud', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    ecologico: { label:'Scenari ecologici — mini scenario', suggestTaskMode:'goaltask', suggestLabel:'Scenari ecologici',
+      patch:()=>({taskMode:'goaltask', goaltaskScenario:'screening_breve', goaltaskLivello:2}),
+      // Non una soglia di accuratezza (non è quel genere di compito, vedi
+      // discussione): il segnale qui è il numero di violazioni delle
+      // regole — ipotesi di partenza dichiarata (>1 violazione su un
+      // mini-scenario a 4 elementi/90 secondi), non un valore di
+      // letteratura validato, come già per le altre soglie di questo
+      // screening.
+      scoreOf:r=> r.goaltask && r.goaltask.violazioniCount<=1 ? 1 : 0 }
+  };
   // Prova dimostrativa: 6 prove a difficoltà fissa e facile, con feedback
   // esplicativo dopo ogni risposta, per far capire la regola prima che le
   // prove "contino" davvero. Solo per i 6 esercizi con la regola meno
@@ -6843,14 +6959,71 @@
   }
 
   function startScreeningSession(){
-    screeningState = { blockIdx:0, results:[], respModeBefore: cfg.respMode };
+    screeningState = { blockIdx:0, results:[], respModeBefore: cfg.respMode, level1Prepared:false, level1Queue:[], level1Results:{} };
     if(cfg.respMode==='manuale') cfg.respMode = 'paziente'; // l'inserimento manuale differito non è compatibile con la sequenza automatica dei blocchi
     runScreeningBlock(0);
   }
   function runScreeningBlock(idx){
-    if(idx>=SCREENING_BLOCKS.length){ finishScreening(); return; }
-    const block = SCREENING_BLOCKS[idx];
-    Object.assign(cfg, block.patch());
+    if(idx < SCREENING_BLOCKS.length){
+      const block = SCREENING_BLOCKS[idx];
+      Object.assign(cfg, block.patch());
+      view='screeningIntro'; render();
+      return;
+    }
+    // Livello 0 completo. La prima volta che si arriva qui, si calcolano i
+    // flag e si prepara la coda di Livello 1 — fatto una sola volta
+    // (level1Prepared), non ad ogni chiamata successiva della funzione.
+    if(!screeningState.level1Prepared){
+      screeningState.level1Prepared = true;
+      screeningState.level0Summary = computeScreeningFlags(screeningState.results);
+      screeningState.level1Queue = buildLevel1Queue(screeningState.level0Summary);
+    }
+    runLevel1Step();
+  }
+  // Coda di approfondimento: un elemento per ogni dominio flaggato al
+  // Livello 0 che ha una scala o un pannello di sonde parallele definiti
+  // sopra. I domini flaggati senza approfondimento definito (Flessibilità,
+  // e qualunque dominio non presente nelle due mappe) restano com'erano,
+  // nessuna coda per loro.
+  function buildLevel1Queue(level0Summary){
+    const queue = [];
+    level0Summary.forEach(row=>{
+      if(!row.flagged) return;
+      if(SCREENING_LEVEL1_LADDERS[row.domain]){
+        queue.push({ kind:'ladder', domain:row.domain, rungs:SCREENING_LEVEL1_LADDERS[row.domain], rungIdx:0, stoppedAtIdx:null, rungAccuracies:[] });
+      } else if(SCREENING_LEVEL1_PARALLEL[row.domain]){
+        queue.push({ kind:'parallel', domain:row.domain, probes:SCREENING_LEVEL1_PARALLEL[row.domain], probeIdx:0, probeAccuracies:[] });
+      }
+    });
+    return queue;
+  }
+  function runLevel1Step(){
+    if(!screeningState.level1Queue.length){ runFinalGateStep(); return; }
+    const item = screeningState.level1Queue[0];
+    if(item.kind==='ladder'){
+      Object.assign(cfg, item.rungs[item.rungIdx].patch());
+    } else {
+      Object.assign(cfg, item.probes[item.probeIdx].patch());
+    }
+    view='screeningIntro'; render();
+  }
+  // Il gate finale si prepara una sola volta (finalGatePrepared), quando
+  // per la prima volta la coda di Livello 1 risulta vuota — sia perché non
+  // conteneva nulla dall'inizio (nessun dominio flaggato), sia perché è
+  // stata appena svuotata. La coda parte con un solo passo ("divisa"):
+  // "ecologico" viene aggiunto dopo, solo se "divisa" passa (vedi il
+  // completamento della prova più sotto) — mai i due insieme dall'inizio.
+  function runFinalGateStep(){
+    if(!screeningState.finalGatePrepared){
+      screeningState.finalGatePrepared = true;
+      const allClean = screeningState.level0Summary.every(r=>!r.flagged);
+      const noCoordination = !computeCoordinationFlag(screeningState.results);
+      screeningState.finalGateQueue = (allClean && noCoordination) ? ['divisa'] : [];
+      screeningState.finalGateResults = {};
+    }
+    if(!screeningState.finalGateQueue.length){ finishScreening(); return; }
+    const stepKey = screeningState.finalGateQueue[0];
+    Object.assign(cfg, SCREENING_FINAL_GATE[stepKey].patch());
     view='screeningIntro'; render();
   }
   // Punteggio e suggerimenti: per ogni dominio con un blocco caricato,
@@ -6878,9 +7051,115 @@
       return { domain:b.domain, domainLabel:b.domainLabel, baseAcc, carAcc, flagged, suggestTaskMode:b.suggestTaskMode, suggestLabel:b.suggestLabel, suggestedCfg };
     });
   }
+  // Applica l'esito del Livello 1 (se è girato per quel dominio) sopra il
+  // suggerimento grezzo del Livello 0 — una scala che si è fermata a un
+  // gradino, o un pannello parallelo con un esito, sostituiscono
+  // suggestTaskMode/suggestLabel/suggestedCfg con la versione più
+  // localizzata; se il Livello 1 non è girato per quel dominio, o è girato
+  // ma non ha localizzato nulla di più specifico, il suggerimento del
+  // Livello 0 resta quello valido.
+  function applyLevel1Refinement(level0Row, level1Results){
+    const l1 = level1Results[level0Row.domain];
+    if(!l1) return Object.assign({}, level0Row, {level1:null});
+    if(l1.kind==='ladder'){
+      if(l1.stoppedAtIdx==null){
+        // Tutti i gradini superati nonostante il flag al Livello 0: nessuna
+        // localizzazione più precisa, resta il suggerimento originale.
+        return Object.assign({}, level0Row, {level1:l1});
+      }
+      const rung = SCREENING_LEVEL1_LADDERS[level0Row.domain][l1.stoppedAtIdx];
+      return Object.assign({}, level0Row, {
+        level1:l1,
+        suggestTaskMode:rung.suggestTaskMode, suggestLabel:rung.suggestLabel,
+        suggestedCfg:Object.assign({}, rung.patch(), {trials:24, adaptive:true})
+      });
+    }
+    if(l1.kind==='parallel'){
+      if(l1.flaggedProbeIdx==null){
+        // Nessuna sonda parallela ha flaggato: il problema resta specifico
+        // al dominio originale, non alle sonde — suggerimento invariato.
+        return Object.assign({}, level0Row, {level1:l1});
+      }
+      const probe = SCREENING_LEVEL1_PARALLEL[level0Row.domain][l1.flaggedProbeIdx];
+      return Object.assign({}, level0Row, {
+        level1:l1,
+        suggestTaskMode:probe.suggestTaskMode, suggestLabel:probe.suggestLabel,
+        suggestedCfg:Object.assign({}, probe.patch(), {trials:24, adaptive:true})
+      });
+    }
+    return Object.assign({}, level0Row, {level1:l1});
+  }
+  // Non un settimo dominio con un proprio base/caricato (l'Attenzione
+  // divisa resta deliberatamente fuori da quello schema, vedi discussione
+  // sopra SCREENING_BLOCKS) — un PATTERN derivato dagli stessi dati già
+  // raccolti: se OGNI blocco base (non solo i caricati) risulta sotto
+  // soglia, la lettura per dominio smette di essere informativa (nessun
+  // base è "nella norma" da cui misurare un calo specifico) e un pattern
+  // così ampio somiglia più a un problema di coordinamento fra risorse
+  // (Baddeley, esecutivo centrale — la stessa ragione per cui l'Attenzione
+  // divisa non è mai stata un dominio a sé in questo screening) che a un
+  // deficit in un singolo substrato. Da leggere con cautela: un pattern
+  // così ampio può derivare anche da affaticamento, scarsa motivazione o
+  // difficoltà sensoriali/motorie non specificamente cognitive — non è
+  // una diagnosi, è un'indicazione a guardare oltre i domini singoli.
+  function computeCoordinationFlag(results){
+    const baseEntries = results.filter(r=>r.tipo==='base');
+    if(!baseEntries.length) return null;
+    const allBelow = baseEntries.every(r=> r.accuracy!=null && r.accuracy<SCREENING_FLAG_THRESHOLD);
+    if(!allBelow) return null;
+    return {
+      domain:'coordinamento', domainLabel:'Coordinamento generale (non un dominio a sé — vedi nota)',
+      flagged:true, isGlobalPattern:true, baseAcc:null, carAcc:null, level1:null,
+      suggestTaskMode:'dualtask', suggestLabel:'Doppio compito',
+      suggestedCfg:{taskMode:'dualtask', dualStartLevel1:1, dualStartLevel2:1, dualPairing:'vis-aud', titrationMode:'livello', trials:24, adaptive:true},
+      note:'Ogni blocco BASE (non solo i caricati) è risultato sotto soglia — nessun dominio ha un riferimento "nella norma" da cui misurare un calo specifico. Un pattern così ampio suggerisce di considerare il Doppio compito (coordinamento fra risorse attentive), ma può derivare anche da affaticamento, motivazione o difficoltà sensoriali/motorie non specificamente cognitive: non è una localizzazione di dominio come le altre righe sopra.'
+    };
+  }
+  // Costruisce le righe del gate finale per il riepilogo — a differenza
+  // degli altri, un esito "passato" qui è la norma attesa (si arriva al
+  // gate solo dopo aver superato tutto il resto), quindi ha senso
+  // mostrarlo anche quando non flagga, non solo quando lo fa.
+  function buildFinalGateRows(finalGateResults){
+    const rows = [];
+    if(finalGateResults.divisa!=null){
+      const flagged = finalGateResults.divisa < SCREENING_FLAG_THRESHOLD;
+      const step = SCREENING_FINAL_GATE.divisa;
+      rows.push({
+        domain:'gate-divisa', domainLabel:'Verifica finale — Attenzione divisa', isFinalGate:true,
+        flagged, baseAcc:null, carAcc:finalGateResults.divisa, level1:null,
+        suggestTaskMode: flagged ? step.suggestTaskMode : null, suggestLabel: flagged ? step.suggestLabel : null,
+        suggestedCfg: flagged ? Object.assign({}, step.patch(), {trials:24, adaptive:true}) : null,
+        note: flagged
+          ? 'L\'intero screening (compresi eventuali approfondimenti) non aveva segnalato nulla, ma questa verifica finale sul Doppio compito è risultata sotto soglia — la sonda su Scenari ecologici non viene somministrata: si va per gradi, un problema qui va guardato prima di aggiungere un compito ancora più complesso.'
+          : 'Superata — nessun problema di coordinamento emerso nemmeno in questa verifica finale.'
+      });
+    }
+    if(finalGateResults.ecologico!=null){
+      const flagged = finalGateResults.ecologico===0;
+      const step = SCREENING_FINAL_GATE.ecologico;
+      rows.push({
+        domain:'gate-ecologico', domainLabel:'Verifica finale — Scenari ecologici (mini scenario)', isFinalGate:true,
+        flagged, baseAcc:null, carAcc:null, level1:null,
+        suggestTaskMode: flagged ? step.suggestTaskMode : null, suggestLabel: flagged ? step.suggestLabel : null,
+        // La configurazione suggerita punta a un vero scenario da
+        // assegnare (livello 1, il più semplice), non alla sonda breve
+        // usata solo per questa verifica — quella non è pensata per
+        // l'allenamento vero e proprio.
+        suggestedCfg: flagged ? {taskMode:'goaltask', goaltaskScenario:'sei_compiti_classico', goaltaskLivello:1} : null,
+        note: flagged
+          ? 'Profilo pulito su tutto il resto dello screening, ma il mini-scenario ha superato la tolleranza di violazioni — vale la pena valutare Scenari ecologici anche se nessun dominio strutturato ha segnalato nulla: alcune difficoltà emergono solo in compiti più realistici (Shallice & Burgess, 1991).'
+          : 'Superata — profilo pulito su ogni verifica, inclusa quella più esigente.'
+      });
+    }
+    return rows;
+  }
   async function finishScreening(){
     const results = screeningState.results;
-    const summary = computeScreeningFlags(results);
+    const level0Summary = screeningState.level0Summary || computeScreeningFlags(results);
+    const summary = level0Summary.map(row=>applyLevel1Refinement(row, screeningState.level1Results));
+    const coordinationFlag = computeCoordinationFlag(results);
+    if(coordinationFlag) summary.push(coordinationFlag);
+    summary.push(...buildFinalGateRows(screeningState.finalGateResults||{}));
     cfg.respMode = screeningState.respModeBefore;
     screeningState.summary = summary;
     await persistScreeningFlags(summary.filter(s=>s.flagged), summary);
@@ -6898,7 +7177,14 @@
     const out = (existing||[]).slice();
     fresh.forEach(f=>{
       const i = out.findIndex(x=>x.taskMode===f.suggestTaskMode);
-      const rec = {taskMode:f.suggestTaskMode, label:f.suggestLabel, domainLabel:f.domainLabel, motivo:'screening: '+Math.round(f.carAcc*100)+'% con carico vs '+Math.round(f.baseAcc*100)+'% base', cfg:f.suggestedCfg, aggiornatoIl:Date.now()};
+      // Il pattern globale (vedi computeCoordinationFlag) non ha un
+      // confronto base/caricato di un singolo dominio da riportare — ha
+      // già il proprio testo pronto in f.note, altrimenti si sarebbe
+      // scritto "screening: 0% con carico vs 0% base" (null*100 non dà
+      // un errore in JS, dà 0 — un valore silenziosamente sbagliato,
+      // non un crash che lo facesse notare subito).
+      const motivo = f.isGlobalPattern ? f.note : 'screening: '+Math.round(f.carAcc*100)+'% con carico vs '+Math.round(f.baseAcc*100)+'% base';
+      const rec = {taskMode:f.suggestTaskMode, label:f.suggestLabel, domainLabel:f.domainLabel, motivo, cfg:f.suggestedCfg, aggiornatoIl:Date.now()};
       if(i===-1){ out.push(Object.assign({attivo:true}, rec)); }
       else { out[i] = Object.assign({}, out[i], rec); } // preserva 'attivo' esistente (rispetta l'eventuale disattivazione manuale)
     });
@@ -7134,10 +7420,34 @@
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     const idx = screeningState.blockIdx;
-    const block = SCREENING_BLOCKS[idx];
-    card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Screening — blocco '+(idx+1)+' / '+SCREENING_BLOCKS.length]));
-    card.appendChild(el('h2',{},[block.domainLabel]));
-    card.appendChild(el('p',{class:'hint'},[block.tipo==='base' ? 'Blocco base — stimolo semplice, nessun carico esecutivo.' : 'Blocco caricato — stessa area, con carico esecutivo.']));
+    if(idx < SCREENING_BLOCKS.length){
+      const block = SCREENING_BLOCKS[idx];
+      card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Screening — blocco '+(idx+1)+' / '+SCREENING_BLOCKS.length]));
+      card.appendChild(el('h2',{},[block.domainLabel]));
+      card.appendChild(el('p',{class:'hint'},[block.tipo==='base' ? 'Blocco base — stimolo semplice, nessun carico esecutivo.' : 'Blocco caricato — stessa area, con carico esecutivo.']));
+    } else if(screeningState.level1Queue.length){
+      // Livello 1: un dominio ha flaggato al Livello 0 e questo è un
+      // gradino di approfondimento (scala o pannello parallelo, vedi
+      // buildLevel1Queue) — niente più un indice dentro SCREENING_BLOCKS.
+      const item = screeningState.level1Queue[0];
+      const step = item.kind==='ladder' ? item.rungs[item.rungIdx] : item.probes[item.probeIdx];
+      const posInStep = item.kind==='ladder' ? (item.rungIdx+1)+' / '+item.rungs.length : (item.probeIdx+1)+' / '+item.probes.length;
+      card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Approfondimento — '+posInStep]));
+      card.appendChild(el('h2',{},[step.label]));
+      card.appendChild(el('p',{class:'hint'},[item.kind==='ladder'
+        ? 'Il dominio "'+SCREENING_BLOCKS.find(b=>b.domain===item.domain).domainLabel+'" ha richiesto un approfondimento — questo passo prosegue finché non si trova il punto preciso di difficoltà.'
+        : 'Il dominio "'+SCREENING_BLOCKS.find(b=>b.domain===item.domain).domainLabel+'" ha richiesto un approfondimento — questa prova aiuta a localizzare meglio dove intervenire.']));
+    } else {
+      // Gate finale: raggiunto solo quando l'intero screening (compresi
+      // eventuali approfondimenti) non ha segnalato nulla — vedi
+      // runFinalGateStep. "divisa" sempre per primo; "ecologico" solo se
+      // "divisa" passa.
+      const stepKey = screeningState.finalGateQueue[0];
+      const step = SCREENING_FINAL_GATE[stepKey];
+      card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Verifica finale']));
+      card.appendChild(el('h2',{},[step.label]));
+      card.appendChild(el('p',{class:'hint'},['Nessun problema emerso finora in tutto lo screening — questa verifica in più aiuta a escludere difficoltà che i test brevi strutturati potrebbero non cogliere.']));
+    }
     card.appendChild(el('p',{},[EXERCISES[cfg.taskMode].instructions(cfg)]));
     card.appendChild(el('button',{class:'primary', style:'margin-top:16px;', onclick:()=>{ view='countdown'; render(); }},['Inizia']));
     card.appendChild(el('button',{class:'ghost', style:'margin-top:8px;', onclick:()=>{
@@ -7163,7 +7473,30 @@
         const cp = row.carAcc!=null ? Math.round(row.carAcc*100)+'%' : '—';
         const wrap = el('div',{style:'padding:10px 4px; border-bottom:1px solid var(--line);'+(row.flagged?' background:var(--paper-dim);':'')});
         wrap.appendChild(el('div',{style:'font-weight:600;'},[row.domainLabel+(row.flagged?' — consigliato: '+row.suggestLabel:'')]));
+        if(row.isGlobalPattern || row.isFinalGate){
+          wrap.appendChild(el('div',{class:'hint', style:'margin-top:4px;'},[row.note]));
+          card.appendChild(wrap);
+          return;
+        }
         wrap.appendChild(el('div',{style:'font-size:13px; color:var(--ink-soft);'},['base '+bp+' · caricato '+cp]));
+        if(row.level1){
+          const l1 = row.level1;
+          if(l1.kind==='ladder'){
+            const rungs = SCREENING_LEVEL1_LADDERS[row.domain];
+            const detail = l1.rungAccuracies.map((a,i)=> rungs[i].label+' '+(a!=null?Math.round(a*100)+'%':'—')).join(' → ');
+            const esito = l1.stoppedAtIdx!=null
+              ? 'fermato a "'+rungs[l1.stoppedAtIdx].label+'"'
+              : 'nessun gradino sotto soglia (non localizzato più in profondità)';
+            wrap.appendChild(el('div',{class:'hint', style:'margin-top:4px;'},['Approfondimento (scala): '+detail+' — '+esito]));
+          } else if(l1.kind==='parallel'){
+            const probes = SCREENING_LEVEL1_PARALLEL[row.domain];
+            const detail = l1.probeAccuracies.map((a,i)=> probes[i].label+' '+(a!=null?Math.round(a*100)+'%':'—')).join(' · ');
+            const esito = l1.flaggedProbeIdx!=null
+              ? 'localizzato su "'+probes[l1.flaggedProbeIdx].label+'"'
+              : 'nessuna sonda sotto soglia (il problema resta specifico al dominio originale)';
+            wrap.appendChild(el('div',{class:'hint', style:'margin-top:4px;'},['Approfondimento (parallelo): '+detail+' — '+esito]));
+          }
+        }
         card.appendChild(wrap);
       });
     }
@@ -7852,22 +8185,97 @@
     }
     lastResult = rec;
     if(screeningState){
-      const block = SCREENING_BLOCKS[screeningState.blockIdx];
-      rec.screening = {domain:block.domain, tipo:block.tipo, label:block.label};
-      rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening — '+block.label+']';
-      await saveSession(rec);
-      if(block.tipo==='split'){
-        // Un solo blocco somministrato, due punteggi derivati dagli stessi
-        // dati (vedi commento su SCREENING_BLOCKS) — non una seconda
-        // somministrazione.
-        screeningState.results.push({domain:block.domain, tipo:'base', accuracy: rec.choice[block.splitAccKeys.base]});
-        screeningState.results.push({domain:block.domain, tipo:'caricato', accuracy: rec.choice[block.splitAccKeys.caricato]});
-      } else {
-        screeningState.results.push({domain:block.domain, tipo:block.tipo, accuracy: primaryAccuracyOf(rec)});
+      if(screeningState.blockIdx < SCREENING_BLOCKS.length){
+        const block = SCREENING_BLOCKS[screeningState.blockIdx];
+        rec.screening = {domain:block.domain, tipo:block.tipo, label:block.label};
+        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening — '+block.label+']';
+        await saveSession(rec);
+        if(block.tipo==='split'){
+          // Un solo blocco somministrato, due punteggi derivati dagli stessi
+          // dati (vedi commento su SCREENING_BLOCKS) — non una seconda
+          // somministrazione.
+          screeningState.results.push({domain:block.domain, tipo:'base', accuracy: rec.choice[block.splitAccKeys.base]});
+          screeningState.results.push({domain:block.domain, tipo:'caricato', accuracy: rec.choice[block.splitAccKeys.caricato]});
+        } else {
+          screeningState.results.push({domain:block.domain, tipo:block.tipo, accuracy: primaryAccuracyOf(rec)});
+        }
+        screeningState.blockIdx++;
+        runScreeningBlock(screeningState.blockIdx);
+        return;
       }
-      screeningState.blockIdx++;
-      runScreeningBlock(screeningState.blockIdx);
-      return;
+      // Livello 1: la coda ha in testa uno step di scala o di pannello
+      // parallelo (vedi buildLevel1Queue/runLevel1Step) — mai entrambi i
+      // tipi assieme sullo stesso dominio. Coda vuota = o Livello 1 non è
+      // mai partito (nessun dominio flaggato) o è appena finito: in
+      // entrambi i casi si passa al gate finale (vedi sotto), non a
+      // questo ramo.
+      if(screeningState.level1Queue.length){
+      const item = screeningState.level1Queue[0];
+      if(item.kind==='ladder'){
+        const rung = item.rungs[item.rungIdx];
+        const acc = rung.scoreOf(rec);
+        rec.screening = {domain:item.domain, tipo:'livello1-scala', label:'Approfondimento — '+rung.label};
+        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening L1 — '+rung.label+']';
+        await saveSession(rec);
+        item.rungAccuracies.push(acc);
+        if(acc==null || acc<SCREENING_FLAG_THRESHOLD){
+          // Fallito (o non misurabile): ci si ferma QUI, è il gradino da
+          // segnalare — non si somministrano i gradini successivi, più
+          // esigenti, che con ogni probabilità fallirebbero comunque.
+          item.stoppedAtIdx = item.rungIdx;
+          screeningState.level1Results[item.domain] = item;
+          screeningState.level1Queue.shift();
+        } else if(item.rungIdx+1 < item.rungs.length){
+          item.rungIdx++;
+        } else {
+          // Tutti i gradini superati: nessun punto di rottura trovato.
+          item.stoppedAtIdx = null;
+          screeningState.level1Results[item.domain] = item;
+          screeningState.level1Queue.shift();
+        }
+        runLevel1Step();
+        return;
+      }
+      if(item.kind==='parallel'){
+        const probe = item.probes[item.probeIdx];
+        const acc = probe.scoreOf(rec);
+        rec.screening = {domain:item.domain, tipo:'livello1-parallelo', label:'Approfondimento — '+probe.label};
+        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening L1 — '+probe.label+']';
+        await saveSession(rec);
+        item.probeAccuracies.push(acc);
+        if(item.probeIdx+1 < item.probes.length){
+          item.probeIdx++;
+        } else {
+          // Tutte le sonde somministrate: la prima che flagga (se ce n'è
+          // una) localizza il suggerimento — vedi applyLevel1Refinement.
+          item.flaggedProbeIdx = item.probeAccuracies.findIndex(a=>a!=null && a<SCREENING_FLAG_THRESHOLD);
+          if(item.flaggedProbeIdx===-1) item.flaggedProbeIdx = null;
+          screeningState.level1Results[item.domain] = item;
+          screeningState.level1Queue.shift();
+        }
+        runLevel1Step();
+        return;
+      }
+      }
+      // Gate finale: "divisa" (Doppio compito) sempre per primo; se passa,
+      // si aggiunge "ecologico" in coda — mai amministrato da solo, mai
+      // prima di "divisa". Se "divisa" fallisce, la coda si svuota qui:
+      // Scenari ecologici resta manuale, come deciso.
+      if(screeningState.finalGateQueue && screeningState.finalGateQueue.length){
+        const stepKey = screeningState.finalGateQueue[0];
+        const step = SCREENING_FINAL_GATE[stepKey];
+        const score = step.scoreOf(rec);
+        rec.screening = {domain:'gate-finale', tipo:stepKey, label:step.label};
+        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening gate finale — '+step.label+']';
+        await saveSession(rec);
+        screeningState.finalGateResults[stepKey] = score;
+        screeningState.finalGateQueue.shift();
+        if(stepKey==='divisa' && score!=null && score>=SCREENING_FLAG_THRESHOLD){
+          screeningState.finalGateQueue.push('ecologico');
+        }
+        runFinalGateStep();
+        return;
+      }
     }
     await saveSession(rec);
     // continuità: ricorda l'ultima configurazione usata per questo profilo,

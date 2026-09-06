@@ -15,9 +15,9 @@ const mod = loadPure(REPO_ROOT, [
   { name: 'currentLevelMax', start: '  function currentLevelMax(){', end: "return 5;\n  }" },
   { name: 'STRUCTURAL_BANDS+bounds', start: '  const STRUCTURAL_BANDS = {', end: "return {min:1, max:currentLevelMax()};\n  }" },
   { name: 'ADAPT_ISI', start: '  const ADAPT_ISI = {', end: "10:750} // leva secondaria, indipendente dallo staircase SSD\n  };" }
-], ['structuralBandBounds', 'sessionLevelBounds', 'STRUCTURAL_BANDS', 'TASK_SWITCHING_BIVALENTE_MIN_LEVEL'], { cfg });
+], ['structuralBandBounds', 'sessionLevelBounds', 'STRUCTURAL_BANDS', 'TASK_SWITCHING_BIVALENTE_MIN_LEVEL', 'STOPSIGNAL_INTERFERENZA_MIN_LEVEL'], { cfg });
 
-const { structuralBandBounds, sessionLevelBounds, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL } = mod;
+const { structuralBandBounds, sessionLevelBounds, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL } = mod;
 
 module.exports = function run(t) {
   t.group('structuralBandBounds — casi già esistenti, per non regredire mentre si estende il meccanismo', () => {
@@ -46,5 +46,13 @@ module.exports = function run(t) {
     cfg.switchMaterial = 'bivalente'; cfg.adaptStartLevel = 6;
     t.eq(sessionLevelBounds(), { min: TASK_SWITCHING_BIVALENTE_MIN_LEVEL, max: 10 }, 'materiale bivalente: la seduta non può MAI scendere sotto la soglia minima, qualunque sia l\'accuratezza');
     t.eq(TASK_SWITCHING_BIVALENTE_MIN_LEVEL, 6, 'soglia minima dichiarata per il bivalente: livello 6');
+  });
+
+  t.group('sessionLevelBounds — Stop-Signal con interferenza: stessa soglia minima del bivalente, stesso principio', () => {
+    cfg.taskMode = 'stopsignal'; cfg.stopsignalInterferenza = 'no'; cfg.adaptStartLevel = 2;
+    t.eq(sessionLevelBounds(), { min: 1, max: 10 }, 'interferenza assente: nessun vincolo, scala 1-10 intera come sempre');
+    cfg.stopsignalInterferenza = 'si'; cfg.adaptStartLevel = 6;
+    t.eq(sessionLevelBounds(), { min: STOPSIGNAL_INTERFERENZA_MIN_LEVEL, max: 10 }, 'interferenza attiva: la seduta non può MAI scendere sotto la soglia minima, qualunque sia l\'accuratezza');
+    t.eq(STOPSIGNAL_INTERFERENZA_MIN_LEVEL, 6, 'soglia minima dichiarata per l\'interferenza: livello 6, stessa del bivalente');
   });
 };

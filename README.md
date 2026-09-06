@@ -1273,7 +1273,7 @@ create policy "solo il proprio gettone di sessione" on sessioni_login for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "il super-operatore legge tutte le sessioni attive" on sessioni_login;
 create policy "il super-operatore legge tutte le sessioni attive" on sessioni_login for select
-  using (exists(select 1 from operatori o where o.id = auth.uid() and o.super = true));
+  using (is_super_operatore());
 
 -- Ruoli: distingue il super-operatore (unico che può leggere il registro
 -- accessi sotto) dagli altri operatori. Nessuna riga = operatore normale;
@@ -1295,12 +1295,26 @@ drop policy if exists "un operatore vede solo la propria riga di ruolo" on opera
 -- della singola policy "vede solo la propria riga" di prima.
 alter table operatori add column if not exists nome text;
 alter table operatori add column if not exists attivo boolean not null default true;
+
+-- Funzione che verifica "l'utente corrente è super-operatore?" bypassando
+-- RLS al suo interno (SECURITY DEFINER). Necessaria: una policy su
+-- operatori che rilegge operatori in una sotto-query per controllare
+-- o.super riattiva la RLS di operatori su quella stessa sotto-query, che
+-- richiede di nuovo la stessa verifica — un ciclo che Postgres blocca con
+-- "infinite recursion detected in policy" (visibile lato app come 500).
+-- La funzione rompe il ciclo leggendo la tabella con i privilegi del suo
+-- proprietario, non con quelli (filtrati da RLS) di chi chiama la policy.
+create or replace function is_super_operatore()
+returns boolean language sql security definer set search_path = public stable as $$
+  select coalesce((select super from operatori where id = auth.uid()), false);
+$$;
+
+drop policy if exists "un operatore vede la propria riga; il super-operatore le vede tutte" on operatori;
 create policy "un operatore vede la propria riga; il super-operatore le vede tutte" on operatori for select
-  using (auth.uid() = id or exists(select 1 from operatori o2 where o2.id = auth.uid() and o2.super = true));
+  using (auth.uid() = id or is_super_operatore());
 drop policy if exists "il super-operatore aggiorna nome/attivo di qualunque operatore" on operatori;
 create policy "il super-operatore aggiorna nome/attivo di qualunque operatore" on operatori for update
-  using (exists(select 1 from operatori o2 where o2.id = auth.uid() and o2.super = true))
-  with check (exists(select 1 from operatori o2 where o2.id = auth.uid() and o2.super = true));
+  using (is_super_operatore()) with check (is_super_operatore());
 
 -- Registro accessi: eventi discreti di login (riuscito/fallito) e logout,
 -- per operatori e pazienti. L'insert è volutamente aperto a chiunque
@@ -1327,7 +1341,7 @@ create policy "chiunque può registrare un evento di accesso" on accessi for ins
   with check (true);
 drop policy if exists "solo il super-operatore legge il registro accessi" on accessi;
 create policy "solo il super-operatore legge il registro accessi" on accessi for select
-  using (exists(select 1 from operatori o where o.id = auth.uid() and o.super = true));
+  using (is_super_operatore());
 ```
 
 **Attivare il super-operatore (una sola volta, solo per il tuo account).**

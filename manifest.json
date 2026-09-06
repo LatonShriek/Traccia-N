@@ -1,7 +1,7 @@
 {
-  "name": "TracciaN — test n-back",
+  "name": "TracciaN — batteria di training cognitivo",
   "short_name": "TracciaN",
-  "description": "Test n-back per uso clinico su tablet, con storage locale dei risultati.",
+  "description": "Batteria di riabilitazione ed esercizi cognitivi per uso clinico, con storage locale/cloud dei risultati.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

@@ -1,4 +1,4 @@
-const CACHE = 'traccian-v2';
+const CACHE = 'traccian-v4'; // v4: corretto il bug che intercettava anche le chiamate cross-origin a Supabase — bump per pulire qualunque risposta rimasta in cache dalla versione precedente
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -15,6 +15,17 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // BUG REALE corretto qui: prima di questa modifica, QUALUNQUE richiesta
+  // GET veniva intercettata — comprese le chiamate a Supabase (*.supabase.co),
+  // che sono letture dinamiche (operatori, sessioni_login, pazienti,
+  // accessi, storico...), mai risorse statiche dell'app da mettere in
+  // cache. Intercettarle con la stessa strategia "cache-first" pensata per
+  // icone/manifest significa sia servire dati vecchi, sia — quello che ha
+  // fatto scoprire il problema — una race fra caches.match() e fetch() in
+  // parallelo che a volte produce "Failed to execute 'clone' on
+  // 'Response': Response body is already used". Il service worker di
+  // un'app deve gestire solo le risorse del proprio stesso dominio.
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   const isNavigation = e.request.mode === 'navigate' || e.request.destination === 'document';
   if (isNavigation) {
     // Network-first for the app shell: always show the latest deployed

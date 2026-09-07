@@ -429,29 +429,47 @@
           if(c.switchSecondaria==='tono') return 'Sentirai un carattere pronunciato (un numero o una lettera), insieme a un tono grave o acuto. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere pronunciato, ignora il tono) oppure "Grave / Acuto" (rispondi in base all\'altezza del tono, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
           return 'Vedrai un carattere che può essere un numero o una lettera, scritto in bianco o in rosso. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere, ignora il colore) oppure "Bianco / Rosso" (rispondi in base al colore, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
         }
-        const rs=SWITCH_RULESETS[c.switchMaterial]; const matName = c.switchMaterial==='numeri'?'un numero':c.switchMaterial==='lettere'?'una lettera':c.switchMaterial==='simboli'?'un simbolo':'un colore'; return 'Vedrai '+matName+', con accanto un\'indicazione che cambia: a volte devi classificarlo come "'+rs.ruleA.label+'", altre volte come "'+rs.ruleB.label+'". Segui l\'indicazione mostrata in quel momento.'; }},
+        const rs=SWITCH_RULESETS[c.switchMaterial]; const matFem = c.switchMaterial==='lettere';
+        const matName = c.switchMaterial==='numeri'?'un numero':c.switchMaterial==='lettere'?'una lettera':c.switchMaterial==='simboli'?'un simbolo':'un colore';
+        return 'Vedrai '+matName+', con accanto un\'indicazione che cambia: a volte devi classificar'+(matFem?'la':'lo')+' come "'+rs.ruleA.label+'", altre volte come "'+rs.ruleB.label+'". Segui l\'indicazione mostrata in quel momento.'; }},
     simon: {label:'Simon (conflitto spazio-risposta)', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Inibizione competitiva','Controllo esecutivo/conflitto'],
+      // BUG REALE corretto qui: prima di questa modifica il testo era
+      // fisso sulla variante "colori", anche quando cfg.simonMateriale
+      // era lettere/numeri/suoni — descriveva sempre un cerchio blu o
+      // verde a un paziente che stava vedendo una lettera o sentendo un
+      // tono. Trovato solo ora, controllando la concordanza di genere in
+      // ogni esercizio — non l'avevo aggiornato quando ho aggiunto le
+      // varianti materiale a Simon.
       instructions:c=>{
-        return 'Vedrai un cerchio colorato, blu o verde, comparire a sinistra o a destra dello schermo. Tocca "Blu" se è blu, "Verde" se è verde — rispondi in base al COLORE, non alla posizione in cui compare: la posizione non conta mai per la risposta, anche se a volte può sembrare "attirare" verso il pulsante sbagliato.';
+        const mat = c.simonMateriale || 'colori';
+        if(mat==='colori') return 'Vedrai un cerchio colorato, blu o verde, comparire a sinistra o a destra dello schermo. Tocca "Blu" se è blu, "Verde" se è verde — rispondi in base al COLORE, non alla posizione in cui compare: la posizione non conta mai per la risposta, anche se a volte può sembrare "attirare" verso il pulsante sbagliato.';
+        if(mat==='suoni') return 'Sentirai un tono, grave o acuto, arrivare da sinistra o da destra (richiede cuffie o casse stereo). Tocca "Grave" o "Acuto" a seconda dell\'altezza del suono — rispondi in base al TONO, non alla direzione da cui arriva: la direzione non conta mai per la risposta, anche se a volte può sembrare "attirare" verso il pulsante sbagliato.';
+        const rule = STOPSIGNAL_RULES[mat];
+        const nomeSing = mat==='lettere' ? 'una lettera' : 'un numero';
+        const nomeCap = mat==='lettere' ? 'LETTERA' : 'NUMERO';
+        const prep = mat==='lettere' ? 'alla' : 'al';
+        return 'Vedrai '+nomeSing+' comparire a sinistra o a destra dello schermo. Tocca "'+rule.labelA+'" o "'+rule.labelB+'" a seconda del tipo — rispondi in base '+prep+' '+nomeCap+', non alla posizione in cui compare: la posizione non conta mai per la risposta, anche se a volte può sembrare "attirare" verso il pulsante sbagliato.';
       }},
     categorizzazione: {label:'Categorizzazione condizionale', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Memoria di lavoro (capacità/complessità relazionale)'],
       instructions:c=>{
         const liv = categEffectiveStructure(c);
         const matSpoken = isSpokenStim(c.categMateriale);
+        const matFem = c.categMateriale==='lettereVoce';
         const matLabel = c.categMateriale==='colori' ? 'un cerchio colorato' : c.categMateriale==='simboli' ? 'un simbolo' : c.categMateriale==='lettereVoce' ? 'una lettera pronunciata' : 'un numero pronunciato';
         const verboVis = matSpoken ? 'Sentirai' : 'Vedrai';
         if(liv===1){
           const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
-          return verboVis+' '+matLabel+': classificalo come "'+rs.labelA+'" o "'+rs.labelB+'", toccando il pulsante corrispondente. La regola resta sempre la stessa, non cambia da una prova all\'altra.';
+          return verboVis+' '+matLabel+': classifica'+(matFem?'la':'lo')+' come "'+rs.labelA+'" o "'+rs.labelB+'", toccando il pulsante corrispondente. La regola resta sempre la stessa, non cambia da una prova all\'altra.';
         }
         if(liv===2) return 'Vedrai una lettera o un numero, bianco o rosso. Tocca "A" se è una lettera bianca, "B" se è un numero rosso, "C" se è un numero bianco. Se è una lettera rossa, non toccare nulla — è l\'unico caso in cui non si risponde.';
         if(liv===3) return 'Vedrai una lettera o un numero, bianco o rosso. Tocca "A" se vedi una lettera bianca oppure un numero rosso. Tocca "B" se vedi una lettera rossa oppure un numero bianco.';
         if(liv===4){
           const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
+          const matFemPlur = c.categMateriale==='lettereVoce';
           const matPlur = c.categMateriale==='colori' ? 'cerchi colorati' : c.categMateriale==='simboli' ? 'simboli' : c.categMateriale==='lettereVoce' ? 'lettere pronunciate' : 'numeri pronunciati';
-          return verboVis+' una serie di '+matPlur+', uno alla volta. Ciascuno appartiene alla categoria "'+rs.labelA+'" o "'+rs.labelB+'". Tocca il pulsante ogni volta che la categoria è la stessa di quella dello stimolo appena precedente.';
+          return verboVis+' una serie di '+matPlur+', '+(matFemPlur?'una':'uno')+' alla volta. '+(matFemPlur?'Ciascuna':'Ciascuno')+' appartiene alla categoria "'+rs.labelA+'" o "'+rs.labelB+'". Tocca il pulsante ogni volta che la categoria è la stessa di quella dello stimolo appena precedente.';
         }
         return 'Vedrai una lettera o un numero, bianco o rosso. Tocca A per lettera bianca, L per lettera rossa, Z per numero bianco, M per numero rosso.';
       }},
@@ -469,15 +487,17 @@
         if(c.neglectMode==='intruso') return 'Sullo schermo compariranno molti simboli, alcuni ripetuti più volte, tranne uno solo: quello non ha nessun doppione da nessuna parte sulla tavola. Esplora tutto lo schermo per individuarlo, poi toccalo. Quando sei sicuro di aver esplorato tutta la tavola, tocca "Fatto".';
         if(c.neglectMode==='regola'){
           const rule = neglectRuleFor((c.stimType==='numeri'?'numeri':'lettere'), c.neglectRuleLevel, c.neglectRuleClauses);
+          const fReg = stimGender(c.stimType==='numeri'?'numeri':'lettere')==='f';
           const timeNote = c.neglectTimeLimit>0 ? ' Hai un tempo limitato per guardare la tavola — quando scade (o quando tocchi "Fatto"), la tavola sparisce e ti verrà chiesto di digitare il numero.' : ' Quando sei sicuro di aver contato tutta la tavola, tocca "Fatto": la tavola sparirà e ti verrà chiesto di digitare il numero.';
-          return 'Sullo schermo compariranno molti '+(c.stimType==='numeri'?'numeri':'lettere')+', alcuni neri e alcuni rossi. NON toccarli: guarda tutta la tavola e conta a mente quanti rispettano questa regola: '+rule.label+'.'+timeNote;
+          return 'Sullo schermo compariranno '+(fReg?'molte':'molti')+' '+(c.stimType==='numeri'?'numeri':'lettere')+', '+(fReg?'alcune nere e alcune rosse':'alcuni neri e alcuni rossi')+'. NON toccarli: guarda tutta la tavola e conta a mente quanti rispettano questa regola: '+rule.label+'.'+timeNote;
         }
         if(c.neglectMode==='progressiva'){
           const phase = neglectProgressivaPhase(c.neglectStartLevel);
           if(phase.mode==='intruso') return 'Questo esercizio cambia da solo compito durante la seduta. In questa fase: sullo schermo compariranno molti simboli, alcuni ripetuti più volte, tranne uno solo, senza doppioni da nessuna parte — esplora tutta la tavola per individuarlo, poi toccalo. Più avanti (in una seduta successiva) ti spiegherò il nuovo compito quando cambia.';
           if(phase.mode==='regola'){
             const rule = neglectRuleFor((c.stimType==='numeri'?'numeri':'lettere'), phase.subLevel, c.neglectRuleClauses);
-            return 'Questo esercizio cambia da solo compito durante la seduta. In questa fase: sullo schermo compariranno molti '+(c.stimType==='numeri'?'numeri':'lettere')+', alcuni neri e alcuni rossi. NON toccarli: guarda tutta la tavola e conta a mente quanti rispettano questa regola: '+rule.label+'. Quando il tempo scade (o tocchi "Fatto"), la tavola sparirà e ti verrà chiesto di digitare il numero.';
+            const fProg = stimGender(c.stimType==='numeri'?'numeri':'lettere')==='f';
+            return 'Questo esercizio cambia da solo compito durante la seduta. In questa fase: sullo schermo compariranno '+(fProg?'molte':'molti')+' '+(c.stimType==='numeri'?'numeri':'lettere')+', '+(fProg?'alcune nere e alcune rosse':'alcuni neri e alcuni rossi')+'. NON toccarli: guarda tutta la tavola e conta a mente quanti rispettano questa regola: '+rule.label+'. Quando il tempo scade (o tocchi "Fatto"), la tavola sparirà e ti verrà chiesto di digitare il numero.';
           }
           const f2 = stimGender(c.stimType)==='f';
           return 'Questo esercizio cambia da solo compito durante la seduta. All\'inizio: sullo schermo compariranno '+(f2?'molte':'molti')+' '+STIM_LABELS[c.stimType].toLowerCase()+'. Tocca solo '+(f2?'quelle uguali':'quelli uguali')+' a: '+c.targetSeq.map(seqLabel).join(', ')+'. Più avanti ti spiegherò il nuovo compito quando cambia.';
@@ -530,7 +550,7 @@
         if(c.mantenimentoModalita==='seriale'){
           return 'Vedrai un piccolo gruppo di '+matLabel+' mostrati uno alla volta all\'inizio: prova a ricordarli tutti — resteranno gli stessi per tutto l\'esercizio. Dopo, vedrai tanti '+matLabel+' singoli, uno alla volta: per ciascuno tocca "Sì, c\'era" se faceva parte del gruppo iniziale, "No, non c\'era" se non ne faceva parte.';
         }
-        return 'Vedrai un piccolo gruppo di '+matLabel+' mostrati uno alla volta: prova a ricordarli tutti. Subito dopo vedrai un solo '+(c.mantenimentoMateriale==='numeri'?'numero':'lettera')+': tocca "Sì, c\'era" se faceva parte del gruppo appena visto, "No, non c\'era" se non ne faceva parte. Il gruppo cambia a ogni prova.';
+        return 'Vedrai un piccolo gruppo di '+matLabel+' mostrati uno alla volta: prova a ricordarli tutti. Subito dopo vedrai '+(c.mantenimentoMateriale==='numeri'?'un solo numero':'una sola lettera')+': tocca "Sì, c\'era" se faceva parte del gruppo appena visto, "No, non c\'era" se non ne faceva parte. Il gruppo cambia a ogni prova.';
       }},
   };
   // Livello -> {modalita, listLen}: 1-5 Riconoscimento (lista 2..6), 6-10
@@ -1410,8 +1430,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''

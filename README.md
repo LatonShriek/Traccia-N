@@ -1173,6 +1173,14 @@ alter table pazienti enable row level security;
 drop policy if exists "operatore vede e gestisce i propri pazienti" on pazienti;
 create policy "operatore vede e gestisce i propri pazienti" on pazienti for all
   using (auth.uid() = operatore_id) with check (auth.uid() = operatore_id);
+-- Sola lettura per il super-operatore, su TUTTI i pazienti (non solo i
+-- propri) — usata dalla vista "Gestione operatori" per mostrare quanti
+-- pazienti ciascun collega gestisce. Additiva: le policy permissive si
+-- sommano con OR, non sostituisce quella sopra (un operatore normale
+-- continua a vedere/gestire solo i propri pazienti come prima).
+drop policy if exists "il super-operatore legge tutti i pazienti (sola lettura)" on pazienti;
+create policy "il super-operatore legge tutti i pazienti (sola lettura)" on pazienti for select
+  using (is_super_operatore());
 drop policy if exists "paziente vede solo se stesso" on pazienti;
 create policy "paziente vede solo se stesso" on pazienti for select
   using (auth.uid() = id);

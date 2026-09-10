@@ -1151,27 +1151,44 @@
     try{ await sb.from('pazienti_locali').delete().eq('id', id).eq('operatore_id', cloudUser.id); localPatientsCloudCache = null; }
     catch(e){ console.error('eliminazione cloud paziente locale fallita', e); }
   }
-  // Elimina definitivamente un account paziente REMOTO — passa dalla Edge
-  // Function 'delete-patient' (vedi supabase/functions/delete-patient),
-  // mai da una chiamata diretta: eliminare un account richiede privilegi
-  // di amministratore che il browser non deve mai avere. Riservata al
-  // super-operatore — la funzione lo riverifica comunque lato server,
-  // questo controllo qui evita solo di mostrare un pulsante che
-  // fallirebbe sempre a chi non è super-operatore.
-  async function deletePatientPermanently(patientId){
+  // Scrive nel registro azioni (audit_log) — SEMPRE a scopo di
+  // tracciabilità, mai bloccante: se questa scrittura fallisce (es. la
+  // migrazione SQL della tabella non è stata ancora eseguita), l'azione
+  // principale che l'ha chiamata resta comunque valida, solo senza
+  // traccia nel registro. Silenzioso di proposito — un errore qui non è
+  // mai il problema che l'operatore stava cercando di risolvere in quel
+  // momento.
+  async function logAuditAction(azione, bersaglioTipo, bersaglioId, bersaglioEtichetta){
+    if(!sb || !cloudUser) return;
+    try{
+      await sb.from('audit_log').insert({
+        azione, bersaglio_tipo:bersaglioTipo, bersaglio_id:bersaglioId, bersaglio_etichetta:bersaglioEtichetta||null,
+        eseguita_da: cloudUser.id, eseguita_da_etichetta: cloudUser.email
+      });
+    }catch(e){ console.error('scrittura nel registro azioni fallita', e); }
+  }
+  // Elimina definitivamente un account — PAZIENTE o OPERATORE — passa
+  // dalla Edge Function 'delete-account' (vedi
+  // supabase/functions/delete-account), mai da una chiamata diretta:
+  // eliminare un account richiede privilegi di amministratore che il
+  // browser non deve mai avere. Riservata al super-operatore — la
+  // funzione lo riverifica comunque lato server, questo controllo qui
+  // evita solo di mostrare un pulsante che fallirebbe sempre a chi non è
+  // super-operatore.
+  async function deleteAccountPermanently(accountType, accountId){
     if(!sb || !cloudCfg.url) return {error:'Supabase non configurato.'};
     try{
       const { data: sessionData } = await sb.auth.getSession();
       const token = sessionData && sessionData.session ? sessionData.session.access_token : null;
       if(!token) return {error:'Sessione non valida — prova a disconnetterti e riaccedere.'};
-      const resp = await fetch(cloudCfg.url + '/functions/v1/delete-patient', {
+      const resp = await fetch(cloudCfg.url + '/functions/v1/delete-account', {
         method:'POST',
         headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
-        body: JSON.stringify({patientId})
+        body: JSON.stringify({accountType, accountId})
       });
       const body = await resp.json().catch(()=>({}));
       if(!resp.ok) return {error: body.error || ('Errore del server ('+resp.status+')')};
-      return {success:true};
+      return {success:true, label:body.label};
     }catch(e){ return {error:'Richiesta non riuscita: '+String(e)}; }
   }
   // Ricollega le sessioni già registrate per un profilo locale a un nuovo
@@ -1247,7 +1264,10 @@
     syncLocalPatientToCloud(localP);
     await migrateRemoteSessionsToLocal(p.id, localP.id);
     if(sb && cloudUser){
-      try{ await sb.from('pazienti').update({attivo:false}).eq('id', p.id).eq('operatore_id', cloudUser.id); }
+      try{
+        await sb.from('pazienti').update({attivo:false}).eq('id', p.id).eq('operatore_id', cloudUser.id);
+        logAuditAction('archivia_paziente', 'paziente', p.id, p.codice_paziente);
+      }
       catch(e){ console.error('disattivazione account remoto fallita', e); }
     }
     cachedRemotePatients = null;
@@ -1484,8 +1504,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -3715,11 +3735,12 @@
     }));
     return out;
   }
-  async function setOperatoreAttivo(id, attivo){
+  async function setOperatoreAttivo(id, attivo, nome){
     if(!sb || !isSuperOperatore) return false;
     try{
       const { error } = await sb.from('operatori').update({attivo}).eq('id', id);
       if(error) throw error;
+      logAuditAction(attivo?'riattiva_operatore':'archivia_operatore', 'operatore', id, nome);
       return true;
     }catch(e){ alert('Operazione non riuscita: '+((e&&e.message)||e)+' — probabile causa: la migrazione SQL delle colonne nome/attivo (vedi README) non è ancora stata eseguita su questo progetto Supabase.'); return false; }
   }
@@ -9490,19 +9511,31 @@
               try{
                 const { error } = await sb.from('pazienti').update({attivo:false}).eq('id', p.id).eq('operatore_id', cloudUser.id);
                 if(error) throw error;
+                logAuditAction('archivia_paziente', 'paziente', p.id, p.codice_paziente);
                 cachedRemotePatients = null;
                 render();
               }catch(e){ alert('Errore: '+e.message); }
             }},['Archivia']),
-            el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px; color:var(--alert); border-color:var(--alert);', onclick: async ()=>{
-              if(!confirm('Eliminare il profilo di '+p.codice_paziente+'? Il paziente non potrà più accedere. Le sue sessioni già registrate restano nello storico.')) return;
-              try{
-                const { error } = await sb.from('pazienti').delete().eq('id', p.id).eq('operatore_id', cloudUser.id);
-                if(error) throw error;
-                cachedRemotePatients = null;
-                render();
-              }catch(e){ alert('Errore eliminazione: '+e.message); }
-            }},['Elimina'])
+            isSuperOperatore ? el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px; color:var(--alert); border-color:var(--alert);', onclick: async ()=>{
+              // BUG REALE trovato e corretto qui: il pulsante "Elimina" di
+              // questa riga cancellava SOLO la riga dalla tabella
+              // 'pazienti' (sb.from('pazienti').delete()), mai l'account
+              // vero e proprio — l'auth.users restava, il paziente poteva
+              // ancora autenticarsi con codice/password, solo senza più
+              // un profilo clinico agganciato: uno stato orfano, confuso,
+              // non "eliminato" come il testo del pulsante prometteva.
+              // Ora passa dalla stessa Edge Function 'delete-account' già
+              // usata altrove — un solo modo vero di eliminare, non due
+              // meccanismi diversi che fanno cose diverse con lo stesso
+              // nome. Riservato al super-operatore, come l'eliminazione
+              // altrove in app — un operatore normale può solo archiviare.
+              const conferma = prompt('Elimina DEFINITIVAMENTE "'+p.codice_paziente+'" — non si può annullare, cancella login, programma e tutte le sedute salvate. Per confermare, scrivi di nuovo il codice esatto:');
+              if(conferma !== p.codice_paziente){ if(conferma!==null) alert('Codice non corrispondente — eliminazione annullata.'); return; }
+              const res = await deleteAccountPermanently('paziente', p.id);
+              if(res.error){ alert('Eliminazione non riuscita: '+res.error); return; }
+              cachedRemotePatients = null;
+              render();
+            }},['🗑 Elimina definitivamente']) : null
           ])
         ]);
         listWrap.appendChild(row);
@@ -9544,7 +9577,7 @@
         el('button',{class:'ghost', style:'color:var(--alert);', onclick: async ()=>{
           const conferma = prompt('Per confermare, scrivi il codice paziente esatto ("'+editingPatient.codice_paziente+'"):');
           if(conferma !== editingPatient.codice_paziente){ if(conferma!==null) alert('Codice non corrispondente — eliminazione annullata.'); return; }
-          const res = await deletePatientPermanently(editingPatient.id);
+          const res = await deleteAccountPermanently('paziente', editingPatient.id);
           if(res.error){ alert('Eliminazione non riuscita: '+res.error); return; }
           alert('Account eliminato definitivamente.');
           editingPatient=null; historyCache=null; view='patients'; render();
@@ -10514,8 +10547,17 @@
               isMe ? null : el('button',{class:'ghost', style: o.attivo===false ? '' : 'color:var(--alert);', onclick: async ()=>{
                 const archivia = o.attivo!==false;
                 if(!confirm((archivia?'Archiviare':'Riattivare')+' l\'accesso di "'+(o.nome||o.id)+'"?'+(archivia?' Non potrà più accedere finché non lo riattivi.':''))) return;
-                if(await setOperatoreAttivo(o.id, !archivia)){ o.attivo = !archivia; render(); }
-              }},[o.attivo===false ? '✅ Riattiva' : '🗄 Archivia'])
+                if(await setOperatoreAttivo(o.id, !archivia, o.nome)){ o.attivo = !archivia; render(); }
+              }},[o.attivo===false ? '✅ Riattiva' : '🗄 Archivia']),
+              (isMe || nPazienti) ? null : el('button',{class:'ghost', style:'color:var(--alert);', onclick: async ()=>{
+                const nome = o.nome || o.id;
+                const conferma = prompt('Elimina definitivamente "'+nome+'" — non si può annullare. Per confermare, scrivi di nuovo il nome esatto:');
+                if(conferma !== (o.nome||'')){ if(conferma!==null) alert('Nome non corrispondente — eliminazione annullata.'); return; }
+                const res = await deleteAccountPermanently('operatore', o.id);
+                if(res.error){ alert('Eliminazione non riuscita: '+res.error); return; }
+                alert('Account eliminato definitivamente.');
+                render();
+              }},['🗑 Elimina'])
             ].filter(Boolean))
           ]);
           mgmtBody.appendChild(row);

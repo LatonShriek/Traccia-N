@@ -1266,6 +1266,32 @@ create policy "operatore vede e gestisce i propri pazienti" on pazienti for all
 drop policy if exists "il super-operatore legge tutti i pazienti (sola lettura)" on pazienti;
 create policy "il super-operatore legge tutti i pazienti (sola lettura)" on pazienti for select
   using (is_super_operatore());
+
+-- Registro azioni (audit log): traccia archiviazioni/riattivazioni/
+-- eliminazioni di account — sopravvive anche dopo che l'account stesso
+-- è sparito, per questo bersaglio_id e eseguita_da NON sono chiavi
+-- esterne rigide (una vera foreign key verso auth.users si spezzerebbe,
+-- o peggio trascinerebbe con sé la riga di log, nel momento stesso in
+-- cui l'account viene eliminato — l'unico momento in cui il log serve
+-- di più). Le etichette testuali sono la copia leggibile che resta
+-- comprensibile anche quando l'id sopra non risolve più a nessuno.
+create table if not exists audit_log (
+  id bigint generated always as identity primary key,
+  ts timestamptz default now(),
+  azione text not null,
+  eseguita_da uuid,
+  eseguita_da_etichetta text,
+  bersaglio_tipo text,
+  bersaglio_id uuid,
+  bersaglio_etichetta text
+);
+alter table audit_log enable row level security;
+drop policy if exists "solo il super-operatore legge il registro azioni" on audit_log;
+create policy "solo il super-operatore legge il registro azioni" on audit_log for select
+  using (is_super_operatore());
+drop policy if exists "solo il super-operatore scrive nel registro azioni" on audit_log;
+create policy "solo il super-operatore scrive nel registro azioni" on audit_log for insert
+  with check (is_super_operatore());
 drop policy if exists "paziente vede solo se stesso" on pazienti;
 create policy "paziente vede solo se stesso" on pazienti for select
   using (auth.uid() = id);
@@ -1668,6 +1694,66 @@ resta solo nel segreto della Edge Function.
 Per applicare modifiche future, basta sostituire `index.html` (e gli altri
 file se cambiati) nello stesso repository — GitHub Pages si aggiorna da solo
 in circa un minuto. Lo storico salvato sul tablet non viene toccato.
+
+## Eliminazione definitiva di un account (pazienti e operatori)
+
+Archiviare (già descritto sotto per i pazienti, e nella sezione
+Sincronizzazione cloud per gli operatori) blocca l'accesso senza
+toccare nulla dei dati — è la via normale per un paziente che ha
+concluso il percorso, o un operatore che lascia la struttura.
+**Eliminare** è diverso e irreversibile: cancella l'account vero e
+proprio (login compreso), pensato per i profili di prova, non per un
+percorso clinico concluso.
+
+**Perché serve una funzione a parte, non un pulsante diretto.**
+Eliminare un account richiede i privilegi di amministratore di Supabase
+(la "service role key") — una chiave che non deve **mai** comparire nel
+codice che gira nel browser: chiunque riuscisse a leggerla potrebbe
+cancellare qualunque account di chiunque. Per questo l'eliminazione
+passa da una **Edge Function** (`supabase/functions/delete-account`),
+un piccolo programma che gira sui server di Supabase, dove quella
+chiave resta al sicuro come variabile d'ambiente — il client le manda
+solo "elimina questo account", mai la chiave stessa.
+
+**Come funziona, in due fasi**: la funzione verifica prima CHI sta
+chiamando (con il suo token normale, senza privilegi elevati — deve
+essere un vero super-operatore) — solo dopo questa verifica usa i
+privilegi di amministratore, e solo per l'unica operazione che li
+richiede davvero. Gestisce sia pazienti sia operatori con la stessa
+funzione (`accountType: 'paziente'|'operatore'`), non due separate — la
+logica di verifica e di registrazione è identica, cambia solo quale
+tabella controllare.
+
+**Un operatore con pazienti ancora assegnati (o sedute proprie
+registrate) non si può eliminare** — le tabelle `pazienti`/`sessioni`
+referenziano `operatore_id` senza cascata (vedi lo schema più sopra),
+quindi Postgres rifiuta l'eliminazione invece di trascinarsi dietro
+dati clinici altrui. La funzione intercetta questo caso e restituisce
+un messaggio comprensibile ("riassegna i pazienti prima di eliminarlo"),
+non l'errore grezzo del database.
+
+**Pubblicazione** — richiede la Supabase CLI:
+```bash
+supabase functions deploy delete-account --project-ref IL-TUO-PROJECT-REF
+```
+Il project-ref è visibile nell'URL del tuo progetto Supabase. In
+alternativa, dalla dashboard Supabase → Edge Functions → Create
+function → incolla il contenuto del file.
+
+### Registro azioni (audit log)
+
+Ogni archiviazione, riattivazione ed eliminazione (di pazienti e
+operatori) scrive una riga in `audit_log` — chi, quando, che azione, su
+chi. Sopravvive anche dopo che l'account bersaglio è stato eliminato
+(le colonne `eseguita_da`/`bersaglio_id` non sono chiavi esterne
+rigide di proposito — altrimenti la riga di log sparirebbe insieme
+all'account nel momento stesso in cui serve di più). La scrittura è
+**best-effort**: se fallisce (es. la migrazione SQL della tabella non
+è ancora stata eseguita), l'azione principale resta comunque valida —
+solo senza traccia nel registro. Nessuna schermata dedicata per
+consultarlo ancora — leggibile per ora solo dall'SQL Editor di
+Supabase (`select * from audit_log order by ts desc`), riservato al
+super-operatore dalla RLS.
 
 ## Gestione pazienti: programma, modalità di accesso, obiettivi, limiti, RCI, archiviazione
 

@@ -365,6 +365,24 @@
         const n = c.targetSeq.length;
         return verbo+' una serie di stimoli, uno alla volta. Il tuo compito è riconoscere quando compaiono, uno subito dopo l\'altro e nell\'ordine giusto, questi '+n+': '+seqTxt+'. Appena vedi comparire l\'ultimo di questi ('+seqLabel(c.targetSeq[n-1])+'), ma solo se è arrivato subito dopo gli altri '+(n-1)+' nell\'ordine corretto, tocca il pulsante dorato. Per tutti gli altri stimoli — anche se uno di questi appare da solo, fuori sequenza, o nell\'ordine sbagliato — non toccare nulla.';
       }},
+    runningspan: {label:'Running Span',           usesStimType:true,  usesTargetSeq:false, family:'span',
+      domini:['Memoria di lavoro (aggiornamento sotto incertezza)'],
+      // Pollack, Johnson & Knaff (1959), Journal of Experimental
+      // Psychology, 57, 137-146 — origine del paradigma. A differenza
+      // dell'N-back (giudizio continuo, finestra nota), qui non c'è
+      // nessun giudizio durante la sequenza — solo osservare — e la
+      // lunghezza totale non è mai nota in anticipo: il paziente deve
+      // tenere aggiornata una finestra scorrevole senza sapere quando
+      // gli verrà chiesto di richiamarla (Bunting, Cowan & Saults, 2006,
+      // Quarterly Journal of Experimental Psychology, 59, 1691-1700;
+      // Broadway & Engle, 2010, correlazione unica con intelligenza
+      // fluida oltre span semplice/complesso).
+      instructions:c=>{
+        const lvl = RUNNINGSPAN_LEVELS[c.adaptStartLevel]||RUNNINGSPAN_LEVELS[1];
+        const matName = {lettere:'lettere',numeri:'numeri',simboli:'simboli',colori:'colori',suoni:'suoni'}[c.stimType]||'elementi';
+        const verbo = isAudioOnlyStim(c.stimType) ? 'Sentirai' : 'Vedrai';
+        return verbo+' una serie di '+matName+', uno alla volta — la serie può essere più lunga o più corta, non sai mai in anticipo quando finisce. Non devi rispondere durante la serie: guarda (o ascolta) e basta. Quando la serie finisce (schermo "Ora richiama!"), dovrai indicare, **nell\'ordine esatto**, gli ultimi '+lvl.n+' '+matName+' comparsi — toccando i pulsanti sulla tastiera che compare, uno per casella, nell\'ordine in cui li ricordi. Puoi annullare l\'ultimo inserito prima di confermare.';
+      }},
     gonogo:     {label:'Go/No-Go',                usesStimType:true,  usesTargetSeq:true,  family:'signal',
       domini:['Controllo inibitorio','Attenzione sostenuta'],
       instructions:c=>{
@@ -426,8 +444,13 @@
       domini:['Flessibilità cognitiva','Funzioni esecutive'],
       instructions:c=>{
         if(c.switchMaterial==='bivalente'){
-          if(c.switchSecondaria==='tono') return 'Sentirai un carattere pronunciato (un numero o una lettera), insieme a un tono grave o acuto. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere pronunciato, ignora il tono) oppure "Grave / Acuto" (rispondi in base all\'altezza del tono, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
-          return 'Vedrai un carattere che può essere un numero o una lettera, scritto in bianco o in rosso. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "Numero / Lettera" (rispondi in base al tipo di carattere, ignora il colore) oppure "Bianco / Rosso" (rispondi in base al colore, ignora se è un numero o una lettera). Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
+          const regime = c.switchRegimeSessione || pickDualDimRegime(c.switchRegime);
+          const rs = switchRulesetFor(c);
+          const dim1Key = dualDim1KeyOf(regime), dim2Key = dualDim2KeyOf(regime);
+          const DIM1_PERCEPT = { tipo:'un carattere che può essere un numero o una lettera', forma:'una forma che può essere un cerchio o un triangolo', parita:'un numero', consvoc:'una lettera', freccia:'una freccia che può puntare in su o in giù' };
+          const DIM2_PERCEPT = { colore:'scritto in bianco o in rosso', tono:'pronunciato ad alta voce, insieme a un tono grave o acuto', posizione:'a sinistra o a destra dello schermo' };
+          const verbo = dim2Key==='tono' ? 'Sentirai' : 'Vedrai';
+          return verbo+' '+DIM1_PERCEPT[dim1Key]+', '+DIM2_PERCEPT[dim2Key]+'. Un\'indicazione sopra ti dice quale regola seguire in quel momento: "'+rs.ruleA.label+'" oppure "'+rs.ruleB.label+'" — sono due proprietà indipendenti dello stesso stimolo, ciascuna regola ne legge solo una e ignora l\'altra. Segui sempre l\'indicazione mostrata al momento, anche se cambia da una prova all\'altra.';
         }
         const rs=SWITCH_RULESETS[c.switchMaterial]; const matFem = c.switchMaterial==='lettere';
         const matName = c.switchMaterial==='numeri'?'un numero':c.switchMaterial==='lettere'?'una lettera':c.switchMaterial==='simboli'?'un simbolo':'un colore';
@@ -463,15 +486,46 @@
           const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
           return verboVis+' '+matLabel+': classifica'+(matFem?'la':'lo')+' come "'+rs.labelA+'" o "'+rs.labelB+'", toccando il pulsante corrispondente. La regola resta sempre la stessa, non cambia da una prova all\'altra.';
         }
-        if(liv===2) return 'Vedrai una lettera o un numero, bianco o rosso. Tocca "A" se è una lettera bianca, "B" se è un numero rosso, "C" se è un numero bianco. Se è una lettera rossa, non toccare nulla — è l\'unico caso in cui non si risponde.';
-        if(liv===3) return 'Vedrai una lettera o un numero, bianco o rosso. Tocca "A" se vedi una lettera bianca oppure un numero rosso. Tocca "B" se vedi una lettera rossa oppure un numero bianco.';
+        const regime = c.categRegimeSessione || pickCategRegime(c);
+        // Descrizione del polo A/B della dim1 per ciascun regime — nome al
+        // singolare + genere, serve per far concordare "bianco/bianca" ecc.
+        const DIM1_DESC = {
+          tipo:    { a:'una lettera', b:'un numero', femA:true, femB:false },
+          forma:   { a:'un cerchio', b:'un triangolo', femA:false, femB:false },
+          parita:  { a:'un numero pari', b:'un numero dispari', femA:false, femB:false },
+          consvoc: { a:'una lettera vocale', b:'una lettera consonante', femA:true, femB:true },
+          freccia: { a:'una freccia verso l\'alto', b:'una freccia verso il basso', femA:true, femB:true }
+        };
+        const dim1 = regime==='tipo_tono' ? 'tipo' : regime.split('_')[0];
+        const d = DIM1_DESC[dim1];
+        if(regime==='consvoc_posizione'){
+          // Unico regime con dim2 = posizione, non colore/tono — struttura
+          // di frase diversa dagli altri (niente aggettivo di colore da
+          // far concordare, la posizione si dice a parte).
+          if(liv===2) return 'Vedrai una lettera a sinistra o a destra dello schermo. Tocca "A" se è '+d.a+' a sinistra, "B" se è '+d.b+' a destra, "C" se è '+d.b+' a sinistra. Se è '+d.a+' a destra, non toccare nulla — è l\'unico caso in cui non si risponde. La posizione conta come seconda informazione qui, non come nel Simon: lì la posizione non doveva mai contare.';
+          if(liv===3) return 'Vedrai una lettera a sinistra o a destra dello schermo. Tocca "A" se vedi '+d.a+' a sinistra oppure '+d.b+' a destra. Tocca "B" se vedi '+d.a+' a destra oppure '+d.b+' a sinistra.';
+          return 'Vedrai una lettera a sinistra o a destra dello schermo. Tocca A per '+d.a+' a sinistra, L per '+d.a+' a destra, Z per '+d.b+' a sinistra, M per '+d.b+' a destra.';
+        }
+        const dim2Word = regime==='tipo_tono' ? {a:'grave',b:'acuto'} : {a:'bianco',b:'rosso'};
+        const agree = (word, isFem) => isFem ? word.replace(/o$/,'a') : word;
+        const dim2Name = regime==='tipo_tono' ? 'suono' : 'colore';
+        // 4 combinazioni, non 2: l'aggettivo di dim2 deve concordare col
+        // genere di QUALUNQUE polo di dim1 gli stia accanto in quel punto
+        // della frase — 'freccia' (femminile) è quella che ha fatto
+        // notare l'errore: un aggettivo lasciato al maschile di default
+        // per il polo B avrebbe dato "una freccia... rosso" invece di
+        // "...rossa".
+        const aWithA = agree(dim2Word.a, d.femA), bWithA = agree(dim2Word.b, d.femA);
+        const aWithB = agree(dim2Word.a, d.femB), bWithB = agree(dim2Word.b, d.femB);
+        if(liv===2) return 'Vedrai '+d.a+' o '+d.b+', '+dim2Word.a+' o '+dim2Word.b+'. Tocca "A" se è '+d.a+' '+aWithA+', "B" se è '+d.b+' '+bWithB+', "C" se è '+d.b+' '+aWithB+'. Se è '+d.a+' '+bWithA+', non toccare nulla — è l\'unico caso in cui non si risponde.';
+        if(liv===3) return 'Vedrai '+d.a+' o '+d.b+', '+dim2Word.a+' o '+dim2Word.b+'. Tocca "A" se vedi '+d.a+' '+aWithA+' oppure '+d.b+' '+bWithB+'. Tocca "B" se vedi '+d.a+' '+bWithA+' oppure '+d.b+' '+aWithB+'.';
         if(liv===4){
           const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
           const matFemPlur = c.categMateriale==='lettereVoce';
           const matPlur = c.categMateriale==='colori' ? 'cerchi colorati' : c.categMateriale==='simboli' ? 'simboli' : c.categMateriale==='lettereVoce' ? 'lettere pronunciate' : 'numeri pronunciati';
           return verboVis+' una serie di '+matPlur+', '+(matFemPlur?'una':'uno')+' alla volta. '+(matFemPlur?'Ciascuna':'Ciascuno')+' appartiene alla categoria "'+rs.labelA+'" o "'+rs.labelB+'". Tocca il pulsante ogni volta che la categoria è la stessa di quella dello stimolo appena precedente.';
         }
-        return 'Vedrai una lettera o un numero, bianco o rosso. Tocca A per lettera bianca, L per lettera rossa, Z per numero bianco, M per numero rosso.';
+        return 'Vedrai '+d.a+' o '+d.b+', '+dim2Word.a+' o '+dim2Word.b+'. Tocca A per '+d.a+' '+aWithA+', L per '+d.a+' '+bWithA+', Z per '+d.b+' '+aWithB+', M per '+d.b+' '+bWithB+'.';
       }},
     dualtask:   {label:'Doppio compito',          usesStimType:false, usesTargetSeq:false, family:'dual',
       domini:['Attenzione divisa','Funzioni esecutive'],
@@ -587,7 +641,7 @@
     // vista, pur misurando qualcosa di diverso da entrambi (integrazione
     // relazionale sotto una regola fissa, non aggiornamento continuo né
     // mantenimento passivo).
-    {label:'Memoria di lavoro e mantenimento', keys:['nback','sequenza','mantenimento','categorizzazione']},
+    {label:'Memoria di lavoro e mantenimento', keys:['nback','sequenza','mantenimento','categorizzazione','runningspan']},
     {label:'Flessibilità cognitiva', keys:['switching']},
     {label:'Esplorazione visuospaziale', keys:['neglect']},
     {label:'Attenzione divisa e multitasking', keys:['dualtask','goaltask']},
@@ -637,7 +691,7 @@
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
     categLivello:1, categMateriale:'simboli', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('simboli'|'lettereVoce'|'numeriVoce' — 'colori' rimosso dalla selezione, la sua unica regola era Caldo/Freddo, troppo arbitraria; resta leggibile nello storico di sedute già registrate)
-    categSecondaria:'colore', switchSecondaria:'colore', // 'colore'|'tono' — seconda dimensione delle strutture a doppia dimensione (Categorizzazione strutture 2/3/5, Task-switching bivalente): 'tono' sostituisce il colore con un tono grave/acuto di pari complessità binaria, per l'accessibilità a chi ha difficoltà di riconoscimento colori o preferisce il canale uditivo
+    categRegime:'random', switchRegime:'random', // 'random'|'tipo_colore'|'forma_colore'|'parita_colore'|'consvoc_posizione'|'freccia_colore'|'tipo_tono' — Categorizzazione strutture 2/3/5 e Task-switching bivalente condividono lo stesso motore a doppia dimensione (DUAL_DIM_ROTATION); 'tipo_tono' è escluso dalla rotazione casuale, resta selezionabile a mano
     categStructManual:1, // solo in modalità Manuale: struttura (1-5) scelta liberamente dal clinico, indipendente da categLivello — vedi categEffectiveStructure()
     zoneGrandi:false, // accessibilità: zone di risposta molto più grandi (metà schermo per 2 risposte) invece di pulsanti piccoli — utile su tablet/smartphone per bassa vista
     inputDevice:'touch', // 'touch' | 'tastiera' — dichiarato dall'operatore prima di iniziare, usato solo per decidere COSA evidenziare (badge dei tasti sui pulsanti, promemoria nelle istruzioni), la tastiera funziona comunque sempre in background indipendentemente da questa scelta
@@ -707,7 +761,7 @@
   // con questo gruppo, e non erano fra gli esercizi segnalati col bug di
   // sincronizzazione — includerli sarebbe un allargamento di perimetro non
   // richiesto.
-  const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant','simon','mantenimento'];
+  const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant','simon','mantenimento','runningspan'];
   // Neglect e Doppio compito hanno il CONCETTO di titrationMode (e vanno
   // quindi trattati come gli altri per persistenza/switch dal profilo) ma
   // non fanno parte del gruppo "condiviso" sopra: hanno le proprie
@@ -883,7 +937,7 @@
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
       categLivello:c.categLivello, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
-      categSecondaria:c.categSecondaria, switchSecondaria:c.switchSecondaria,
+      categRegime:c.categRegime, switchRegime:c.switchRegime,
       simonCongruenza:c.simonCongruenza, simonMateriale:c.simonMateriale,
       inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'
     };
@@ -912,7 +966,7 @@
   // una configurazione specifica da caricare (vedi applyLevelBaselineOrSuggestion).
   const LEVEL_FIELD_OF_TASKMODE = {
     nback:'nLevel', categorizzazione:'categLivello',
-    sequenza:'adaptStartLevel', switching:'adaptStartLevel', gonogo:'adaptStartLevel', stopsignal:'adaptStartLevel', ant:'adaptStartLevel', simon:'adaptStartLevel',
+    sequenza:'adaptStartLevel', switching:'adaptStartLevel', gonogo:'adaptStartLevel', stopsignal:'adaptStartLevel', ant:'adaptStartLevel', simon:'adaptStartLevel', runningspan:'adaptStartLevel',
     tapat:'tapatStartLevel',
     neglect:'neglectStartLevel', dualtask:['dualStartLevel1','dualStartLevel2'],
     goaltask:'goaltaskLivello', memoria:'memoriaLivello'
@@ -992,7 +1046,7 @@
     cfg.memoriaLociTipo = pc.memoriaLociTipo || 'casa'; cfg.memoriaLociCustom = pc.memoriaLociCustom || '';
     cfg.chunkingMetodi = (pc.chunkingMetodi && pc.chunkingMetodi.length) ? pc.chunkingMetodi : ['categoria']; cfg.chunkingNota = pc.chunkingNota || '';
     cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'simboli'; cfg.categStructManual = pc.categStructManual || 1; cfg.zoneGrandi = !!pc.zoneGrandi;
-    cfg.categSecondaria = pc.categSecondaria || 'colore'; cfg.switchSecondaria = pc.switchSecondaria || 'colore';
+    cfg.categRegime = pc.categRegime || 'random'; cfg.switchRegime = pc.switchRegime || 'random';
     cfg.simonCongruenza = pc.simonCongruenza || 'bilanciato'; cfg.simonMateriale = pc.simonMateriale || 'colori';
     cfg.inputDevice = pc.inputDevice || 'touch'; cfg.keyLayout = pc.keyLayout || 'standard';
     // Retrocompatibilità: preset/programmi salvati prima di questa versione
@@ -1430,8 +1484,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1455,7 +1509,8 @@
   let historyFilterPatientId = null; // se impostato, lo storico mostra solo le sessioni di questo profilo (locale o remoto)
   let historyFilterKind = 'local'; // 'local' | 'remote' — quale tipo di id è historyFilterPatientId
   let activeRemotePatientId = null; // paziente remoto scelto per una seduta in presenza (invece di uno locale)
-  let screeningState = null; // {blockIdx, results:[], respModeBefore} — non-null solo durante una sessione di screening in corso
+  let screeningState = null; // {queue, queueIdx, probeResults, ...} — non-null solo durante una sessione di screening in corso
+  let screeningMaterialMode = 'auto'; // 'auto'|'verbale'|'non_verbale' — scelto prima di avviare lo screening (vedi il selettore sulla scheda "Fai lo screening"); 'auto' somministra entrambe le forme per le sonde che le hanno, isolando quale cade
   // Prova dimostrativa: non-null solo mentre una demo è in corso o appena
   // conclusa. cfgBackup è l'istantanea di cfg presa PRIMA di applicare i
   // parametri fissi e facili della demo, per poterla ripristinare esatta
@@ -1544,11 +1599,12 @@
       const isNeglect = cfg.taskMode==='neglect';
       const isGoalTask = cfg.taskMode==='goaltask';
       const isMemoria = cfg.taskMode==='memoria';
+      const isRunningSpan = cfg.taskMode==='runningspan';
       if(!taskDom){
         root.innerHTML='';
-        taskDom = isNeglect ? mountNeglectScreen(root) : isGoalTask ? mountGoalTaskScreen(root) : isMemoria ? mountMemoriaScreen(root) : mountTaskScreen(root);
+        taskDom = isNeglect ? mountNeglectScreen(root) : isGoalTask ? mountGoalTaskScreen(root) : isMemoria ? mountMemoriaScreen(root) : isRunningSpan ? mountRunningSpanScreen(root) : mountTaskScreen(root);
       }
-      if(isNeglect) updateNeglectScreen(); else if(isGoalTask) updateGoalTaskScreen(); else if(isMemoria) updateMemoriaScreen(); else updateTaskScreen();
+      if(isNeglect) updateNeglectScreen(); else if(isGoalTask) updateGoalTaskScreen(); else if(isMemoria) updateMemoriaScreen(); else if(isRunningSpan) updateRunningSpanScreen(); else updateTaskScreen();
       pushHistoryIfNeeded();
       return;
     }
@@ -1979,12 +2035,30 @@
   // bivalente usa la dimensione acustica (tono) invece del colore. Unica
   // fonte usata sia da buildSwitching() sia da qualunque schermata mostri
   // le etichette delle regole, così restano sempre coerenti fra loro.
+  // Etichette dei pulsanti per dim1/dim2, condivise dal motore a doppia
+  // dimensione — 'tipo' mantiene l'ordine storico (Numero/Lettera, non
+  // Lettera/Numero: era già così prima di questa generalizzazione, non
+  // lo cambio solo per uniformità con gli altri 4 regimi). Gli altri 4
+  // usano semplicemente il polo che dualDim1IsA/dualDim2IsA già
+  // calcolano, senza bisogno d'inversione.
+  const DUAL_DIM1_LABELS = {
+    tipo:    {label:'Numero / Lettera', labelA:'Numero', labelB:'Lettera', classify:v=> !dualDim1IsA(v)},
+    forma:   {label:'Cerchio / Triangolo', labelA:'Cerchio', labelB:'Triangolo', classify:v=> dualDim1IsA(v)},
+    parita:  {label:'Pari / Dispari', labelA:'Pari', labelB:'Dispari', classify:v=> dualDim1IsA(v)},
+    consvoc: {label:'Vocale / Consonante', labelA:'Vocale', labelB:'Consonante', classify:v=> dualDim1IsA(v)},
+    freccia: {label:'Su / Giù', labelA:'Su', labelB:'Giù', classify:v=> dualDim1IsA(v)}
+  };
+  const DUAL_DIM2_LABELS = {
+    colore: {label:'Bianco / Rosso', labelA:'Bianco', labelB:'Rosso', classify:v=> dualDim2IsA(v)},
+    tono: {label:'Grave / Acuto', labelA:'Grave', labelB:'Acuto', classify:v=> dualDim2IsA(v)},
+    posizione: {label:'Sinistra / Destra', labelA:'Sinistra', labelB:'Destra', classify:v=> dualDim2IsA(v)}
+  };
+  function dualDim1KeyOf(regime){ return regime==='tipo_tono' ? 'tipo' : regime.split('_')[0]; }
+  function dualDim2KeyOf(regime){ return regime==='tipo_tono' ? 'tono' : (regime==='consvoc_posizione' ? 'posizione' : 'colore'); }
   function switchRulesetFor(c){
-    let rs = SWITCH_RULESETS[c.switchMaterial];
-    if(c.switchMaterial==='bivalente' && c.switchSecondaria==='tono'){
-      rs = { ruleA: rs.ruleA, ruleB: {label:'Grave / Acuto', labelA:'Grave', labelB:'Acuto', classify:v=> v.tono==='grave'} };
-    }
-    return rs;
+    if(c.switchMaterial!=='bivalente') return SWITCH_RULESETS[c.switchMaterial];
+    const regime = c.switchRegimeSessione || pickDualDimRegime(c.switchRegime);
+    return { ruleA: DUAL_DIM1_LABELS[dualDim1KeyOf(regime)], ruleB: DUAL_DIM2_LABELS[dualDim2KeyOf(regime)] };
   }
   function buildSwitching(){
     const material = cfg.switchMaterial;
@@ -2007,13 +2081,7 @@
       const isSwitch = i>0 && activeRule !== prevRule;
       let item;
       if(material==='bivalente'){
-        const isNumero = Math.random()<0.5;
-        const valore = isNumero
-          ? SWITCH_BIVALENTE_NUM_POOL[Math.floor(Math.random()*SWITCH_BIVALENTE_NUM_POOL.length)]
-          : SWITCH_BIVALENTE_LETTERE[Math.floor(Math.random()*SWITCH_BIVALENTE_LETTERE.length)];
-        item = { valore, tipo: isNumero?'numero':'lettera' };
-        if(cfg.switchSecondaria==='tono') item.tono = Math.random()<0.5?'grave':'acuto';
-        else item.colore = Math.random()<0.5?'nero':'rosso';
+        item = genDualDimItem(cfg.switchRegimeSessione || pickDualDimRegime(cfg.switchRegime));
       } else {
         item = pool[Math.floor(Math.random()*pool.length)];
       }
@@ -2159,33 +2227,93 @@
   // precedente (n-back sulla categoria, n=1 fisso).
   const CATEG_LETTERE = ['B','D','F','G','H','J','K','L','M','P']; // consonanti, come nel bivalente dello switching
   const CATEG_NUMERI = ['1','2','3','4','6','7','8','9'];
-  function genCategItem(){
+  // Registro condiviso di "regimi" a doppia dimensione, usato sia da
+  // Categorizzazione condizionale (strutture 2/3/5) sia da Task-switching
+  // bivalente — stessa idea di variabilità (Moshon-Cohen et al., 2024,
+  // Psychological Research, 88, 786-802: la variabilità casuale ha
+  // generalizzato meglio di quella a blocchi in Go/No-Go), le stesse 6
+  // coppie, un'unica implementazione invece di due parallele.
+  // 'tipo_tono' è escluso dalla ROTAZIONE per scelta esplicita — resta
+  // selezionabile a mano (canale uditivo), non ruota mai da solo.
+  // Regole di classificazione sempre riusate da altrove (SWITCH_RULESETS,
+  // già validate per Task-switching/Simon/Stop-Signal), mai reinventate
+  // qui: parità e vocale/consonante sono le stesse regole di sempre.
+  const DUAL_DIM_ROTATION = ['tipo_colore','forma_colore','parita_colore','consvoc_posizione','freccia_colore'];
+  const DUAL_DIM_ALL = DUAL_DIM_ROTATION.concat(['tipo_tono']);
+  function pickDualDimRegime(manualValue){
+    if(manualValue && manualValue!=='random') return manualValue;
+    return DUAL_DIM_ROTATION[Math.floor(Math.random()*DUAL_DIM_ROTATION.length)];
+  }
+  // Item generico per uno dei 6 regimi — forma sempre uniforme:
+  // {regime, dim1 (nome dimensione), tipo (nome del polo), valore (cosa
+  // mostrare/dire), e la dim2 in una di tre forme (colore/tono/side), mai
+  // più di una alla volta.
+  function genDualDimItem(regime){
+    if(regime==='forma_colore'){
+      const isCerchio = Math.random()<0.5;
+      return { regime, dim1:'forma', tipo:isCerchio?'cerchio':'triangolo', valore: isCerchio?POOLS.forma[0]:POOLS.forma[1], colore: Math.random()<0.5?'nero':'rosso' };
+    }
+    if(regime==='parita_colore'){
+      const valore = POOLS.numeri[Math.floor(Math.random()*POOLS.numeri.length)];
+      const isPari = SWITCH_RULESETS.numeri.ruleA.classify(valore);
+      return { regime, dim1:'parita', tipo:isPari?'pari':'dispari', valore, colore: Math.random()<0.5?'nero':'rosso' };
+    }
+    if(regime==='consvoc_posizione'){
+      const valore = POOLS.lettere[Math.floor(Math.random()*POOLS.lettere.length)];
+      const isVocale = SWITCH_RULESETS.lettere.ruleA.classify(valore);
+      return { regime, dim1:'consvoc', tipo:isVocale?'vocale':'consonante', valore, side: Math.random()<0.5?'left':'right' };
+    }
+    if(regime==='freccia_colore'){
+      const isSu = Math.random()<0.5;
+      return { regime, dim1:'freccia', tipo:isSu?'su':'giu', valore: isSu?'↑':'↓', colore: Math.random()<0.5?'nero':'rosso' };
+    }
     const isLettera = Math.random()<0.5;
     const valore = isLettera
       ? CATEG_LETTERE[Math.floor(Math.random()*CATEG_LETTERE.length)]
       : CATEG_NUMERI[Math.floor(Math.random()*CATEG_NUMERI.length)];
-    const item = { tipo: isLettera?'lettera':'numero', valore };
-    if(cfg.categSecondaria==='tono') item.tono = Math.random()<0.5?'grave':'acuto';
+    const item = { regime, dim1:'tipo', tipo: isLettera?'lettera':'numero', valore };
+    if(regime==='tipo_tono') item.tono = Math.random()<0.5?'grave':'acuto';
     else item.colore = Math.random()<0.5?'nero':'rosso';
     return item;
   }
-  // "Polo A" della seconda dimensione (nero/grave) vs "polo B" (rosso/
-  // acuto) — stessa distinzione binaria, quale delle due proprietà venga
-  // letta dipende solo da quale dimensione secondaria è configurata, non
-  // da una scelta clinica diversa per ognuna delle tre strutture.
-  function categDim2IsA(item){ return item.tono!=null ? item.tono==='grave' : item.colore==='nero'; }
+  // "Polo A" della dim1 (lettera/cerchio/pari/vocale/su) vs "polo B"
+  // (numero/triangolo/dispari/consonante/giù) — un solo punto che sa
+  // quale campo leggere per ciascun regime.
+  function dualDim1IsA(item){
+    if(item.dim1==='forma') return item.tipo==='cerchio';
+    if(item.dim1==='parita') return item.tipo==='pari';
+    if(item.dim1==='consvoc') return item.tipo==='vocale';
+    if(item.dim1==='freccia') return item.tipo==='su';
+    return item.tipo==='lettera';
+  }
+  // "Polo A" della dim2 (nero/grave/sinistra) vs "polo B" (rosso/acuto/
+  // destra) — stessa distinzione binaria, quale proprietà venga letta
+  // dipende solo da quale campo è valorizzato sull'item.
+  function dualDim2IsA(item){
+    if(item.side!=null) return item.side==='left';
+    if(item.tono!=null) return item.tono==='grave';
+    return item.colore==='nero';
+  }
+  // Alias storici — Categorizzazione condizionale usava questi nomi prima
+  // che il motore diventasse condiviso con Task-switching; mantenuti per
+  // non dover toccare ogni punto che li chiama.
+  const CATEG_REGIMES = DUAL_DIM_ROTATION;
+  function pickCategRegime(c){ return pickDualDimRegime(c.categRegime); }
+  function genCategItem(){ return genDualDimItem(cfg.categRegimeSessione || pickCategRegime(cfg)); }
+  function categDim1IsA(item){ return dualDim1IsA(item); }
+  function categDim2IsA(item){ return dualDim2IsA(item); }
   function categL2Outcome(item){
-    if(item.tipo==='lettera' && categDim2IsA(item)) return 'a';
-    if(item.tipo==='lettera' && !categDim2IsA(item)) return 'nogo';
-    if(item.tipo==='numero' && !categDim2IsA(item)) return 'b';
-    return 'c'; // numero, polo A (nero/grave)
+    if(categDim1IsA(item) && categDim2IsA(item)) return 'a';
+    if(categDim1IsA(item) && !categDim2IsA(item)) return 'nogo';
+    if(!categDim1IsA(item) && !categDim2IsA(item)) return 'b';
+    return 'c'; // polo B della dim1 (numero/triangolo), polo A della dim2 (nero/grave)
   }
   function categL3Outcome(item){
-    const isA = (item.tipo==='lettera' && categDim2IsA(item)) || (item.tipo==='numero' && !categDim2IsA(item));
+    const isA = (categDim1IsA(item) && categDim2IsA(item)) || (!categDim1IsA(item) && !categDim2IsA(item));
     return isA ? 'a' : 'b';
   }
   function categL5Outcome(item){
-    if(item.tipo==='lettera') return categDim2IsA(item) ? 'a' : 'l';
+    if(categDim1IsA(item)) return categDim2IsA(item) ? 'a' : 'l';
     return categDim2IsA(item) ? 'z' : 'm';
   }
   // Generazione incrementale, necessaria per l'adattivo: la struttura
@@ -2401,6 +2529,11 @@
     if(family==='choice' && rec.choice && rec.choice.total) return rec.choice.correct/rec.choice.total;
     if(family==='spatial' && rec.neglect && rec.neglect.modalitaConteggio) return rec.neglect.accuratezzaConteggio;
     if(family==='spatial' && rec.neglect && rec.neglect.pctLeft!=null && rec.neglect.pctRight!=null) return (rec.neglect.pctLeft+rec.neglect.pctRight)/2;
+    // Media fra le due misure (posizione + contenuto) — una sola cifra per
+    // il riepilogo/lo screening, che per costruzione non possono usarne
+    // due separate. Il dettaglio delle due resta comunque in rec.span,
+    // leggibile per intero da chi vuole guardarle separate.
+    if(family==='span' && rec.span && rec.span.posAccMean!=null && rec.span.contentAccMean!=null) return (rec.span.posAccMean+rec.span.contentAccMean)/2;
     return null;
   }
   // Riepilogo per paziente, aggregato per esercizio — tempo totale
@@ -2820,7 +2953,7 @@
   // "lupo-capra-cavolo" — non sono qui: sono problemi di ricerca in uno
   // spazio di stati/percorso, una struttura diversa da "elenco di elementi
   // con vincoli", richiederebbero un motore a parte.
-  // Scenario dedicato solo allo screening (vedi SCREENING_FINAL_GATE più
+  // Scenario dedicato solo allo screening (vedi SCREENING_PROBES.goaltask_mini più
   // sotto) — non compare nel selettore di Setup fra gli scenari normali,
   // serve solo come sonda breve. 2 tipi di vincolo attivi insieme
   // (alternanza di categoria + prerequisito su 2 dei 4 elementi), budget
@@ -3375,7 +3508,8 @@
       'goaltask_scenario','goaltask_livello','goaltask_completati','goaltask_totale','goaltask_percentuale','goaltask_violazioni','goaltask_tempo_sec','goaltask_budget_rispettato',
       'memoria_modo','memoria_livello','memoria_forma','memoria_recuperati','memoria_totale','memoria_percentuale','calo_intra_sessione',
       'neglect_conteggio_accuratezza','neglect_conteggio_errore_medio','note','switch_cost_relativo','switch_acc_ripetizione','switch_acc_switch',
-      'stopsignal_interferenza_conflitto_ms','stopsignal_interferenza_acc_congruente','stopsignal_interferenza_acc_incongruente'];
+      'stopsignal_interferenza_conflitto_ms','stopsignal_interferenza_acc_congruente','stopsignal_interferenza_acc_incongruente',
+      'runningspan_n','runningspan_acc_posizione','runningspan_acc_contenuto','runningspan_lunghezza_media'];
     const rows = items.map(r=>{
       const family = r.family || 'signal'; // record salvati prima di questa versione
       const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
@@ -3429,7 +3563,11 @@
         family==='choice' && r.choice.switchAcc!=null ? (r.choice.switchAcc*100).toFixed(1)+'%' : '',
         r.taskMode==='stopsignal' && r.conflict!=null ? r.conflict : '',
         r.taskMode==='stopsignal' && r.congAccuracy!=null ? (r.congAccuracy*100).toFixed(1)+'%' : '',
-        r.taskMode==='stopsignal' && r.incongAccuracy!=null ? (r.incongAccuracy*100).toFixed(1)+'%' : ''
+        r.taskMode==='stopsignal' && r.incongAccuracy!=null ? (r.incongAccuracy*100).toFixed(1)+'%' : '',
+        family==='span' ? r.span.n : '',
+        family==='span' && r.span.posAccMean!=null ? (r.span.posAccMean*100).toFixed(1)+'%' : '',
+        family==='span' && r.span.contentAccMean!=null ? (r.span.contentAccMean*100).toFixed(1)+'%' : '',
+        family==='span' && r.span.seqLenMean!=null ? r.span.seqLenMean.toFixed(1) : ''
       ];
     });
     const csv = [head.join(';')].concat(rows.map(r=>r.join(';'))).join('\n');
@@ -4171,13 +4309,19 @@
       grid.appendChild(field('Livello', stepper(cfg.nLevel,1,10,v=>{cfg.nLevel=v; render();})));
       grid.appendChild(el('p',{class:'hint'},['n='+nbackParamsForLevel(cfg.nLevel).n+' a questo livello. Il livello combina n (1-3, cresce solo ai passaggi di banda) con frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso).']));
     }
-    if(cfg.taskMode==='sequenza' || cfg.taskMode==='switching' || cfg.taskMode==='gonogo' || cfg.taskMode==='stopsignal' || cfg.taskMode==='ant' || cfg.taskMode==='simon'){
+    if(cfg.taskMode==='sequenza' || cfg.taskMode==='switching' || cfg.taskMode==='gonogo' || cfg.taskMode==='stopsignal' || cfg.taskMode==='ant' || cfg.taskMode==='simon' || cfg.taskMode==='runningspan'){
       grid.appendChild(field('Livello', stepper(cfg.adaptStartLevel,1,10,v=>{
         cfg.adaptStartLevel=v;
         if(cfg.taskMode==='sequenza' && cfg.titrationMode!=='manuale') adjustTargetSeqToLength(ADAPT_SEQ_LEN[v]);
         if(cfg.taskMode==='gonogo') suggestGoNoGoTargets(v);
         render();
       })));
+      if(cfg.taskMode==='runningspan'){
+        const lvl = RUNNINGSPAN_LEVELS[cfg.adaptStartLevel]||RUNNINGSPAN_LEVELS[1];
+        card.appendChild(el('p',{class:'hint'},[
+          'A questo livello: richiamo di '+lvl.n+' elementi, sequenza lunga '+lvl.seqMin+'-'+lvl.seqMax+' (mai nota in anticipo al paziente), ISI '+lvl.isi+' ms. Con l\'adattivo attivo, il livello di partenza qui sopra vale solo per il primo ciclo — sale/scende poi da solo in base alla media di accuratezza di posizione e di contenuto sugli ultimi '+RUNNINGSPAN_ADAPT_BLOCK+' cicli (sopra l\'85% sale, sotto il 70% scende) — una finestra più corta della soglia standard altrove (8), perché un ciclo qui porta molta più informazione di una singola risposta.'
+        ]));
+      }
     }
     if(cfg.taskMode==='tapat'){
       grid.appendChild(field('Livello', stepper(cfg.tapatStartLevel,1,10,v=>{cfg.tapatStartLevel=v; render();})));
@@ -4492,11 +4636,18 @@
       const rs = switchRulesetFor(cfg);
       card.appendChild(el('p',{class:'hint'},['Regole di questa sessione: "'+rs.ruleA.label+'" ↔ "'+rs.ruleB.label+'". Un\'etichetta prima di ogni stimolo indica quale regola è attiva in quel momento.']));
       if(cfg.switchMaterial==='bivalente'){
-        card.appendChild(field('Seconda dimensione', segButtons(['colore','tono'], cfg.switchSecondaria||'colore', v=>{ cfg.switchSecondaria=v; render(); }, {colore:'Colore (Bianco/Rosso)', tono:'Suono (Grave/Acuto)'})));
-        if(cfg.switchSecondaria==='tono'){
+        card.appendChild(field('Coppia di dimensioni', segButtons(
+          ['random','tipo_colore','forma_colore','parita_colore','consvoc_posizione','freccia_colore','tipo_tono'],
+          cfg.switchRegime||'random', v=>{ cfg.switchRegime=v; render(); },
+          {random:'Casuale (una diversa a sessione)', tipo_colore:'Tipo × Colore', forma_colore:'Forma × Colore', parita_colore:'Pari/Dispari × Colore', consvoc_posizione:'Vocale/Consonante × Posizione', freccia_colore:'Freccia × Colore', tipo_tono:'Tipo × Suono (solo a mano)'}
+        )));
+        if(cfg.switchRegime==='tipo_tono'){
           card.appendChild(el('p',{class:'hint', style:'color:var(--alert);'},['🎧 Consigliate cuffie o casse funzionanti — il carattere viene letto ad alta voce insieme a un tono grave o acuto, che sostituisce il colore come seconda dimensione. Nessuna componente stereo qui (a differenza di Simon "suoni" o TAPAT spaziale): un solo altoparlante mono basta.']));
         }
-        card.appendChild(el('p',{class:'hint'},['Modalità a doppia dimensione (tipo di carattere + '+(cfg.switchSecondaria==='tono'?'tono':'colore')+', assegnati indipendentemente): su metà delle prove le due dimensioni indicano la stessa risposta ("congruenti"), sull\'altra metà indicano risposte opposte ("incongruenti") — genera un indice di conflitto in stile Stroop, oltre allo switch cost. Consigliate almeno 60 prove per un indice di conflitto stabile.']));
+        card.appendChild(el('p',{class:'hint'},[
+          (cfg.switchRegime && cfg.switchRegime!=='random' ? 'Coppia fissa per ogni sessione. ' : 'Cambia a ogni sessione (non a ogni prova) fra le 5 coppie visive/uditive senza componente stereo, per generalizzare oltre una singola coppia memorizzata (Moshon-Cohen et al., 2024, Psychological Research, 88, 786-802) — "Tipo × Suono" esclusa dalla rotazione, va scelta a mano. ')
+          +'Modalità a doppia dimensione: su metà delle prove le due dimensioni indicano la stessa risposta ("congruenti"), sull\'altra metà indicano risposte opposte ("incongruenti") — genera un indice di conflitto in stile Stroop, oltre allo switch cost. Consigliate almeno 60 prove per un indice di conflitto stabile.'
+        ]));
       }
     }
     if(cfg.taskMode==='simon'){
@@ -4533,8 +4684,17 @@
         card.appendChild(el('p',{class:'hint'},['Regola di classificazione per questo materiale: "'+rs.labelA+'" vs "'+rs.labelB+'" ('+rs.label+').']));
       }
       if(cStruct===2 || cStruct===3 || cStruct===5){
-        card.appendChild(field('Seconda dimensione', segButtons(['colore','tono'], cfg.categSecondaria||'colore', v=>{ cfg.categSecondaria=v; render(); }, {colore:'Colore (Bianco/Rosso)', tono:'Suono (Grave/Acuto)'})));
-        if(cfg.categSecondaria==='tono'){
+        card.appendChild(field('Coppia di dimensioni', segButtons(
+          ['random','tipo_colore','forma_colore','parita_colore','consvoc_posizione','freccia_colore','tipo_tono'],
+          cfg.categRegime||'random', v=>{ cfg.categRegime=v; render(); },
+          {random:'Casuale (una diversa a sessione)', tipo_colore:'Tipo × Colore', forma_colore:'Forma × Colore', parita_colore:'Pari/Dispari × Colore', consvoc_posizione:'Vocale/Consonante × Posizione', freccia_colore:'Freccia × Colore', tipo_tono:'Tipo × Suono (solo a mano)'}
+        )));
+        card.appendChild(el('p',{class:'hint'},[
+          cfg.categRegime && cfg.categRegime!=='random'
+            ? 'Coppia fissa per ogni sessione — la regola resta sempre la stessa, non ruota.'
+            : 'Cambia a ogni sessione (non a ogni prova), fra le 5 coppie visive/uditive senza componente stereo — per generalizzare oltre una singola coppia memorizzata (Moshon-Cohen et al., 2024, Psychological Research, 88, 786-802). "Tipo × Suono" è esclusa dalla rotazione casuale (richiede cuffie, va scelta a mano se la vuoi). La struttura del livello resta identica in ogni caso, cambia solo quali due proprietà vengono classificate.'
+        ]));
+        if(cfg.categRegime==='tipo_tono'){
           card.appendChild(el('p',{class:'hint', style:'color:var(--alert);'},['🎧 Consigliate cuffie o casse funzionanti — il carattere viene letto ad alta voce insieme a un tono grave o acuto, che sostituisce il colore come seconda dimensione (tipo/lettera resta comunque leggibile ad alta voce). Nessuna componente stereo richiesta: un solo altoparlante mono basta.']));
         }
       }
@@ -4815,6 +4975,14 @@
   /* ---------- COUNTDOWN ---------- */
   /* ---------- ISTRUZIONI ---------- */
   function ScreenInstructions(root){
+    // Regime di Categorizzazione (vedi CATEG_REGIMES/pickCategRegime):
+    // scelto QUI, non in startSession() — questa schermata è sempre
+    // l'ultima prima del conto alla rovescia, mentre startSession() gira
+    // solo DOPO; se il sorteggio avvenisse lì, il testo delle istruzioni
+    // mostrato ora descriverebbe una coppia di dimensioni diversa da
+    // quella che poi compare davvero nella seduta.
+    if(cfg.taskMode==='categorizzazione') cfg.categRegimeSessione = pickCategRegime(cfg);
+    if(cfg.taskMode==='switching' && cfg.switchMaterial==='bivalente') cfg.switchRegimeSessione = pickDualDimRegime(cfg.switchRegime);
     root.appendChild(el('div',{class:'brand'},[
       el('div',{class:'mark'},['Traccia',el('span',{},['N'])]),
       el('div',{class:'sub'},[EXERCISES[cfg.taskMode].label])
@@ -4916,11 +5084,19 @@
     if(cfg.taskMode==='stopsignal' && cfg.stopsignalInterferenza==='si' && cfg.adaptStartLevel < STOPSIGNAL_INTERFERENZA_MIN_LEVEL){
       cfg.adaptStartLevel = STOPSIGNAL_INTERFERENZA_MIN_LEVEL;
     }
+    // Regime della struttura 2/3/5 (vedi CATEG_REGIMES/pickCategRegime):
+    // già scelto in ScreenInstructions, mostrato lì al paziente prima del
+    // conto alla rovescia — qui solo una rete di sicurezza nel caso
+    // improbabile in cui questa funzione fosse raggiunta senza essere
+    // passati da lì (mai ripescato di nuovo, altrimenti potrebbe non
+    // corrispondere più a quanto appena letto nelle istruzioni).
+    if(cfg.taskMode==='categorizzazione' && !cfg.categRegimeSessione) cfg.categRegimeSessione = pickCategRegime(cfg);
     regenerateNumeriPool();
     regenerateParolePool();
     if(cfg.taskMode==='neglect'){ startNeglectSession(); return; }
     if(cfg.taskMode==='goaltask'){ startGoalTaskSession(); return; }
     if(cfg.taskMode==='memoria'){ startMemoriaSession(); return; }
+    if(cfg.taskMode==='runningspan'){ startRunningSpanSession(); return; }
     const isTapat = cfg.taskMode==='tapat';
     const isIncremental = cfg.taskMode==='nback' || isTapat || cfg.taskMode==='gonogo' || cfg.taskMode==='dualtask' || cfg.taskMode==='categorizzazione';
     session = {
@@ -5463,6 +5639,19 @@
   // Livelli di difficoltà TAPAT: più alto = attese toniche più lunghe e
   // imprevedibili (più difficile sostenere l'attenzione da soli).
   const TAPAT_LEVELS = { 1:[900,1800],2:[1400,2600],3:[2000,4000],4:[3000,6000],5:[4000,8000],6:[5000,9500],7:[6000,11000],8:[8000,13000],9:[10000,18000],10:[12000,25000] };
+  // Running Span — n da richiamare (il "carico" del livello) e intervallo
+  // di lunghezza totale della sequenza (sconosciuta al paziente, sorteggiata
+  // a ogni prova dentro l'intervallo del livello). Tetto a n=4, non 5 come
+  // nella proposta iniziale — stessa cautela già usata per N-back (mai
+  // oltre n=2-3), qui un poco più alta perché il richiamo è a fine
+  // sequenza, non un giudizio continuo, ma resta un'ipotesi di partenza,
+  // non un valore di letteratura.
+  const RUNNINGSPAN_LEVELS = {
+    1:{n:2, seqMin:3, seqMax:4, isi:1800}, 2:{n:2, seqMin:4, seqMax:5, isi:1800},
+    3:{n:3, seqMin:4, seqMax:6, isi:1600}, 4:{n:3, seqMin:5, seqMax:7, isi:1500}, 5:{n:3, seqMin:6, seqMax:9, isi:1400},
+    6:{n:4, seqMin:6, seqMax:8, isi:1400}, 7:{n:4, seqMin:7, seqMax:10, isi:1300}, 8:{n:4, seqMin:8, seqMax:12, isi:1200},
+    9:{n:4, seqMin:9, seqMax:13, isi:1100}, 10:{n:4, seqMin:10, seqMax:14, isi:1000}
+  };
   // Go/No-Go: generazione incrementale, necessaria perché con l'adattivo
   // attivo la frequenza no-go cambia durante la sessione.
   function genGoNoGoTrial(){
@@ -6568,9 +6757,17 @@
       if(cfg.switchMaterial==='colori'){
         wrap.appendChild(el('div',{class:'colorcircle', style:'width:140px; height:140px; background:'+trial.val.hex+';'},[]));
       } else if(cfg.switchMaterial==='bivalente'){
-        wrap.appendChild(trial.val.tono!=null
-          ? el('div',{class:'stimulus'},[trial.val.valore]) // il tono è riprodotto a parte in presentStimulus(), niente colore da mostrare
-          : el('div',{class:'stimulus', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]));
+        if(trial.val.side!=null){
+          const outer = el('div',{style:'display:flex; width:100%; justify-content:'+(trial.val.side==='left'?'flex-start':'flex-end')+'; padding:0 8vw;'});
+          outer.appendChild(el('div',{class:'stimulus'},[trial.val.valore]));
+          wrap.appendChild(outer);
+        } else if(trial.val.dim1==='forma' || trial.val.dim1==='freccia'){
+          wrap.appendChild(el('div',{class:'stimulus symbolwrap', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]));
+        } else {
+          wrap.appendChild(trial.val.tono!=null
+            ? el('div',{class:'stimulus'},[trial.val.valore]) // il tono è riprodotto a parte in presentStimulus(), niente colore da mostrare
+            : el('div',{class:'stimulus', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]));
+        }
       } else if(trial.sizeVariant){
         const sizePx = trial.sizeVariant==='grande' ? 'min(28vw,220px)' : 'min(9vw,64px)';
         wrap.appendChild(el('div',{class:'stimulus', style:'font-size:'+sizePx+' !important;'},[seqLabel(trial.val)]));
@@ -6587,7 +6784,20 @@
       }
       // livelli 2/3/5: stesso stile del bivalente dello switching — testo
       // bianco o rosso su sfondo scuro (dimensione colore), o testo
-      // neutro col tono riprodotto a parte (dimensione tono).
+      // neutro col tono riprodotto a parte (dimensione tono). I regimi
+      // forma/colore e freccia/colore riusano lo stesso trattamento
+      // colore, con la classe già usata per i glifi altrove (stessa
+      // dimensione visiva di '●'/'▲'/frecce quando li mostra Stop-Signal/
+      // ANT). Il regime consonante-vocale/posizione non ha colore: la
+      // posizione a schermo sostituisce il colore come seconda
+      // dimensione, stesso trattamento già usato per Simon "suoni" e
+      // Stop-Signal con interferenza — mai colore E posizione insieme.
+      if(trial.val.side!=null){
+        const outer = el('div',{style:'display:flex; width:100%; justify-content:'+(trial.val.side==='left'?'flex-start':'flex-end')+'; padding:0 8vw;'});
+        outer.appendChild(el('div',{class:'stimulus'},[trial.val.valore]));
+        return outer;
+      }
+      if(trial.val.dim1==='forma' || trial.val.dim1==='freccia') return el('div',{class:'stimulus symbolwrap', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]);
       return trial.val.tono!=null
         ? el('div',{class:'stimulus'},[trial.val.valore])
         : el('div',{class:'stimulus', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]);
@@ -6684,146 +6894,208 @@
   // codice le consideri la stessa cosa altrove (Go/No-Go, Stop-Signal,
   // ANT e Cancellazione, per esempio, restano distinti per costrutto
   // specifico in tutto il resto della batteria).
-  const SCREENING_BLOCKS = [
-    { domain:'attenzione', tipo:'base', domainLabel:'Attenzione sostenuta / inibizione', label:'Attenzione — blocco base',
-      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:[POOLS.lettere[0]], adaptive:false, targetRate:0.48, isi:1600, stimDuration:600, trials:SCREENING_TRIALS}) },
-    { domain:'attenzione', tipo:'caricato', domainLabel:'Attenzione sostenuta / inibizione', label:'Attenzione — blocco caricato', suggestTaskMode:'gonogo', suggestLabel:'Go/No-Go',
-      // Corretto rispetto alla versione precedente: 3 elementi no-go a
-      // frequenza 22% sommava due fonti di difficoltà diverse (carico
-      // discriminativo multi-target + minore aspettativa del no-go, che
-      // secondo la letteratura sull'inibizione proattiva rende il compito
-      // più difficile indipendentemente dal numero di target — una
-      // frequenza no-go più bassa riduce l'aspettativa e rinforza la
-      // tendenza prepotente a rispondere). Ora: 2 target (carico
-      // discriminativo puro) con una riduzione più contenuta della
-      // frequenza no-go (48%→35%, non 22%) rispetto al blocco base.
-      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,2), adaptive:false, targetRate:0.35, isi:900, stimDuration:500, trials:SCREENING_TRIALS}) },
-    { domain:'memoria', tipo:'base', domainLabel:'Memoria di lavoro', label:'Memoria di lavoro — blocco base',
-      patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:1, adaptive:false, targetRate:0.32, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}) },
-    { domain:'memoria', tipo:'caricato', domainLabel:'Memoria di lavoro', label:'Memoria di lavoro — blocco caricato', suggestTaskMode:'nback', suggestLabel:'N-back',
-      // n=5 era irrealistico come misura di screening: anche adulti sani
-      // mostrano un calo netto di accuratezza oltre n=2/3 nella
-      // letteratura sperimentale sull'n-back (gli studi che usano l'n-back
-      // per discriminare gruppi si fermano quasi sempre a 2-3), quindi n=5
-      // rischiava un effetto pavimento che avrebbe appiattito la
-      // distribuzione invece di discriminare. Ora n=2, tempi invariati.
-      patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:2, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}) },
-    // Flessibilità cognitiva: NON più due esercizi diversi confrontati fra
-    // loro (Categorizzazione L1 vs Task-switching) — quel confronto
-    // mescolava apprendimento di regola singola con costo di alternanza,
-    // due costrutti diversi (vedi discussione sulla bivalenza/mixing
-    // cost). Ora un SOLO blocco di Task-switching, scomposto in due
-    // punteggi dagli stessi dati: repAcc (prove di ripetizione dentro il
-    // blocco misto, usata come "base") e switchAcc (prove di switch,
-    // usata come "caricato") — isola il vero costo di switching, non
-    // ancora il "mixing cost" pieno (richiederebbe un blocco puro a
-    // compito singolo come riferimento, non presente qui). Materiale
-    // numerico: ogni cifra è bivalente rispetto a entrambe le regole
-    // (pari/dispari, alto/basso), condizione necessaria perché il costo
-    // di switching emerga (letteratura: con stimoli univalenti il costo
-    // si riduce o sparisce). 24 prove non 16: con un solo blocco diviso in
-    // due, servono più prove totali perché repAcc e switchAcc abbiano
-    // ciascuna un numero di prove sufficiente a una stima non troppo
-    // rumorosa.
-    { domain:'flessibilita', tipo:'split', domainLabel:'Flessibilità cognitiva', label:'Flessibilità cognitiva', suggestTaskMode:'switching', suggestLabel:'Task-switching',
-      splitAccKeys:{base:'repAcc', caricato:'switchAcc'},
-      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:24}) },
-    { domain:'esplorazione', tipo:'base', domainLabel:'Esplorazione visuospaziale', label:'Esplorazione — blocco base',
-      patch:()=>({taskMode:'neglect', neglectMode:'classico', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}) },
-    { domain:'esplorazione', tipo:'caricato', domainLabel:'Esplorazione visuospaziale', label:'Esplorazione — blocco caricato', suggestTaskMode:'neglect', suggestLabel:'Cancellazione a regola',
-      patch:()=>({taskMode:'neglect', neglectMode:'regola', neglectRuleLevel:2, stimType:'lettere', neglectBoardSize:40, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}) },
-    // Mantenimento: solo la modalità Riconoscimento (classica, discreta) —
-    // il Riconoscimento seriale resta una sonda di approfondimento per
-    // quando questo dominio flagga, non parte dello screening breve.
-    // Liste più lunghe del minimo (3/5, non 2/3): con solo 2 elementi il
-    // compito è quasi banale anche con un deficit reale, non discrimina.
-    { domain:'mantenimento', tipo:'base', domainLabel:'Mantenimento in memoria a breve termine', label:'Mantenimento — blocco base',
-      patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:3, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}) },
-    { domain:'mantenimento', tipo:'caricato', domainLabel:'Mantenimento in memoria a breve termine', label:'Mantenimento — blocco caricato', suggestTaskMode:'mantenimento', suggestLabel:'Mantenimento (tipo Sternberg)',
-      patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:5, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}) }
-  ];
+  // ========================================================================
+  // MOTORE DI SCREENING — riscritto per intero su questo principio unico:
+  // ogni dominio ha un elenco di SONDE, sempre somministrate tutte (nessun
+  // "se flagga il base, approfondisci" a cascata come nella versione
+  // precedente) — poi una regola di suggerimento propria del dominio legge
+  // il PATTERN di chi ha fallito e chi no, non solo "quante".
+  // Non ancora incluso in questa riscrittura (prossimo giro, dichiarato
+  // esplicitamente): la doppia somministrazione verbale/non verbale, e il
+  // secondo giro a livello intermedio per chi risulta pulito ovunque.
   const SCREENING_FLAG_THRESHOLD = 0.70; // coerente con la soglia Wilson già in uso per la titolazione adattiva
-  // Livello 1 — approfondimento gerarchico, si attiva SOLO se il dominio
-  // corrispondente ha flaggato al Livello 0 (vedi buildLevel1Queue). Non
-  // tutti i domini ne hanno uno: Flessibilità cognitiva ha un solo
-  // esercizio, niente da approfondire; Attenzione divisa/Scenari ecologici
-  // restano fuori per la stessa ragione per cui sono già fuori dal
-  // Livello 0 (vedi il commento sopra SCREENING_BLOCKS — livello
-  // concettuale diverso, non un quinto dominio pari agli altri).
-  //
-  // "Scala" (ladder): gradini somministrati in sequenza, ci si FERMA al
-  // primo gradino dove il paziente fallisce (accuratezza sotto soglia) —
-  // è quello il punto di rottura da segnalare. Se tutti i gradini
-  // passano nonostante il Livello 0 avesse flaggato, il problema non è
-  // stato localizzato più in profondità: si ripropone il dominio così
-  // com'era (Go/No-Go, Cancellazione a regola) senza un gradino più
-  // specifico da consigliare.
-  const SCREENING_LEVEL1_LADDERS = {
-    attenzione: [
-      { label:'TAPAT (allerta sostenuta)', suggestTaskMode:'tapat', suggestLabel:'TAPAT',
-        patch:()=>({taskMode:'tapat', tapatModalita:'visivo', tapatSpatial:false, tapatStartLevel:1, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-        scoreOf:r=>primaryAccuracyOf(r) },
-      { label:'Stop-Signal', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal',
-        patch:()=>({taskMode:'stopsignal', stimType:'frecce', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'no', titrationMode:'manuale', trials:SCREENING_TRIALS}),
-        scoreOf:r=>r.goAccuracy },
-      { label:'Stop-Signal con interferenza', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal (variante con interferenza)',
-        patch:()=>({taskMode:'stopsignal', stimType:'frecce', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'si', titrationMode:'manuale', trials:SCREENING_TRIALS}),
-        scoreOf:r=>r.goAccuracy }
-    ],
-    esplorazione: [
-      { label:'Cancellazione — Trova l\'intruso', suggestTaskMode:'neglect', suggestLabel:'Cancellazione — Trova l\'intruso',
-        patch:()=>({taskMode:'neglect', neglectMode:'intruso', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:30, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
-        scoreOf:r=>primaryAccuracyOf(r) }
-      // Il gradino "regola" non ripetuto qui: è già il blocco "caricato"
-      // del Livello 0 per questo dominio (vedi SCREENING_BLOCKS) — la scala
-      // riparte da dove il Livello 0 si è fermato, non da capo.
-    ]
-  };
-  // "Parallelo" (differential): sonde somministrate TUTTE, non in
-  // sequenza con arresto — il pattern dei risultati distingue fra loro,
-  // non un singolo punto di rottura. Se una sonda flagga anch'essa,
-  // localizza un problema condiviso (si consiglia quella); se nessuna
-  // flagga, il problema resta specifico al dominio originale (si consiglia
-  // quello, non le sonde — es. N-back debole ma Mantenimento e
-  // Categorizzazione normali conferma che il problema è l'aggiornamento
-  // continuo, non un deficit di memoria di lavoro più generale).
-  const SCREENING_LEVEL1_PARALLEL = {
-    memoria: [
-      { label:'Mantenimento (tipo Sternberg)', suggestTaskMode:'mantenimento', suggestLabel:'Mantenimento (tipo Sternberg)',
-        patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:4, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-        scoreOf:r=>primaryAccuracyOf(r) },
-      { label:'Categorizzazione condizionale', suggestTaskMode:'categorizzazione', suggestLabel:'Categorizzazione condizionale',
-        patch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'simboli', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-        scoreOf:r=>primaryAccuracyOf(r) }
-    ]
-  };
-  // Gate finale — raggiunto SOLO se l'intero screening (Livello 0 e
-  // qualunque approfondimento di Livello 1) non ha segnalato NULLA, e il
-  // pattern di coordinamento generale (vedi computeCoordinationFlag) non
-  // si è attivato: cioè un profilo pulito su ogni dominio testato finora.
-  // Non è un "se fallisce qualcosa, prova questo" come il resto dello
-  // screening — è l'opposto: solo chi supera TUTTO arriva a una sonda più
-  // esigente, sul principio per cui test strutturati brevi possono non
-  // cogliere difficoltà che emergono solo in compiti più complessi e
-  // realistici (il razionale storico dietro il Six Elements Test/Multiple
-  // Errands Test — Shallice & Burgess, 1991). Se il primo passo (Doppio
-  // compito) fallisce, ci si ferma lì: Scenari ecologici resta manuale,
-  // come deciso esplicitamente, non si somministra la sonda ecologica a
-  // un profilo che ha appena mostrato un problema a un gradino precedente.
-  const SCREENING_FINAL_GATE = {
-    divisa: { label:'Doppio compito (verifica finale)', suggestTaskMode:'dualtask', suggestLabel:'Doppio compito',
+  // Catalogo delle sonde — una voce per ogni test che può comparire in un
+  // dominio, con la propria configurazione e come calcolarne l'esito.
+  // 'variant' distingue sonde che condividono lo stesso esercizio (es. i 3
+  // modi di Cancellazione, o le 2 strutture di Categorizzazione usate come
+  // suggerimento) — necessario perché più di una può comparire nello
+  // stesso riepilogo finale senza che una sovrascriva l'altra.
+  const SCREENING_PROBES = {
+    ant: { label:'ANT classico', suggestTaskMode:'ant', suggestLabel:'ANT classico', variant:'ant',
+      patch:()=>({taskMode:'ant', stimType:'lettere', adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:3200, stimDuration:700, trials:SCREENING_TRIALS}),
+      nonVerbalPatch:()=>({taskMode:'ant', stimType:'simboli', adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:3200, stimDuration:700, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    tapat: { label:'TAPAT (allerta sostenuta)', suggestTaskMode:'tapat', suggestLabel:'TAPAT', variant:'tapat',
+      patch:()=>({taskMode:'tapat', tapatModalita:'visivo', tapatSpatial:false, tapatStartLevel:1, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    gonogo: { label:'Go/No-Go', suggestTaskMode:'gonogo', suggestLabel:'Go/No-Go', variant:'gonogo',
+      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,2), adaptive:false, targetRate:0.35, isi:900, stimDuration:500, trials:SCREENING_TRIALS}),
+      nonVerbalPatch:()=>({taskMode:'gonogo', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), adaptive:false, targetRate:0.35, isi:900, stimDuration:500, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    stopsignal: { label:'Stop-Signal', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal', variant:'stopsignal',
+      // 'frecce' era l'unico materiale usato prima di questa estensione —
+      // simboliche/spaziali, non linguistiche: qui diventa la forma NON
+      // verbale, 'lettere' quella verbale aggiunta.
+      patch:()=>({taskMode:'stopsignal', stimType:'lettere', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'no', titrationMode:'manuale', trials:SCREENING_TRIALS}),
+      nonVerbalPatch:()=>({taskMode:'stopsignal', stimType:'frecce', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'no', titrationMode:'manuale', trials:SCREENING_TRIALS}),
+      scoreOf:r=>r.goAccuracy },
+    stopsignal_interferenza: { label:'Stop-Signal con interferenza', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal (con interferenza)', variant:'stopsignal_interferenza',
+      patch:()=>({taskMode:'stopsignal', stimType:'lettere', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'si', titrationMode:'manuale', trials:SCREENING_TRIALS}),
+      nonVerbalPatch:()=>({taskMode:'stopsignal', stimType:'frecce', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'si', titrationMode:'manuale', trials:SCREENING_TRIALS}),
+      scoreOf:r=>r.goAccuracy },
+    simon: { label:'Simon (verifica conflitto)', suggestTaskMode:'simon', suggestLabel:'Simon', variant:'simon',
+      patch:()=>({taskMode:'simon', simonMateriale:'colori', simonCongruenza:'bilanciato', adaptStartLevel:1, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    // Mantenimento non ha ancora un materiale non verbale (solo lettere/
+    // numeri) — limite dichiarato, non ancora esteso. Resta a singola
+    // somministrazione.
+    mantenimento: { label:'Mantenimento (tipo Sternberg)', suggestTaskMode:'mantenimento', suggestLabel:'Mantenimento (tipo Sternberg)', variant:'mantenimento',
+      patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:4, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    sequenza: { label:'Sequenza bersaglio', suggestTaskMode:'sequenza', suggestLabel:'Sequenza bersaglio', variant:'sequenza',
+      patch:()=>({taskMode:'sequenza', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}),
+      nonVerbalPatch:()=>({taskMode:'sequenza', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    categorizzazione: { label:'Categorizzazione condizionale', suggestTaskMode:'categorizzazione', suggestLabel:'Categorizzazione condizionale', variant:'categorizzazione',
+      patch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'lettereVoce', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+      nonVerbalPatch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'simboli', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    nback: { label:'N-back', suggestTaskMode:'nback', suggestLabel:'N-back', variant:'nback',
+      patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:2, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}),
+      nonVerbalPatch:()=>({taskMode:'nback', stimType:'simboli', nLevel:2, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    runningspan: { label:'Running Span', suggestTaskMode:'runningspan', suggestLabel:'Running Span', variant:'runningspan',
+      // trials:4, non SCREENING_TRIALS: qui un "trial" è un intero ciclo
+      // sequenza+richiamo (7-15s l'uno), non una prova rapida — 16 cicli
+      // renderebbero questa sonda da sola più lunga di tutto il resto.
+      patch:()=>({taskMode:'runningspan', stimType:'lettere', adaptStartLevel:1, trials:4}),
+      nonVerbalPatch:()=>({taskMode:'runningspan', stimType:'simboli', adaptStartLevel:1, trials:4}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    switching: { label:'Flessibilità cognitiva', suggestTaskMode:'switching', suggestLabel:'Task-switching', variant:'switching', isSplit:true, splitAccKeys:{base:'repAcc', caricato:'switchAcc'},
+      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:24}),
+      nonVerbalPatch:()=>({taskMode:'switching', switchMaterial:'simboli', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:24}) },
+    neglect_classico: { label:'Cancellazione classico', suggestTaskMode:'neglect', suggestLabel:'Cancellazione classico', variant:'neglect_classico',
+      patch:()=>({taskMode:'neglect', neglectMode:'classico', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
+      nonVerbalPatch:()=>({taskMode:'neglect', neglectMode:'classico', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    neglect_intruso: { label:'Cancellazione — Trova l\'intruso', suggestTaskMode:'neglect', suggestLabel:'Cancellazione — Trova l\'intruso', variant:'neglect_intruso',
+      patch:()=>({taskMode:'neglect', neglectMode:'intruso', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:30, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
+      nonVerbalPatch:()=>({taskMode:'neglect', neglectMode:'intruso', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), neglectBoardSize:30, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    // "A regola" resta a singola somministrazione (limite dichiarato): il
+    // testo della regola distingue solo numeri/lettere in modo rigido
+    // (vedi il ramo dedicato nelle istruzioni) — un materiale 'simboli'
+    // qui ricadrebbe silenziosamente sul trattamento testuale di
+    // 'lettere', un risultato "non verbale" che non lo sarebbe
+    // veramente. Raddoppiarla richiede prima sistemare quella parte.
+    neglect_regola: { label:'Cancellazione a regola', suggestTaskMode:'neglect', suggestLabel:'Cancellazione a regola', variant:'neglect_regola',
+      patch:()=>({taskMode:'neglect', neglectMode:'regola', neglectRuleLevel:2, stimType:'lettere', neglectBoardSize:40, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    dualtask: { label:'Doppio compito (verifica finale)', suggestTaskMode:'dualtask', suggestLabel:'Doppio compito', variant:'dualtask',
       patch:()=>({taskMode:'dualtask', dualStartLevel1:1, dualStartLevel2:1, dualPairing:'vis-aud', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
-    ecologico: { label:'Scenari ecologici — mini scenario', suggestTaskMode:'goaltask', suggestLabel:'Scenari ecologici',
+    goaltask_mini: { label:'Scenari ecologici — mini scenario', suggestTaskMode:'goaltask', suggestLabel:'Scenari ecologici', variant:'goaltask',
       patch:()=>({taskMode:'goaltask', goaltaskScenario:'screening_breve', goaltaskLivello:2}),
-      // Non una soglia di accuratezza (non è quel genere di compito, vedi
-      // discussione): il segnale qui è il numero di violazioni delle
-      // regole — ipotesi di partenza dichiarata (>1 violazione su un
-      // mini-scenario a 4 elementi/90 secondi), non un valore di
-      // letteratura validato, come già per le altre soglie di questo
-      // screening.
-      scoreOf:r=> r.goaltask && r.goaltask.violazioniCount<=1 ? 1 : 0 }
+      // Non una soglia di accuratezza (non è quel genere di compito): il
+      // segnale è il numero di violazioni — ipotesi di partenza dichiarata
+      // (>1 violazione su un mini-scenario a 4 elementi/90s), non un
+      // valore di letteratura.
+      scoreOf:r=> r.goaltask && r.goaltask.violazioniCount<=1 ? 1 : 0,
+      suggestedCfgOverride:{taskMode:'goaltask', goaltaskScenario:'sei_compiti_classico', goaltaskLivello:1} }
   };
+  // Secondo giro a livello intermedio — SOLO per un dominio che risulta
+  // interamente pulito (ogni sonda passata, verbale e non verbale
+  // insieme): un profilo "pulito" può riflettere la scarsa esigenza dello
+  // screening stesso, non l'assenza di difficoltà a un carico più
+  // impegnativo (stesso principio già usato per il gate Doppio compito/
+  // Scenari ecologici, qui esteso a ogni dominio). Un solo esercizio
+  // "ancora" per dominio, non l'intero elenco di sonde — a un livello
+  // intermedio (non il minimo di screening, non il massimo), scelto come
+  // ipotesi di partenza dichiarata, non un valore di letteratura.
+  const CEILING_PROBES = {
+    memoria: { label:'N-back (verifica a carico più alto)', domainLabel:'Memoria di lavoro', suggestTaskMode:'nback', suggestLabel:'N-back',
+      patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:3, adaptive:false, targetRate:0.22, isi:1500, stimDuration:550, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    attenzione: { label:'Go/No-Go (verifica a carico più alto)', domainLabel:'Attenzione sostenuta / inibizione', suggestTaskMode:'gonogo', suggestLabel:'Go/No-Go',
+      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,3), adaptive:false, targetRate:0.25, isi:750, stimDuration:450, trials:SCREENING_TRIALS}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    esplorazione: { label:'Cancellazione a regola (verifica a carico più alto)', domainLabel:'Esplorazione visuospaziale', suggestTaskMode:'neglect', suggestLabel:'Cancellazione a regola',
+      patch:()=>({taskMode:'neglect', neglectMode:'regola', neglectRuleLevel:4, stimType:'lettere', neglectBoardSize:50, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
+      scoreOf:r=>primaryAccuracyOf(r) },
+    flessibilita: { label:'Task-switching (verifica a carico più alto)', domainLabel:'Flessibilità cognitiva', suggestTaskMode:'switching', suggestLabel:'Task-switching',
+      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:900, stimDuration:500, trials:24}),
+      scoreOf:r=>primaryAccuracyOf(r) }
+  };
+  function probeFailed(probeKey, rec){
+    const probe = SCREENING_PROBES[probeKey];
+    const acc = probe.scoreOf(rec);
+    return acc==null || acc < SCREENING_FLAG_THRESHOLD;
+  }
+  // Costruisce una "voce di suggerimento" pronta per mergeScreeningFlags —
+  // key univoca per sonda/variante (mai solo taskMode: Cancellazione ha 3
+  // varianti che devono poter comparire tutte insieme, non sovrascriversi).
+  function suggestionFor(probeKey, extraCfg){
+    const p = SCREENING_PROBES[probeKey];
+    const suggestedCfg = Object.assign({}, p.suggestedCfgOverride || p.patch(), {trials: p.suggestedCfgOverride ? undefined : 24, adaptive: p.suggestedCfgOverride ? undefined : true}, extraCfg||{});
+    return { flagKey:p.variant, suggestTaskMode:p.suggestTaskMode, suggestLabel:p.suggestLabel, suggestedCfg };
+  }
+  // Regola di suggerimento per Attenzione: ordine di esigenza crescente,
+  // suggerisce il PIÙ SEMPLICE fra quelli falliti (non il più complesso) —
+  // stesso principio per cui, quando più di un gradino cede insieme, si
+  // consiglia il punto più semplice/sicuro da cui ripartire, non una via
+  // di mezzo inventata. ANT è solo screening (nessuna letteratura di
+  // training): se è lui il più semplice fra i falliti, il suggerimento
+  // scivola su TAPAT. Simon si aggiunge SOLO quando Stop-Signal+
+  // interferenza è l'unico a fallire (per costruzione, l'unico caso in cui
+  // può essere "il più semplice fra i falliti" è quando è anche l'unico).
+  const ATTENZIONE_ORDER = ['ant','tapat','gonogo','stopsignal','stopsignal_interferenza'];
+  function attenzioneSuggestRule(fail){
+    const failed = ATTENZIONE_ORDER.filter(k=>fail[k]);
+    if(!failed.length) return [];
+    const simplest = failed[0]==='ant' ? 'tapat' : failed[0];
+    const out = [suggestionFor(simplest)];
+    if(failed.length===1 && failed[0]==='stopsignal_interferenza' && fail.simon) out.push(suggestionFor('simon'));
+    return out;
+  }
+  // Regola di suggerimento per Memoria di lavoro: Mantenimento/Sequenza
+  // bersaglio/Categorizzazione condivisa formano un gruppo (misure di
+  // applicazione di regola/mantenimento, non di aggiornamento continuo) —
+  // un fallimento singolo nel gruppo localizza sulla struttura di
+  // Categorizzazione più vicina a quel costrutto; più di uno insieme non
+  // ha una struttura che combini propriamente le due difficoltà, si
+  // ripiega sulla base (Struttura 1). N-back e Running Span sono fuori dal
+  // gruppo — sono già esercizi ad allenamento adattivo di per sé, si
+  // autopropongono.
+  function memoriaSuggestRule(fail){
+    const group = ['mantenimento','sequenza','categorizzazione'].filter(k=>fail[k]);
+    const out = [];
+    if(group.length===1){
+      const struct = group[0]==='sequenza' ? 4 : 1; // mantenimento→1 (cautela, nessun collegamento di costrutto pulito), categorizzazione→1 (segnale diretto), sequenza→4 (stessa natura: riconoscimento continuo)
+      out.push(suggestionFor('categorizzazione', {categStructManual:struct}));
+    } else if(group.length>=2){
+      out.push(suggestionFor('categorizzazione', {categStructManual:1}));
+    }
+    if(fail.nback) out.push(suggestionFor('nback'));
+    if(fail.runningspan) out.push(suggestionFor('runningspan'));
+    return out;
+  }
+  // Esplorazione: le 3 modalità sono somministrate sempre tutte, e TUTTE
+  // quelle che falliscono vengono suggerite insieme — a differenza di
+  // Attenzione/Memoria non c'è qui una singola localizzazione da scegliere,
+  // sono 3 modalità dello stesso identico esercizio, non 3 costrutti
+  // diversi da confrontare fra loro.
+  function esplorazioneSuggestRule(fail){
+    const out = [];
+    if(fail.neglect_classico) out.push(suggestionFor('neglect_classico'));
+    if(fail.neglect_intruso) out.push(suggestionFor('neglect_intruso'));
+    if(fail.neglect_regola) out.push(suggestionFor('neglect_regola'));
+    return out;
+  }
+  function flessibilitaSuggestRule(fail){
+    return fail.switching ? [suggestionFor('switching')] : [];
+  }
+  // Un dominio = un elenco di sonde (sempre tutte somministrate, nell'ordine
+  // dato) + la regola che trasforma il pattern di fallimenti in
+  // suggerimenti. 'simon' non compare nell'elenco 'probes' di Attenzione:
+  // è amministrata solo condizionalmente (vedi buildScreeningQueue), non
+  // sempre.
+  const SCREENING_DOMAINS = {
+    attenzione: { label:'Attenzione sostenuta / inibizione', probes:['ant','tapat','gonogo','stopsignal','stopsignal_interferenza'], suggestRule:attenzioneSuggestRule },
+    memoria: { label:'Memoria di lavoro', probes:['mantenimento','sequenza','categorizzazione','nback','runningspan'], suggestRule:memoriaSuggestRule },
+    flessibilita: { label:'Flessibilità cognitiva', probes:['switching'], suggestRule:flessibilitaSuggestRule },
+    esplorazione: { label:'Esplorazione visuospaziale', probes:['neglect_classico','neglect_intruso','neglect_regola'], suggestRule:esplorazioneSuggestRule }
+  };
+  const SCREENING_DOMAIN_ORDER = ['memoria','attenzione','flessibilita','esplorazione']; // memoria per prima: Mantenimento è la prima sonda in assoluto di tutto lo screening, come richiesto
   // Prova dimostrativa: 6 prove a difficoltà fissa e facile, con feedback
   // esplicativo dopo ogni risposta, per far capire la regola prima che le
   // prove "contino" davvero. Solo per i 6 esercizi con la regola meno
@@ -7037,210 +7309,200 @@
   }
 
   function startScreeningSession(){
-    screeningState = { blockIdx:0, results:[], respModeBefore: cfg.respMode, level1Prepared:false, level1Queue:[], level1Results:{} };
-    if(cfg.respMode==='manuale') cfg.respMode = 'paziente'; // l'inserimento manuale differito non è compatibile con la sequenza automatica dei blocchi
-    runScreeningBlock(0);
+    // Coda piatta: ogni sonda di ogni dominio, sempre — nessun "gate" che
+    // decide se approfondire, tutte somministrate a prescindere dal
+    // risultato delle altre. Ordine dei domini: Memoria per prima (Mante-
+    // nimento è la prima sonda in assoluto, come richiesto), poi
+    // Attenzione, Flessibilità, Esplorazione. Ogni sonda con una forma non
+    // verbale genera 1 o 2 voci in coda a seconda di screeningMaterialMode
+    // (vedi buildScreeningQueueEntry) — le sonde senza forma non verbale
+    // (Mantenimento, TAPAT, Cancellazione a regola...) restano sempre a
+    // una sola voce, indipendentemente dalla modalità scelta.
+    const queue = [];
+    SCREENING_DOMAIN_ORDER.forEach(domainKey=>{
+      SCREENING_DOMAINS[domainKey].probes.forEach(probeKey=> queue.push(...buildScreeningQueueEntry(domainKey, probeKey)));
+    });
+    screeningState = {
+      queue, queueIdx:0, probeResults:{}, // probeResults[probeKey] = {verbale:{acc,failed}, non_verbale:{acc,failed}|undefined}
+      conditionalPrepared:false, conditionalQueue:[],
+      coordPrepared:false, coordQueue:[], coordResults:{},
+      respModeBefore: cfg.respMode
+    };
+    if(cfg.respMode==='manuale') cfg.respMode = 'paziente'; // l'inserimento manuale differito non è compatibile con la sequenza automatica
+    runScreeningStep();
   }
-  function runScreeningBlock(idx){
-    if(idx < SCREENING_BLOCKS.length){
-      const block = SCREENING_BLOCKS[idx];
-      Object.assign(cfg, block.patch());
+  // Registra il risultato di UNA forma (verbale/non verbale) di una
+  // sonda — mai sovrascrive l'altra forma della stessa sonda, le due
+  // convivono sotto la stessa chiave.
+  function recordProbeResult(probeKey, form, acc, failed){
+    if(!screeningState.probeResults[probeKey]) screeningState.probeResults[probeKey] = {};
+    screeningState.probeResults[probeKey][form] = {acc, failed};
+  }
+  // Una sonda "fallisce" (ai fini delle regole di dominio) se fallisce in
+  // ALMENO UNA delle forme somministrate — verbale, non verbale, o
+  // entrambe. Le regole di dominio (attenzioneSuggestRule ecc.) non
+  // devono sapere nulla della distinzione verbale/non verbale, la
+  // vedono già ridotta a un booleano.
+  function computeFailMap(){
+    const fail = {};
+    Object.keys(screeningState.probeResults).forEach(k=>{
+      const forms = screeningState.probeResults[k];
+      fail[k] = Object.keys(forms).some(f=>forms[f].failed);
+    });
+    return fail;
+  }
+  // Il dettaglio che la regola di dominio non vede: quale forma è
+  // fallita. null = nessuna forma somministrata; 'verbale'/'non_verbale'
+  // = fallita solo quella; 'misto' = entrambe; 'nessuno' = passata in
+  // entrambe le forme somministrate (non è un fallimento).
+  function materialPatternFor(probeKey){
+    const forms = screeningState.probeResults[probeKey];
+    if(!forms) return null;
+    const vFail = forms.verbale ? forms.verbale.failed : null;
+    const nvFail = forms.non_verbale ? forms.non_verbale.failed : null;
+    if(vFail==null && nvFail==null) return null;
+    if(vFail && nvFail) return 'misto';
+    if(vFail) return 'verbale';
+    if(nvFail) return 'non_verbale';
+    return 'nessuno';
+  }
+  function buildScreeningQueueEntry(domainKey, probeKey){
+    const probe = SCREENING_PROBES[probeKey];
+    if(!probe.nonVerbalPatch) return [{domainKey, probeKey, form:'verbale'}];
+    if(screeningMaterialMode==='verbale') return [{domainKey, probeKey, form:'verbale'}];
+    if(screeningMaterialMode==='non_verbale') return [{domainKey, probeKey, form:'non_verbale'}];
+    return [{domainKey, probeKey, form:'verbale'}, {domainKey, probeKey, form:'non_verbale'}];
+  }
+  function runScreeningStep(){
+    if(screeningState.queueIdx < screeningState.queue.length){
+      const {probeKey, form} = screeningState.queue[screeningState.queueIdx];
+      const probe = SCREENING_PROBES[probeKey];
+      Object.assign(cfg, form==='non_verbale' ? probe.nonVerbalPatch() : probe.patch());
       view='screeningIntro'; render();
       return;
     }
-    // Livello 0 completo. La prima volta che si arriva qui, si calcolano i
-    // flag e si prepara la coda di Livello 1 — fatto una sola volta
-    // (level1Prepared), non ad ogni chiamata successiva della funzione.
-    if(!screeningState.level1Prepared){
-      screeningState.level1Prepared = true;
-      screeningState.level0Summary = computeScreeningFlags(screeningState.results);
-      screeningState.level1Queue = buildLevel1Queue(screeningState.level0Summary);
+    // Tutte le sonde di dominio fatte. "Simon" è l'unica sonda condizionale
+    // di questo screening — si aggiunge qui, non nella coda principale,
+    // perché la sua amministrazione dipende dal pattern appena osservato
+    // in Attenzione (vedi attenzioneSuggestRule).
+    if(!screeningState.conditionalPrepared){
+      screeningState.conditionalPrepared = true;
+      const fail = computeFailMap();
+      const onlyStopInterf = ATTENZIONE_ORDER.filter(k=>fail[k]).length===1 && fail.stopsignal_interferenza;
+      screeningState.conditionalQueue = onlyStopInterf ? ['simon'] : [];
     }
-    runLevel1Step();
-  }
-  // Coda di approfondimento: un elemento per ogni dominio flaggato al
-  // Livello 0 che ha una scala o un pannello di sonde parallele definiti
-  // sopra. I domini flaggati senza approfondimento definito (Flessibilità,
-  // e qualunque dominio non presente nelle due mappe) restano com'erano,
-  // nessuna coda per loro.
-  function buildLevel1Queue(level0Summary){
-    const queue = [];
-    level0Summary.forEach(row=>{
-      if(!row.flagged) return;
-      if(SCREENING_LEVEL1_LADDERS[row.domain]){
-        queue.push({ kind:'ladder', domain:row.domain, rungs:SCREENING_LEVEL1_LADDERS[row.domain], rungIdx:0, stoppedAtIdx:null, rungAccuracies:[] });
-      } else if(SCREENING_LEVEL1_PARALLEL[row.domain]){
-        queue.push({ kind:'parallel', domain:row.domain, probes:SCREENING_LEVEL1_PARALLEL[row.domain], probeIdx:0, probeAccuracies:[] });
-      }
-    });
-    return queue;
-  }
-  function runLevel1Step(){
-    if(!screeningState.level1Queue.length){ runFinalGateStep(); return; }
-    const item = screeningState.level1Queue[0];
-    if(item.kind==='ladder'){
-      Object.assign(cfg, item.rungs[item.rungIdx].patch());
-    } else {
-      Object.assign(cfg, item.probes[item.probeIdx].patch());
+    if(screeningState.conditionalQueue.length){
+      const probeKey = screeningState.conditionalQueue[0];
+      Object.assign(cfg, SCREENING_PROBES[probeKey].patch());
+      view='screeningIntro'; render();
+      return;
     }
+    runCeilingStep();
+  }
+  // Secondo giro a livello intermedio — solo per i domini risultati
+  // interamente puliti (ogni sonda passata). Un solo esercizio ancora per
+  // dominio pulito, non l'intero elenco di sonde di quel dominio.
+  // Pura, testabile a sé: quali domini sono interamente puliti (ogni
+  // sonda passata) e quindi qualificano per il secondo giro a carico più
+  // alto — separata da runCeilingStep (che legge/scrive session) per lo
+  // stesso motivo per cui altrove in questo progetto la logica di
+  // selezione è sempre tenuta a parte dal flusso a schermo.
+  function domainsQualifyingForCeiling(fail){
+    return SCREENING_DOMAIN_ORDER.filter(domainKey=>
+      SCREENING_DOMAINS[domainKey].probes.every(pk=>!fail[pk])
+    );
+  }
+  function runCeilingStep(){
+    if(!screeningState.ceilingPrepared){
+      screeningState.ceilingPrepared = true;
+      screeningState.ceilingQueue = domainsQualifyingForCeiling(computeFailMap());
+      screeningState.ceilingResults = {};
+    }
+    if(!screeningState.ceilingQueue.length){ runCoordStep(); return; }
+    const domainKey = screeningState.ceilingQueue[0];
+    Object.assign(cfg, CEILING_PROBES[domainKey].patch());
     view='screeningIntro'; render();
   }
-  // Il gate finale si prepara una sola volta (finalGatePrepared), quando
-  // per la prima volta la coda di Livello 1 risulta vuota — sia perché non
-  // conteneva nulla dall'inizio (nessun dominio flaggato), sia perché è
-  // stata appena svuotata. La coda parte con un solo passo ("divisa"):
-  // "ecologico" viene aggiunto dopo, solo se "divisa" passa (vedi il
-  // completamento della prova più sotto) — mai i due insieme dall'inizio.
-  function runFinalGateStep(){
-    if(!screeningState.finalGatePrepared){
-      screeningState.finalGatePrepared = true;
-      const allClean = screeningState.level0Summary.every(r=>!r.flagged);
-      const noCoordination = !computeCoordinationFlag(screeningState.results);
-      screeningState.finalGateQueue = (allClean && noCoordination) ? ['divisa'] : [];
-      screeningState.finalGateResults = {};
+  // Coordinamento (Doppio compito → Scenari ecologici): ora sempre in
+  // coda a fine screening, non più condizionato a "tutto il resto pulito"
+  // — solo l'ordine interno resta come prima (Scenari ecologici solo se
+  // Doppio compito passa, mai da solo, mai prima).
+  function runCoordStep(){
+    if(!screeningState.coordPrepared){
+      screeningState.coordPrepared = true;
+      screeningState.coordQueue = ['dualtask'];
     }
-    if(!screeningState.finalGateQueue.length){ finishScreening(); return; }
-    const stepKey = screeningState.finalGateQueue[0];
-    Object.assign(cfg, SCREENING_FINAL_GATE[stepKey].patch());
+    if(!screeningState.coordQueue.length){ finishScreening(); return; }
+    const probeKey = screeningState.coordQueue[0];
+    Object.assign(cfg, SCREENING_PROBES[probeKey].patch());
     view='screeningIntro'; render();
-  }
-  // Punteggio e suggerimenti: per ogni dominio con un blocco caricato,
-  // confronta l'accuratezza del caricato con quella del blocco base dello
-  // stesso dominio (o del dominio da cui lo eredita, vedi baseFrom). Se il
-  // caricato è sotto soglia MA il base è nella norma, l'esercizio di quel
-  // dominio viene proposto come consigliato — se anche il base è sotto
-  // soglia, il problema sembra più a monte (percettivo/attentivo) che
-  // esecutivo specifico, e non si propone il flag.
-  function computeScreeningFlags(results){
-    const caricatoBlocks = SCREENING_BLOCKS.filter(b=>b.tipo==='caricato' || b.tipo==='split');
-    return caricatoBlocks.map(b=>{
-      const baseDomain = b.baseFrom || b.domain;
-      const baseRes = results.find(r=>r.domain===baseDomain && r.tipo==='base');
-      const carRes = results.find(r=>r.domain===b.domain && r.tipo==='caricato');
-      const baseAcc = baseRes ? baseRes.accuracy : null;
-      const carAcc = carRes ? carRes.accuracy : null;
-      const flagged = carAcc!=null && baseAcc!=null && carAcc<SCREENING_FLAG_THRESHOLD && baseAcc>=SCREENING_FLAG_THRESHOLD;
-      // Configurazione suggerita per il "+ aggiungi al programma": riparte
-      // dal blocco caricato dello screening (già tarato per il dominio) ma
-      // con un numero di prove normale da allenamento, non le 16 ridotte
-      // dello screening — e adattivo attivo, così il livello di partenza si
-      // aggiusta da solo nelle prime sessioni invece di restare fisso.
-      const suggestedCfg = Object.assign({}, b.patch(), {trials:24, adaptive:true});
-      return { domain:b.domain, domainLabel:b.domainLabel, baseAcc, carAcc, flagged, suggestTaskMode:b.suggestTaskMode, suggestLabel:b.suggestLabel, suggestedCfg };
-    });
-  }
-  // Applica l'esito del Livello 1 (se è girato per quel dominio) sopra il
-  // suggerimento grezzo del Livello 0 — una scala che si è fermata a un
-  // gradino, o un pannello parallelo con un esito, sostituiscono
-  // suggestTaskMode/suggestLabel/suggestedCfg con la versione più
-  // localizzata; se il Livello 1 non è girato per quel dominio, o è girato
-  // ma non ha localizzato nulla di più specifico, il suggerimento del
-  // Livello 0 resta quello valido.
-  function applyLevel1Refinement(level0Row, level1Results){
-    const l1 = level1Results[level0Row.domain];
-    if(!l1) return Object.assign({}, level0Row, {level1:null});
-    if(l1.kind==='ladder'){
-      if(l1.stoppedAtIdx==null){
-        // Tutti i gradini superati nonostante il flag al Livello 0: nessuna
-        // localizzazione più precisa, resta il suggerimento originale.
-        return Object.assign({}, level0Row, {level1:l1});
-      }
-      const rung = SCREENING_LEVEL1_LADDERS[level0Row.domain][l1.stoppedAtIdx];
-      return Object.assign({}, level0Row, {
-        level1:l1,
-        suggestTaskMode:rung.suggestTaskMode, suggestLabel:rung.suggestLabel,
-        suggestedCfg:Object.assign({}, rung.patch(), {trials:24, adaptive:true})
-      });
-    }
-    if(l1.kind==='parallel'){
-      if(l1.flaggedProbeIdx==null){
-        // Nessuna sonda parallela ha flaggato: il problema resta specifico
-        // al dominio originale, non alle sonde — suggerimento invariato.
-        return Object.assign({}, level0Row, {level1:l1});
-      }
-      const probe = SCREENING_LEVEL1_PARALLEL[level0Row.domain][l1.flaggedProbeIdx];
-      return Object.assign({}, level0Row, {
-        level1:l1,
-        suggestTaskMode:probe.suggestTaskMode, suggestLabel:probe.suggestLabel,
-        suggestedCfg:Object.assign({}, probe.patch(), {trials:24, adaptive:true})
-      });
-    }
-    return Object.assign({}, level0Row, {level1:l1});
-  }
-  // Non un settimo dominio con un proprio base/caricato (l'Attenzione
-  // divisa resta deliberatamente fuori da quello schema, vedi discussione
-  // sopra SCREENING_BLOCKS) — un PATTERN derivato dagli stessi dati già
-  // raccolti: se OGNI blocco base (non solo i caricati) risulta sotto
-  // soglia, la lettura per dominio smette di essere informativa (nessun
-  // base è "nella norma" da cui misurare un calo specifico) e un pattern
-  // così ampio somiglia più a un problema di coordinamento fra risorse
-  // (Baddeley, esecutivo centrale — la stessa ragione per cui l'Attenzione
-  // divisa non è mai stata un dominio a sé in questo screening) che a un
-  // deficit in un singolo substrato. Da leggere con cautela: un pattern
-  // così ampio può derivare anche da affaticamento, scarsa motivazione o
-  // difficoltà sensoriali/motorie non specificamente cognitive — non è
-  // una diagnosi, è un'indicazione a guardare oltre i domini singoli.
-  function computeCoordinationFlag(results){
-    const baseEntries = results.filter(r=>r.tipo==='base');
-    if(!baseEntries.length) return null;
-    const allBelow = baseEntries.every(r=> r.accuracy!=null && r.accuracy<SCREENING_FLAG_THRESHOLD);
-    if(!allBelow) return null;
-    return {
-      domain:'coordinamento', domainLabel:'Coordinamento generale (non un dominio a sé — vedi nota)',
-      flagged:true, isGlobalPattern:true, baseAcc:null, carAcc:null, level1:null,
-      suggestTaskMode:'dualtask', suggestLabel:'Doppio compito',
-      suggestedCfg:{taskMode:'dualtask', dualStartLevel1:1, dualStartLevel2:1, dualPairing:'vis-aud', titrationMode:'livello', trials:24, adaptive:true},
-      note:'Ogni blocco BASE (non solo i caricati) è risultato sotto soglia — nessun dominio ha un riferimento "nella norma" da cui misurare un calo specifico. Un pattern così ampio suggerisce di considerare il Doppio compito (coordinamento fra risorse attentive), ma può derivare anche da affaticamento, motivazione o difficoltà sensoriali/motorie non specificamente cognitive: non è una localizzazione di dominio come le altre righe sopra.'
-    };
-  }
-  // Costruisce le righe del gate finale per il riepilogo — a differenza
-  // degli altri, un esito "passato" qui è la norma attesa (si arriva al
-  // gate solo dopo aver superato tutto il resto), quindi ha senso
-  // mostrarlo anche quando non flagga, non solo quando lo fa.
-  function buildFinalGateRows(finalGateResults){
-    const rows = [];
-    if(finalGateResults.divisa!=null){
-      const flagged = finalGateResults.divisa < SCREENING_FLAG_THRESHOLD;
-      const step = SCREENING_FINAL_GATE.divisa;
-      rows.push({
-        domain:'gate-divisa', domainLabel:'Verifica finale — Attenzione divisa', isFinalGate:true,
-        flagged, baseAcc:null, carAcc:finalGateResults.divisa, level1:null,
-        suggestTaskMode: flagged ? step.suggestTaskMode : null, suggestLabel: flagged ? step.suggestLabel : null,
-        suggestedCfg: flagged ? Object.assign({}, step.patch(), {trials:24, adaptive:true}) : null,
-        note: flagged
-          ? 'L\'intero screening (compresi eventuali approfondimenti) non aveva segnalato nulla, ma questa verifica finale sul Doppio compito è risultata sotto soglia — la sonda su Scenari ecologici non viene somministrata: si va per gradi, un problema qui va guardato prima di aggiungere un compito ancora più complesso.'
-          : 'Superata — nessun problema di coordinamento emerso nemmeno in questa verifica finale.'
-      });
-    }
-    if(finalGateResults.ecologico!=null){
-      const flagged = finalGateResults.ecologico===0;
-      const step = SCREENING_FINAL_GATE.ecologico;
-      rows.push({
-        domain:'gate-ecologico', domainLabel:'Verifica finale — Scenari ecologici (mini scenario)', isFinalGate:true,
-        flagged, baseAcc:null, carAcc:null, level1:null,
-        suggestTaskMode: flagged ? step.suggestTaskMode : null, suggestLabel: flagged ? step.suggestLabel : null,
-        // La configurazione suggerita punta a un vero scenario da
-        // assegnare (livello 1, il più semplice), non alla sonda breve
-        // usata solo per questa verifica — quella non è pensata per
-        // l'allenamento vero e proprio.
-        suggestedCfg: flagged ? {taskMode:'goaltask', goaltaskScenario:'sei_compiti_classico', goaltaskLivello:1} : null,
-        note: flagged
-          ? 'Profilo pulito su tutto il resto dello screening, ma il mini-scenario ha superato la tolleranza di violazioni — vale la pena valutare Scenari ecologici anche se nessun dominio strutturato ha segnalato nulla: alcune difficoltà emergono solo in compiti più realistici (Shallice & Burgess, 1991).'
-          : 'Superata — profilo pulito su ogni verifica, inclusa quella più esigente.'
-      });
-    }
-    return rows;
   }
   async function finishScreening(){
-    const results = screeningState.results;
-    const level0Summary = screeningState.level0Summary || computeScreeningFlags(results);
-    const summary = level0Summary.map(row=>applyLevel1Refinement(row, screeningState.level1Results));
-    const coordinationFlag = computeCoordinationFlag(results);
-    if(coordinationFlag) summary.push(coordinationFlag);
-    summary.push(...buildFinalGateRows(screeningState.finalGateResults||{}));
+    const fail = computeFailMap();
+    const domainSuggestions = [];
+    SCREENING_DOMAIN_ORDER.forEach(domainKey=>{
+      domainSuggestions.push(...SCREENING_DOMAINS[domainKey].suggestRule(fail));
+    });
+    // Secondo giro a livello intermedio: un dominio che era risultato
+    // pulito ma cede al carico più alto — suggerimento con una nota
+    // esplicita (vedi buildSuggestion sotto), non confuso con un fallimento
+    // "normale" dello screening di base.
+    const ceilingSuggestions = Object.keys(screeningState.ceilingResults||{})
+      .filter(domainKey=>screeningState.ceilingResults[domainKey].failed)
+      .map(domainKey=>{
+        const ceiling = CEILING_PROBES[domainKey];
+        return { flagKey:'ceiling_'+domainKey, suggestTaskMode:ceiling.suggestTaskMode, suggestLabel:ceiling.suggestLabel+' (livello intermedio)', suggestedCfg:Object.assign({}, ceiling.patch(), {trials:24, adaptive: (TITRATION_EXERCISES.includes(ceiling.suggestTaskMode)||TITRATION_MODE_EXTRA.includes(ceiling.suggestTaskMode))?true:undefined}), isCeiling:true };
+      });
+    // Doppio compito: fallisce → si suggerisce e basta, Scenari ecologici
+    // non viene nemmeno somministrato (vedi runCoordStep/coordQueue). Passa
+    // → il mini-scenario ha già girato: fallisce anche lui → si consiglia
+    // lo scenario vero; passa → nessun segnale da questa parte.
+    const coordSuggestions = [];
+    if(fail.dualtask) coordSuggestions.push(suggestionFor('dualtask'));
+    else if(fail.goaltask_mini) coordSuggestions.push(suggestionFor('goaltask_mini'));
+    let allSuggestions = domainSuggestions.concat(ceilingSuggestions).concat(coordSuggestions);
+    // Arricchimento verbale/non verbale — SOLO per le autoproposte, dove
+    // flagKey coincide davvero con la sonda che ha fallito (es. Go/No-Go
+    // fallisce → si suggerisce Go/No-Go). Per le sostituzioni di gruppo di
+    // Memoria (es. Mantenimento fallisce → si suggerisce Categorizzazione)
+    // il pattern della sonda sostituita non ha un corrispettivo pulito
+    // nel materiale dell'esercizio suggerito — resta senza questo
+    // arricchimento, deliberatamente, per non attaccare un'etichetta
+    // fuorviante.
+    allSuggestions = allSuggestions.map(s=>{
+      if(!fail[s.flagKey]) return s; // non è un'autoproposta della sonda che ha fallito
+      const pattern = materialPatternFor(s.flagKey);
+      if(!pattern || pattern==='nessuno') return s;
+      const probe = SCREENING_PROBES[s.flagKey];
+      if(!probe || !probe.nonVerbalPatch) return Object.assign({}, s, {materialPattern:pattern});
+      // Il materiale della configurazione suggerita segue quale forma è
+      // fallita: solo non verbale fallita → suggerisci con materiale non
+      // verbale (l'unica in cui il problema si è visto); solo verbale, o
+      // misto → materiale verbale (il default già in uso, e per "misto"
+      // non c'è comunque un'unica forma da preferire).
+      const materialCfg = pattern==='non_verbale' ? probe.nonVerbalPatch() : probe.patch();
+      return Object.assign({}, s, {materialPattern:pattern, suggestedCfg:Object.assign({}, s.suggestedCfg, {stimType:materialCfg.stimType, switchMaterial:materialCfg.switchMaterial, categMateriale:materialCfg.categMateriale})});
+    });
+    // Tutto pulito ovunque (nessun dominio ha segnalato nulla, Doppio
+    // compito e il mini-scenario sono entrambi passati): non si lascia lo
+    // screening a mani vuote — si propone comunque un programma di
+    // partenza a livello base, più Strategie di memoria come aggiunta (mai
+    // valutata dallo screening stesso, proposta qui come buona prassi
+    // generale quando non c'è nulla di specifico da correggere).
+    const allClean = allSuggestions.length===0;
+    if(allClean){
+      allSuggestions = [
+        { flagKey:'piano_base_nback', suggestTaskMode:'nback', suggestLabel:'N-back (programma di partenza)', suggestedCfg:{taskMode:'nback', stimType:'lettere', nLevel:1, adaptive:true, targetRate:0.32, isi:2200, stimDuration:700, trials:24} },
+        { flagKey:'piano_base_switching', suggestTaskMode:'switching', suggestLabel:'Task-switching (programma di partenza)', suggestedCfg:{taskMode:'switching', switchMaterial:'numeri', adaptive:true, targetRate:0.35, isi:1400, stimDuration:700, trials:24} },
+        { flagKey:'piano_base_neglect', suggestTaskMode:'neglect', suggestLabel:'Cancellazione (programma di partenza)', suggestedCfg:{taskMode:'neglect', neglectMode:'classico', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:24} },
+        { flagKey:'piano_base_memoria', suggestTaskMode:'memoria', suggestLabel:'Strategie di memoria' }
+      ];
+    }
+    const summary = allSuggestions.map(s=>Object.assign({flagged:true}, s));
     cfg.respMode = screeningState.respModeBefore;
     screeningState.summary = summary;
-    await persistScreeningFlags(summary.filter(s=>s.flagged), summary);
+    screeningState.allClean = allClean;
+    await persistScreeningFlags(summary, summary);
     view='screeningResults'; render();
   }
   // Salva i flag "consigliato" sul profilo del paziente attivo (locale o
@@ -7248,21 +7510,19 @@
   // sul proprio profilo). Mai sul dispositivo/operatore in generale: lo
   // screening senza un paziente selezionato resta solo un'analisi non
   // salvata.
-  // Se un flag per lo stesso esercizio esiste già ed è stato disattivato
-  // a mano in precedenza, resta disattivato: un nuovo screening non lo
-  // riaccende da solo, la disattivazione manuale ha sempre la precedenza.
+  // Se un flag per la stessa sonda/variante esiste già ed è stato
+  // disattivato a mano in precedenza, resta disattivato: un nuovo
+  // screening non lo riaccende da solo, la disattivazione manuale ha
+  // sempre la precedenza. Chiave = flagKey (sonda+variante), non
+  // taskMode da solo — Cancellazione ha 3 varianti che devono poter
+  // comparire tutte insieme, senza sovrascriversi a vicenda (bug reale
+  // della versione precedente, corretto qui).
   function mergeScreeningFlags(existing, fresh){
     const out = (existing||[]).slice();
     fresh.forEach(f=>{
-      const i = out.findIndex(x=>x.taskMode===f.suggestTaskMode);
-      // Il pattern globale (vedi computeCoordinationFlag) non ha un
-      // confronto base/caricato di un singolo dominio da riportare — ha
-      // già il proprio testo pronto in f.note, altrimenti si sarebbe
-      // scritto "screening: 0% con carico vs 0% base" (null*100 non dà
-      // un errore in JS, dà 0 — un valore silenziosamente sbagliato,
-      // non un crash che lo facesse notare subito).
-      const motivo = f.isGlobalPattern ? f.note : 'screening: '+Math.round(f.carAcc*100)+'% con carico vs '+Math.round(f.baseAcc*100)+'% base';
-      const rec = {taskMode:f.suggestTaskMode, label:f.suggestLabel, domainLabel:f.domainLabel, motivo, cfg:f.suggestedCfg, aggiornatoIl:Date.now()};
+      const key = f.flagKey || f.suggestTaskMode;
+      const i = out.findIndex(x=>x.flagKey===key);
+      const rec = {flagKey:key, taskMode:f.suggestTaskMode, label:f.suggestLabel, motivo:'screening', cfg:f.suggestedCfg, aggiornatoIl:Date.now()};
       if(i===-1){ out.push(Object.assign({attivo:true}, rec)); }
       else { out[i] = Object.assign({}, out[i], rec); } // preserva 'attivo' esistente (rispetta l'eventuale disattivazione manuale)
     });
@@ -7497,34 +7757,28 @@
     root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
-    const idx = screeningState.blockIdx;
-    if(idx < SCREENING_BLOCKS.length){
-      const block = SCREENING_BLOCKS[idx];
-      card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Screening — blocco '+(idx+1)+' / '+SCREENING_BLOCKS.length]));
-      card.appendChild(el('h2',{},[block.domainLabel]));
-      card.appendChild(el('p',{class:'hint'},[block.tipo==='base' ? 'Blocco base — stimolo semplice, nessun carico esecutivo.' : 'Blocco caricato — stessa area, con carico esecutivo.']));
-    } else if(screeningState.level1Queue.length){
-      // Livello 1: un dominio ha flaggato al Livello 0 e questo è un
-      // gradino di approfondimento (scala o pannello parallelo, vedi
-      // buildLevel1Queue) — niente più un indice dentro SCREENING_BLOCKS.
-      const item = screeningState.level1Queue[0];
-      const step = item.kind==='ladder' ? item.rungs[item.rungIdx] : item.probes[item.probeIdx];
-      const posInStep = item.kind==='ladder' ? (item.rungIdx+1)+' / '+item.rungs.length : (item.probeIdx+1)+' / '+item.probes.length;
-      card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Approfondimento — '+posInStep]));
-      card.appendChild(el('h2',{},[step.label]));
-      card.appendChild(el('p',{class:'hint'},[item.kind==='ladder'
-        ? 'Il dominio "'+SCREENING_BLOCKS.find(b=>b.domain===item.domain).domainLabel+'" ha richiesto un approfondimento — questo passo prosegue finché non si trova il punto preciso di difficoltà.'
-        : 'Il dominio "'+SCREENING_BLOCKS.find(b=>b.domain===item.domain).domainLabel+'" ha richiesto un approfondimento — questa prova aiuta a localizzare meglio dove intervenire.']));
+    const totalMain = screeningState.queue.length;
+    if(screeningState.queueIdx < totalMain){
+      const {domainKey, probeKey, form} = screeningState.queue[screeningState.queueIdx];
+      const probe = SCREENING_PROBES[probeKey];
+      card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Screening — '+SCREENING_DOMAINS[domainKey].label+' — '+(screeningState.queueIdx+1)+' / '+totalMain]));
+      card.appendChild(el('h2',{},[probe.label+(form==='non_verbale'?' — non verbale':'')]));
+    } else if(screeningState.conditionalQueue.length){
+      const probe = SCREENING_PROBES[screeningState.conditionalQueue[0]];
+      card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Verifica in più']));
+      card.appendChild(el('h2',{},[probe.label]));
+      card.appendChild(el('p',{class:'hint'},['Il pattern osservato in Attenzione merita un controllo in più su questo aspetto specifico.']));
+    } else if(screeningState.ceilingQueue.length){
+      const domainKey = screeningState.ceilingQueue[0];
+      const ceiling = CEILING_PROBES[domainKey];
+      card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Verifica a carico più alto']));
+      card.appendChild(el('h2',{},[ceiling.label]));
+      card.appendChild(el('p',{class:'hint'},['"'+ceiling.domainLabel+'" è risultato pulito ai livelli dello screening — questo controllo in più, a un carico maggiore, verifica se regge anche lì.']));
     } else {
-      // Gate finale: raggiunto solo quando l'intero screening (compresi
-      // eventuali approfondimenti) non ha segnalato nulla — vedi
-      // runFinalGateStep. "divisa" sempre per primo; "ecologico" solo se
-      // "divisa" passa.
-      const stepKey = screeningState.finalGateQueue[0];
-      const step = SCREENING_FINAL_GATE[stepKey];
-      card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Verifica finale']));
-      card.appendChild(el('h2',{},[step.label]));
-      card.appendChild(el('p',{class:'hint'},['Nessun problema emerso finora in tutto lo screening — questa verifica in più aiuta a escludere difficoltà che i test brevi strutturati potrebbero non cogliere.']));
+      const probe = SCREENING_PROBES[screeningState.coordQueue[0]];
+      card.appendChild(el('div',{style:'font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;'},['Coordinamento']));
+      card.appendChild(el('h2',{},[probe.label]));
+      card.appendChild(el('p',{class:'hint'},['Sempre amministrato a fine screening, indipendentemente da cos\'altro è emerso finora.']));
     }
     card.appendChild(el('p',{},[EXERCISES[cfg.taskMode].instructions(cfg)]));
     card.appendChild(el('button',{class:'primary', style:'margin-top:16px;', onclick:()=>{ view='countdown'; render(); }},['Inizia']));
@@ -7538,45 +7792,58 @@
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',{},['Risultati screening']));
-    const anyFlagged = screeningState.summary.some(x=>x.flagged);
     const forPatient = !!patientProfile;
+    const anyFlagged = !screeningState.allClean;
     card.appendChild(el('p',{class:'hint'},[
       forPatient
-        ? (anyFlagged ? 'Valutazione completata. In base ai risultati, il tuo operatore ha reso disponibili alcuni esercizi in più — li trovi nella tua pagina principale, e potrà comunque modificarli in seguito.' : 'Valutazione completata. Nessun'+'\u00A0'+'area particolare emersa: trovi il tuo allenamento nella pagina principale.')
-        : (anyFlagged ? 'Confronto base/caricato per dominio. I domini evidenziati sono stati proposti come "consigliati" nel profilo del paziente — sempre modificabile a mano.' : 'Confronto base/caricato per dominio. Nessun dominio sotto soglia con base nella norma: nessun flag proposto.')
+        ? (anyFlagged ? 'Valutazione completata. In base ai risultati, il tuo operatore ha reso disponibili alcuni esercizi in più — li trovi nella tua pagina principale, e potrà comunque modificarli in seguito.' : 'Valutazione completata. Profilo pulito su tutto: trovi comunque un programma di partenza nella tua pagina principale.')
+        : (anyFlagged ? 'Ogni sonda di ogni dominio è stata somministrata — sotto il pattern completo e i suggerimenti che ne derivano, già salvati nel profilo del paziente.' : 'Profilo pulito su ogni dominio, incluso il coordinamento finale — proposto comunque un programma di partenza, più Strategie di memoria.')
     ]));
     if(!forPatient){
-      screeningState.summary.forEach(row=>{
-        const bp = row.baseAcc!=null ? Math.round(row.baseAcc*100)+'%' : '—';
-        const cp = row.carAcc!=null ? Math.round(row.carAcc*100)+'%' : '—';
-        const wrap = el('div',{style:'padding:10px 4px; border-bottom:1px solid var(--line);'+(row.flagged?' background:var(--paper-dim);':'')});
-        wrap.appendChild(el('div',{style:'font-weight:600;'},[row.domainLabel+(row.flagged?' — consigliato: '+row.suggestLabel:'')]));
-        if(row.isGlobalPattern || row.isFinalGate){
-          wrap.appendChild(el('div',{class:'hint', style:'margin-top:4px;'},[row.note]));
-          card.appendChild(wrap);
-          return;
-        }
-        wrap.appendChild(el('div',{style:'font-size:13px; color:var(--ink-soft);'},['base '+bp+' · caricato '+cp]));
-        if(row.level1){
-          const l1 = row.level1;
-          if(l1.kind==='ladder'){
-            const rungs = SCREENING_LEVEL1_LADDERS[row.domain];
-            const detail = l1.rungAccuracies.map((a,i)=> rungs[i].label+' '+(a!=null?Math.round(a*100)+'%':'—')).join(' → ');
-            const esito = l1.stoppedAtIdx!=null
-              ? 'fermato a "'+rungs[l1.stoppedAtIdx].label+'"'
-              : 'nessun gradino sotto soglia (non localizzato più in profondità)';
-            wrap.appendChild(el('div',{class:'hint', style:'margin-top:4px;'},['Approfondimento (scala): '+detail+' — '+esito]));
-          } else if(l1.kind==='parallel'){
-            const probes = SCREENING_LEVEL1_PARALLEL[row.domain];
-            const detail = l1.probeAccuracies.map((a,i)=> probes[i].label+' '+(a!=null?Math.round(a*100)+'%':'—')).join(' · ');
-            const esito = l1.flaggedProbeIdx!=null
-              ? 'localizzato su "'+probes[l1.flaggedProbeIdx].label+'"'
-              : 'nessuna sonda sotto soglia (il problema resta specifico al dominio originale)';
-            wrap.appendChild(el('div',{class:'hint', style:'margin-top:4px;'},['Approfondimento (parallelo): '+detail+' — '+esito]));
-          }
-        }
+      SCREENING_DOMAIN_ORDER.forEach(domainKey=>{
+        const domain = SCREENING_DOMAINS[domainKey];
+        const wrap = el('div',{style:'padding:10px 4px; border-bottom:1px solid var(--line);'});
+        wrap.appendChild(el('div',{style:'font-weight:600;'},[domain.label]));
+        const detail = domain.probes.map(pk=>{
+          const forms = screeningState.probeResults[pk];
+          if(!forms) return SCREENING_PROBES[pk].label+' —';
+          const formTxt = Object.keys(forms).map(f=>{
+            const r = forms[f];
+            const pct = r.acc!=null ? Math.round(r.acc*100)+'%' : '—';
+            return (f==='non_verbale' ? 'NV ' : (forms.verbale && forms.non_verbale ? 'V ' : '')) + pct + (r.failed ? ' ⚠' : '');
+          }).join('/');
+          return SCREENING_PROBES[pk].label+' '+formTxt;
+        }).join(' · ');
+        wrap.appendChild(el('div',{style:'font-size:13px; color:var(--ink-soft);'},[detail]));
         card.appendChild(wrap);
       });
+      if(screeningState.ceilingResults && Object.keys(screeningState.ceilingResults).length){
+        const ceilWrap = el('div',{style:'padding:10px 4px; border-bottom:1px solid var(--line);'});
+        ceilWrap.appendChild(el('div',{style:'font-weight:600;'},['Verifica a carico più alto (domini risultati puliti)']));
+        const ceilDetail = Object.keys(screeningState.ceilingResults).map(dk=>{
+          const r = screeningState.ceilingResults[dk];
+          const pct = r.acc!=null ? Math.round(r.acc*100)+'%' : '—';
+          return CEILING_PROBES[dk].domainLabel+' '+pct+(r.failed?' ⚠':'');
+        }).join(' · ');
+        ceilWrap.appendChild(el('div',{style:'font-size:13px; color:var(--ink-soft);'},[ceilDetail]));
+        card.appendChild(ceilWrap);
+      }
+      const coordWrap = el('div',{style:'padding:10px 4px; border-bottom:1px solid var(--line);'});
+      coordWrap.appendChild(el('div',{style:'font-weight:600;'},['Coordinamento (sempre a fine screening)']));
+      const dt = screeningState.probeResults.dualtask && screeningState.probeResults.dualtask.verbale;
+      const gm = screeningState.probeResults.goaltask_mini && screeningState.probeResults.goaltask_mini.verbale;
+      let coordDetail = dt ? 'Doppio compito '+(dt.acc!=null?Math.round(dt.acc*100)+'%':'—')+(dt.failed?' ⚠':'') : '—';
+      if(gm) coordDetail += ' · Mini-scenario '+(gm.failed?'fallito ⚠':'superato');
+      coordWrap.appendChild(el('div',{style:'font-size:13px; color:var(--ink-soft);'},[coordDetail]));
+      card.appendChild(coordWrap);
+      const sugWrap = el('div',{style:'margin-top:14px;'});
+      sugWrap.appendChild(el('div',{style:'font-weight:600; margin-bottom:6px;'},[screeningState.allClean ? 'Nulla da segnalare — programma di partenza proposto' : 'Suggerimenti']));
+      const MATERIAL_PATTERN_LABEL = {verbale:'solo verbale', non_verbale:'solo non verbale', misto:'verbale e non verbale'};
+      screeningState.summary.forEach(row=>{
+        const tag = (row.materialPattern ? ' — '+MATERIAL_PATTERN_LABEL[row.materialPattern] : '') + (row.isCeiling ? ' — pulito ai livelli base, ceduto al carico più alto' : '');
+        sugWrap.appendChild(el('div',{style:'padding:4px 0; font-size:14px;'},['• '+row.suggestLabel+tag]));
+      });
+      card.appendChild(sugWrap);
     }
     card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ screeningState=null; view=homeView(); render(); }},['Fatto']));
     s.appendChild(card); root.appendChild(s);
@@ -8038,6 +8305,182 @@
   function finishMemoriaSession(){
     completeAndSave(Date.now()-session.startedAtWall);
   }
+  // ---------- Running Span ----------
+  // Ogni "prova" qui è un intero ciclo sequenza+richiamo, non un singolo
+  // stimolo — motivo per cui, come neglect/goaltask/memoria, ha una
+  // schermata dedicata invece di incastrarsi nel flusso generico a un
+  // tocco per stimolo. session.trials è pre-costruito da
+  // buildRunningSpanTrials() con la lunghezza totale di ciascuna sequenza
+  // già sorteggiata — mai nota al paziente in anticipo, quello è il punto
+  // del costrutto (Bunting, Cowan & Saults, 2006).
+  // Genera UN ciclo alla volta, non tutti insieme all'inizio — a
+  // differenza della prima versione. Necessario per l'adattivo: se i cicli
+  // fossero tutti pre-costruiti all'avvio, cambiare cfg.adaptStartLevel a
+  // metà seduta non avrebbe alcun effetto sui cicli successivi (erano già
+  // tutti fissati sul livello di partenza). Stesso principio già in uso
+  // per N-back/Go-No-Go (genNbackTrial/genGoNoGoTrial), non un'invenzione
+  // nuova per questo esercizio.
+  function genRunningSpanTrial(){
+    const lvl = RUNNINGSPAN_LEVELS[cfg.adaptStartLevel] || RUNNINGSPAN_LEVELS[1];
+    const pool = POOLS[cfg.stimType];
+    const totalLen = lvl.seqMin + Math.floor(Math.random()*(lvl.seqMax-lvl.seqMin+1));
+    const items = [];
+    for(let j=0;j<totalLen;j++) items.push(pool[Math.floor(Math.random()*pool.length)]);
+    return { items, n: lvl.n, isi: lvl.isi };
+  }
+  // Confronto per valore, non per riferimento — necessario per colori
+  // (oggetti con .hex) e suoni (oggetti con .f), non solo lettere/numeri/
+  // simboli (stringhe, dove === già basterebbe).
+  function runningSpanItemsEqual(a,b){
+    if(a==null || b==null) return false;
+    if(typeof a==='object') return (a.hex!=null && a.hex===b.hex) || (a.f!=null && a.f===b.f);
+    return a===b;
+  }
+  function startRunningSpanSession(){
+    session = {
+      trialIdx:0, showIdx:0, phase:'showing', currentTrial: genRunningSpanTrial(),
+      rsAnswer:[], results:[], rsAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false
+    };
+    view='task'; render();
+    scheduleRunningSpanShow();
+  }
+  function scheduleRunningSpanShow(){
+    if(session.paused) return;
+    const trial = session.currentTrial;
+    if(session.showIdx >= trial.items.length){
+      session.phase = 'stopcue'; render();
+      session.timer = setTimeout(()=>{ session.phase='recall'; session.rsAnswer=[]; render(); }, 1200);
+      return;
+    }
+    render();
+    session.timer = setTimeout(()=>{ session.showIdx++; scheduleRunningSpanShow(); }, trial.isi);
+  }
+  // Finestra più corta della soglia standard (BLOCK=8 in maybeAdapt): un
+  // ciclo qui porta molta più informazione di un singolo trial altrove
+  // (un'intera sequenza+richiamo, non una sola risposta), quindi bastano
+  // meno cicli per una lettura stabile. Stesse soglie 85%/70% (Wilson et
+  // al.) applicate però alla MEDIA di due proporzioni (posAcc+contentAcc),
+  // non a una proporzione di booleani come fa maybeAdapt() — incompatibile
+  // con quella funzione, richiede questa a parte.
+  const RUNNINGSPAN_ADAPT_BLOCK = 4;
+  function maybeAdaptRunningSpan(){
+    if(!cfg.adaptive) return;
+    if(session.rsAdaptBlock.length < RUNNINGSPAN_ADAPT_BLOCK) return;
+    const meanScore = mean(session.rsAdaptBlock);
+    if(meanScore > 0.85 && cfg.adaptStartLevel < 10) cfg.adaptStartLevel++;
+    else if(meanScore < 0.70 && cfg.adaptStartLevel > 1) cfg.adaptStartLevel--;
+    session.rsAdaptBlock = [];
+  }
+  // Pura, testabile a sé: dato l'insieme mostrato e la risposta data,
+  // restituisce le due misure. Separata da resolveRunningSpanTrial (che
+  // legge/scrive session) apposta perché è la parte con più da sbagliare
+  // silenziosamente — la stessa ragione per cui altrove in questo
+  // progetto la logica di punteggio è sempre tenuta a parte dal flusso a
+  // schermo.
+  function scoreRunningSpanTrial(trial, given){
+    const actual = trial.items.slice(-trial.n); // ultimi n, nell'ordine di comparsa
+    let posCorrect = 0;
+    for(let i=0;i<trial.n;i++){ if(runningSpanItemsEqual(given[i], actual[i])) posCorrect++; }
+    // Accuratezza di contenuto: quanti degli n richiesti sono presenti da
+    // qualche parte nella risposta, indipendentemente dalla posizione —
+    // dissocia memoria per il contenuto da memoria per l'ordine (Henson,
+    // 1998, Quarterly Journal of Experimental Psychology).
+    const remaining = actual.slice();
+    let contentCorrect = 0;
+    given.forEach(g=>{
+      const idx = remaining.findIndex(a=>runningSpanItemsEqual(a,g));
+      if(idx!==-1){ contentCorrect++; remaining.splice(idx,1); }
+    });
+    return { posAcc: posCorrect/trial.n, contentAcc: contentCorrect/trial.n, n: trial.n, seqLen: trial.items.length };
+  }
+  function resolveRunningSpanTrial(){
+    const trial = session.currentTrial;
+    const score = scoreRunningSpanTrial(trial, session.rsAnswer);
+    session.results.push(score);
+    // Adattivo: media delle due misure di QUESTO ciclo (non solo posAcc),
+    // come richiesto — un ciclo dove la posizione è imperfetta ma il
+    // contenuto è tutto giusto non pesa come un fallimento completo.
+    session.rsAdaptBlock.push((score.posAcc+score.contentAcc)/2);
+    maybeAdaptRunningSpan();
+    session.trialIdx++;
+    if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
+    session.showIdx = 0; session.phase = 'showing'; session.rsAnswer = [];
+    session.currentTrial = genRunningSpanTrial(); // livello letto ORA, dopo un eventuale adattamento appena sopra
+    scheduleRunningSpanShow();
+  }
+  function mountRunningSpanScreen(root){
+    const infoSpan = el('div',{class:'info'},['']);
+    const pauseBtn = el('button',{onclick:()=>{
+      if(session.paused){ session.paused=false; scheduleRunningSpanShow(); }
+      else { session.paused=true; if(session.timer) clearTimeout(session.timer); render(); }
+    }},['Pausa']);
+    root.appendChild(el('div',{class:'topbar'},[
+      infoSpan,
+      el('div',{class:'topbar-actions'},[pauseBtn, el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); view=homeView(); render(); } }},['Interrompi'])])
+    ]));
+    const content = el('div',{style:'padding:16px; max-width:640px; margin:0 auto; width:100%;'},[]);
+    root.appendChild(content);
+    return {infoSpan, content};
+  }
+  // Etichetta compatta per un pulsante del tastierino — non lo stesso
+  // rendering "grande" dello stimolo mostrato durante la sequenza
+  // (renderTypedStimulus), qui serve un pulsante piccolo in una griglia.
+  function runningSpanKeypadButton(item){
+    if(cfg.stimType==='colori') return el('div',{class:'colorcircle', style:'width:32px; height:32px; background:'+item.hex+';'},[]);
+    if(isAudioOnlyStim(cfg.stimType)) return el('div',{},[item.icon||'?']);
+    return el('div',{},[String(item)]);
+  }
+  function renderRunningSpanRecall(trial){
+    const wrap = el('div',{});
+    const slotsRow = el('div',{style:'display:flex; gap:10px; justify-content:center; margin:20px 0;'});
+    for(let i=0;i<trial.n;i++){
+      const filled = session.rsAnswer[i]!=null;
+      const active = i===session.rsAnswer.length;
+      const slot = el('div',{style:'width:56px; height:56px; border:2px solid '+(active?'var(--focus)':'var(--line)')+'; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px;'},[]);
+      if(filled) slot.appendChild(runningSpanKeypadButton(session.rsAnswer[i]));
+      slotsRow.appendChild(slot);
+    }
+    wrap.appendChild(slotsRow);
+    wrap.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Tocca, nell\'ordine in cui li ricordi, gli ultimi '+trial.n+' — puoi ascoltarli di nuovo prima di confermare, se sono suoni.']));
+    const pool = POOLS[cfg.stimType];
+    const grid = el('div',{class:'seg', style:'justify-content:center; margin:16px 0;'});
+    pool.forEach(item=>{
+      grid.appendChild(el('button',{onclick:()=>{
+        if(session.rsAnswer.length>=trial.n) return;
+        if(isAudioOnlyStim(cfg.stimType)) playTone(item, 300);
+        session.rsAnswer.push(item); render();
+      }},[runningSpanKeypadButton(item)]));
+    });
+    wrap.appendChild(grid);
+    const btnRow = el('div',{class:'rowbtns', style:'justify-content:center; margin-top:14px;'});
+    const undoBtn = el('button',{class:'ghost', onclick:()=>{ session.rsAnswer.pop(); render(); }},['Annulla ultimo']);
+    if(session.rsAnswer.length===0) undoBtn.disabled = true;
+    btnRow.appendChild(undoBtn);
+    const confirmBtn = el('button',{class:'primary', onclick:()=>resolveRunningSpanTrial()},['Conferma']);
+    if(session.rsAnswer.length<trial.n) confirmBtn.disabled = true;
+    btnRow.appendChild(confirmBtn);
+    wrap.appendChild(btnRow);
+    return wrap;
+  }
+  function updateRunningSpanScreen(){
+    const {infoSpan, content} = taskDom;
+    const trial = session.currentTrial;
+    infoSpan.textContent = 'Prova '+(session.trialIdx+1)+' / '+cfg.trials+' · livello '+cfg.adaptStartLevel;
+    content.innerHTML = '';
+    if(session.paused){
+      content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.']));
+      return;
+    }
+    if(session.phase==='showing'){
+      content.appendChild(el('div',{style:'display:flex; justify-content:center; padding:50px 0;'},[
+        renderTypedStimulus(cfg.stimType, trial.items[session.showIdx])
+      ]));
+    } else if(session.phase==='stopcue'){
+      content.appendChild(el('div',{style:'text-align:center; padding:70px 0; font-size:28px; font-weight:800; color:var(--accent);'},['Ora richiama!']));
+    } else if(session.phase==='recall'){
+      content.appendChild(renderRunningSpanRecall(trial));
+    }
+  }
   // ---------- Indicatore di calo prestazionale intra-sessione (fatica) ----------
   // Puramente informativo per l'operatore: confronta l'accuratezza sul primo
   // terzo delle prove valide con quella sull'ultimo terzo. NON modifica in
@@ -8092,6 +8535,7 @@
         if(cfg.taskMode==='dualtask') return session.dualLevel1+'/'+session.dualLevel2;
         if(cfg.taskMode==='goaltask') return cfg.goaltaskLivello;
         if(cfg.taskMode==='memoria') return session.material ? session.material.livello : null;
+        if(cfg.taskMode==='runningspan') return cfg.adaptStartLevel;
         if(adaptLevelKey()==='adaptLevel') return session.adaptLevel;
         return null;
       })(),
@@ -8229,6 +8673,15 @@
           asymmetry: (tL && tR) ? Math.round(((fL/tL)-(fR/tR))*100) : null // negativo = più omissioni a sinistra
         };
       }
+    } else if(family==='span'){
+      const posAccs = session.results.map(r=>r.posAcc);
+      const contentAccs = session.results.map(r=>r.contentAcc);
+      rec.span = {
+        n: session.trials[0] ? session.trials[0].n : null,
+        posAccMean: mean(posAccs), contentAccMean: mean(contentAccs),
+        seqLenMean: mean(session.results.map(r=>r.seqLen)),
+        results: session.results
+      };
     } else if(family==='goaltask'){
       const score = scoreGoalTask(session);
       rec.goaltask = {
@@ -8263,95 +8716,70 @@
     }
     lastResult = rec;
     if(screeningState){
-      if(screeningState.blockIdx < SCREENING_BLOCKS.length){
-        const block = SCREENING_BLOCKS[screeningState.blockIdx];
-        rec.screening = {domain:block.domain, tipo:block.tipo, label:block.label};
-        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening — '+block.label+']';
-        await saveSession(rec);
-        if(block.tipo==='split'){
-          // Un solo blocco somministrato, due punteggi derivati dagli stessi
-          // dati (vedi commento su SCREENING_BLOCKS) — non una seconda
-          // somministrazione.
-          screeningState.results.push({domain:block.domain, tipo:'base', accuracy: rec.choice[block.splitAccKeys.base]});
-          screeningState.results.push({domain:block.domain, tipo:'caricato', accuracy: rec.choice[block.splitAccKeys.caricato]});
+      if(screeningState.queueIdx < screeningState.queue.length){
+        const {domainKey, probeKey, form} = screeningState.queue[screeningState.queueIdx];
+        const probe = SCREENING_PROBES[probeKey];
+        let acc;
+        if(probe.isSplit){
+          // Un solo blocco somministrato, due punteggi derivati dagli
+          // stessi dati (Task-switching: repAcc/switchAcc) — non una
+          // seconda somministrazione. Qui il "fallimento" della sonda
+          // guarda solo switchAcc (il costo di alternanza), coerente con
+          // quello che l'esercizio suggerito (Task-switching) allena.
+          acc = rec.choice[probe.splitAccKeys.caricato];
         } else {
-          screeningState.results.push({domain:block.domain, tipo:block.tipo, accuracy: primaryAccuracyOf(rec)});
+          acc = probe.scoreOf(rec);
         }
-        screeningState.blockIdx++;
-        runScreeningBlock(screeningState.blockIdx);
+        const failed = acc==null || acc < SCREENING_FLAG_THRESHOLD;
+        rec.screening = {domain:domainKey, tipo:probeKey, form, label:probe.label+(form==='non_verbale'?' (non verbale)':'')};
+        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening — '+probe.label+(form==='non_verbale'?' non verbale':'')+']';
+        await saveSession(rec);
+        recordProbeResult(probeKey, form, acc, failed);
+        screeningState.queueIdx++;
+        runScreeningStep();
         return;
       }
-      // Livello 1: la coda ha in testa uno step di scala o di pannello
-      // parallelo (vedi buildLevel1Queue/runLevel1Step) — mai entrambi i
-      // tipi assieme sullo stesso dominio. Coda vuota = o Livello 1 non è
-      // mai partito (nessun dominio flaggato) o è appena finito: in
-      // entrambi i casi si passa al gate finale (vedi sotto), non a
-      // questo ramo.
-      if(screeningState.level1Queue.length){
-      const item = screeningState.level1Queue[0];
-      if(item.kind==='ladder'){
-        const rung = item.rungs[item.rungIdx];
-        const acc = rung.scoreOf(rec);
-        rec.screening = {domain:item.domain, tipo:'livello1-scala', label:'Approfondimento — '+rung.label};
-        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening L1 — '+rung.label+']';
-        await saveSession(rec);
-        item.rungAccuracies.push(acc);
-        if(acc==null || acc<SCREENING_FLAG_THRESHOLD){
-          // Fallito (o non misurabile): ci si ferma QUI, è il gradino da
-          // segnalare — non si somministrano i gradini successivi, più
-          // esigenti, che con ogni probabilità fallirebbero comunque.
-          item.stoppedAtIdx = item.rungIdx;
-          screeningState.level1Results[item.domain] = item;
-          screeningState.level1Queue.shift();
-        } else if(item.rungIdx+1 < item.rungs.length){
-          item.rungIdx++;
-        } else {
-          // Tutti i gradini superati: nessun punto di rottura trovato.
-          item.stoppedAtIdx = null;
-          screeningState.level1Results[item.domain] = item;
-          screeningState.level1Queue.shift();
-        }
-        runLevel1Step();
-        return;
-      }
-      if(item.kind==='parallel'){
-        const probe = item.probes[item.probeIdx];
+      if(screeningState.conditionalQueue.length){
+        const probeKey = screeningState.conditionalQueue[0];
+        const probe = SCREENING_PROBES[probeKey];
         const acc = probe.scoreOf(rec);
-        rec.screening = {domain:item.domain, tipo:'livello1-parallelo', label:'Approfondimento — '+probe.label};
-        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening L1 — '+probe.label+']';
+        rec.screening = {domain:'attenzione', tipo:probeKey, label:'Verifica — '+probe.label};
+        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening — '+probe.label+']';
         await saveSession(rec);
-        item.probeAccuracies.push(acc);
-        if(item.probeIdx+1 < item.probes.length){
-          item.probeIdx++;
-        } else {
-          // Tutte le sonde somministrate: la prima che flagga (se ce n'è
-          // una) localizza il suggerimento — vedi applyLevel1Refinement.
-          item.flaggedProbeIdx = item.probeAccuracies.findIndex(a=>a!=null && a<SCREENING_FLAG_THRESHOLD);
-          if(item.flaggedProbeIdx===-1) item.flaggedProbeIdx = null;
-          screeningState.level1Results[item.domain] = item;
-          screeningState.level1Queue.shift();
-        }
-        runLevel1Step();
+        recordProbeResult(probeKey, 'verbale', acc, acc==null || acc<SCREENING_FLAG_THRESHOLD);
+        screeningState.conditionalQueue.shift();
+        runScreeningStep();
         return;
       }
-      }
-      // Gate finale: "divisa" (Doppio compito) sempre per primo; se passa,
-      // si aggiunge "ecologico" in coda — mai amministrato da solo, mai
-      // prima di "divisa". Se "divisa" fallisce, la coda si svuota qui:
-      // Scenari ecologici resta manuale, come deciso.
-      if(screeningState.finalGateQueue && screeningState.finalGateQueue.length){
-        const stepKey = screeningState.finalGateQueue[0];
-        const step = SCREENING_FINAL_GATE[stepKey];
-        const score = step.scoreOf(rec);
-        rec.screening = {domain:'gate-finale', tipo:stepKey, label:step.label};
-        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening gate finale — '+step.label+']';
+      // Secondo giro a livello intermedio: un dominio alla volta, solo
+      // quelli risultati interamente puliti (vedi runCeilingStep).
+      if(screeningState.ceilingQueue.length){
+        const domainKey = screeningState.ceilingQueue[0];
+        const ceiling = CEILING_PROBES[domainKey];
+        const acc = ceiling.scoreOf(rec);
+        const failed = acc==null || acc<SCREENING_FLAG_THRESHOLD;
+        rec.screening = {domain:domainKey, tipo:'ceiling', label:ceiling.label};
+        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening — '+ceiling.label+']';
         await saveSession(rec);
-        screeningState.finalGateResults[stepKey] = score;
-        screeningState.finalGateQueue.shift();
-        if(stepKey==='divisa' && score!=null && score>=SCREENING_FLAG_THRESHOLD){
-          screeningState.finalGateQueue.push('ecologico');
-        }
-        runFinalGateStep();
+        screeningState.ceilingResults[domainKey] = {acc, failed};
+        screeningState.ceilingQueue.shift();
+        runCeilingStep();
+        return;
+      }
+      // Coordinamento: "dualtask" sempre per primo; se passa, si aggiunge
+      // "goaltask_mini" in coda — mai amministrato da solo, mai prima.
+      if(screeningState.coordQueue.length){
+        const probeKey = screeningState.coordQueue[0];
+        const probe = SCREENING_PROBES[probeKey];
+        const acc = probe.scoreOf(rec);
+        const failed = acc==null || acc<SCREENING_FLAG_THRESHOLD;
+        rec.screening = {domain:'coordinamento', tipo:probeKey, label:probe.label};
+        rec.notes = (rec.notes ? rec.notes+' ' : '')+'[Screening — '+probe.label+']';
+        await saveSession(rec);
+        recordProbeResult(probeKey, 'verbale', acc, failed);
+        screeningState.coordQueue.shift();
+        if(probeKey==='dualtask' && !failed) screeningState.coordQueue.push('goaltask_mini');
+        runCoordStep();
         return;
       }
     }
@@ -9127,6 +9555,18 @@
       isLocal
         ? 'Aggiungi esercizi uno alla volta, ciascuno con le sue impostazioni — quando selezioni questo paziente in presenza li trovi come scorciatoia di avvio rapido, non è un vincolo.'
         : 'Aggiungi esercizi uno alla volta, ciascuno con le sue impostazioni. Il paziente vedrà l\'elenco e potrà avviare quello che vuole a ogni accesso — non serve un ordine fisso.'
+    ]));
+    // Scelta prima di avviare — non un altro schermo intermedio, solo
+    // qui dove si decide davvero di iniziare. "Automatico" somministra
+    // entrambe le forme per le sonde che le hanno (isola se il problema è
+    // selettivo al materiale o generale); le altre due limitano lo
+    // screening a una sola forma, per i casi in cui l'altra non avrebbe
+    // senso (es. difficoltà di lettura note in partenza).
+    card.appendChild(field('Forma dello screening', segButtons(['auto','verbale','non_verbale'], screeningMaterialMode, v=>{ screeningMaterialMode=v; render(); }, {auto:'Automatico (entrambe, isola quale cade)', verbale:'Solo verbale', non_verbale:'Solo non verbale'})));
+    card.appendChild(el('p',{class:'hint', style:'margin:-8px 0 12px;'},[
+      screeningMaterialMode==='auto'
+        ? 'Per le sonde che hanno entrambe le forme, vengono somministrate tutte e due — il risultato indica se il problema riguarda solo il materiale verbale, solo quello non verbale, o entrambi.'
+        : 'Solo la forma '+(screeningMaterialMode==='verbale'?'verbale':'non verbale')+' — screening più breve, ma senza il confronto fra le due forme.'
     ]));
     // Screening e controllo motorio in cima, non in fondo alla scheda —
     // sono le due valutazioni che un operatore cerca per prime aprendo un

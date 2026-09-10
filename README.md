@@ -155,7 +155,7 @@ o "attenzione selettiva": ciascuno ha il proprio costrutto specifico
 sono quello — manifestazioni diverse dello stesso meccanismo di fondo,
 non quattro misure imperfette della stessa cosa. Fa eccezione,
 consapevolmente, l'etichetta di dominio dello screening
-(`'Attenzione sostenuta / inibizione'`, in `SCREENING_BLOCKS`) — lì è
+(`'Attenzione sostenuta / inibizione'`, in `SCREENING_DOMAINS.attenzione`) — lì è
 una semplificazione pratica per l'operatore che deve leggere un
 risultato in un colpo d'occhio, non un'affermazione teorica: il commento
 nel codice, subito sopra la costante, lo dichiara esplicitamente per chi
@@ -795,92 +795,177 @@ livelli 3/4 e 7/8) — altrimenti il dato sarebbe fuorviante.
 
 ## Batteria di screening iniziale
 
-Sessione breve e riproducibile che confronta, per 5 domini, un blocco
-**base** (stimolo semplice, nessun carico esecutivo) con un blocco
-**caricato** (stessa area, con carico esecutivo). Riutilizza esercizi
-già esistenti con parametri fissi e brevi (16 prove per blocco — 24 per
-il blocco di Flessibilità cognitiva, che ne serve di più per scomporre
-un solo blocco in due punteggi affidabili; 1 tavola per la
-Cancellazione), non introduce contenuti nuovi:
+Riscritta per intero su questo principio: ogni dominio ha un elenco di
+**sonde sempre somministrate tutte**, senza nessun "se il blocco base
+fallisce, approfondisci" a cascata come nella versione precedente — poi
+una **regola di suggerimento propria del dominio** legge il *pattern*
+di chi ha fallito e chi no (non solo "quante"), e ne deriva cosa
+proporre. Soglia di fallimento: 70% di accuratezza (la stessa
+"Eighty Five Percent Rule"-derivata già in uso per la titolazione
+adattiva, qui come soglia di allarme più che di apprendimento).
 
-| Dominio | Blocco base | Blocco caricato |
+**Ordine di somministrazione**: Memoria di lavoro per prima (Mantenimento
+è la prima sonda in assoluto di tutto lo screening), poi Attenzione,
+Flessibilità, Esplorazione — infine, sempre, il Coordinamento (Doppio
+compito → eventuale mini-scenario).
+
+### Memoria di lavoro
+
+5 sonde, sempre tutte: **Mantenimento → Sequenza bersaglio →
+Categorizzazione condizionale → N-back → Running Span**. Le prime 3
+formano un gruppo (misure di applicazione di regola/mantenimento, non
+di aggiornamento continuo) con una tabella di suggerimento dedicata;
+N-back e Running Span sono fuori dal gruppo — sono già esercizi ad
+allenamento adattivo di per sé, si autopropongono indipendentemente.
+
+| Pattern nel gruppo | Suggerimento | Perché |
 |---|---|---|
-| Attenzione sostenuta / inibizione | Go/No-Go, no-go frequente (48%), 1 elemento | Go/No-Go, no-go meno frequente (35%), 2 elementi — la frequenza no-go da sola riduce l'aspettativa e aumenta la difficoltà, indipendentemente dal numero di elementi |
-| Memoria di lavoro | N-back, n=1 | N-back, n=2 |
-| Mantenimento in memoria a breve termine | Mantenimento (tipo Sternberg), Riconoscimento, lista di 3 elementi | Mantenimento (tipo Sternberg), Riconoscimento, lista di 5 elementi |
-| Flessibilità cognitiva | *(vedi sotto — un solo blocco, auto-scomposto in due punteggi)* | |
-| Esplorazione visuospaziale | Cancellazione classica, 20 elementi | Cancellazione a regola, livello 2 |
+| Solo Mantenimento fallisce | Categorizzazione, struttura 1 | Cautela — nessuna struttura replica propriamente "tieni a mente un piccolo insieme", si riparte dalla base |
+| Solo Sequenza bersaglio fallisce | Categorizzazione, struttura 4 | Stessa natura costruttiva: riconoscimento continuo di un pattern in un flusso |
+| Solo Categorizzazione fallisce | Categorizzazione, struttura 1 | Segnale diretto — è la sonda stessa a cedere |
+| Due o più del gruppo insieme | Categorizzazione, struttura 1 | Nessuna struttura combina propriamente più difficoltà diverse insieme — si torna al gradino più semplice/sicuro, non si inventa una via di mezzo |
 
-**Flessibilità cognitiva: un solo blocco, auto-scomposto in due
-punteggi, non due esercizi diversi confrontati fra loro.** Un solo
-blocco di Task-switching (24 prove, materiale numerico), scomposto dagli
-stessi dati in due punteggi: **base = accuratezza sulle prove di
-ripetizione** dentro il blocco misto (stessa regola della prova
-precedente — carico di dover comunque tenere pronte entrambe le regole,
-senza switch vero) e **caricato = accuratezza sulle prove di switch**
-(la regola cambia). Isola il **costo di switching**, non il "mixing
-cost" pieno nel senso della letteratura sperimentale (Rogers & Monsell,
-1995; Rubin & Meiran, 2005) — quest'ultimo richiederebbe un blocco di
-riferimento a compito singolo puro, non presente qui.
+N-back e Running Span, se falliscono, si aggiungono ai suggerimenti
+sopra (non li sostituiscono) — un fallimento del gruppo e uno di N-back
+insieme producono entrambi i suggerimenti.
 
-Il materiale numerico è scelto perché ogni cifra è **bivalente**
-rispetto a entrambe le regole attive (pari/dispari, alto/basso) — ogni
-cifra è sempre classificabile secondo l'una e l'altra, è solo il cue a
-dire quale applicare in quella prova. È una condizione necessaria perché
-il costo di switching emerga in modo pulito: con materiale reso
-artificialmente **univalente** (ogni stimolo classificabile secondo una
-sola regola) la letteratura sperimentale trova il costo ridotto o
-assente, perché non c'è ambiguità di compito da risolvere.
+### Attenzione sostenuta / inibizione
 
-**Attenzione divisa: rimossa dallo screening, non dall'app.** Il Doppio
-compito resta un esercizio pienamente disponibile e assegnabile — è
-solo uscito dal confronto base/caricato automatico. Due motivi, uno di
-costrutto e uno concettuale: (1) il blocco caricato riusava il base
-dell'Attenzione (Go/No-Go solo visivo) invece di una base nelle stesse
-due modalità del Doppio compito (visivo+uditivo) prese singolarmente —
-un calo poteva derivare dal canale uditivo mai testato da solo, non da
-un vero deficit di coordinamento; correggibile, ma (2) più a monte,
-l'attenzione divisa è concettualmente di un livello diverso dagli altri
-quattro domini — non una singola risorsa attentiva di base come
-selettiva/sostenuta, ma un coordinamento fra risorse (Baddeley,
-esecutivo centrale) o un fattore EF comune (Engle et al., 1999) — misurarla
-con lo stesso schema "base pulito vs caricato" degli altri domini la
-inquadra in modo fuorviante come se fosse un quinto substrato allo stesso
-livello degli altri, quando è piuttosto ciò che li mette in relazione.
+5 sonde base, sempre tutte, in ordine di esigenza crescente: **ANT →
+TAPAT → Go/No-Go → Stop-Signal → Stop-Signal con interferenza**. Il
+suggerimento è **il più semplice fra quelli falliti** (mai il più
+complesso, anche quando più di uno cede insieme) — stesso principio di
+Memoria: nessun compromesso a metà strada inventato. ANT è solo
+screening (nessuna letteratura di training dedicata, vedi sotto): se è
+lui il più semplice fra i falliti, il suggerimento scivola su TAPAT.
 
-**A cosa serve il confronto.** Se il blocco caricato è sotto soglia
-(70%, la stessa "Eighty Five Percent Rule"-derivata già in uso per la
-titolazione adattiva, qui usata come soglia di allarme più che di
-apprendimento) **e** il blocco base di quel dominio è nella norma, il
-pattern suggerisce un deficit **specifico esecutivo** in quel dominio —
-il substrato percettivo/attentivo di base funziona, cede solo sotto
-carico. Se invece anche il blocco base è sotto soglia, il problema sembra
-più a monte (percettivo/attentivo di base), e in quel caso **non** si
-propone alcun suggerimento — proporre un esercizio esecutivo mirato
-sarebbe fuorviante quando il deficit osservato non è quello. Ogni
-accuratezza resta comunque visibile per esteso nei risultati, il flag
-è una sintesi, non l'unico dato disponibile.
+**Simon** è l'unica sonda condizionale di questo screening: si aggiunge
+**solo** quando Stop-Signal con interferenza è l'unico a fallire (per
+costruzione, l'unico caso in cui può essere "il più semplice fra i
+falliti" è quando è anche l'unico) — è il punto in cui il conflitto
+spazio-risposta di Simon ha senso come controllo in più.
 
-**Flag "consigliato": automatico, sempre sovrascrivibile a mano.**
-Quando un dominio soddisfa la condizione sopra, l'esercizio corrispondente
-al suo blocco caricato viene salvato come "consigliato" sul profilo del
-paziente attivo (locale o remoto — lo screening senza un paziente
-selezionato resta solo un'analisi a schermo, non salvata da nessuna
-parte). I flag compaiono come etichette (⭐) nell'elenco pazienti, con una
-"✕" per rimuoverli in qualunque momento. Se un flag viene rimosso a mano
-e un successivo screening rileva di nuovo la stessa condizione, **resta
-rimosso**: la disattivazione manuale ha sempre la precedenza sul
-risultato automatico, per evitare che un giudizio clinico già espresso
-venga silenziosamente annullato da una sessione successiva.
+### Flessibilità cognitiva
 
-**Limiti dichiarati.** Come per gli altri moduli non normati, questo è
-uno strumento di orientamento interno a TracciaN, non uno screening
-validato con soglie normative pubblicate — la soglia del 70% e le scelte
-di quali esercizi rappresentano ciascun dominio sono decisioni interne,
-motivate ma non normate, pensate per essere riviste con l'uso clinico
-reale. Un solo blocco per condizione (16 prove, 1 tavola per la
-Cancellazione) è una stima rapida, non una misura precisa: da trattare
-come un primo orientamento su cosa approfondire, non come diagnosi.
+Un solo esercizio nel dominio (Task-switching, 24 prove, materiale
+numerico bivalente, scomposto in repAcc/switchAcc come già descritto
+sopra) — nessuna tabella di pattern possibile, si autopropone se
+fallisce.
+
+### Esplorazione visuospaziale
+
+3 modalità di Cancellazione, sempre tutte somministrate: **Classico,
+Trova l'intruso, A regola**. A differenza di Attenzione/Memoria, qui
+**tutte** le varianti che falliscono vengono suggerite insieme, non
+collassate a una sola — sono 3 modalità dello stesso esercizio, non 3
+costrutti diversi da confrontare fra loro.
+
+### Coordinamento (Doppio compito / Scenari ecologici)
+
+Amministrato **sempre**, alla fine, indipendentemente da cosa hanno
+segnalato gli altri domini (prima non era così: partiva solo se tutto
+il resto era pulito). Doppio compito **fallisce** → si suggerisce e
+basta, il mini-scenario di Scenari ecologici non viene nemmeno
+somministrato. Doppio compito **passa** → parte un mini-scenario breve
+(90 secondi, 2 vincoli attivi insieme) → **fallisce** → si consiglia
+Scenari ecologici vero (un vero scenario da assegnare, non la sonda
+breve); **passa** → nessun segnale da questa parte. Il principio dietro
+il mini-scenario: test strutturati brevi possono non cogliere difficoltà
+che emergono solo in compiti più complessi e realistici (il razionale
+storico dietro il Six Elements Test/Multiple Errands Test — Shallice &
+Burgess, 1991).
+
+### Se tutto risulta pulito
+
+Screening intero senza nessun segnale, Coordinamento compreso: non si
+lascia a mani vuote. Si propone comunque un **programma di partenza a
+livello base** (N-back, Task-switching, Cancellazione) più **Strategie
+di memoria** come aggiunta — quest'ultima mai valutata dallo screening
+stesso (checklist qualitativa, non a soglia), proposta qui come buona
+prassi generale quando non c'è nulla di specifico da correggere.
+
+### Perché alcuni esercizi non hanno un ruolo diretto
+
+**ANT classico e Sequenza bersaglio** compaiono come sonde di screening
+ma non hanno letteratura di training dedicata (sono nati da paradigmi
+di misura, non riadattati per l'allenamento ripetuto come N-back) — per
+questo ANT viene sempre sostituito da TAPAT come suggerimento, mai
+proposto da solo. **Strategie di memoria** resta fuori da ogni logica
+di flag automatico — valutazione qualitativa dell'operatore, non un
+numero da confrontare a una soglia.
+
+### Flag "consigliato": automatico, sempre sovrascrivibile a mano
+
+Quando una regola di dominio produce un suggerimento, viene salvato
+come "consigliato" sul profilo del paziente attivo (locale o remoto —
+lo screening senza un paziente selezionato resta solo un'analisi a
+schermo, non salvata da nessuna parte). Chiave di identificazione:
+**sonda/variante**, non solo l'esercizio — Cancellazione ha 3 varianti
+(classico/intruso/regola) che devono poter comparire tutte insieme nel
+programma senza sovrascriversi a vicenda (un bug reale della versione
+precedente, corretto in questa riscrittura). I flag compaiono come
+etichette (⭐) nell'elenco pazienti, con una "✕" per rimuoverli in
+qualunque momento — se un flag viene rimosso a mano, resta rimosso: un
+successivo screening non lo riaccende da solo.
+
+### Forma verbale / non verbale
+
+Scelta prima di avviare (scheda "Fai lo screening", non uno schermo
+intermedio a parte): **Automatico** (default), **Solo verbale**, **Solo
+non verbale**. In automatico, ogni sonda che ha davvero un materiale non
+verbale valido viene somministrata **in entrambe le forme** — non in
+sequenza condizionata, sempre tutte e due — isolando se un eventuale
+fallimento riguarda **solo il materiale verbale**, **solo quello non
+verbale**, o **entrambi** ("misto", che segnala un problema generale
+più che selettivo al materiale). 11 sonde su 17 hanno una forma non
+verbale valida (ANT, Go/No-Go, Stop-Signal ×2, Sequenza bersaglio,
+Categorizzazione, N-back, Running Span, Cancellazione classico/intruso,
+Task-switching) — le altre (TAPAT, Simon, Mantenimento, Cancellazione a
+regola, Doppio compito, mini-scenario) restano a singola
+somministrazione, per limiti dichiarati caso per caso nel codice (es.
+Mantenimento non ha ancora nessun materiale non verbale implementato;
+Cancellazione a regola tratta il materiale in modo troppo rigido per
+supportarne uno diverso senza prima essere estesa).
+
+Per le **autoproposte** (dove il suggerimento coincide con la sonda che
+ha fallito — es. Go/No-Go fallisce, si consiglia Go/No-Go), il pattern
+verbale/non verbale/misto compare accanto al suggerimento nei risultati,
+e la configurazione consigliata usa già il materiale giusto (quello in
+cui il problema si è visto). Per le **sostituzioni di gruppo** di
+Memoria (es. Mantenimento fallisce → si consiglia Categorizzazione)
+questo arricchimento non viene applicato di proposito: il materiale
+della sonda che ha fallito non ha un corrispettivo pulito in quello
+dell'esercizio sostituito, e forzarlo produrrebbe un'etichetta
+fuorviante.
+
+### Secondo giro a carico più alto (domini risultati puliti)
+
+Per ogni dominio risultato **interamente pulito** (ogni sonda passata,
+verbale e non verbale insieme), un'ulteriore verifica a un carico più
+impegnativo — un solo esercizio "ancora" per dominio (non l'intero
+elenco di sonde), a un livello intermedio, non il minimo di screening né
+il massimo dell'app. Principio: un profilo "pulito" può riflettere solo
+la scarsa esigenza dello screening stesso, non l'assenza di difficoltà a
+carichi più impegnativi (stessa logica già usata per il gate Doppio
+compito/Scenari ecologici, qui estesa a ogni dominio). Se la verifica
+cede, il suggerimento porta la nota esplicita "pulito ai livelli base,
+ceduto al carico più alto" — non confuso con un fallimento ordinario
+dello screening.
+
+| Dominio | Sonda di verifica |
+|---|---|
+| Memoria di lavoro | N-back, n=3 |
+| Attenzione | Go/No-Go, 3 elementi no-go, ISI più stretto |
+| Esplorazione | Cancellazione a regola, livello 4 |
+| Flessibilità | Task-switching, ISI più stretto |
+
+### Limiti dichiarati
+
+Come per gli altri moduli non normati, questo è uno strumento di
+orientamento interno a TracciaN, non uno screening validato con soglie
+normative pubblicate — soglia del 70%, regole di suggerimento e livello
+delle verifiche a carico più alto sono decisioni interne, motivate ma
+non normate, pensate per essere riviste con l'uso clinico reale.
 
 ## Controllo motorio di base
 

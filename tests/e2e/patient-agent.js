@@ -8,20 +8,24 @@
 // lì si verifica la LOGICA pura (i calcoli), qui si verifica che
 // quella logica arrivi davvero, correttamente, sullo schermo.
 //
-// Copertura: 9 esercizi su 11 — tutti quelli che rispondono con un
+// Copertura: 10 esercizi su 12 — tutti quelli che rispondono con un
 // pulsante vero (famiglie signal/choice/dual, classe .tapbtn) più la
 // Cancellazione (famiglia spatial, interazione radicalmente diversa: si
 // tocca direttamente la cella .neglect-item sulla tavola, non un
 // pulsante di risposta fisso — gestita a parte da
-// simulateNeglectResponses). Restano fuori Scenari ecologici e
-// Strategie di memoria: entrambi hanno più sotto-flussi interni
-// profondamente diversi l'uno dall'altro (Scenari: ~9 scenari con
-// elementi/vincoli propri ciascuno; Strategie di memoria: 5 tecniche
-// con fasi studio/richiamo diverse per tecnica) — un agente onesto per
-// loro richiede una progettazione dedicata per sotto-flusso, non
-// un'estensione della stessa logica di tocco generica usata qui.
-// Deliberatamente non tentata di corsa in questa sessione: rischio di
-// scrivere una copertura solo apparente più alto del beneficio.
+// simulateNeglectResponses) e Running Span (famiglia span, interazione
+// ancora diversa: nessuna risposta durante la presentazione, poi un
+// tastierino a caselle ordinate — gestita a parte da
+// simulateRunningSpanResponses, aggiunta in questa sessione insieme
+// all'esercizio stesso). Restano fuori Scenari ecologici e Strategie di
+// memoria: entrambi hanno più sotto-flussi interni profondamente diversi
+// l'uno dall'altro (Scenari: ~9 scenari con elementi/vincoli propri
+// ciascuno; Strategie di memoria: 5 tecniche con fasi studio/richiamo
+// diverse per tecnica) — un agente onesto per loro richiede una
+// progettazione dedicata per sotto-flusso, non un'estensione della
+// stessa logica di tocco generica usata qui. Deliberatamente non
+// tentata di corsa: rischio di scrivere una copertura solo apparente
+// più alto del beneficio.
 
 const path = require('path');
 const { chromium } = require('playwright');
@@ -41,6 +45,7 @@ const EXERCISE_BUTTON_TEXT = {
   tapat: 'TAPAT (allerta tonica/fasica)',
   simon: 'Simon (conflitto spazio-risposta)',
   mantenimento: 'Mantenimento (tipo Sternberg)',
+  runningspan: { exercise: 'Running Span', family: 'runningspan' },
   neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' }
 };
 
@@ -127,6 +132,46 @@ async function simulateNeglectResponses(page, { maxMs = 60000, tapEveryMs = 120 
   return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
 }
 
+// Simula le risposte per Running Span: nessuna interazione durante la
+// presentazione della sequenza o la schermata "Ora richiama!" (solo
+// attesa) — la vera interazione è nella fase di richiamo, un tastierino
+// a caselle ordinate. I pulsanti del tastierino sono dentro un div
+// .seg (stessa classe usata per i selettori a pulsanti di Setup, ma qui
+// dentro la schermata di sessione è l'unico posto in cui compare, non
+// c'è ambiguità con altri elementi .seg contemporaneamente a schermo) —
+// tocca a caso finché "Conferma" non si abilita (il numero di caselle
+// riempite raggiunge n), poi conferma. Ripete finché la sessione non
+// finisce da sola.
+async function simulateRunningSpanResponses(page, { maxMs = 90000, tapEveryMs = 250 } = {}) {
+  const start = Date.now();
+  let taps = 0;
+  while (Date.now() - start < maxMs) {
+    const stillRunning = await page.locator('button:has-text("Interrompi")').count();
+    if (!stillRunning) break;
+    const confirmBtn = page.locator('button:has-text("Conferma")');
+    if (await confirmBtn.count() > 0) {
+      const stillDisabled = await confirmBtn.first().isDisabled().catch(() => false);
+      if (stillDisabled) {
+        const keypadButtons = page.locator('.seg button');
+        const n = await keypadButtons.count();
+        if (n > 0) {
+          await keypadButtons.nth(Math.floor(Math.random() * n)).click({ timeout: 800 }).catch(() => {});
+          taps++;
+        }
+        await page.waitForTimeout(tapEveryMs);
+      } else {
+        await confirmBtn.first().click({ timeout: 800 }).catch(() => {});
+        await page.waitForTimeout(400);
+      }
+      continue;
+    }
+    // Fase di presentazione della sequenza, o schermata "Ora richiama!":
+    // nessun pulsante di risposta a schermo per costruzione, solo attesa
+    // finché non compare il tastierino (o la sessione finisce).
+    await page.waitForTimeout(tapEveryMs);
+  }
+  return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
+}
 // Esegue un'intera sessione finta su un esercizio e restituisce cosa è
 // successo: se è arrivato alla schermata dei risultati, se ci sono stati
 // errori JS non gestiti in pagina, e il testo dei risultati mostrati.
@@ -167,6 +212,8 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
 
     const { taps, elapsedMs, timedOut } = family === 'neglect'
       ? await simulateNeglectResponses(page, opts)
+      : family === 'runningspan'
+      ? await simulateRunningSpanResponses(page, opts)
       : await simulatePatientResponses(page, opts);
 
     await page.waitForTimeout(500);

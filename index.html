@@ -600,11 +600,12 @@
     mantenimento: {label:'Mantenimento (tipo Sternberg)', usesStimType:false, usesTargetSeq:false, family:'choice', screeningOnly:true,
       domini:['Mantenimento in memoria a breve termine'],
       instructions:c=>{
-        const matLabel = c.mantenimentoMateriale==='numeri' ? 'numeri' : 'lettere';
+        const matLabel = c.mantenimentoMateriale==='numeri' ? 'numeri' : c.mantenimentoMateriale==='simboli' ? 'simboli' : 'lettere';
+        const singLabel = c.mantenimentoMateriale==='numeri' ? 'un solo numero' : c.mantenimentoMateriale==='simboli' ? 'un solo simbolo' : 'una sola lettera';
         if(c.mantenimentoModalita==='seriale'){
-          return 'Vedrai un piccolo gruppo di '+matLabel+' mostrati uno alla volta all\'inizio: prova a ricordarli tutti — resteranno gli stessi per tutto l\'esercizio. Dopo, vedrai tanti '+matLabel+' singoli, uno alla volta: per ciascuno tocca "Sì, c\'era" se faceva parte del gruppo iniziale, "No, non c\'era" se non ne faceva parte.';
+          return 'Vedrai un piccolo gruppo di '+matLabel+' mostrati uno alla volta all\'inizio: prova a ricordarli tutti — resteranno gli stessi per tutto l\'esercizio. Dopo, vedrai tanti '+matLabel+' singoli, uno alla volta: per ciascuno chiediti "questo era nel gruppo iniziale?" e tocca "Sì, c\'era" se sì, "No, non c\'era" se no.';
         }
-        return 'Vedrai un piccolo gruppo di '+matLabel+' mostrati uno alla volta: prova a ricordarli tutti. Subito dopo vedrai '+(c.mantenimentoMateriale==='numeri'?'un solo numero':'una sola lettera')+': tocca "Sì, c\'era" se faceva parte del gruppo appena visto, "No, non c\'era" se non ne faceva parte. Il gruppo cambia a ogni prova.';
+        return 'Vedrai un piccolo gruppo di '+matLabel+' mostrati uno alla volta: prova a ricordarli tutti. Subito dopo vedrai '+singLabel+': chiediti "questo era nel gruppo che ho appena visto?" e tocca "Sì, c\'era" se sì, "No, non c\'era" se no. Il gruppo cambia a ogni prova.';
       }},
   };
   // Livello -> {modalita, listLen}: 1-5 Riconoscimento (lista 2..6), 6-10
@@ -1504,8 +1505,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -1530,6 +1531,19 @@
   let historyFilterKind = 'local'; // 'local' | 'remote' — quale tipo di id è historyFilterPatientId
   let activeRemotePatientId = null; // paziente remoto scelto per una seduta in presenza (invece di uno locale)
   let screeningState = null; // {queue, queueIdx, probeResults, ...} — non-null solo durante una sessione di screening in corso
+  // Regola generale (non solo per il controllo motorio): ogni pulsante
+  // "Interrompi"/"← Torna indietro" che abbandona un sotto-flusso a più
+  // schermate (screening, controllo motorio, un singolo esercizio) deve
+  // tornare alla schermata "hub" da cui quel sotto-flusso è stato aperto
+  // (Gestisci programma, Paziente in presenza, lista Pazienti, Setup...),
+  // non sempre a homeView(). lastHubView traccia automaticamente l'ultima
+  // schermata hub visitata — si aggiorna da sola dentro render() (vedi
+  // sotto), quindi qualunque nuova schermata "hub" aggiunta in futuro
+  // funziona subito, senza dover instrumentare ogni punto di ingresso a
+  // mano (come si faceva prima solo per il controllo motorio).
+  const HUB_VIEWS = new Set(['setup','patientHome','history','patients','patientProgram','operatorHome','localPatientPicker','accessLog','accessLogKind','operatorPatients','archive','cloud']);
+  let lastHubView = null;
+  function goBack(){ view = lastHubView || homeView(); render(); }
   let screeningMaterialMode = 'auto'; // 'auto'|'verbale'|'non_verbale' — scelto prima di avviare lo screening (vedi il selettore sulla scheda "Fai lo screening"); 'auto' somministra entrambe le forme per le sonde che le hanno, isolando quale cade
   // Prova dimostrativa: non-null solo mentre una demo è in corso o appena
   // conclusa. cfgBackup è l'istantanea di cfg presa PRIMA di applicare i
@@ -1615,6 +1629,7 @@
   }
   function render(){
     updatePageTitle();
+    if(HUB_VIEWS.has(view)) lastHubView = view;
     if(view==='task'){
       const isNeglect = cfg.taskMode==='neglect';
       const isGoalTask = cfg.taskMode==='goaltask';
@@ -2140,7 +2155,7 @@
     const params = cfg.titrationMode!=='manuale' ? (ADAPT_MANTENIMENTO[cfg.adaptStartLevel]||ADAPT_MANTENIMENTO[1]) : null;
     const modalita = params ? params.modalita : cfg.mantenimentoModalita;
     const listLen = params ? params.listLen : (cfg.mantenimentoListLen || 4);
-    const pool = cfg.mantenimentoMateriale==='numeri' ? POOLS.numeri.slice(0,9) : POOLS.lettere;
+    const pool = cfg.mantenimentoMateriale==='numeri' ? POOLS.numeri.slice(0,9) : cfg.mantenimentoMateriale==='simboli' ? POOLS.simboli : POOLS.lettere;
     function drawList(n){
       const shuffled = pool.slice().sort(()=>Math.random()-0.5);
       return shuffled.slice(0, n);
@@ -4543,9 +4558,9 @@
       card.appendChild(el('p',{class:'hint'},[neglectTitrationModeHint(cfg, cfg.titrationMode||'manuale')]));
     }
     if(cfg.taskMode==='mantenimento'){
-      grid.appendChild(field('Materiale', segButtons(['lettere','numeri'], cfg.mantenimentoMateriale||'lettere', v=>{
+      grid.appendChild(field('Materiale', segButtons(['lettere','numeri','simboli'], cfg.mantenimentoMateriale||'lettere', v=>{
         cfg.mantenimentoMateriale=v; render();
-      }, {lettere:'Lettere', numeri:'Numeri'})));
+      }, {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli (non verbale)'})));
       grid.appendChild(field('Modalità', segButtons(['no','si'], cfg.voice?'si':'no', v=>{cfg.voice = v==='si'; render();}, {no:'Visiva', si:'Visiva + uditiva (sintesi vocale)'})));
       if((cfg.titrationMode||'manuale')==='manuale'){
         grid.appendChild(field('Modalità di prova', segButtons(['riconoscimento','seriale'], cfg.mantenimentoModalita||'riconoscimento', v=>{
@@ -6198,7 +6213,16 @@
     let outcome = null;
     switch(cfg.taskMode){
       case 'gonogo': case 'stopsignal': outcome = resolveSignal(trial); break;
-      case 'ant': case 'switching': case 'simon': case 'mantenimento': outcome = resolveChoice(trial); break;
+      // 'tapat' mancava qui — senza un caso dedicato cadeva nel ramo
+      // 'default' sotto (resolveSignal), pensato per hit/miss/FA/CR con un
+      // trial.isTarget mai impostato dalle prove TAPAT: ogni prova veniva
+      // letta come "nessun bersaglio", quindi NON toccare risultava sempre
+      // "rifiuto corretto" — un paziente che non rispondeva mai otteneva
+      // il 100%. resolveChoice è la funzione corretta (TAPAT è family
+      // 'choice', ogni prova ha correctAnswer:'go', e completeAndSave già
+      // legge session.choiceLog per TAPAT più sotto — il codice a valle si
+      // aspettava già questo, solo lo smistamento qui mancava).
+      case 'ant': case 'switching': case 'simon': case 'mantenimento': case 'tapat': outcome = resolveChoice(trial); break;
       case 'categorizzazione': outcome = resolveCategorization(trial); break;
       case 'dualtask': outcome = resolveDualTask(trial); break;
       default: outcome = resolveSignal(trial); // nback / sequenza
@@ -6280,7 +6304,7 @@
       session.spatialBlock = session.spatialBlock || [];
       session.spatialBlock.push({side:trial.side, correct});
     }
-    if(cfg.taskMode==='ant' || cfg.taskMode==='switching' || cfg.taskMode==='simon' || cfg.taskMode==='mantenimento'){
+    if(cfg.taskMode==='ant' || cfg.taskMode==='switching' || cfg.taskMode==='simon' || cfg.taskMode==='mantenimento' || cfg.taskMode==='tapat'){
       session.adaptBlock.push(correct);
       const before = session.adaptBlock.length;
       maybeAdapt();
@@ -6380,7 +6404,7 @@
       infoSpan,
       el('div',{class:'topbar-actions'},[
         ...topRight,
-        el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); view=homeView(); render(); } }},['Interrompi'])
+        el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); screeningState=null; goBack(); } }},['Interrompi'])
       ])
     ]));
     const board = el('div',{class:'neglect-board'},[]);
@@ -6564,11 +6588,22 @@
       infoSpan,
       el('div',{class:'topbar-actions'},[
         ...topRight,
-        el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); if(session.stopCueTimer) clearTimeout(session.stopCueTimer); if(session.isDemo && demoState){ Object.assign(cfg, demoState.cfgBackup); demoState=null; } view=homeView(); render(); } }},['Interrompi'])
+        el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); if(session.stopCueTimer) clearTimeout(session.stopCueTimer); if(session.isDemo && demoState){ Object.assign(cfg, demoState.cfgBackup); demoState=null; } screeningState=null; goBack(); } }},['Interrompi'])
       ])
     ]));
     const stage = el('div',{class:'stage'});
-    const stimSlot = el('div',{},[]);
+    // width:100% + justify-content:center qui, non su un div vuoto senza
+    // stile: senza una larghezza propria, stimSlot si restringe al
+    // contenuto (shrink-to-fit dentro .stage, che è align-items:center) —
+    // e uno stimolo con posizione sinistra/destra (Stop-Signal con
+    // interferenza, Simon, TAPAT spaziale, Categorizzazione regime
+    // posizione) usa "width:100%; justify-content:flex-start/flex-end" al
+    // suo interno: senza spazio reale in cui muoversi, restava sempre
+    // visivamente al centro anche quando il codice assegnava
+    // correttamente un lato. Con stimSlot esplicitamente a piena
+    // larghezza, lo stimolo "normale" (non basato su lato) resta centrato
+    // esattamente come prima grazie a questo stesso justify-content.
+    const stimSlot = el('div',{style:'display:flex; width:100%; justify-content:center;'},[]);
     const trail = el('div',{class:'trail'});
     stage.appendChild(stimSlot);
     stage.appendChild(trail);
@@ -6823,6 +6858,16 @@
         ? el('div',{class:'stimulus'},[trial.val.valore])
         : el('div',{class:'stimulus', style:'color:'+(trial.val.colore==='rosso'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.valore]);
     }
+    if(cfg.taskMode==='mantenimento'){
+      // Prima non c'era nessun promemoria a schermo durante la fase di
+      // riconoscimento — solo lo stimolo e i pulsanti Sì/No, senza dire
+      // esplicitamente "rispetto a cosa". Stesso principio già usato per
+      // il Task-switching (etichetta della regola sopra lo stimolo).
+      const wrap = el('div',{style:'display:flex; flex-direction:column; align-items:center; gap:16px;'});
+      wrap.appendChild(el('div',{style:'color:var(--accent); font-size:19px; letter-spacing:.03em; font-weight:700; text-align:center;'},['Era nel gruppo appena visto?']));
+      wrap.appendChild(el('div',{class:'stimulus'},[trial.val]));
+      return wrap;
+    }
     if(cfg.taskMode==='dualtask'){
       const pairing = cfg.dualPairing || 'vis-aud';
       function visualNode(material, val, big){
@@ -6940,8 +6985,8 @@
       patch:()=>({taskMode:'tapat', tapatModalita:'visivo', tapatSpatial:false, tapatStartLevel:1, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     gonogo: { label:'Go/No-Go', suggestTaskMode:'gonogo', suggestLabel:'Go/No-Go', variant:'gonogo',
-      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,2), adaptive:false, targetRate:0.35, isi:900, stimDuration:500, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'gonogo', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), adaptive:false, targetRate:0.35, isi:900, stimDuration:500, trials:SCREENING_TRIALS}),
+      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,2), adaptive:false, targetRate:0.35, isi:1000, stimDuration:500, trials:SCREENING_TRIALS}),
+      nonVerbalPatch:()=>({taskMode:'gonogo', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), adaptive:false, targetRate:0.35, isi:1000, stimDuration:500, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     stopsignal: { label:'Stop-Signal', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal', variant:'stopsignal',
       // 'frecce' era l'unico materiale usato prima di questa estensione —
@@ -6957,18 +7002,25 @@
     simon: { label:'Simon (verifica conflitto)', suggestTaskMode:'simon', suggestLabel:'Simon', variant:'simon',
       patch:()=>({taskMode:'simon', simonMateriale:'colori', simonCongruenza:'bilanciato', adaptStartLevel:1, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
-    // Mantenimento non ha ancora un materiale non verbale (solo lettere/
-    // numeri) — limite dichiarato, non ancora esteso. Resta a singola
-    // somministrazione.
+    // Mantenimento ora ha anche un materiale non verbale (simboli, non
+    // lettere/numeri) — vedi buildMantenimento/POOLS.simboli.
     mantenimento: { label:'Mantenimento (tipo Sternberg)', suggestTaskMode:'mantenimento', suggestLabel:'Mantenimento (tipo Sternberg)', variant:'mantenimento',
       patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:4, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+      nonVerbalPatch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'simboli', mantenimentoListLen:4, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     sequenza: { label:'Sequenza bersaglio', suggestTaskMode:'sequenza', suggestLabel:'Sequenza bersaglio', variant:'sequenza',
       patch:()=>({taskMode:'sequenza', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}),
       nonVerbalPatch:()=>({taskMode:'sequenza', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     categorizzazione: { label:'Categorizzazione condizionale', suggestTaskMode:'categorizzazione', suggestLabel:'Categorizzazione condizionale', variant:'categorizzazione',
-      patch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'lettereVoce', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
+      // Entrambe le forme sono visive: 'lettere' (lettere scritte a schermo,
+      // regola Vocale/Consonante) per la forma verbale, 'simboli' per quella
+      // non verbale — non più 'lettereVoce' (lettere pronunciate dal
+      // sintetizzatore), che introduceva una modalità acustica non prevista
+      // per uno screening dichiarato visivo. La regola di classificazione è
+      // identica (SWITCH_RULESETS.lettereVoce è un alias di .lettere), cambia
+      // solo la presentazione: scritta invece che ascoltata.
+      patch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'lettere', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
       nonVerbalPatch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'simboli', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     nback: { label:'N-back', suggestTaskMode:'nback', suggestLabel:'N-back', variant:'nback',
@@ -7028,13 +7080,13 @@
       patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:3, adaptive:false, targetRate:0.22, isi:1500, stimDuration:550, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     attenzione: { label:'Go/No-Go (verifica a carico più alto)', domainLabel:'Attenzione sostenuta / inibizione', suggestTaskMode:'gonogo', suggestLabel:'Go/No-Go',
-      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,3), adaptive:false, targetRate:0.25, isi:750, stimDuration:450, trials:SCREENING_TRIALS}),
+      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,3), adaptive:false, targetRate:0.25, isi:1000, stimDuration:450, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     esplorazione: { label:'Cancellazione a regola (verifica a carico più alto)', domainLabel:'Esplorazione visuospaziale', suggestTaskMode:'neglect', suggestLabel:'Cancellazione a regola',
       patch:()=>({taskMode:'neglect', neglectMode:'regola', neglectRuleLevel:4, stimType:'lettere', neglectBoardSize:50, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
       scoreOf:r=>primaryAccuracyOf(r) },
     flessibilita: { label:'Task-switching (verifica a carico più alto)', domainLabel:'Flessibilità cognitiva', suggestTaskMode:'switching', suggestLabel:'Task-switching',
-      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:900, stimDuration:500, trials:24}),
+      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1000, stimDuration:500, trials:24}),
       scoreOf:r=>primaryAccuracyOf(r) }
   };
   function probeFailed(probeKey, rec){
@@ -7329,7 +7381,56 @@
     return { prior, deltaDist };
   }
 
+  // Progresso di screening salvato per paziente — sopravvive alla
+  // chiusura/ricarica dell'app (localStorage, non solo la variabile in
+  // memoria screeningState). Non è il risultato clinico finale (quello
+  // resta solo saveSession/persistScreeningFlags): è solo "a che punto
+  // ero arrivato", cancellato appena lo screening finisce o viene
+  // ricominciato da capo su richiesta.
+  function screeningProgressKey(){
+    const id = patientProfile ? patientProfile.id : (activeLocalPatientId || activeRemotePatientId);
+    return id ? 'traccian:screeningprogress:'+id : null;
+  }
+  function saveScreeningProgress(){
+    const key = screeningProgressKey();
+    if(!key || !screeningState) return;
+    try{ localStorage.setItem(key, JSON.stringify({screeningState, screeningMaterialMode, ts:Date.now()})); }catch(e){}
+  }
+  function loadScreeningProgress(){
+    const key = screeningProgressKey();
+    if(!key) return null;
+    try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+  }
+  function clearScreeningProgress(){
+    const key = screeningProgressKey();
+    if(!key) return;
+    try{ localStorage.removeItem(key); }catch(e){}
+  }
+  // Ogni passo dello screening che porta a una nuova sonda passa da qui,
+  // invece che impostare view='screeningIntro' direttamente — così il
+  // progresso è sempre salvato PRIMA di ogni nuova sonda, mai perso a metà.
+  function goToScreeningIntro(){
+    saveScreeningProgress();
+    view='screeningIntro'; render();
+  }
   function startScreeningSession(){
+    const saved = loadScreeningProgress();
+    if(saved && saved.screeningState){
+      const total = saved.screeningState.queue.length;
+      const done = Math.min(saved.screeningState.queueIdx, total);
+      const riprendi = confirm(
+        'C\'è uno screening interrotto per questo paziente, fermo a '+done+' di '+total+' sonde base completate.\n\n'+
+        'OK = riprendi da qui.\nAnnulla = ricomincia da capo (il progresso salvato viene sovrascritto).'
+      );
+      if(riprendi){
+        screeningState = saved.screeningState;
+        screeningMaterialMode = saved.screeningMaterialMode || screeningMaterialMode;
+        if(cfg.respMode==='manuale') cfg.respMode = 'paziente';
+        runScreeningStep();
+        return;
+      }
+      clearScreeningProgress();
+    }
     // Coda piatta: ogni sonda di ogni dominio, sempre — nessun "gate" che
     // decide se approfondire, tutte somministrate a prescindere dal
     // risultato delle altre. Ordine dei domini: Memoria per prima (Mante-
@@ -7399,7 +7500,7 @@
       const {probeKey, form} = screeningState.queue[screeningState.queueIdx];
       const probe = SCREENING_PROBES[probeKey];
       Object.assign(cfg, form==='non_verbale' ? probe.nonVerbalPatch() : probe.patch());
-      view='screeningIntro'; render();
+      goToScreeningIntro();
       return;
     }
     // Tutte le sonde di dominio fatte. "Simon" è l'unica sonda condizionale
@@ -7415,7 +7516,7 @@
     if(screeningState.conditionalQueue.length){
       const probeKey = screeningState.conditionalQueue[0];
       Object.assign(cfg, SCREENING_PROBES[probeKey].patch());
-      view='screeningIntro'; render();
+      goToScreeningIntro();
       return;
     }
     runCeilingStep();
@@ -7442,7 +7543,7 @@
     if(!screeningState.ceilingQueue.length){ runCoordStep(); return; }
     const domainKey = screeningState.ceilingQueue[0];
     Object.assign(cfg, CEILING_PROBES[domainKey].patch());
-    view='screeningIntro'; render();
+    goToScreeningIntro();
   }
   // Coordinamento (Doppio compito → Scenari ecologici): ora sempre in
   // coda a fine screening, non più condizionato a "tutto il resto pulito"
@@ -7456,7 +7557,7 @@
     if(!screeningState.coordQueue.length){ finishScreening(); return; }
     const probeKey = screeningState.coordQueue[0];
     Object.assign(cfg, SCREENING_PROBES[probeKey].patch());
-    view='screeningIntro'; render();
+    goToScreeningIntro();
   }
   async function finishScreening(){
     const fail = computeFailMap();
@@ -7804,7 +7905,7 @@
     card.appendChild(el('p',{},[EXERCISES[cfg.taskMode].instructions(cfg)]));
     card.appendChild(el('button',{class:'primary', style:'margin-top:16px;', onclick:()=>{ view='countdown'; render(); }},['Inizia']));
     card.appendChild(el('button',{class:'ghost', style:'margin-top:8px;', onclick:()=>{
-      if(confirm('Interrompere lo screening? I blocchi già completati non verranno salvati come flag.')){ screeningState=null; view=homeView(); render(); }
+      if(confirm('Interrompere lo screening? Il progresso fin qui resta salvato — la prossima volta potrai scegliere se riprenderlo o ricominciare da capo.')){ screeningState=null; goBack(); }
     }},['Interrompi screening']));
     s.appendChild(card); root.appendChild(s);
   }
@@ -7866,7 +7967,7 @@
       });
       card.appendChild(sugWrap);
     }
-    card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ screeningState=null; view=homeView(); render(); }},['Fatto']));
+    card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ clearScreeningProgress(); screeningState=null; goBack(); }},['Fatto']));
     s.appendChild(card); root.appendChild(s);
   }
   function ScreenMotorIntro(root){
@@ -7882,7 +7983,7 @@
     });
     card.appendChild(row);
     const nav = el('div',{class:'navlinks', style:'margin-top:18px;'});
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ view=homeView(); render(); }},['← Torna indietro']));
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ goBack(); }},['← Torna indietro']));
     card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
   }
@@ -7890,7 +7991,7 @@
     const s = el('div',{class:'stage'});
     root.appendChild(el('div',{class:'topbar'},[
       el('div',{class:'info'},['bersaglio '+(motorCheck.idx+1)+' / '+MOTOR_TRIALS]),
-      el('button',{onclick:()=>{ motorCheck=null; view=homeView(); render(); }},['Interrompi'])
+      el('button',{onclick:()=>{ motorCheck=null; goBack(); }},['Interrompi'])
     ]));
     const container = el('div',{style:'position:relative; flex:1; width:100%; background:var(--paper);'});
     if(motorCheck.targetShownAt===null) motorCheck.targetShownAt = Date.now();
@@ -7938,7 +8039,7 @@
       slot.appendChild(el('p',{class:'hint'},['Rispetto all\'ultimo controllo sullo stesso dispositivo ('+new Date(cmp.prior.ts).toLocaleDateString('it-IT')+'): '+verso+' ('+(pct>0?'+':'')+pct+'%). Soglia del 15% scelta per comodità descrittiva, non un valore validato — resta un confronto fra due sole misurazioni, da leggere con cautela.']));
     });
     const nav = el('div',{class:'navlinks', style:'margin-top:18px;'});
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ motorCheck=null; view=homeView(); render(); }},['← Torna indietro']));
+    nav.appendChild(el('button',{class:'link', onclick:()=>{ motorCheck=null; goBack(); }},['← Torna indietro']));
     card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
   }
@@ -7987,7 +8088,7 @@
     const infoSpan = el('div',{class:'info'},['']);
     root.appendChild(el('div',{class:'topbar'},[
       infoSpan,
-      el('button',{onclick:()=>{ if(confirm('Interrompere il compito in corso?')){ if(session.timer) clearInterval(session.timer); view=homeView(); render(); } }},['Interrompi'])
+      el('button',{onclick:()=>{ if(confirm('Interrompere il compito in corso?')){ if(session.timer) clearInterval(session.timer); screeningState=null; goBack(); } }},['Interrompi'])
     ]));
     const listWrap = el('div',{style:'padding:16px; max-width:640px; margin:0 auto; width:100%;'},[]);
     root.appendChild(listWrap);
@@ -8072,7 +8173,7 @@
     const infoSpan = el('div',{class:'info'},['']);
     root.appendChild(el('div',{class:'topbar'},[
       infoSpan,
-      el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ clearErrorlessTimer(); view=homeView(); render(); } }},['Interrompi'])
+      el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ clearErrorlessTimer(); screeningState=null; goBack(); } }},['Interrompi'])
     ]));
     const content = el('div',{style:'padding:16px; max-width:640px; margin:0 auto; width:100%;'},[]);
     root.appendChild(content);
@@ -8437,7 +8538,7 @@
     }},['Pausa']);
     root.appendChild(el('div',{class:'topbar'},[
       infoSpan,
-      el('div',{class:'topbar-actions'},[pauseBtn, el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); view=homeView(); render(); } }},['Interrompi'])])
+      el('div',{class:'topbar-actions'},[pauseBtn, el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ if(session.timer) clearTimeout(session.timer); screeningState=null; goBack(); } }},['Interrompi'])])
     ]));
     const content = el('div',{style:'padding:16px; max-width:640px; margin:0 auto; width:100%;'},[]);
     root.appendChild(content);
@@ -8527,6 +8628,19 @@
     return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null;
   }
   async function completeAndSave(durationMs){
+    // Rete di sicurezza: se qualunque cosa nel corpo qui sotto lancia
+    // un'eccezione (come è successo per il Running Span — vedi il commento
+    // sul ramo family==='span'), prima restava un'interruzione silenziosa a
+    // metà funzione, schermo bloccato, nessun errore visibile. Ora almeno
+    // si vede, invece di sembrare che l'app abbia smesso di rispondere.
+    try{
+      await completeAndSaveInner(durationMs);
+    }catch(e){
+      console.error('completeAndSave: errore inatteso', e);
+      alert('Errore imprevisto nel chiudere la sessione: '+(e&&e.message?e.message:e)+'\n\nQuesta sessione potrebbe non essere stata salvata — segnalalo, e come misura precauzionale verifica nello storico se compare.');
+    }
+  }
+  async function completeAndSaveInner(durationMs){
     const family = EXERCISES[cfg.taskMode].family;
     const rec = {
       id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
@@ -8695,10 +8809,18 @@
         };
       }
     } else if(family==='span'){
+      // session.trials non esiste per il Running Span (non è mai stato
+      // popolato in startRunningSpanSession) — leggerlo qui lanciava
+      // un'eccezione sincrona su OGNI sessione completata (Cannot read
+      // properties of undefined), mai catturata (completeAndSave è async
+      // senza try/catch): l'intera funzione si interrompeva in silenzio a
+      // metà, prima di salvare e prima di aggiornare la schermata — il
+      // pulsante "Conferma" sembrava non fare nulla. session.results[0].n
+      // è lo stesso dato (n richiesto in quel ciclo), già disponibile.
       const posAccs = session.results.map(r=>r.posAcc);
       const contentAccs = session.results.map(r=>r.contentAcc);
       rec.span = {
-        n: session.trials[0] ? session.trials[0].n : null,
+        n: session.results[0] ? session.results[0].n : null,
         posAccMean: mean(posAccs), contentAccMean: mean(contentAccs),
         seqLenMean: mean(session.results.map(r=>r.seqLen)),
         results: session.results

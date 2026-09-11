@@ -42,8 +42,8 @@ function freshState() { screeningStateStub.probeResults = {}; }
 module.exports = function run(t) {
   t.group('SCREENING_PROBES — quali hanno davvero una forma non verbale, dichiarato esplicitamente', () => {
     const withNonVerbal = Object.keys(SCREENING_PROBES).filter(k => !!SCREENING_PROBES[k].nonVerbalPatch);
-    t.eq(withNonVerbal.sort(), ['ant', 'categorizzazione', 'gonogo', 'nback', 'neglect_classico', 'neglect_intruso', 'runningspan', 'sequenza', 'stopsignal', 'stopsignal_interferenza', 'switching'].sort(),
-      'esattamente queste 11 sonde hanno una forma non verbale; le altre (TAPAT, Simon, Mantenimento, Cancellazione a regola, Doppio compito, mini-scenario) restano a singola somministrazione per un limite dichiarato');
+    t.eq(withNonVerbal.sort(), ['ant', 'categorizzazione', 'gonogo', 'mantenimento', 'nback', 'neglect_classico', 'neglect_intruso', 'runningspan', 'sequenza', 'stopsignal', 'stopsignal_interferenza', 'switching'].sort(),
+      'esattamente queste 12 sonde hanno una forma non verbale; le altre (TAPAT, Simon, Cancellazione a regola, Doppio compito, mini-scenario) restano a singola somministrazione per un limite dichiarato');
   });
 
   t.group('buildScreeningQueueEntry — sonda SENZA forma non verbale: sempre una sola voce, qualunque sia la modalità', () => {

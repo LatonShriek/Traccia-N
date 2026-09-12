@@ -1523,8 +1523,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2519,6 +2519,38 @@
     const ln = Math.log(1-x*x);
     const t1 = 2/(Math.PI*a)+ln/2;
     return Math.sign(x)*Math.sqrt(Math.sqrt(t1*t1-ln/a)-t1);
+  }
+  // Titolazione adattiva sensibile a velocità+accuratezza, non solo
+  // correttezza: una prova conta come "successo pieno" ai fini della
+  // scala di livello solo se è corretta E il tempo di reazione non è
+  // anomalo rispetto al proprio ritmo IN QUESTA STESSA SESSIONE (criterio
+  // auto-riferito — non serve un campione normativo esterno, che non
+  // abbiamo). Una risposta corretta ma molto più lenta della propria
+  // mediana recente non spinge la scala verso l'alto come se fosse una
+  // prestazione piena. Soglia (mediana × 1.6) dichiarata esplicitamente
+  // come ipotesi di partenza, non un valore validato in letteratura per
+  // questo scopo specifico — da rivedere se in pratica risulta troppo o
+  // troppo poco permissiva. Richiede almeno 4 RT corretti già osservati in
+  // questa sessione prima di applicare il filtro (altrimenti non c'è una
+  // mediana personale affidabile da cui partire — le primissime prove
+  // contano quindi solo sulla correttezza, come prima).
+  // Restituisce la lunghezza di adaptBlock SUBITO DOPO il push (prima che
+  // maybeAdapt() lo azzeri in caso di cambio livello) — serve ai chiamanti
+  // che devono sapere se un reset è appena avvenuto (es. il gradiente
+  // spaziale del TAPAT).
+  function pushAdaptOutcome(correct, rtMs){
+    session.adaptRTHistory = session.adaptRTHistory || [];
+    let counted = correct;
+    if(correct && rtMs!=null && session.adaptRTHistory.length>=4){
+      const sorted = session.adaptRTHistory.slice().sort((a,b)=>a-b);
+      const median = sorted[Math.floor(sorted.length/2)];
+      if(rtMs > median*1.6) counted = false;
+    }
+    if(correct && rtMs!=null) session.adaptRTHistory.push(rtMs);
+    session.adaptBlock.push(counted);
+    const before = session.adaptBlock.length;
+    maybeAdapt();
+    return before;
   }
   // EZ-diffusion (Wagenmakers, van der Maas & Grasman, 2007, Psychonomic
   // Bulletin & Review, 14(1), 3-22) — da tre statistiche riassuntive di UNA
@@ -6357,14 +6389,12 @@
     }
     session.fatigueLog.push(correct);
     if(cfg.taskMode==='nback' || cfg.taskMode==='sequenza' || cfg.taskMode==='gonogo'){
-      session.adaptBlock.push(correct);
-      maybeAdapt();
+      pushAdaptOutcome(correct, session.respTime);
     }
     if(cfg.taskMode==='stopsignal' && !trial.isStopTrial){
       // leva secondaria (ISI generale), alimentata solo dalle prove "go" —
       // il successo sui trial di stop resta gestito a parte dallo staircase SSD
-      session.adaptBlock.push(correct);
-      maybeAdapt();
+      pushAdaptOutcome(correct, session.respTime);
     }
     if(cfg.taskMode==='stopsignal' && trial.isStopTrial){
       // staircase: fermarsi con successo → SSD più lungo (più difficile);
@@ -6392,9 +6422,7 @@
       session.spatialBlock.push({side:trial.side, correct});
     }
     if(cfg.taskMode==='ant' || cfg.taskMode==='switching' || cfg.taskMode==='simon' || cfg.taskMode==='mantenimento' || cfg.taskMode==='tapat'){
-      session.adaptBlock.push(correct);
-      const before = session.adaptBlock.length;
-      maybeAdapt();
+      const before = pushAdaptOutcome(correct, session.respTime);
       // il blocco adattivo si è appena valutato e resettato (era arrivato a
       // 8): stesso momento buono per aggiornare il gradiente spaziale.
       if(isTapatSpatial && before>=8 && session.adaptBlock.length===0){
@@ -6430,7 +6458,7 @@
       correct, rt: (correct && !isNogo) ? session.respTime : null,
       omitted: given===null && !isNogo
     });
-    if(cfg.adaptive){ session.adaptBlock.push(correct); maybeAdapt(); }
+    if(cfg.adaptive){ pushAdaptOutcome(correct, (correct && !isNogo) ? session.respTime : null); }
     return correct ? 'hit' : 'err';
   }
   function resolveDualTask(trial){
@@ -8558,7 +8586,7 @@
     const trial = session.currentTrial;
     if(session.showIdx >= trial.items.length){
       session.phase = 'stopcue'; render();
-      session.timer = setTimeout(()=>{ session.phase='recall'; session.rsAnswer=[]; render(); }, 1200);
+      session.timer = setTimeout(()=>{ session.phase='recall'; session.rsAnswer=[]; session.recallStartedAt=performance.now(); render(); }, 1200);
       return;
     }
     render();
@@ -8605,6 +8633,11 @@
   function resolveRunningSpanTrial(){
     const trial = session.currentTrial;
     const score = scoreRunningSpanTrial(trial, session.rsAnswer);
+    // Tempo di reazione: dall'inizio della fase di richiamo (tastierino
+    // mostrato) alla conferma — prima non veniva registrato affatto, quindi
+    // nessun punteggio derivato dalla velocità era calcolabile per questo
+    // esercizio.
+    score.rt = session.recallStartedAt!=null ? Math.round(performance.now()-session.recallStartedAt) : null;
     session.results.push(score);
     // Adattivo: media delle due misure di QUESTO ciclo (non solo posAcc),
     // come richiesto — un ciclo dove la posizione è imperfetta ma il
@@ -8882,6 +8915,16 @@
       rec.counts = session.counts; rec.metrics = scoreFromCounts(session.counts);
       rec.countsAud = session.countsAud; rec.metricsAud = scoreFromCounts(session.countsAud);
       rec.dualPairing = cfg.dualPairing || 'vis-aud';
+      // Media dei due canali in un solo indice — nessun tempo di reazione
+      // per canale è ancora registrato qui (limite da segnalare, non
+      // risolto in questo passaggio: LISAS richiederebbe prima quello),
+      // quindi per ora si media il d′ (già calcolato per ciascun canale),
+      // sullo stesso principio già usato per il Running Span (media di
+      // posAcc+contentAcc).
+      rec.metricsCombined = {
+        dprime: (rec.metrics.dprime!=null && rec.metricsAud.dprime!=null) ? (rec.metrics.dprime+rec.metricsAud.dprime)/2 : null,
+        acc: (rec.metrics.acc+rec.metricsAud.acc)/2
+      };
     } else if(family==='spatial'){
       const r = session.results;
       const sum = k=> r.reduce((a,b)=>a+(b[k]||0),0);
@@ -8914,6 +8957,18 @@
           falseAlarms:fa, meanTimeMs: rtMeanOf(r.map(x=>x.timeMs)),
           asymmetry: (tL && tR) ? Math.round(((fL/tL)-(fR/tR))*100) : null // negativo = più omissioni a sinistra
         };
+        // LISAS medio per sessione, calcolato usando ogni TAVOLA come
+        // "prova" (non ogni singolo bersaglio — qui non si registra un
+        // tempo per bersaglio, solo per tavola): "corretta" = tavola
+        // completata senza nessuna omissione e nessun falso allarme, RT =
+        // il tempo di quella tavola. Resta SEPARATO dall'asimmetria sopra,
+        // che segue il proprio meccanismo già esistente (spostamento del
+        // gradiente verso il lato più debole, invariato da questa aggiunta).
+        {
+          const perfectFlags = r.map(b => (b.foundLeft===b.targetsLeft && b.foundRight===b.targetsRight && !b.falseAlarms));
+          const perfectRTs = r.filter((b,i)=>perfectFlags[i] && b.timeMs!=null).map(b=>b.timeMs);
+          rec.neglect.lisas = computeLISAS(perfectRTs, perfectFlags);
+        }
       }
     } else if(family==='span'){
       // session.trials non esiste per il Running Span (non è mai stato
@@ -8932,6 +8987,18 @@
         seqLenMean: mean(session.results.map(r=>r.seqLen)),
         results: session.results
       };
+      // Punteggi derivati dal tempo di reazione (aggiunto ora — prima non
+      // veniva registrato affatto per questo esercizio). "Corretto" ai fini
+      // del LISAS = richiamo perfetto della posizione (posAcc===1) in quel
+      // ciclo — un richiamo parzialmente giusto non è un "successo pieno"
+      // da includere nella media dei RT corretti.
+      {
+        const rts = session.results.map(r=>r.rt).filter(x=>x!=null);
+        rec.span.meanRT = rts.length ? mean(rts) : null;
+        const perfectFlags = session.results.map(r=>r.posAcc===1);
+        const perfectRTs = session.results.filter(r=>r.posAcc===1 && r.rt!=null).map(r=>r.rt);
+        rec.span.lisas = computeLISAS(perfectRTs, perfectFlags);
+      }
     } else if(family==='goaltask'){
       const score = scoreGoalTask(session);
       rec.goaltask = {

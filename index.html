@@ -1523,8 +1523,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -2519,6 +2519,58 @@
     const ln = Math.log(1-x*x);
     const t1 = 2/(Math.PI*a)+ln/2;
     return Math.sign(x)*Math.sqrt(Math.sqrt(t1*t1-ln/a)-t1);
+  }
+  // EZ-diffusion (Wagenmakers, van der Maas & Grasman, 2007, Psychonomic
+  // Bulletin & Review, 14(1), 3-22) — da tre statistiche riassuntive di UNA
+  // sessione/condizione (accuratezza, media e varianza dei RT delle sole
+  // prove corrette, in SECONDI) stima a formula chiusa i tre parametri del
+  // modello a diffusione: v (tasso di deriva — l'abilità pura, ripulita
+  // dalla cautela), a (separazione della soglia — quanto la persona è
+  // stata cauta), Ter (tempo non-decisionale — percezione+esecuzione
+  // motoria). s=0.1 è il parametro di scala convenzionale del modello (non
+  // altrimenti identificabile, fissato per convenzione nell'articolo
+  // originale). correction: stesso principio del correttivo log-lineare
+  // di Hautus (1995) già usato sopra per d′ — evita i casi degeneri
+  // Pc=0/Pc=1 usando (corrette+0.5)/(totale+1) invece del valore grezzo.
+  // Pc=0.5 esatto resta comunque un caso limite non risolto da quella sola
+  // correzione (possibile con pochi trial e un numero pari di risposte) —
+  // va scostato di un epsilon fisso per evitare una divisione per zero
+  // nel calcolo di 'a', altrimenti resta indefinito, non un errore vero.
+  function computeEZDiffusion(nCorrect, nTotal, meanRTsec, varRTsec){
+    if(nTotal<1 || meanRTsec==null || varRTsec==null || varRTsec<=0) return null;
+    let Pc = (nCorrect+0.5)/(nTotal+1);
+    if(Math.abs(Pc-0.5)<1e-6) Pc += 1e-4;
+    const s = 0.1, s2 = s*s;
+    const L = Math.log(Pc/(1-Pc));
+    const x = L*(L*Pc*Pc - L*Pc + Pc - 0.5)/varRTsec;
+    if(x<=0) return null; // discriminabilità nulla o negativa — non stimabile in modo sensato
+    const v = Math.sign(Pc-0.5) * s * Math.pow(x, 0.25);
+    if(v===0) return null;
+    const a = s2*L/v;
+    const y = -v*a/s2;
+    const MDT = (a/(2*v)) * (1-Math.exp(y))/(1+Math.exp(y));
+    const Ter = meanRTsec - MDT;
+    return {v, a, Ter};
+  }
+  // LISAS (Linear Integrated Speed-Accuracy Score — Vandierendonck, 2017,
+  // Behavior Research Methods, 49(2), 653-673; 2018, Journal of Cognition,
+  // 1(1), 6) — porta tasso d'errore e RT sulla stessa scala (dividendo per
+  // le rispettive deviazioni standard CALCOLATE DENTRO QUESTA STESSA
+  // sessione, non su un campione normativo esterno) e li somma. Risultato
+  // in millisecondi: più alto = prestazione peggiore (più lento e/o meno
+  // preciso), utilizzabile anche con una sola sessione di una sola persona.
+  // rtsCorrectMs: RT (ms) delle sole prove corrette. correctFlags: booleano
+  // corretto/scorretto di OGNI prova (comprese quelle senza RT, es. omesse).
+  function computeLISAS(rtsCorrectMs, correctFlags){
+    if(!correctFlags.length) return null;
+    const errRate = correctFlags.filter(c=>!c).length/correctFlags.length;
+    if(errRate===0) return rtsCorrectMs.length ? mean(rtsCorrectMs) : null; // nessun errore da penalizzare
+    if(!rtsCorrectMs.length) return null; // tutte le prove sbagliate: nessun RT corretto da cui partire
+    const errIndicator = correctFlags.map(c=>c?0:1);
+    const sdErr = sd(errIndicator);
+    const sdRT = sd(rtsCorrectMs);
+    if(!sdErr || sdErr===0 || sdRT==null) return mean(rtsCorrectMs); // nessuna variabilità nell'errore da cui scalare — resta il solo RT medio
+    return mean(rtsCorrectMs) + (sdRT/sdErr)*errRate;
   }
 
   /* ---------- storage ---------- */
@@ -8716,6 +8768,12 @@
     if(family==='signal'){
       const avgRT = rtMeanOf(session.rts);
       rec.counts = session.counts; rec.metrics = scoreFromCounts(session.counts); rec.avgRT = avgRT;
+      // LISAS solo per N-back/Sequenza/Go-No-Go: Stop-Signal ha già un
+      // indice proprio più adatto (SSRT, sotto) — aggiungere anche LISAS
+      // lì sarebbe ridondante, non un'informazione in più.
+      if(cfg.taskMode==='nback' || cfg.taskMode==='sequenza' || cfg.taskMode==='gonogo'){
+        rec.metrics.lisas = computeLISAS(session.rts, session.fatigueLog);
+      }
       rec.fatigueNote = computeFatigueNote(session.fatigueLog);
       if(cfg.taskMode==='stopsignal' && session.ssdHistory.length){
         const meanSSD = rtMeanOf(session.ssdHistory);
@@ -8748,6 +8806,20 @@
       const log = session.choiceLog;
       const total = log.length, correct = log.filter(x=>x.correct).length, omitted = log.filter(x=>x.omitted).length;
       rec.choice = { total, correct, omitted, accuracy: total? correct/total : null, meanRT: rtMeanOf(log.map(x=>x.rt)) };
+      // EZ-diffusion sull'intera sonda (Wagenmakers, van der Maas & Grasman,
+      // 2007) — copre ANT, TAPAT, Task-switching, Simon, Mantenimento,
+      // Categorizzazione condizionale in un colpo solo, dato che condividono
+      // questo stesso ramo. v (tasso di deriva) è pensato come l'indice
+      // principale — la soglia (a) e il tempo non-decisionale (Ter) restano
+      // salvati ma secondari. Richiede almeno 2 RT corretti per stimare la
+      // varianza — con troppo poche prove valide torna null, non un errore.
+      {
+        const correctRTsMs = log.filter(x=>x.correct && x.rt!=null).map(x=>x.rt);
+        const meanRTsec = correctRTsMs.length ? mean(correctRTsMs)/1000 : null;
+        const varRTsec = correctRTsMs.length>1 ? Math.pow(sd(correctRTsMs)/1000, 2) : null;
+        rec.choice.ezdiff = computeEZDiffusion(correct, total, meanRTsec, varRTsec);
+        rec.choice.lisas = computeLISAS(correctRTsMs, log.map(x=>x.correct));
+      }
       rec.fatigueNote = computeFatigueNote(log.map(x=> x.correct && !x.omitted));
       if(cfg.taskMode==='ant'){
         const rtBy = (key,val)=> rtMeanOf(log.filter(x=>x[key]===val && x.correct).map(x=>x.rt));

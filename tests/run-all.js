@@ -17,7 +17,14 @@ const FILES = [
   'tapat-titration.test.js',
   'demo.test.js',
   'motor-check.test.js',
-  'simon.test.js'
+  'simon.test.js',
+  'runningspan.test.js',
+  'screening-level1.test.js',
+  'screening-verbale.test.js',
+  'bivalente-audio.test.js',
+  'exercise-summary.test.js',
+  'structural-bands.test.js',
+  'ez-diffusion-lisas.test.js'
 ];
 
 // Suite end-to-end (browser vero via Playwright — più lenta, richiede

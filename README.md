@@ -1434,6 +1434,14 @@ create policy "un operatore vede la propria riga; il super-operatore le vede tut
 drop policy if exists "il super-operatore aggiorna nome/attivo di qualunque operatore" on operatori;
 create policy "il super-operatore aggiorna nome/attivo di qualunque operatore" on operatori for update
   using (is_super_operatore()) with check (is_super_operatore());
+drop policy if exists "un operatore crea la propria riga alla registrazione" on operatori;
+create policy "un operatore crea la propria riga alla registrazione" on operatori for insert
+  with check (auth.uid() = id);
+-- Senza questa policy, la registrazione di un nuovo operatore (cloudSignUp)
+-- crea comunque l'account di autenticazione ma non riesce a scrivere la
+-- riga in 'operatori' — l'operatore resta "senza ruolo" (visibile con una
+-- query diretta come account senza corrispondenza né in operatori né in
+-- pazienti) finché qualcuno non gliela inserisce a mano.
 
 -- Registro accessi: eventi discreti di login (riuscito/fallito) e logout,
 -- per operatori e pazienti. L'insert è volutamente aperto a chiunque
@@ -1740,7 +1748,25 @@ Il project-ref è visibile nell'URL del tuo progetto Supabase. In
 alternativa, dalla dashboard Supabase → Edge Functions → Create
 function → incolla il contenuto del file.
 
-### Registro azioni (audit log)
+### Creazione operatori (`create-operator`)
+
+Stesso motivo di `create-patient`: creare un account Supabase da codice
+client-side richiederebbe la chiave segreta nel browser, oppure
+`supabase.auth.signUp()` dal client — che però disconnetterebbe
+l'operatore che sta creando l'account, sostituendo la sua sessione con
+quella del nuovo utente. La funzione gira lato server, verifica che chi
+chiama sia un super-operatore, crea l'account con una password
+provvisoria generata al momento (mostrata una sola volta, da comunicare
+fuori dall'app) e la riga in `operatori` nello stesso passaggio — non
+resta mai un account "senza ruolo" come poteva succedere prima con la
+registrazione diretta dall'app.
+
+**Pubblicazione**:
+```bash
+supabase functions deploy create-operator --project-ref IL-TUO-PROJECT-REF
+```
+
+
 
 Ogni archiviazione, riattivazione ed eliminazione (di pazienti e
 operatori) scrive una riga in `audit_log` — chi, quando, che azione, su

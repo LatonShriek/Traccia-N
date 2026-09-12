@@ -1192,6 +1192,24 @@
       return {success:true, label:body.label};
     }catch(e){ return {error:'Richiesta non riuscita: '+String(e)}; }
   }
+  // Crea un nuovo account operatore — solo un super-operatore può
+  // chiamarla (verificato lato server nella Edge Function, non solo qui).
+  async function createOperatorAccount(email, nome){
+    if(!sb || !cloudCfg.url) return {error:'Supabase non configurato.'};
+    try{
+      const { data: sessionData } = await sb.auth.getSession();
+      const token = sessionData && sessionData.session ? sessionData.session.access_token : null;
+      if(!token) return {error:'Sessione non valida — prova a disconnetterti e riaccedere.'};
+      const resp = await fetch(cloudCfg.url + '/functions/v1/create-operator', {
+        method:'POST',
+        headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
+        body: JSON.stringify({email, nome})
+      });
+      const body = await resp.json().catch(()=>({}));
+      if(!resp.ok) return {error: body.error || ('Errore del server ('+resp.status+')')};
+      return {success:true, email:body.email, password:body.password};
+    }catch(e){ return {error:'Richiesta non riuscita: '+String(e)}; }
+  }
   // Ricollega le sessioni già registrate per un profilo locale a un nuovo
   // account remoto — sia quelle salvate solo in locale, sia quelle già
   // sincronizzate in cloud sotto l'account dell'operatore.
@@ -1505,8 +1523,8 @@
   // segretezza) — vedi README "Sincronizzazione cloud". Lascia vuoti per il
   // comportamento precedente (configurazione manuale in-app, per test o uso
   // come modello di partenza).
-  const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
-  const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
+  const BAKED_SUPABASE_URL = '';
+  const BAKED_SUPABASE_KEY = '';
   let cloudCfg = {
     url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
     key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
@@ -3709,7 +3727,14 @@
     try{
       let q = sb.from('accessi').delete();
       if(typeof groupKey==='string' && groupKey.indexOf('anon:')===0){
-        q = q.eq('email_tentata', groupKey.slice(5)).is('user_id', null);
+        const tentata = groupKey.slice(5);
+        // 'sconosciuto' qui è solo un'etichetta scelta lato JS per un
+        // tentativo senza email_tentata reale (colonna NULL in tabella) —
+        // cercare .eq('email_tentata','sconosciuto') non trovava mai nulla
+        // (nessuna riga ha letteralmente quella stringa), quindi il
+        // pulsante "riusciva" (zero righe cancellate non è un errore) ma
+        // non cancellava niente. Va cercato NULL, non la stringa.
+        q = tentata==='sconosciuto' ? q.is('email_tentata', null).is('user_id', null) : q.eq('email_tentata', tentata).is('user_id', null);
       } else {
         q = q.eq('user_id', groupKey);
       }
@@ -3878,7 +3903,17 @@
     cloudBusy=false;
     if(error){ alert('Errore registrazione: '+error.message); logAccessEvent('login','fallito','operatore',null,email); render(); return; }
     if(data.user && !data.session){ alert('Controlla la casella email per confermare l\'account, poi accedi.'); cloudUser=null; }
-    else { cloudUser = data.user; await checkRole(); await claimSession(); historyCache=null; logAccessEvent('login','successo','operatore',cloudUser.id,email); view = patientProfile ? 'patientHome' : 'operatorHome'; }
+    else {
+      cloudUser = data.user;
+      // Prima mancava: la registrazione creava l'account di autenticazione
+      // ma nessuna riga in 'operatori' — l'operatore restava "senza ruolo"
+      // (visibile in una query diretta come 'sconosciuto') finché qualcuno
+      // non gliela inseriva a mano. Ora la riga si crea da sola, qui,
+      // subito dopo un signUp riuscito. on conflict: non fallisce se per
+      // qualunque motivo la riga esistesse già.
+      try{ await sb.from('operatori').insert({id: cloudUser.id, attivo:true}); }catch(e){ console.error('creazione riga operatori fallita', e); }
+      await checkRole(); await claimSession(); historyCache=null; logAccessEvent('login','successo','operatore',cloudUser.id,email); view = patientProfile ? 'patientHome' : 'operatorHome';
+    }
     render();
   }
   async function cloudSignIn(email, pw){
@@ -10634,6 +10669,15 @@
       mgmtCard.appendChild(el('p',{class:'hint'},[
         'Archiviare un operatore blocca il suo accesso (login rifiutato, anche con una scheda già aperta) senza toccare nulla di quello che ha già fatto — programmi assegnati, storico sessioni dei suoi pazienti restano intatti. Il nome è solo un\'etichetta leggibile al posto dell\'identificativo tecnico, non cambia nulla dei permessi.'
       ]));
+      mgmtCard.appendChild(el('button',{class:'primary', style:'margin:6px 0 4px;', onclick: async ()=>{
+        const email = prompt('Email della persona da abilitare come operatore:');
+        if(!email) return;
+        const nome = prompt('Nome da mostrare per questo operatore (facoltativo):') || '';
+        const res = await createOperatorAccount(email.trim(), nome.trim());
+        if(res.error){ alert('Creazione non riuscita: '+res.error); return; }
+        alert('Account creato.\n\nEmail: '+res.email+'\nPassword provvisoria: '+res.password+'\n\nComunica queste credenziali alla persona fuori dall\'app (di persona o per telefono, mai via canali non sicuri) — non verranno mostrate di nuovo.');
+        render();
+      }},['➕ Crea nuovo operatore']));
       const mgmtBody = el('div',{style:'min-height:40px;'},[el('p',{class:'hint'},['Caricamento…'])]);
       mgmtCard.appendChild(mgmtBody);
       s.appendChild(mgmtCard);

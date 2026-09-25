@@ -1,7 +1,7 @@
 name: Keep Supabase Active
 on:
   schedule:
-    - cron: '0 6 * * 1,4'
+    - cron: '0 6 * * *'
   workflow_dispatch:
 jobs:
   ping:
@@ -11,4 +11,10 @@ jobs:
         env:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          curl -s -H "apikey: $SUPABASE_ANON_KEY" "https://qfzpjebloxstjotdytbe.supabase.co/rest/v1/pazienti?select=id&limit=1"
+          curl -s -X POST \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates" \
+            -d '{"id": 1, "pinged_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}' \
+            "https://qfzpjebloxstjotdytbe.supabase.co/rest/v1/keepalive"

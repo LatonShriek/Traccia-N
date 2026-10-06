@@ -1,0 +1,2171 @@
+# TracciaN — batteria di attenzione e controllo esecutivo per tablet
+
+Applicazione web standalone per la somministrazione di una batteria di 14
+esercizi di attenzione, memoria di lavoro, controllo esecutivo e memoria
+strategica: N-back, Sequenza bersaglio, Mantenimento (tipo Sternberg),
+Go/No-Go, Stop-Signal, Attenzione (tipo ANT), TAPAT, Simon, Task-
+switching, Categorizzazione condizionale, Doppio compito, Cancellazione
+(neglect), Scenari ecologici (pianificazione/multitasking) e Strategie di
+memoria (PQRST/chunking multi-metodo/metodo dei loci/errorless
+learning/vanishing cues). Raccolta risposte touch o manuale, punteggio
+automatico, istruzioni leggibili e ascoltabili prima di ogni esercizio,
+storico sessioni sincronizzabile, ed è utilizzabile da più operatori
+insieme e da pazienti in autonomia da propri dispositivi.
+
+**Nessun server obbligatorio, nessun account richiesto per l'uso base.**
+I dati restano salvati in locale nel browser del dispositivo
+(`localStorage`); la sincronizzazione cloud (Supabase) — che abilita
+multi-operatore e accesso paziente — è opzionale.
+
+**Indice:** [Framework teorico](#framework-teorico-della-batteria) ·
+[Difficoltà adattiva](#difficoltà-adattiva) ·
+[Simon task](#simon-task) ·
+[Categorizzazione condizionale](#categorizzazione-condizionale) ·
+[Batteria di screening iniziale](#batteria-di-screening-iniziale) ·
+[Controllo motorio di base](#controllo-motorio-di-base) ·
+[Pubblicazione su GitHub Pages](#pubblicazione-su-github-pages-una-volta-sola) ·
+[Uso sul dispositivo](#uso-sul-dispositivo) ·
+[Dati e privacy](#dati-e-privacy) ·
+[Sincronizzazione cloud e multi-utente](#sincronizzazione-cloud-e-account-multi-utente-facoltativa--supabase) ·
+[Gestione pazienti: programma, modalità di accesso, obiettivi, limiti, RCI, archiviazione](#gestione-pazienti-programma-modalità-di-accesso-obiettivi-limiti-rci-archiviazione) ·
+[Scenari ecologici](#scenari-ecologici-pianificazione--multitasking) ·
+[Strategie di memoria](#strategie-di-memoria) ·
+[Test di regressione](#test-di-regressione)
+
+## Framework teorico della batteria
+
+Ogni esercizio è stato scelto per campionare un costrutto/rete diversa,
+secondo una logica di copertura piuttosto che di ripetizione — l'obiettivo
+è un profilo multidimensionale del controllo attentivo-esecutivo, non
+dieci varianti dello stesso compito.
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
+
+**Attenzione e inibizione**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
+| Go/No-Go | Inibizione di un'azione non ancora iniziata (action restraint) | Giro frontale inferiore sinistro + parietale | Eagle, Bari & Robbins (2008), *Psychopharmacology*, 199(3), 439-456 |
+| Stop-Signal | Cancellazione di un'azione già in corso (action cancellation), con stima di SSRT | Via fronto-striatale destra (RIFG–preSMA–STN) | Eagle, Bari & Robbins (2008), come sopra; Aron, Fletcher, Bullmore, Sahakian & Robbins (2003), *Nature Neuroscience*, 6(2), 115-116; Verbruggen, Aron, Band, Logan et al. (2019), *eLife*, 8, e46323 (go-task a scelta discreta) |
+| Attenzione (tipo ANT) | Orienting spaziale, conflitto percettivo (flanker) | Reti dorsale/ventrale; ACC-DLPFC | Fan, McCandliss, Sommer, Raz & Posner (2002), *Journal of Cognitive Neuroscience*, 14(3), 340-347 |
+| TAPAT | Allerta (tonica/fasica) | Locus coeruleus-NA | DeGutis & Van Vleet (2010), *Frontiers in Human Neuroscience*, 4:60 |
+| Simon | Risoluzione di conflitto spazio-risposta (posizione dello stimolo irrilevante al compito) | Monitoraggio del conflitto (ACC/pre-SMA), controllo inibitorio | Simon & Rudell (1967), *Journal of Applied Psychology*, 51(3), 300-304 |
+
+**Memoria di lavoro e mantenimento**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
+| N-back | Aggiornamento della memoria di lavoro (updating) | Fronto-parietale, DLPFC | Owen, McMillan, Laird & Bullmore (2005), *Human Brain Mapping*, 25(1), 46-59 |
+| Sequenza bersaglio | Context processing, controllo proattivo/reattivo (ispirato all'AX-CPT) | DLPFC (proattivo) + ACC (reattivo) | Cohen, Barch, Carter & Servan-Schreiber (1999), *Journal of Abnormal Psychology*, 108(1), 120-133 |
+| Mantenimento (tipo Sternberg) | Mantenimento passivo in memoria a breve termine (non aggiornamento continuo) | Circuito fronto-parietale di mantenimento, solo in parte sovrapposto a quello dell'updating | Sternberg (1966), *Science*, 153(3736), 652-654 |
+| Categorizzazione condizionale | Capacità di integrazione relazionale: quante relazioni si processano in parallelo per applicare correttamente UNA regola fissa (non aggiornamento né mantenimento passivo) | Corteccia prefrontale dorsolaterale, striato (apprendimento di regole condizionali) | Halford, Wilson & Phillips (1998), *Behavioral and Brain Sciences*, 21(6), 803-831 — la teoria della complessità relazionale inquadra esplicitamente questo come un limite di capacità della memoria di lavoro, non come un dominio di ragionamento a sé |
+
+**Flessibilità cognitiva**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
+| Task-switching | Flessibilità cognitiva (shifting), switch cost | Rete fronto-parietale dominio-generale, solco frontale inferiore | Monsell (2003), *Trends in Cognitive Sciences*, 7(3), 134-140 |
+
+Categorizzazione condizionale è qui insieme a N-back/Mantenimento, non
+sotto Flessibilità cognitiva: non cambia mai regola entro la stessa
+seduta (nessuno shifting, nessun costo di switch) — quello che cresce con
+il livello è quante condizioni bisogna integrare per applicare la stessa
+regola fissa, che Halford e colleghi trattano esplicitamente come un
+limite di capacità della memoria di lavoro. Resta comunque una misura
+diversa sia da N-back (che aggiorna continuamente, non applica una
+regola fissa) sia da Mantenimento (che non integra relazioni, mantiene
+soltanto) — vicinanza di gruppo, non equivalenza di costrutto, stesso
+principio di lettura richiamato più sopra per "Attenzione e inibizione".
+
+**Esplorazione visuospaziale**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
+| Cancellazione (neglect) | Ricerca visiva ed esplorazione spaziale simmetrica/asimmetrica | Rete attentiva parietale destra; asimmetria sinistra/destra come indice di neglect | Mesulam (1981), *Annals of Neurology*, 10(4), 309-325 |
+
+**Attenzione divisa e multitasking**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
+| Doppio compito | Attenzione divisa, coordinamento di due compiti concorrenti | Corteccia frontopolare (BA10), colli di bottiglia prefrontali laterali | Pashler (1994), *Psychological Bulletin*, 116(2), 220-244 |
+| Scenari ecologici | Pianificazione, multitasking, autogestione sotto vincoli (Six Elements/Multiple Errands) | Corteccia prefrontale dorsolaterale e frontopolare (BA10), monitoraggio prospettico | Shallice & Burgess (1991), *Brain*, 114(2), 727-741 |
+
+**Memoria strategica**
+
+| Esercizio | Costrutto | Rete/meccanismo principale | Riferimento principale |
+|---|---|---|---|
+| Strategie di memoria | Memoria a lungo termine, apprendimento strategico | Ippocampo/lobo temporale mediale (codifica); prefrontale per il controllo strategico | Glisky, Schacter & Tulving (1986), *Journal of Clinical and Experimental Neuropsychology*, 8(3), 292-312 (vanishing cues); Baddeley & Wilson (1994), *Neuropsychologia*, 32(1), 53-68 (errorless learning); Ciaramelli, Neri, Marini & Braghittoni (2015), *Frontiers in Behavioral Neuroscience*, 9, 211 (PQRST, popolazione a lesione prefrontale — la fonte più direttamente pertinente qui, non solo l'origine generica del metodo); Huntley, Hampshire, Bor, Owen & Howard (2017), *British Journal of Psychiatry*, 210(1), 61-66 (chunking, trial randomizzato in Alzheimer lieve); Gross, Brandt, Bandeen-Roche, Carlson, Stuart, Marsiske & Rebok (2014), *Experimental Aging Research*, 40(2), 140-163 (metodo dei loci, anziani) |
+
+I sei raggruppamenti sopra sono gli stessi usati nel selettore dell'app
+(`EXERCISE_GROUPS` in index.html) — un solo criterio di vicinanza
+concettuale, non due tassonomie parallele da mantenere sincronizzate.
+Il raggruppamento riflette prossimità di costrutto/dominio, non
+equivalenza, ed è bene non aspettarsi covarianza fra le prestazioni sugli
+esercizi di uno stesso gruppo: dentro "Attenzione e inibizione", ANT
+classico (conflitto percettivo, flanker) e Simon (conflitto
+spazio-risposta) sono entrambi paradigmi da conflitto ma isolano
+meccanismi che, individualmente, correlano debolmente o per nulla fra
+loro (Hedge, Powell, Bompas & Sumner, 2022, *Journal of Experimental
+Psychology: Learning, Memory, and Cognition*, 48(10); lo stesso vale più
+in generale per i compiti di conflitto come misure di differenze
+individuali: Hedge, Powell & Sumner, 2018, *Behavior Research Methods*,
+50(3), 1166-1186, sul "paradosso dell'affidabilità"); Stop-Signal
+(cancellazione di un'azione già in corso) resta il caso più resistente a
+una piena riconduzione allo stesso fattore comune di controllo inibitorio
+(Miyake & Friedman, 2012; Munakata, Herd, Chatham, Depue, Banich &
+O'Reilly, 2011). Stesso principio dentro "Memoria di lavoro e
+mantenimento": N-back (aggiornamento) e Mantenimento (mantenimento
+passivo) sono stati tenuti distinti fin dal disegno originale, e una
+meta-analisi conferma che n-back e compiti di span/mantenimento
+correlano solo debolmente (r ≈ 0.20 — Redick & Lindsey, 2013,
+*Psychonomic Bulletin & Review*, 20(6), 1102-1113).
+
+Ogni citazione qui sopra è stata verificata singolarmente (autori, anno,
+rivista, volume, pagine) prima di essere inserita — nessuna a memoria,
+nessuna approssimata. Per Doppio compito e Cancellazione, i riferimenti
+coprono il fenomeno generale (interferenza a doppio compito; rete
+attentiva parietale del neglect), non uno studio che validi questa
+specifica implementazione — coerente con quanto già dichiarato sopra sui
+limiti dell'app rispetto a strumenti normati. Per Chunking, Metodo dei
+loci e PQRST le citazioni sono state scelte deliberatamente in contesto
+clinico/di popolazione anziana quando disponibili (Ciaramelli et al. su
+pazienti con lesione prefrontale è la più vicina alla vostra popolazione
+target, non un semplice studio su studenti) — non l'origine storica
+generica della tecnica (es. Robinson, 1970, per PQRST/SQ3R), che esiste
+ma è meno informativa sull'efficacia clinica specifica.
+
+**Nota su inibizione e attenzione selettiva: perché non sono una riga a
+sé in questa tabella.** Deliberato, non una dimenticanza: la
+psicometria non trova un fattore di "inibizione" residuo distinto da un
+fattore esecutivo comune, una volta scorporata la varianza condivisa
+(Friedman & Miyake, 2017, *Cortex*, 86, 186-204), e a livello di
+meccanismo l'inibizione competitiva (un distrattore che compete con il
+bersaglio, come nel conflitto dell'ANT o nella ricerca visiva della
+Cancellazione) è la stessa cosa della selezione attentiva vista da
+un'altra angolazione (biased competition — Desimone & Duncan, 1995,
+*Annual Review of Neuroscience*, 18, 193-222; per l'integrazione dei due
+casi — competitivo-indiretto e globale-diretto — sotto un unico
+principio di mantenimento dell'obiettivo attivo, Munakata, Herd,
+Chatham, Depue, Banich & O'Reilly, 2011, *Trends in Cognitive Sciences*,
+15(10), 453-459). Per questo la tabella sopra non raggruppa Go/No-Go,
+Stop-Signal, ANT e Cancellazione sotto un'unica etichetta "inibizione"
+o "attenzione selettiva": ciascuno ha il proprio costrutto specifico
+(restraint, cancellation, conflitto percettivo, ricerca visiva) perché
+sono quello — manifestazioni diverse dello stesso meccanismo di fondo,
+non quattro misure imperfette della stessa cosa. Fa eccezione,
+consapevolmente, l'etichetta di dominio dello screening
+(`'Attenzione sostenuta / inibizione'`, in `SCREENING_DOMAINS.attenzione`) — lì è
+una semplificazione pratica per l'operatore che deve leggere un
+risultato in un colpo d'occhio, non un'affermazione teorica: il commento
+nel codice, subito sopra la costante, lo dichiara esplicitamente per chi
+legge il sorgente.
+
+**Limiti dichiarati, non nascosti:** l'AX-CPT qui implementato (la
+"sequenza bersaglio") è semplificato — non distingue i quattro tipi di
+trial (AX/AY/BX/BY) dell'AX-CPT classico, quindi non fornisce l'indice
+di bilanciamento proattivo/reattivo (PBI) della versione di ricerca.
+L'ANT qui implementato usa 3 fattori (allerta/orienting/conflitto) ma
+non è validato contro le norme originali di Fan et al. — con meno di
+60-90 prove gli indici per condizione sono statisticamente poco
+affidabili (l'app avvisa in tal caso). Lo Stop-Signal stima lo SSRT con
+il metodo semplificato "della media" (RT medio go − SSD medio), non con
+il metodo dell'integrazione usato in letteratura. La Cancellazione è
+ispirata ai test di cancellazione clinici ma non è uno strumento
+normato. Gli Scenari ecologici e le Strategie di memoria sono moduli di
+allenamento/pratica, non prove standardizzate. Questi esercizi sono
+pensati per **trattamento e monitoraggio intra-soggetto nel tempo**, non
+per confronto normativo — a differenza dei protocolli di NeuroScore, non
+hanno tabelle di riferimento.
+
+**Stop-Signal — go-task a scelta discreta, non rilevamento semplice.**
+Fino a questa consegna lo Stop-Signal era un compito di rilevamento (tocca
+appena appare qualunque stimolo, salvo stop): la guida di consenso del
+campo (Verbruggen, Aron, Band, Logan et al., 2019, *eLife*, 8, e46323)
+segnala che un go-task così semplice rischia di violare l'assunzione del
+race model alla base dello SSRT. Ora è una discriminazione 2AFC vera: la
+risposta corretta dipende dall'identità dello stimolo, non dalla sola
+comparsa. Materiali disponibili e regola fissa per ciascuno (nessuna
+alternanza fra due regole come nel Task-switching — una sola regola,
+costante per tutta la sessione): Frecce (Sinistra/Destra), Lettere
+(Vocale/Consonante, stessa regola del Task-switching/Categorizzazione),
+Numeri (Pari/Dispari, idem), Forma (Cerchio/Triangolo, coppia dedicata,
+non la stessa dicotomia "rotondo/con angoli" del Task-switching), Suoni
+(Grave/Acuto — soglia sulla frequenza mediana del pool di toni esistente:
+**ipotesi di costruzione, non un dato di letteratura**, da confermare).
+Rimossi come materiale i simboli generici, le parole e i colori (non
+citati in nessuna delle regole sopra). **Conseguenza dichiarata:**
+hit/falsi allarmi/d′/SSRT restano calcolati solo su presenza/assenza di
+risposta (invariati, confrontabili con lo storico pre-redesign); la
+correttezza della scelta è tracciata a parte come nuova metrica
+"accuratezza discriminazione (go)", che non sostituisce le prime.
+
+**Interferenza spaziale (opzionale, in Setup: "Interferenza spaziale").**
+Quarto gradino di una scala gerarchica proposta per Vigilanza/Inibizione
+(TAPAT tonico → Go/No-Go → Stop-Signal → Stop-Signal+conflitto),
+raggiungibile solo dopo che il paziente supera lo Stop-Signal puro. Il
+meccanismo core (2 scelte, stop occasionale, staircase SSD) resta
+identico e invariato; quando l'opzione è attiva, lo stimolo compare a
+sinistra o a destra dello schermo invece che al centro — posizione
+irrilevante alla discriminazione (che resta identità-based), a volte
+coerente col lato del pulsante corretto (congruente), a volte no
+(incongruente), 50/50 indipendentemente dalla frequenza di stop: stesso
+principio del Simon task (Simon & Rudell, 1967), sovrapposto qui invece
+di sostituito. Non rende il Simon ridondante: quello misura il conflitto
+spazio-risposta da solo, questo lo misura **sotto il carico aggiuntivo**
+di dover eventualmente trattenere una risposta — un profilo di
+interazione fra conflitto e inibizione che il Simon isolato non può
+mostrare. Metriche aggiuntive, calcolate solo sui trial "go" con
+risposta (mai su quelli di stop): un indice di conflitto (RT
+incongruente meno RT congruente, stessa interpretazione dell'indice già
+usato per ANT/Task-switching bivalente/Simon) e l'accuratezza di
+discriminazione separata per condizione congruente/incongruente —
+esportate nel CSV in tre colonne dedicate
+(`stopsignal_interferenza_conflitto_ms`,
+`stopsignal_interferenza_acc_congruente`,
+`stopsignal_interferenza_acc_incongruente`), popolate solo quando
+l'opzione è attiva.
+
+**ANT/TAPAT — il cue precede sempre il target, non compare più insieme.**
+Bug corretto: cue (l'asterisco/freccia di allerta o orienting nell'ANT
+classico, il tono di allerta nel TAPAT) e bersaglio venivano mostrati/
+suonati nello stesso istante — questo azzerava di fatto la funzione del
+cue, che nel paradigma di Posner & Petersen (1990) e nell'ANT di Fan et
+al. (2002) deve precedere il bersaglio per dare un vantaggio di
+preparazione misurabile (effetto di allerta/orienting). Ora c'è sempre
+una fase di solo cue prima del bersaglio, con un SOA fisso di 400ms
+(cue visibile/udibile 100ms, poi 300ms di intervallo) — in linea con i
+valori più diffusi nelle repliche dell'ANT. Per il TAPAT (DeGutis & Van
+Vleet, 2010) non ho trovato un SOA specificato nella fonte originale:
+uso lo stesso valore dell'ANT come scelta dichiarata, non un dato
+verificato per il TAPAT stesso.
+
+**Task-switching — switch cost relativo, accanto a quello assoluto.**
+Lo switch cost (RT medio prove di cambio regola meno RT medio prove di
+ripetizione) resta calcolato come prima, invariato. Si affianca ora un
+secondo valore, `switchCostRelative`, calcolato come switch cost assoluto
+diviso per il RT medio delle prove di ripetizione dello stesso paziente
+nella stessa sessione — non lo sostituisce, compare in aggiunta nel
+riepilogo e in coda al CSV di esportazione (colonna
+`switch_cost_relativo`, ultima colonna, per non alterare la posizione
+delle colonne esistenti). Motivo: un paziente semplicemente lento in
+generale (es. per bradicinesia) rischia di mostrare uno switch cost
+assoluto gonfiato anche senza un vero deficit specifico di shifting; il
+vigore di risposta generale e il costo di ricostruire la regola sono
+concettualmente distinti (Cools, Rogers & Robbins — invigorimento
+motorio dopamina-dipendente, distinto dallo shifting propriamente
+detto). Il valore relativo non corregge nulla nel punteggio principale,
+è un secondo dato di lettura per chi interpreta i risultati, da usare
+per relativizzare uno switch cost assoluto alto in un paziente già lento
+di base.
+
+**Task-switching — accuratezza separata ripetizione/switch, non solo il
+tempo.** Oltre allo switch cost su RT, ogni sessione calcola anche
+`repAcc` (accuratezza sulle prove di ripetizione dentro il blocco misto)
+e `switchAcc` (accuratezza sulle prove di switch), mostrate nel riepilogo
+di fine sessione e in coda al CSV (`switch_acc_ripetizione`,
+`switch_acc_switch`, ultime due colonne). Isola il costo di switching
+puro (repAcc vs switchAcc, entrambe dentro lo stesso blocco misto), non
+il "mixing cost" nel senso della letteratura sperimentale (Rogers &
+Monsell, 1995) — quest'ultimo confronterebbe repAcc con l'accuratezza a
+compito singolo puro, blocco di riferimento non presente in questo
+esercizio.
+
+**Dispositivo di risposta e tastiera.** Oltre al touch, l'app supporta
+sempre la risposta da tastiera per gli esercizi a 1, 2 o 4 pulsanti
+(barra spaziatrice, o lettere nell'ordine dei pulsanti mostrati). In
+Setup, "Dispositivo di risposta previsto" (touch/tastiera) non abilita
+né disabilita nulla — la tastiera funziona comunque sempre in
+background — ma decide cosa evidenziare: con "Tastiera" selezionata, ogni
+pulsante mostra un badge col tasto corrispondente e le istruzioni
+prima di iniziare evidenziano la scorciatoia in un riquadro, invece di
+un paragrafo secondario facile da non notare in un compito a tempo. Due
+disposizioni tasti: "Standard" (A / L / Z / M, quella storica dell'app)
+e "Ravvicinata" (V / B / N / M — quattro tasti fisicamente adiacenti
+sulla riga inferiore della tastiera, raggiungibili con una sola mano,
+per chi ha una limitazione motoria che rende impraticabile la
+disposizione standard).
+
+**TAPAT — variante uditiva.** TAPAT (Tonic and Phasic Alertness Training)
+è un protocollo pubblicato — DeGutis & Van Vleet, *Frontiers in Human
+Neuroscience*, 2010, validato specificamente su pazienti con neglect
+emispaziale — non un nome coniato per l'app. Oltre alla modalità visiva
+originale, è disponibile una modalità interamente uditiva ("Modalità:
+Uditivo" in Setup): il bersaglio è un tono dedicato (330Hz, onda
+quadra), distinto dal tono di cue fasico già esistente (880Hz, sinusoide
+— resta invariato, non lateralizzato, uguale in entrambe le modalità),
+e nessun elemento visivo accompagna né il cue né il bersaglio — lo
+schermo mostra solo un'indicazione statica ("🔊 Ascolta"), identica su
+ogni prova, per non dare involontariamente via tempistica o posizione
+per altra via. La base per questa variante non è solo plausibile per
+analogia: Van Vleet & DeGutis, *Cortex*, 2013, hanno mostrato che un
+allenamento uditivo sostenuto produce transfer su misure di attenzione
+visiva in pazienti con neglect — un precedente diretto di cross-training
+uditivo→visivo dagli stessi autori del protocollo TAPAT.
+
+**TAPAT — nota terminologica proattivo/reattivo.** Le etichette dei
+risultati per il blocco tonico e il blocco fasico riportano ora, tra
+parentesi, rispettivamente "sostenuto/proattivo" e "cue-indotto/
+reattivo" — così come il testo esplicativo in Setup. È dichiaratamente
+un'**analogia concettuale** con il framework proattivo/reattivo di
+Braver (Dual Mechanisms of Control, 2012), non un'equivalenza
+dimostrata nello stesso paradigma: il blocco tonico del TAPAT richiede
+di sostenere l'attivazione nel tempo senza aiuti esterni (vicino, per
+costrutto, all'idea di proattivo), il blocco fasico la fa scattare un
+cue esterno appena prima del bersaglio (vicino a reattivo) — ma il
+TAPAT non è stato validato come misura di proattivo/reattivo in senso
+stretto (quello resta il ruolo dell'AX-CPT in letteratura). Nessun
+calcolo è cambiato, solo l'etichetta mostrata nei risultati e nel testo
+di Setup.
+
+Con la componente spaziale attiva (bersaglio a sinistra/destra), la
+modalità uditiva usa panning stereo reale (Web Audio `StereoPannerNode`)
+al posto della posizione a schermo — **richiede cuffie o casse stereo
+funzionanti**: su un dispositivo con un solo altoparlante mono (es. un
+telefono appoggiato sul tavolo) il tono si sente comunque, ma senza
+alcuna informazione di lateralità, vanificando lo scopo della componente
+spaziale. Le istruzioni mostrate al paziente prima di iniziare
+avvertono esplicitamente di questo requisito quando la modalità uditiva
+è selezionata.
+
+## Difficoltà adattiva
+
+Quasi tutti gli esercizi (N-back, Sequenza bersaglio, Go/No-Go, ANT/TAPAT,
+Task-switching, Doppio compito, Cancellazione) condividono la stessa
+regola di titolazione: valutano blocchi di 8 prove valide (o, per la
+Cancellazione, ogni tavola), salgono di un livello sopra l'85% di
+accuratezza, scendono sotto il 70% (fascia 70–85% invariata). La soglia è
+coerente sia con la letteratura sul training adattivo sia con la
+"Eighty Five Percent Rule" (Wilson et al., 2019) sul tasso di errore
+ottimale per l'apprendimento. Durante la sessione sono sempre disponibili
+i pulsanti +/– nella barra in alto per forzare il livello manualmente in
+qualunque momento; se la titolazione automatica è attiva riprende dal
+valore impostato manualmente. In Setup, un campo **"Livello"** (o
+"Livello canale 1/2" per il Doppio compito) imposta il livello di
+partenza prima di iniziare — separato dall'interruttore "Difficoltà
+adattiva/fissa", che decide solo se quel livello resta fisso o evolve
+durante la sessione.
+
+**Vincolo di fascia strutturale — nessun cambio di regola a metà seduta.**
+Per un sottoinsieme di esercizi il livello non cambia solo un parametro
+continuo (ISI, frequenza) ma la REGOLA stessa del compito — quanti
+elementi indietro confrontare nell'N-back (n), quanti elementi no-go sono
+noti nel Go/No-Go, quale struttura di categorizzazione, quale
+sotto-modalità di Cancellazione, quali condizioni della regola composta.
+Un cambio di questo tipo richiede che il paziente ne sia stato informato
+in anticipo (istruzioni lette/ascoltate in Setup prima di iniziare) — non
+può mai comparire per la prima volta a sorpresa a metà di una sessione
+già in corso, indipendentemente da quanto bene stia andando.
+
+Per questo, la titolazione automatica di questi esercizi resta vincolata
+dentro la **fascia strutturale del livello di partenza** per l'intera
+durata della seduta, in entrambe le direzioni (non sale oltre il
+soffitto della fascia anche a punteggio pieno, non scende sotto il
+pavimento della fascia anche a punteggio nullo):
+
+| Esercizio | Fasce (stessa regola dentro ogni fascia) |
+|---|---|
+| N-back | 1-4 (n=1) · 5-9 (n=2) · 10 (n=3) |
+| Go/No-Go | 1-4 (1 elemento noto) · 5-7 (2) · 8-9 (3) · 10 (4) |
+| Categorizzazione condizionale | 1-2 · 3-4 · 5-6 · 7-8 · 9-10 (una struttura per fascia) |
+| Cancellazione — Progressiva | 1-10 Classico · 11-20 Trova l'intruso · 21-30 Conteggio a regola |
+| Cancellazione — Conteggio a regola | 1-2 · 3-4 · 5-6 · 7-10 (una condizione in più per fascia) |
+
+Il superamento di una fascia resta comunque possibile — solo non nella
+stessa seduta: il livello raggiunto a fine sessione diventa il punto di
+partenza della sessione successiva (stesso meccanismo di continuità già
+usato per tutti gli esercizi), e le istruzioni della nuova fascia vengono
+mostrate/lette di nuovo in Setup prima che quella sessione inizi. Il
+forzamento manuale del livello (pulsanti +/– durante la sessione) resta
+invece libero di attraversare le fasce: è una decisione esplicita
+dell'operatore, non un salto silenzioso dell'algoritmo.
+
+Gli esercizi non elencati in tabella (Sequenza bersaglio, Stop-Signal,
+ANT/TAPAT, Task-switching, Doppio compito) non hanno questo vincolo
+perché il loro livello cambia solo parametri continui — la regola di
+risposta resta identica a ogni livello.
+
+**Materiali uditivi.** Oltre ai materiali visivi (lettere, numeri,
+simboli, colori), sono disponibili toni puri ("Suoni") e lettere/numeri/
+parole pronunciati dal sintetizzatore vocale ("Lettere pronunciate" /
+"Numeri pronunciati" / "Parole pronunciate") — nessuna rivelazione
+visiva, solo un indicatore audio generico. Disponibili in N-back,
+Sequenza bersaglio, Go/No-Go, TAPAT, Doppio compito (abbinamento
+uditivo-uditivo) e, per i livelli a dimensione singola (1-2, 7-8), nella
+Categorizzazione condizionale. Lo Stop-Signal accetta i toni puri
+("Suoni") ma non ancora le varianti pronunciate: il segnale di stop è
+già un tono fisso e distinto da qualunque stimolo (140Hz, diverso dai
+toni del pool principale), ma se lo stimolo primario fosse una parola
+pronunciata non c'è oggi un modo per interromperla quando scatta lo
+stop — da risolvere prima di abilitarla anche lì. Non ancora disponibili
+per ANT classico (materiale spaziale/direzionale intrinsecamente
+visivo), Task-switching e Categorizzazione condizionale ai livelli a
+doppia dimensione (3-6, 9-10) — richiedono uno stimolo uditivo che porti
+due dimensioni classificabili insieme, non un semplice collegamento a un
+materiale già esistente. Cancellazione (neglect) resta esclusa per
+costruzione: è ricerca visiva su tutta una tavola, non ha un equivalente
+uditivo dello stesso compito.
+
+**"Materiale misto".** In N-back, Sequenza bersaglio e Go/No-Go è
+possibile scegliere fra "Un solo tipo" e tre varianti di mescolamento
+casuale prova per prova: **"Mescolato visivo"** (solo fra lettere,
+numeri, colori, simboli), **"Mescolato uditivo"** (solo fra suoni,
+lettere/numeri pronunciati) e **"Mescolato visivo + uditivo"** (tutti
+insieme) — tre varianti distinte, non un'unica modalità indifferenziata. Non ancora estesa
+a TAPAT/ANT né a Task-switching.
+
+**Proposta automatica per sequenze/materiali personalizzati.** Ovunque
+l'operatore debba comporre a mano una sequenza bersaglio o un insieme di
+elementi no-go — anche quando il materiale è misto fra più tipologie
+(visivo/uditivo) — l'app propone subito una selezione casuale, mai
+vuota, senza duplicati; resta interamente modificabile dopo con "←
+Rimuovi ultimo", "Reimposta", o aggiungendo/togliendo elementi a mano.
+Per il Go/No-Go la quantità proposta segue direttamente il livello
+impostato (tabella sotto, 1→4 elementi attivi): cambiare lo stepper del
+livello, o il materiale, ripropone automaticamente il numero corretto di
+elementi no-go, riusando quelli già scelti dall'operatore quando
+possibile invece di ricominciare da zero. Il pool selezionabile in Setup
+ha comunque un tetto di 4 (non 6): il numero di elementi *nel pool* non
+va confuso con il numero *attivo* a un dato livello quando l'adattivo è
+acceso — quest'ultimo segue la tabella sotto.
+Per la Sequenza bersaglio bastano **3** elementi, perché lì il
+meccanismo è diverso: la sequenza configurata viene riciclata/ripetuta
+per raggiungere la lunghezza richiesta dal livello (fino a 5), non
+"tagliata" da un pool più ampio come nel Go/No-Go. Stesso principio nel
+Doppio compito: scegliendo l'abbinamento canali (Visivo+Uditivo,
+Visivo+Visivo, Uditivo+Uditivo) il materiale dei canali visivi viene
+proposto a caso — nel caso Visivo+Visivo, sempre due materiali diversi
+fra i due canali, per restare visivamente distinguibili — e resta
+modificabile subito dopo dai selettori. Nell'abbinamento Uditivo+Uditivo
+i due toni sono separati con panning stereo netto (grave a sinistra,
+acuto a destra, Web Audio `StereoPannerNode`, stessa tecnica già usata
+per la componente spaziale del TAPAT uditivo) — senza cuffie o casse
+stereo funzionanti i due toni restano udibili ma non distinguibili
+spazialmente, e l'app lo segnala esplicitamente in setup e nelle
+istruzioni pre-sessione.
+
+**Accessibilità.** Tutti i controlli dell'app sono elementi `<button>`
+nativi, riconoscibili e navigabili dai lettori di schermo (VoiceOver,
+TalkBack) senza bisogno di attributi aggiuntivi. Da computer, oltre alla
+mappatura A/L (2 scelte) e A/L/Z/M (4 scelte), la barra spaziatrice
+risponde negli esercizi a un solo pulsante (N-back, 1-back...). Le
+istruzioni lette a voce ("🔊 Ascolta") includono anche il promemoria
+della scorciatoia da tastiera, non solo il testo dell'esercizio, così
+chi si affida solo all'audio la sente comunque.
+
+**Sintesi vocale.** La voce usata per materiali pronunciati e istruzioni
+lette è la Web Speech API del browser, non audio pre-registrato — la
+qualità e l'accento dipendono quindi dal motore disponibile su
+dispositivo/browser, non regolabili dall'app. `speechSynthesis.getVoices()`
+è tipicamente popolato in modo asincrono dal browser: l'app mantiene una
+cache delle voci disponibili aggiornata tramite l'evento `voiceschanged`,
+così anche la primissima frase pronunciata in sessione seleziona già una
+voce italiana esplicita (preferendo, quando disponibile, una voce
+etichettata "natural/neural/premium/enhanced/online") invece del default
+generico del sistema.
+
+**Barra superiore uniforme.** Ogni schermata usa la stessa barra piena in
+cima (titolo + azioni, incluso "← Indietro"), mai un link di testo in
+fondo pagina — comportamento unico in tutta l'app, non solo nelle
+schermate di sessione/operatore.
+
+Su tablet/smartphone, il
+toggle **"Zone di risposta grandi"** in Setup (visibile quando la
+risposta è a due scelte) ingrandisce le zone toccabili a gran parte
+dello schermo — pensato per bassa vista, dove individuare un pulsante
+piccolo con precisione è difficile; non cambia nulla su computer, dove
+la tastiera resta l'alternativa.
+
+**Il numero di livelli varia per esercizio.** La scala non è uniforme
+perché il numero di livelli riflette quanti step distinti i parametri di
+un compito possono effettivamente sostenere con significato clinico, non
+una convenzione fissa: dove un secondo parametro può scalare insieme al
+primo (es. un ISI che si aggiunge a una frequenza), il compito guadagna
+margine sia a pavimento (deficit marcati) sia a soffitto (prestazioni
+forti):
+
+**Modello triplice di titolazione — Manuale / Livello / Adattivo.**
+Descritto qui per i 7 esercizi con stepper "Livello" pienamente
+condiviso (N-back, Go/No-Go, Task-switching, Sequenza bersaglio,
+Stop-Signal, ANT classico, Simon) — la stessa idea si applica, con le
+varianti dichiarate caso per caso più sotto, a tutti gli altri 5 esercizi tranne
+Scenari ecologici e Strategie di memoria (vedi il riepilogo dopo la
+tabella dei livelli). Il clinico sceglie fra tre modalità, cambiabili
+liberamente fra una seduta e l'altra (mai dentro una sessione in corso)
+dal profilo del paziente ("Gestisci programma") o da Setup:
+
+- **Manuale**: ogni parametro (ISI, frequenza bersaglio/no-go, intervallo
+  cue→stimolo, sbilanciamento fra regole, lunghezza sequenza — secondo
+  l'esercizio) è impostato singolarmente in Setup, indipendente dal
+  livello. Lo stepper "Livello" resta visibile ma non pilota nulla.
+- **Livello**: lo stepper "Livello" pilota tutti i parametri collegati
+  secondo la tabella di quell'esercizio (le stesse tabelle ADAPT_* usate
+  dalla titolazione adattiva), che restano fissi per l'intera seduta.
+- **Adattivo**: come Livello, ma il livello stesso si sposta da solo
+  durante la seduta secondo la regola 70-85%/8 prove (Wilson et al.,
+  2019) — invariato rispetto a prima.
+
+In ogni modalità, Setup mostra sempre per esteso a cosa corrisponde
+esattamente ciò che sta per partire — un numero di livello da solo non
+basta in Manuale (dove non pilota nulla): lì compaiono i valori dei
+singoli parametri correnti, non un numero di livello. La stessa
+indicazione compare anche nel profilo, insieme ai tre pulsanti per
+cambiare modalità senza dover riaprire Setup — e riflette sempre l'ultima
+configurazione **davvero raggiunta** in sessione per quel paziente/
+esercizio (non quella salvata quando l'esercizio fu assegnato la prima
+volta), la stessa fonte già usata da "▶ Avvia".
+
+**Configurazioni salvate per paziente, con un nome a scelta.** Distinto
+dal livello raggiunto automaticamente ad ogni seduta (che viene sempre
+sovrascritto): dentro il flusso "aggiungi/modifica esercizio nel
+programma" di un paziente, un pulsante permette di salvare la
+configurazione corrente con un nome scelto dall'operatore (es. "Livello
+base", "Rivalutazione marzo") — resta ferma finché non la si sovrascrive
+esplicitamente con lo stesso nome, indipendentemente da quante sedute
+avvengono nel frattempo con parametri diversi. Più slot per lo stesso
+paziente/esercizio, richiamabili in un tocco. Salvare due volte con lo
+stesso nome sovrascrive quella voce, non ne crea una seconda.
+
+**Bug di sincronizzazione corretto (era la domanda bloccante della
+consegna precedente).** Prima di questa modifica, in modalità fissa
+(oggi "Manuale") cambiare il livello in Setup non aggiornava quasi
+nessun parametro reale: la frequenza bersaglio dell'N-back, la frequenza
+no-go del Go/No-Go, l'intervallo cue→stimolo e lo sbilanciamento delle
+regole del Task-switching, la lunghezza della sequenza bersaglio, l'ISI
+di Stop-Signal/ANT classico/Sequenza bersaglio restavano tutti legati a
+un campo indipendente dal livello, nonostante lo stepper "Livello" fosse
+visibile e sembrasse applicarsi. La nuova modalità "Livello" risolve
+esplicitamente il problema: quando è selezionata, tutti questi parametri
+seguono sempre la tabella del livello mostrato — non c'è più uno scarto
+fra "livello scritto in Setup" e "parametri davvero in uso".
+
+**Trasparenza dei controlli in Setup, non solo del testo.** Un secondo
+bug, distinto dal primo, faceva sembrare che muovere il livello "non
+cambiasse niente": gli stepper di Frequenza/ISI mostravano sempre il
+valore grezzo indipendente, mai il valore di tabella realmente in uso in
+modalità Livello/Adattiva — l'operatore vedeva lo stesso numero a
+qualunque livello, anche se il motore stava già applicando quello
+corretto. Ora, per i soli parametri davvero derivati da tabella
+(frequenza N-back/Go-No-Go; ISI di Sequenza bersaglio, Stop-Signal, ANT
+classico), il controllo diventa di sola lettura in Livello/Adattivo e
+mostra il valore vero, aggiornato in tempo reale muovendo lo stepper
+"Livello". Gli altri parametri con lo stesso nome ma non collegati al
+livello per scelta di costruzione (frequenza trial di stop dello
+Stop-Signal, frequenza bersaglio della Sequenza, frequenza di cambio
+regola del Task-switching — tutti parametri metodologici fissi, non leve
+di difficoltà) restano sempre modificabili, in ogni modalità.
+
+**Estesa anche a Cancellazione (neglect) e Doppio compito.** Stesso
+modello triplice, stesso bug corretto, per entrambi. Per Cancellazione:
+in modalità Manuale la dimensione della tavola e il tempo limite ora
+restano davvero indipendenti dal livello (prima c'era lo stesso scarto
+silenzioso degli altri 7 esercizi), in Livello/Adattiva seguono sempre la
+tabella — anche nel caso più complesso, la modalità "Progressiva" (scala
+assoluta 1-30 che attraversa tre fasi), dove il livello mostrato in Setup
+si traduce sempre correttamente nel sotto-livello 1-10 della fase attiva,
+in ogni modalità. Per il Doppio compito: **un solo selettore condiviso**,
+non uno per canale — scelta deliberata, non una scorciatoia: il motore
+ha sempre avuto un unico interruttore "adattivo" per l'intero esercizio
+(`cfg.adaptive`), mai due flag indipendenti per canale, quindi due
+selettori avrebbero permesso stati misti (canale 1 Adattivo, canale 2
+Manuale) che il codice sottostante non saprebbe comunque gestire
+separatamente. I due LIVELLI restano invece pienamente indipendenti
+(due stepper distinti, mai stati uniti) — solo la scelta di modalità è
+una sola. L'ISI, condiviso perché i due canali sono presentati insieme,
+deriva dalla media dei due livelli (arrotondata), non da uno dei due.
+
+**Estesa anche a Categorizzazione condizionale — con una differenza
+sostanziale dagli altri 8, per decisione esplicita di Rodrigo.** Qui
+"Manuale" non significa "stessa struttura del livello, parametri
+liberi" (come per tutti gli altri esercizi) — significa **struttura
+scelta liberamente**, indipendente dal numero di livello: un nuovo campo
+"Struttura (1-5)" sostituisce lo stepper "Livello" quando si è in
+Manuale, e il clinico può impostare la struttura 4 (confronto 1-back)
+anche restando "al livello 1" nel senso numerico del termine — il numero
+di livello smette di significare qualcosa in questa sola modalità, ed è
+per questo che in Manuale non compare affatto, sostituito dalla scelta
+diretta di struttura. In Livello/Adattivo, tutto resta come sempre:
+struttura derivata dal livello, mai un cambio di struttura a metà
+seduta. ISI (strutture 1/2/3/5) o frequenza lure (struttura 4, il
+confronto 1-back) seguono lo stesso principio degli altri esercizi:
+tabella in Livello/Adattivo, campo libero in Manuale — corretto anche
+qui lo stesso bug di sincronizzazione silenzioso già visto altrove
+(l'ISI seguiva sempre la tabella, mai il campo libero, a prescindere
+dalla modalità).
+
+**TAPAT** segue lo stesso principio degli altri: in Manuale, l'intervallo
+fra stimoli del blocco tonico (quello a ritmo lento e imprevedibile,
+pensato per misurare l'allerta sostenuta) è un range libero
+(minimo/massimo impostabili separatamente, non un singolo ISI —
+l'imprevedibilità dell'intervallo è parte del costrutto, non un
+dettaglio) invece di seguire sempre la tabella per livello. Il blocco
+fasico (quello con il cue, a metà seduta) usa sempre il campo ISI
+generico di Setup, in ogni modalità — non è legato al livello. In
+Livello/Adattivo tutto resta come sempre.
+
+Tutti gli esercizi con una scala 1-10 hanno una gestione esplicita e
+coerente della titolazione: la maggioranza con il selettore
+Manuale/Livello/Adattivo pienamente condiviso, Categorizzazione
+condizionale con la stessa idea adattata al suo caso particolare
+(struttura disaccoppiata dal livello in Manuale), Doppio compito e TAPAT
+con le loro varianti dichiarate (un solo selettore condiviso per due
+canali; range libero invece di ISI singolo). Scenari ecologici e
+Strategie di memoria restano fuori per un motivo diverso, non tecnico:
+non hanno mai avuto un concetto di "livello adattivo" nello stesso senso
+— la loro scala di complessità/i loro materiali sono sempre stati scelti
+a mano, non titolati.
+
+| Esercizio | Livelli | Cosa varia col livello |
+|---|---|---|
+| N-back | 1-10 | n cresce solo a cambio di banda — 1 ai livelli 1-4, 2 ai livelli 5-9, 3 al solo livello 10 (il carico "puro" resta clinicamente vincolato: la letteratura su cui si basa l'n-back mostra un calo netto di accuratezza già a n=3) — dentro ogni banda scalano frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso: aumentano il carico di controllo dell'interferenza senza alzare n, cfr. Kane, Conway, Miura & Colflesh, 2007) |
+| Mantenimento (tipo Sternberg) | 1-10 | Livelli 1-5: modalità Riconoscimento, lunghezza lista 2→6. Livelli 6-10: modalità Riconoscimento seriale, insieme fisso 3→7 con numero di sonde crescente (8→20) — il salto 5→6 è un cambio di modalità, non solo di difficoltà: il costrutto resta mantenimento in entrambe, non scivola verso l'aggiornamento continuo dell'N-back |
+| Go/No-Go | 1-10 | Frequenza no-go (48%→5%) e numero di elementi no-go attivi (1→4, tetto raggiunto solo al livello 10); l'ISI resta fisso (impostato manualmente in Setup), non è adattivo per questo esercizio |
+| Sequenza bersaglio | 1-10 | ISI (4500→900ms) e, in modalità Livello/Adattiva, lunghezza della sequenza bersaglio (2→5 elementi) |
+| Stop-Signal | 1-10 (leva secondaria) + staircase SSD continuo | ISI secondario (3600→750ms); lo SSD resta un meccanismo indipendente e continuo, non a livelli (vedi sotto) |
+| ANT (classico) | 1-10 | ISI (3200→650ms) |
+| TAPAT | 1-10 | Intervallo tra stimoli, da prevedibile e ravvicinato (0.9-1.8s) a lungo e imprevedibile (12-25s) |
+| Task-switching | 1-10 | Intervallo cue→stimolo (CSI, 900→150ms) insieme allo sbilanciamento fra le due regole (50%→97%) — due parametri combinati |
+| Doppio compito | 1-10 (per canale, indipendenti) | Frequenza target per canale (40%→5%) insieme all'ISI condiviso fra i due canali (3000→700ms, derivato dalla media dei due livelli canale); ciascun canale ha anche una propria frequenza di trial lure (foil identico a quello di 2 prove fa invece che 1 — stessa logica del lure nell'N-back), assente ai due livelli più bassi e crescente fino al livello 10 |
+| Categorizzazione condizionale | 1-10 in Livello/Adattivo; struttura 1-5 scelta direttamente in Manuale (vedi sopra) | Banda doppia delle 5 strutture originarie (dimensione singola → doppia dimensione+no-go → regola disgiuntiva → 1-back sulla categoria → doppia dimensione a 4 risposte), ordinate per complessità relazionale (Halford, Wilson & Phillips, 1998) non per numero di mappature stimolo-risposta; dentro ogni banda l'ISI si stringe, tranne nella banda del 1-back (livelli 7-8) dove il secondo parametro è la frequenza di trial lure (stessa categoria di 2 prove fa invece che 1). Con l'adattivo attivo, la titolazione (ISI/lure) resta vincolata dentro la struttura di partenza per tutta la seduta — non attraversa mai un confine di struttura (= un cambio di regola) a metà sessione, vedi sezione "Vincolo di fascia strutturale" più sotto |
+| Cancellazione (neglect) | Classico/Trova l'intruso: 1-10. Conteggio a regola: 1-10, unificato con la dimensione tavola. Progressiva: 1-30 | Elementi per tavola (14→85) insieme al tempo limite per tavola (nessun limite ai livelli 1-2, poi 110→18s). In "Conteggio a regola" la complessità della regola scala insieme, 2 livelli per condizione, ordine colore→sfondo→riga (percettivo prima, posizionale per ultimo — Treisman & Gelade, 1980). "Progressiva" incolla i tre in sequenza (1-10 Classico, 11-20 Intruso, 21-30 Regola), ciascuno con la propria scala 1-10 completa. Tutti i cambi di sotto-modalità (progressiva) o di condizione (regola) sono vincolati a non attraversare la seduta in corso, vedi sotto |
+
+**Conteggio a regola — risposta a conteggio mentale, non a tocco.** A
+differenza di Classico/Trova l'intruso/Progressiva, qui il paziente NON
+tocca gli elementi: guarda la tavola, conta a mente quanti rispettano la
+regola attiva, e — allo scadere del tempo limite (impostabile in Setup,
+automatico e decrescente in modalità adattiva, stessa infrastruttura già
+usata dalle altre modalità) o al tocco di "Fatto" — la tavola sparisce e
+compare un campo numerico dove digitare il conteggio. La titolazione
+adattiva usa una risposta binaria (numero esatto sì/no), sempre dentro i
+limiti della fascia strutturale di partenza, come le altre modalità.
+Conseguenza di costrutto dichiarata, non un effetto collaterale
+nascosto: un singolo numero riportato non permette di ricostruire quanti
+elementi siano stati "trovati" a sinistra rispetto a destra, quindi
+questa modalità **non produce l'indice di asimmetria** che è invece il
+cuore delle altre tre modalità di Cancellazione — storico, CSV e report
+RCI mostrano al suo posto un'accuratezza sul conteggio complessivo
+(quante tavole con numero esatto) e un errore assoluto medio. Chi cerca
+specificamente l'asimmetria sinistra/destra del neglect classico deve
+usare Classico, Trova l'intruso o Progressiva (fasi 1-20).
+
+Fa eccezione lo **Stop-Signal**, che usa una titolazione propria e
+indipendente dal "livello" per la sua misura principale: lo staircase del
+ritardo SSD (Stop Signal Delay), sempre attivo, che converge verso il
+punto in cui il paziente riesce a fermarsi circa il 50% delle volte — non
+la regola 70-85%. Il passo dello staircase (`ssdStep`) è già configurabile
+a parte nell'app; per questo l'estensione a 10 livelli qui sopra riguarda
+solo la leva secondaria sull'ISI, guidata dalla regola 70-85% standard
+sui trial "go" — estendere anche lo SSD alla scala a livelli sarebbe stato
+ridondante con un parametro già regolabile altrove.
+
+Gli **Scenari ecologici** hanno una progressione a 5 livelli scelti
+manualmente in setup, non una titolazione automatica in tempo reale — la
+natura del compito (completare un elenco di elementi, non rispondere a
+stimoli ripetuti) non si presta allo stesso meccanismo. Ai livelli 3-5 gli
+incrementi sono cumulativi: il livello 5 contiene sempre anche i
+meccanismi introdotti ai livelli 3 e 4, non li sostituisce — vedi la
+sezione dedicata più sotto. La **Categorizzazione condizionale** ha
+allo stesso modo una progressione a 5 livelli scelti manualmente, non
+adattiva — vedi la sezione dedicata. Le **Strategie di memoria** hanno 16
+livelli di difficoltà del materiale, anch'essi scelti manualmente.
+
+## Simon task
+
+Conflitto spazio-risposta, non identità-vs-identità come il flanker
+dell'ANT (frecce che indicano un'altra direzione) — un solo stimolo,
+nessun distrattore affiancato: un cerchio colorato (blu o verde) compare
+a sinistra o a destra dello schermo. Il paziente tocca "Blu" o "Verde" in
+base al **colore**, mai alla posizione — ma la posizione, quando non
+coincide col pulsante corretto per quel colore, genera comunque
+interferenza (Simon & Rudell, 1967, *Journal of Applied Psychology*,
+51(3), 300-304).
+
+**Perché non il Color-Word Stroop classico.** Scelta deliberata: uno
+Stroop parola-colore standard rischierebbe di sovrapporsi a un eventuale
+Stroop usato come misura diagnostica altrove (in NeuroScore o in un test
+carta-e-matita) — l'esposizione ripetuta come esercizio di allenamento
+contaminerebbe quella misura con un effetto di pratica scambiabile per
+miglioramento reale. Il Simon task misura lo stesso principio generale
+(inibizione competitiva, dimensional overlap — Kornblum, Hasbroucq &
+Osman, 1990, *Psychological Review*, 97(2), 253-270) con un paradigma
+percettivamente diverso, nessuna lettura coinvolta.
+
+**Mappatura fissa per l'intera sessione**: Blu → pulsante sinistro, Verde
+→ pulsante destro — dichiarata una volta nelle istruzioni, mai
+rimescolata prova per prova (cambiarla a metà sessione sarebbe un cambio
+di regola strutturale, vietato dal principio delle bande strutturali già
+in vigore per tutti gli altri esercizi).
+
+**Proporzione di congruenza** (Setup, parametro clinico fisso, non una
+leva di titolazione): Bilanciato (50/50), Prevalenza congruente (75/25),
+Prevalenza incongruente (25/75) — manipolazione list-wide, decisa a
+livello di sessione. Un blocco a prevalenza congruente o incongruente
+permette di misurare quanto il paziente riesce a sfruttare l'aspettativa
+generale del blocco per prepararsi in anticipo all'interferenza
+(controllo proattivo); un blocco bilanciato non lo permette — stessa
+logica già discussa per Categorizzazione condizionale e per il Task-
+switching bivalente. Consigliate almeno 60 prove per un indice di
+conflitto stabile.
+
+**Titolazione**: livello 1-10 condiviso con Sequenza bersaglio, Go/No-Go,
+Task-switching, Stop-Signal, ANT classico (Manuale/Livello/Adattivo,
+`ADAPT_ISI.simon` — stessa scala dell'ANT classico, complessità
+percettivo-motoria comparabile: 2AFC spaziale). Blu e verde restano
+sempre in proporzione 50/50 indipendentemente dalla proporzione di
+congruenza scelta — sono due manipolazioni indipendenti, non la stessa
+leva.
+
+**Risultati**: "Effetto Simon" (RT prove incongruenti meno RT prove
+congruenti, stesso segno e stessa interpretazione dell'indice di
+conflitto già mostrato per ANT e per il Task-switching bivalente — riusa
+lo stesso campo interno, compare già nella colonna "conflitto" del CSV
+di esportazione, nessuna colonna nuova necessaria) più l'accuratezza
+separata per condizione congruente/incongruente.
+
+## Categorizzazione condizionale
+
+Esercizio distinto dal Task-switching: qui la regola resta **fissa**
+dentro ogni struttura — non si misura il costo di cambiare regola, ma il
+carico di applicarne una via via più complessa. Il livello (1-10) si può
+scegliere a mano in Setup (come prima), oppure lasciare che l'ISI (o la
+frequenza lure alle bande 7-8) si titoli da solo in base all'accuratezza
+— ma la STRUTTURA (quale delle 5 regole sotto) non cambia mai a metà
+seduta nemmeno con l'adattivo attivo: la titolazione resta vincolata
+dentro la banda di struttura di partenza, esattamente come per la
+Cancellazione a regola (vedi "Vincolo di fascia strutturale" più sopra).
+Un cambio di struttura richiede sempre una seduta nuova, con le
+istruzioni della struttura successiva lette/mostrate prima di iniziare.
+
+I 10 livelli sono una banda doppia delle 5 strutture qualitativamente
+distinte descritte sotto — non un'unica scala continua, perché non
+esiste un singolo parametro che le attraversi tutte. Ogni struttura
+occupa 2 livelli consecutivi: il primo con ISI ampio, il secondo con ISI
+più stretto (pressione di velocità), tranne la struttura del 1-back
+(livelli 7-8) dove il secondo parametro è la frequenza di trial lure
+invece dell'ISI.
+
+| Livello | Struttura | Parametro che varia | Risposte |
+|---|---|---|---|
+| 1 | Dimensione singola (simboli, o lettere/numeri pronunciati) | ISI ampio | 2 |
+| 2 | Dimensione singola (simboli, o lettere/numeri pronunciati) | ISI stretto | 2 |
+| 3 | Doppia dimensione + no-go: lettera bianca→A, numero rosso→B, numero bianco→C, lettera rossa→nessuna risposta | ISI ampio | 3 + no-go |
+| 4 | Stessa struttura del livello 3 | ISI stretto | 3 + no-go |
+| 5 | Stessa doppia dimensione, ricombinata in una regola disgiuntiva: A se lettera bianca *oppure* numero rosso, B se lettera rossa *oppure* numero bianco | ISI ampio | 2 |
+| 6 | Stessa struttura del livello 5 | ISI stretto | 2 |
+| 7 | Confronto con lo stimolo precedente (1-back sulla categoria) | Nessun trial lure | 1 (rispondi se la categoria è la stessa di prima) |
+| 8 | Stessa struttura del livello 7 | Trial lure: stessa categoria di 2 prove fa invece che 1 — sembra familiare per prossimità recente ma la risposta corretta resta "nessuna risposta" | 1 |
+| 9 | Stessa doppia dimensione, mappata direttamente su 4 risposte (nessun no-go, nessuna disgiunzione) | ISI ampio | 4 (tastiera A/L/Z/M) |
+| 10 | Stessa struttura del livello 9 | ISI stretto | 4 (tastiera A/L/Z/M) |
+
+L'ordine delle 5 strutture (singola dimensione → doppia dimensione+no-go
+→ disgiuntiva → 1-back → doppia dimensione a 4 risposte) segue la
+complessità relazionale (Halford, Wilson & Phillips, *Behavioral and
+Brain Sciences*, 1998), non il numero di mappature stimolo-risposta: una
+regola disgiuntiva che integra due dimensioni con un connettivo logico
+impone un carico maggiore di una tabella di mappature dirette più
+numerose, perché il carico cresce con il numero di variabili da
+integrare in parallelo nella stessa rappresentazione, non con il numero
+di risposte disponibili.
+
+Le strutture a livelli 3/4/6/9/10 condividono lo stesso item a due
+dimensioni indipendenti (lettera/numero × bianco/rosso — bianco, non
+nero: lo schermo di sessione ha sfondo scuro, un vero nero sarebbe
+invisibile, il campo dati interno resta `colore:'nero'` per
+compatibilità ma il rendering e ogni testo rivolto al paziente/operatore
+mostrano bianco) già usato dalla
+modalità "Bivalente" del Task-switching, ma lo ricombinano in mappature
+diverse sulla risposta — a parità di stimolo, cambia solo la regola di
+classificazione, in modo da isolare il carico della regola stessa dal
+carico percettivo. I livelli 1/2 e 7/8 condividono invece un'unica
+dimensione (simboli, o lettere/numeri pronunciati — materiale
+selezionabile in Setup), e sono collegati fra loro: il livello 7
+aggiunge al livello 1 il carico di memoria di lavoro di confrontare con
+lo stimolo precedente, senza cambiare la regola di classificazione di
+base. Il materiale "Colori" con regola Caldo/Freddo, disponibile in
+passato qui e nel Task-switching, è stato rimosso: la suddivisione
+caldo/freddo (e, per il Task-switching, primario/non primario) non ha
+una base sufficientemente principiata per un compito clinico — resta
+leggibile nello storico di sedute già registrate con quel materiale, ma
+non è più selezionabile per sedute nuove.
+
+Il conteggio "risposte omesse" nello storico e nel CSV per questo
+esercizio conta solo le mancate risposte vere (dove serviva un tocco),
+non i casi in cui non rispondere era la risposta corretta (no-go ai
+livelli 3/4 e 7/8) — altrimenti il dato sarebbe fuorviante.
+
+## Batteria di screening iniziale
+
+Riscritta per intero su questo principio: ogni dominio ha un elenco di
+**sonde sempre somministrate tutte**, senza nessun "se il blocco base
+fallisce, approfondisci" a cascata come nella versione precedente — poi
+una **regola di suggerimento propria del dominio** legge il *pattern*
+di chi ha fallito e chi no (non solo "quante"), e ne deriva cosa
+proporre. Soglia di fallimento: 70% di accuratezza (la stessa
+"Eighty Five Percent Rule"-derivata già in uso per la titolazione
+adattiva, qui come soglia di allarme più che di apprendimento).
+
+**Ordine di somministrazione**: Memoria di lavoro per prima (Mantenimento
+è la prima sonda in assoluto di tutto lo screening), poi Attenzione,
+Flessibilità, Esplorazione — infine, sempre, il Coordinamento (Doppio
+compito → eventuale mini-scenario).
+
+### Memoria di lavoro
+
+5 sonde, sempre tutte: **Mantenimento → Sequenza bersaglio →
+Categorizzazione condizionale → N-back → Running Span**. Le prime 3
+formano un gruppo (misure di applicazione di regola/mantenimento, non
+di aggiornamento continuo) con una tabella di suggerimento dedicata;
+N-back e Running Span sono fuori dal gruppo — sono già esercizi ad
+allenamento adattivo di per sé, si autopropongono indipendentemente.
+
+| Pattern nel gruppo | Suggerimento | Perché |
+|---|---|---|
+| Solo Mantenimento fallisce | Categorizzazione, struttura 1 | Cautela — nessuna struttura replica propriamente "tieni a mente un piccolo insieme", si riparte dalla base |
+| Solo Sequenza bersaglio fallisce | Categorizzazione, struttura 4 | Stessa natura costruttiva: riconoscimento continuo di un pattern in un flusso |
+| Solo Categorizzazione fallisce | Categorizzazione, struttura 1 | Segnale diretto — è la sonda stessa a cedere |
+| Due o più del gruppo insieme | Categorizzazione, struttura 1 | Nessuna struttura combina propriamente più difficoltà diverse insieme — si torna al gradino più semplice/sicuro, non si inventa una via di mezzo |
+
+N-back e Running Span, se falliscono, si aggiungono ai suggerimenti
+sopra (non li sostituiscono) — un fallimento del gruppo e uno di N-back
+insieme producono entrambi i suggerimenti.
+
+### Attenzione sostenuta / inibizione
+
+5 sonde base, sempre tutte, in ordine di esigenza crescente: **ANT →
+TAPAT → Go/No-Go → Stop-Signal → Stop-Signal con interferenza**. Il
+suggerimento è **il più semplice fra quelli falliti** (mai il più
+complesso, anche quando più di uno cede insieme) — stesso principio di
+Memoria: nessun compromesso a metà strada inventato. ANT è solo
+screening (nessuna letteratura di training dedicata, vedi sotto): se è
+lui il più semplice fra i falliti, il suggerimento scivola su TAPAT.
+
+**Simon** è l'unica sonda condizionale di questo screening: si aggiunge
+**solo** quando Stop-Signal con interferenza è l'unico a fallire (per
+costruzione, l'unico caso in cui può essere "il più semplice fra i
+falliti" è quando è anche l'unico) — è il punto in cui il conflitto
+spazio-risposta di Simon ha senso come controllo in più.
+
+### Flessibilità cognitiva
+
+Un solo esercizio nel dominio (Task-switching, 24 prove, materiale
+numerico bivalente, scomposto in repAcc/switchAcc come già descritto
+sopra) — nessuna tabella di pattern possibile, si autopropone se
+fallisce.
+
+### Esplorazione visuospaziale
+
+3 modalità di Cancellazione, sempre tutte somministrate: **Classico,
+Trova l'intruso, A regola**. A differenza di Attenzione/Memoria, qui
+**tutte** le varianti che falliscono vengono suggerite insieme, non
+collassate a una sola — sono 3 modalità dello stesso esercizio, non 3
+costrutti diversi da confrontare fra loro.
+
+### Coordinamento (Doppio compito / Scenari ecologici)
+
+Amministrato **sempre**, alla fine, indipendentemente da cosa hanno
+segnalato gli altri domini (prima non era così: partiva solo se tutto
+il resto era pulito). Doppio compito **fallisce** → si suggerisce e
+basta, il mini-scenario di Scenari ecologici non viene nemmeno
+somministrato. Doppio compito **passa** → parte un mini-scenario breve
+(90 secondi, 2 vincoli attivi insieme) → **fallisce** → si consiglia
+Scenari ecologici vero (un vero scenario da assegnare, non la sonda
+breve); **passa** → nessun segnale da questa parte. Il principio dietro
+il mini-scenario: test strutturati brevi possono non cogliere difficoltà
+che emergono solo in compiti più complessi e realistici (il razionale
+storico dietro il Six Elements Test/Multiple Errands Test — Shallice &
+Burgess, 1991).
+
+### Se tutto risulta pulito
+
+Screening intero senza nessun segnale, Coordinamento compreso: non si
+lascia a mani vuote. Si propone comunque un **programma di partenza a
+livello base** (N-back, Task-switching, Cancellazione) più **Strategie
+di memoria** come aggiunta — quest'ultima mai valutata dallo screening
+stesso (checklist qualitativa, non a soglia), proposta qui come buona
+prassi generale quando non c'è nulla di specifico da correggere.
+
+### Perché alcuni esercizi non hanno un ruolo diretto
+
+**ANT classico e Sequenza bersaglio** compaiono come sonde di screening
+ma non hanno letteratura di training dedicata (sono nati da paradigmi
+di misura, non riadattati per l'allenamento ripetuto come N-back) — per
+questo ANT viene sempre sostituito da TAPAT come suggerimento, mai
+proposto da solo. **Strategie di memoria** resta fuori da ogni logica
+di flag automatico — valutazione qualitativa dell'operatore, non un
+numero da confrontare a una soglia.
+
+### Flag "consigliato": automatico, sempre sovrascrivibile a mano
+
+Quando una regola di dominio produce un suggerimento, viene salvato
+come "consigliato" sul profilo del paziente attivo (locale o remoto —
+lo screening senza un paziente selezionato resta solo un'analisi a
+schermo, non salvata da nessuna parte). Chiave di identificazione:
+**sonda/variante**, non solo l'esercizio — Cancellazione ha 3 varianti
+(classico/intruso/regola) che devono poter comparire tutte insieme nel
+programma senza sovrascriversi a vicenda (un bug reale della versione
+precedente, corretto in questa riscrittura). I flag compaiono come
+etichette (⭐) nell'elenco pazienti, con una "✕" per rimuoverli in
+qualunque momento — se un flag viene rimosso a mano, resta rimosso: un
+successivo screening non lo riaccende da solo.
+
+### Forma verbale / non verbale
+
+Scelta prima di avviare (scheda "Fai lo screening", non uno schermo
+intermedio a parte): **Automatico** (default), **Solo verbale**, **Solo
+non verbale**. In automatico, ogni sonda che ha davvero un materiale non
+verbale valido viene somministrata **in entrambe le forme** — non in
+sequenza condizionata, sempre tutte e due — isolando se un eventuale
+fallimento riguarda **solo il materiale verbale**, **solo quello non
+verbale**, o **entrambi** ("misto", che segnala un problema generale
+più che selettivo al materiale). 11 sonde su 17 hanno una forma non
+verbale valida (ANT, Go/No-Go, Stop-Signal ×2, Sequenza bersaglio,
+Categorizzazione, N-back, Running Span, Cancellazione classico/intruso,
+Task-switching) — le altre (TAPAT, Simon, Mantenimento, Cancellazione a
+regola, Doppio compito, mini-scenario) restano a singola
+somministrazione, per limiti dichiarati caso per caso nel codice (es.
+Mantenimento non ha ancora nessun materiale non verbale implementato;
+Cancellazione a regola tratta il materiale in modo troppo rigido per
+supportarne uno diverso senza prima essere estesa).
+
+Per le **autoproposte** (dove il suggerimento coincide con la sonda che
+ha fallito — es. Go/No-Go fallisce, si consiglia Go/No-Go), il pattern
+verbale/non verbale/misto compare accanto al suggerimento nei risultati,
+e la configurazione consigliata usa già il materiale giusto (quello in
+cui il problema si è visto). Per le **sostituzioni di gruppo** di
+Memoria (es. Mantenimento fallisce → si consiglia Categorizzazione)
+questo arricchimento non viene applicato di proposito: il materiale
+della sonda che ha fallito non ha un corrispettivo pulito in quello
+dell'esercizio sostituito, e forzarlo produrrebbe un'etichetta
+fuorviante.
+
+### Secondo giro a carico più alto (domini risultati puliti)
+
+Per ogni dominio risultato **interamente pulito** (ogni sonda passata,
+verbale e non verbale insieme), un'ulteriore verifica a un carico più
+impegnativo — un solo esercizio "ancora" per dominio (non l'intero
+elenco di sonde), a un livello intermedio, non il minimo di screening né
+il massimo dell'app. Principio: un profilo "pulito" può riflettere solo
+la scarsa esigenza dello screening stesso, non l'assenza di difficoltà a
+carichi più impegnativi (stessa logica già usata per il gate Doppio
+compito/Scenari ecologici, qui estesa a ogni dominio). Se la verifica
+cede, il suggerimento porta la nota esplicita "pulito ai livelli base,
+ceduto al carico più alto" — non confuso con un fallimento ordinario
+dello screening.
+
+| Dominio | Sonda di verifica |
+|---|---|
+| Memoria di lavoro | N-back, n=3 |
+| Attenzione | Go/No-Go, 3 elementi no-go, ISI più stretto |
+| Esplorazione | Cancellazione a regola, livello 4 |
+| Flessibilità | Task-switching, ISI più stretto |
+
+### Limiti dichiarati
+
+Come per gli altri moduli non normati, questo è uno strumento di
+orientamento interno a TracciaN, non uno screening validato con soglie
+normative pubblicate — soglia del 70%, regole di suggerimento e livello
+delle verifiche a carico più alto sono decisioni interne, motivate ma
+non normate, pensate per essere riviste con l'uso clinico reale.
+
+## Controllo motorio di base
+
+Non è un test cognitivo: verifica solo che il canale di risposta (tocco
+o mouse/trackpad) sia affidabile, **prima** di qualunque esercizio o
+screening — un'imprecisione qui (tremore, difficoltà visiva, mira)
+altrimenti rischia di essere letta come un deficit cognitivo che non è.
+Ispirato al Motor Screening Task di CANTAB, ma senza le sue norme di
+popolazione: l'hardware del paziente è troppo eterogeneo perché un
+valore di riferimento assoluto abbia senso — qui il confronto è sempre e
+solo con lo stesso paziente, sullo stesso tipo di dispositivo, nel
+tempo, stessa filosofia single-case già usata per l'RCI.
+
+**Accesso**: subito, dalla riga di ciascun paziente in "Paziente in
+presenza" e "I tuoi pazienti" (pulsanti "Screening" e "Controllo
+motorio" affiancati), oppure in cima alla scheda "Gestisci programma"
+del paziente — sono le due valutazioni che si cercano per prime aprendo
+un paziente.
+
+**Come funziona**: l'operatore indica il tipo di dispositivo che il
+paziente sta usando in quel momento — Smartphone, Tablet, o Computer
+(mouse/trackpad). Non è lo stesso concetto di "Dispositivo di risposta
+previsto" in Setup (quello riguarda touch/tastiera durante gli
+esercizi) — qui serve una categoria più fine, perché la zona di comfort
+della mano cambia molto fra un telefono e un tablet anche se entrambi
+sono "touch": su smartphone i 6 bersagli compaiono concentrati nella
+metà inferiore dello schermo, raggiungibile dal pollice, mai negli
+angoli estremi; su tablet e computer sono distribuiti su tutto lo
+schermo, angoli inclusi. Il paziente tocca ciascun bersaglio appena
+compare, uno alla volta.
+
+**Cosa misura**: non solo se il bersaglio è stato preso, ma *quanto*
+lontano dal centro (distanza espressa come multiplo del raggio del
+bersaglio, non in pixel grezzi — così resta leggibile a prescindere
+dalla risoluzione dello schermo) e la variabilità del tempo di reazione
+fra un tocco e l'altro (coefficiente di variazione — stesso principio
+già discusso a proposito della firma comportamentale cerebellare: non
+solo *quanto* va bene, *quanto* è costante). Il tocco viene registrato
+ovunque cada nello schermo, non solo se cade dentro il cerchio visibile
+— un "quasi preso" e un "preso al centro" sono informazioni diverse, non
+un binario riuscito/fallito.
+
+**Confronto nel tempo**: se esiste un controllo precedente per lo stesso
+paziente sullo stesso tipo di dispositivo, il risultato lo confronta
+(soglia del 15% per descrivere "simile" vs "diverso" — scelta di comodo
+descrittiva, non un valore validato in letteratura, dichiarata come tale
+nel testo mostrato). Con un dispositivo diverso dall'ultima volta, non
+viene mai forzato un confronto non comparabile — semplicemente non c'è
+nulla con cui confrontare, e quel controllo diventa il nuovo punto di
+partenza.
+
+**Suggerimento pratico, non un giudizio clinico**: se i tocchi cadono in
+media fuori dal cerchio visibile del bersaglio, il risultato lo segnala
+come osservazione diretta ("i tocchi sono caduti fuori dal bersaglio"),
+non come deficit, e suggerisce di valutare "Zone di risposta grandi" in
+Setup prima di iniziare le sessioni vere su quel dispositivo.
+
+**Dati**: ogni controllo si salva con la stessa infrastruttura delle
+sessioni normali (stesso storico, stessa sincronizzazione Supabase se
+configurata) con un campo `family:'motorio'` dedicato — non compare
+nell'RCI né nei report per esercizio, è un flusso a parte.
+
+## Test di regressione
+
+La cartella `tests/` contiene una suite di controlli automatici per i 6
+esercizi con titolazione a livelli condivisa (N-back, Go/No-Go,
+Task-switching, Sequenza bersaglio, Stop-Signal, ANT). Si lancia con:
+
+```
+node tests/run-all.js
+```
+
+Non serve installare nulla, non è collegata alla pagina che vedono
+pazienti/operatori (GitHub Pages la ospita come file inerte, non la
+esegue mai) — è uno strumento di lavoro per chi sviluppa, da lanciare
+prima di consegnare una modifica che tocca uno di quei 7 esercizi.
+Dettagli su cosa copre e cosa no in `tests/README.md`.
+
+## Prova dimostrativa
+
+Per gli esercizi a prove sequenziali con una regola meno immediata da
+intuire da soli — N-back, Sequenza bersaglio, Go/No-Go, Task-switching,
+Stop-Signal, Categorizzazione condizionale, Doppio compito, ANT (sia
+classico sia TAPAT), Simon — Setup mostra, sotto "Avvia sessione", un
+secondo pulsante: "▶ Prova dimostrativa (6 prove, non salvate)". Sequenza
+bersaglio e Go/No-Go richiedono lo stesso prerequisito già richiesto da
+"Avvia sessione" (bersaglio/i configurato/i) — la demo lo controlla allo
+stesso modo, con lo stesso messaggio.
+
+**Fuori da questa lista, per motivi diversi fra loro:**
+- **Cancellazione**: motore completamente diverso (una tavola con molti
+  elementi e tocco diretto, non un ciclo di prove sequenziali) — il
+  meccanismo di pausa-e-spiegazione dopo ogni risposta, pensato per un
+  ciclo di prove, non si adatta a quella struttura senza una
+  progettazione a sé. Resta un candidato per una futura "presentazione
+  guidata" non interattiva (vedi sotto), non per questo stesso
+  meccanismo.
+- **Strategie di memoria e Compiti a obiettivi (pianificazione)**:
+  esclusi per scelta esplicita — qui la "regola" non è qualcosa da
+  scoprire per tentativi (come in un N-back o un Task-switching), è una
+  tecnica che va insegnata esplicitamente (dove posizionare un elemento
+  nel metodo dei loci, come si segmenta un brano nel PQRST, come si legge
+  il budget di tempo in uno scenario). Una demo a 6 prove interattive
+  finirebbe per essere solo un allenamento breve — cosa già ottenibile
+  con una sessione libera più corta — non una vera spiegazione della
+  tecnica. Più adatta qui sarebbe una breve presentazione automatica non
+  interattiva (una specie di esempio già risolto, con un paio di passaggi
+  corretti e un paio scorretti commentati) — proposta, non ancora
+  progettata nei dettagli né implementata.
+
+**Cosa fa esattamente.** Applica temporaneamente ai parametri
+dell'esercizio scelto una versione fissa e facile (livello più basso
+della scala, 6 prove — dove possibile, riusa esattamente gli stessi
+valori isi/stimDuration già validati nei blocchi di screening per lo
+stesso esercizio, non numeri nuovi inventati) e passa dalle normali
+istruzioni (con un banner "DIMOSTRAZIONE" ben visibile) a un ciclo di 6
+prove. Dopo **ogni singola risposta**, il ciclo si ferma e mostra una
+riga di spiegazione — non solo se la risposta era giusta o sbagliata, ma
+perché, usando la stessa classificazione che il motore calcola comunque
+per ogni prova (bersaglio/non bersaglio, lure, elemento no-go, cambio di
+regola, trial di stop, presenza di un cue...): nessuna nuova logica di
+valutazione, solo un testo che la mette in parole. Si prosegue un tocco
+alla volta ("Avanti"), non a tempo.
+
+**Cosa NON fa.** Nessun dato della demo entra nello storico, nell'RCI, nel
+log accessi o nella titolazione adattiva — a fine demo compare una
+schermata dedicata ("Dimostrazione conclusa") con due sole scelte:
+iniziare subito la sessione vera (con i parametri che l'operatore aveva
+già impostato prima di avviare la demo, ripristinati automaticamente) o
+tornare al setup. Uscire dalla demo in qualunque altro punto (Interrompi
+a metà, Annulla dal countdown, "torna al setup" dalle istruzioni)
+ripristina comunque i parametri originali — l'operatore non deve mai
+riconfigurare a mano dopo una demo interrotta.
+
+**Testo di feedback.** Le frasi sono scritte per esercizio (in
+`demoFeedbackText`), non generiche — es. per l'N-back distinguono
+esplicitamente un lure ("trappola", familiare ma alla distanza sbagliata)
+da un non-bersaglio qualunque; per il Go/No-Go nominano sempre
+l'elemento no-go per nome, non solo "corretto/sbagliato"; per il
+Task-switching nominano la regola corrente e se è appena cambiata; per il
+TAPAT distinguono blocco tonico (nessun aiuto) da fasico (preceduto da un
+segnale); per l'ANT classico ricordano di ignorare le frecce di contorno
+e nominano il cue quando presente. Sono testi scritti a mano, non
+derivati da uno studio specifico sul wording — se in pratica risultano
+poco chiari per qualche esercizio, vanno rivisti a parole, non è un
+problema di logica sottostante.
+
+## Pubblicazione su GitHub Pages (una volta sola)
+
+1. Su github.com crea un nuovo repository, es. `traccian` (può essere pubblico
+   o privato — pubblico è sufficiente e gratuito, il contenuto dei file non
+   contiene dati di pazienti).
+2. Carica in questo repository **solo questi 5 file**, quelli nella cartella
+   principale di questo pacchetto:
+   `index.html`, `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png`.
+   (Su github.com: "Add file" → "Upload files", trascina i 5 file, "Commit changes".)
+3. Vai su **Settings → Pages**. In "Source" seleziona il branch `main` e la
+   cartella `/ (root)`, poi salva.
+4. Dopo un minuto GitHub mostra l'indirizzo pubblico, del tipo:
+   `https://<tuo-utente>.github.io/traccian/`
+
+**La cartella `supabase/` non va qui.** GitHub Pages serve solo file
+statici (HTML/CSS/JS) — non può eseguire codice server-side. Quella
+cartella contiene la funzione che crea gli account paziente e si carica
+in un posto completamente diverso (dentro il progetto Supabase stesso,
+dal suo pannello di controllo) — vedi "La funzione che crea gli account
+paziente" più sotto. Se non ti serve il sistema multi-operatore/paziente,
+puoi ignorare del tutto quella cartella.
+
+## Uso sul dispositivo
+
+**Adattabilità mobile — stato dell'audit.** Corretto un problema
+sistemico: la riga generica usata per quasi ogni elenco dell'app
+(programma paziente, home del paziente remoto, storico sessioni,
+suggerimenti da screening) non andava mai a capo — un'etichetta lunga
+(es. "Scenari ecologici (pianificazione/multitasking)") insieme al
+pulsante accanto rischiava di spingerlo fuori dallo schermo su un
+telefono stretto, invece di andare a capo in modo leggibile. Corretto
+alla radice (`.histrow`), quindi il beneficio si applica automaticamente
+ovunque quella riga è usata, non schermata per schermata.
+
+Punto aperto, non ancora deciso: gli elementi di Cancellazione
+(neglect) sono dimensionati al 9% della larghezza della tavola (fino a
+64px) — con tavole dense (fino a 85 elementi, ai livelli più alti) su
+uno schermo stretto il singolo elemento può scendere sotto i 44px
+generalmente consigliati come bersaglio tattile minimo. Non l'ho
+corretto unilateralmente perché la dimensione degli elementi è anche un
+parametro di difficoltà dell'esercizio (elementi più piccoli e più
+ravvicinati aumentano il carico di ricerca visiva) — cambiarla tocca il
+compito stesso, non solo la resa a schermo, quindi la lascio a una
+decisione esplicita piuttosto che una correzione silenziosa.
+
+1. Apri quell'indirizzo dal browser (Safari/Chrome su tablet o smartphone,
+   qualunque browser su PC — l'interfaccia si adatta alla larghezza dello
+   schermo).
+2. Su tablet/smartphone, aggiungi alla schermata Home:
+   - **iPad/Safari**: icona di condivisione → "Aggiungi a Home".
+   - **Android/Chrome**: menu ⋮ → "Aggiungi a schermata Home" / "Installa app".
+3. Da quel momento l'icona TracciaN si apre come un'app a schermo intero,
+   senza barra del browser, e funziona anche offline (il service worker
+   mette in cache i file dopo il primo caricamento).
+
+**Navigazione e refresh.** Il tasto/gesto "indietro" del dispositivo
+scorre la history interna dell'app (schermata precedente), non esce dal
+sito — se lo si preme fino a superare la prima schermata aperta, compare
+una richiesta di conferma prima di lasciare davvero TracciaN, invece di
+uscire senza preavviso. Un refresh vero (F5, o pull-to-refresh) riporta
+alla stessa schermata quando è ricostruibile da soli identificativi
+salvati (programma paziente, storico, elenco pazienti...); le schermate
+che dipendono da uno stato di sessione in corso (una prova/tavola
+attiva, uno screening a metà, un codice appena generato) non sono
+ricostruibili per natura e riportano l'operatore/paziente al punto
+sicuro più vicino (Setup per l'operatore, home per il paziente).
+
+## Dati e privacy
+
+- Ogni sessione viene salvata con `localStorage` nel browser di quel
+  tablet — non viene inviata a GitHub né a nessun altro server.
+- I dati **non si sincronizzano tra dispositivi diversi** a meno di
+  configurare la sincronizzazione cloud (sezione successiva). Senza
+  cloud, per portare i dati altrove usa "Esporta CSV" nella schermata
+  Storico — disponibile solo lato operatore, mai lato paziente.
+- Cancellando la cache/i dati del browser (o disinstallando l'app dalla
+  Home) si perde anche lo storico locale non sincronizzato: esporta
+  periodicamente il CSV se vuoi conservarlo altrove.
+- Usa un codice paziente anonimizzato, non il nominativo, nel campo dedicato.
+
+## Sincronizzazione cloud e account multi-utente (facoltativa) — Supabase
+
+Senza fare nulla, l'app resta esattamente com'era: dati solo in locale su quel
+dispositivo. Collegando un progetto Supabase gratuito ottieni tre cose insieme:
+più operatori possono lavorare in parallelo (ognuno vede solo i propri
+pazienti), ogni paziente può allenarsi da un proprio dispositivo con un
+semplice codice di accesso, e i risultati restano sempre esportabili in CSV
+indipendentemente da tutto il resto. Abilita anche un **registro accessi**
+(login/logout/tentativi falliti, vista aggregata per operatore con
+drill-down, sezione dedicata visibile solo al super-operatore) — vedi le
+istruzioni di attivazione al punto 2 qui sotto.
+
+### 1 — Crea il progetto
+
+1. Vai su [supabase.com](https://supabase.com), crea un account e un nuovo
+   progetto. Nella scelta della regione seleziona una regione **UE**
+   (es. Frankfurt) — utile per il trattamento di dati sanitari.
+2. Nel progetto, vai su **Authentication → Providers** e verifica che
+   "Email" sia abilitato. In **Authentication → Settings** disattiva
+   "Confirm email" — è necessario perché gli account paziente usano
+   un'email sintetica, non reale, che non potrebbe mai essere confermata.
+
+### 2 — Schema del database
+
+Vai su **SQL Editor** e incolla ed esegui questo script per intero — è
+**l'unica versione da usare**, sicura da rieseguire in qualsiasi momento
+(crea solo quello che manca, non tocca dati esistenti, funziona sia su un
+progetto nuovo sia per aggiornare uno già esistente da una versione
+precedente di TracciaN):
+
+```sql
+create table if not exists pazienti (
+  id uuid primary key references auth.users on delete cascade,
+  operatore_id uuid references auth.users not null,
+  codice_paziente text not null,      -- etichetta scelta dall'operatore, es. "PT-014"
+  codice_accesso text not null,       -- il codice che il paziente usa per accedere
+  preset_assegnato jsonb,             -- storico: singolo esercizio (versioni precedenti)
+  programma_assegnato jsonb,          -- elenco di esercizi assegnati insieme
+  ultima_config jsonb,                -- ultima configurazione usata (continuità tra sessioni)
+  obiettivo jsonb,                    -- array di obiettivi {tipo:'livello'|'tempo', ...}
+  limiti jsonb,                       -- {sessioniAlGiorno, minutiAlGiorno}
+  attivo boolean default true,        -- false = profilo archiviato, login bloccato
+  screening_flags jsonb,              -- array di esercizi "consigliati" (automatico da screening, sempre sovrascrivibile a mano) — vedi sezione Batteria di screening
+  modalita_accesso text default 'diretto', -- 'diretto' | 'screening_poi_suggeriti' — vedi sezione Programma paziente
+  screening_completato_il timestamptz,-- prima volta che il gate screening_poi_suggeriti è stato superato
+  screening_risultati jsonb,          -- ultimo screening completo (tutti i domini) — vedi sopra
+  livelli_esercizi jsonb,             -- vedi sopra
+  creato_il timestamptz default now()
+);
+alter table pazienti add column if not exists preset_assegnato jsonb;
+alter table pazienti add column if not exists programma_assegnato jsonb;
+alter table pazienti add column if not exists ultima_config jsonb;
+alter table pazienti add column if not exists obiettivo jsonb;
+alter table pazienti add column if not exists limiti jsonb;
+alter table pazienti add column if not exists attivo boolean default true;
+alter table pazienti add column if not exists screening_flags jsonb;
+alter table pazienti add column if not exists modalita_accesso text default 'diretto'; -- 'diretto' (vede subito il programma assegnato) | 'screening_poi_suggeriti' (vede solo lo screening finché non lo completa una prima volta)
+alter table pazienti add column if not exists screening_completato_il timestamptz; -- valorizzato la prima volta che il paziente completa lo screening in modalita_accesso='screening_poi_suggeriti' — il gate scatta una sola volta
+alter table pazienti add column if not exists screening_risultati jsonb; -- ultimo screening completo (tutti i domini, non solo quelli flaggati) — {ts, summary:[...]}, mostrato in "Gestisci programma"
+alter table pazienti add column if not exists livelli_esercizi jsonb; -- {taskMode: configurazione+livello raggiunto in quell'esercizio}, aggiornato dopo ogni sessione — un paziente con più esercizi assegnati ritrova il proprio livello in ciascuno, non solo nell'ultimo usato (che resta in ultima_config)
+alter table pazienti add column if not exists configurazioni_salvate jsonb; -- {taskMode: [{nome, cfg, savedAt}, ...]} — slot nominali salvati esplicitamente dall'operatore, distinti da livelli_esercizi (che si sovrascrive da solo ad ogni sessione)
+alter table pazienti enable row level security;
+drop policy if exists "operatore vede e gestisce i propri pazienti" on pazienti;
+create policy "operatore vede e gestisce i propri pazienti" on pazienti for all
+  using (auth.uid() = operatore_id) with check (auth.uid() = operatore_id);
+-- Sola lettura per il super-operatore, su TUTTI i pazienti (non solo i
+-- propri) — usata dalla vista "Gestione operatori" per mostrare quanti
+-- pazienti ciascun collega gestisce. Additiva: le policy permissive si
+-- sommano con OR, non sostituisce quella sopra (un operatore normale
+-- continua a vedere/gestire solo i propri pazienti come prima).
+drop policy if exists "il super-operatore legge tutti i pazienti (sola lettura)" on pazienti;
+create policy "il super-operatore legge tutti i pazienti (sola lettura)" on pazienti for select
+  using (is_super_operatore());
+
+-- Registro azioni (audit log): traccia archiviazioni/riattivazioni/
+-- eliminazioni di account — sopravvive anche dopo che l'account stesso
+-- è sparito, per questo bersaglio_id e eseguita_da NON sono chiavi
+-- esterne rigide (una vera foreign key verso auth.users si spezzerebbe,
+-- o peggio trascinerebbe con sé la riga di log, nel momento stesso in
+-- cui l'account viene eliminato — l'unico momento in cui il log serve
+-- di più). Le etichette testuali sono la copia leggibile che resta
+-- comprensibile anche quando l'id sopra non risolve più a nessuno.
+create table if not exists audit_log (
+  id bigint generated always as identity primary key,
+  ts timestamptz default now(),
+  azione text not null,
+  eseguita_da uuid,
+  eseguita_da_etichetta text,
+  bersaglio_tipo text,
+  bersaglio_id uuid,
+  bersaglio_etichetta text
+);
+alter table audit_log enable row level security;
+drop policy if exists "solo il super-operatore legge il registro azioni" on audit_log;
+create policy "solo il super-operatore legge il registro azioni" on audit_log for select
+  using (is_super_operatore());
+drop policy if exists "solo il super-operatore scrive nel registro azioni" on audit_log;
+create policy "solo il super-operatore scrive nel registro azioni" on audit_log for insert
+  with check (is_super_operatore());
+drop policy if exists "paziente vede solo se stesso" on pazienti;
+create policy "paziente vede solo se stesso" on pazienti for select
+  using (auth.uid() = id);
+drop policy if exists "paziente può aggiornare solo la propria ultima configurazione" on pazienti;
+create policy "paziente può aggiornare solo la propria ultima configurazione" on pazienti for update
+  using (auth.uid() = id) with check (auth.uid() = id);
+
+create table if not exists sessioni (
+  id text primary key,
+  user_id uuid references auth.users,           -- storico, mantenuto per compatibilità
+  operatore_id uuid references auth.users not null,
+  paziente_id uuid references pazienti,          -- null se è una sessione dell'operatore stesso
+  local_patient_id text,                         -- profilo paziente locale usato in presenza
+  ts bigint, date_label text, stim_type text, n_level int, trials int, isi int,
+  stim_duration int, resp_mode text, patient_code text, notes text, task_mode text,
+  target_seq jsonb, family text, counts jsonb, metrics jsonb, avg_rt numeric,
+  duration_ms bigint, counts_aud jsonb, metrics_aud jsonb, choice jsonb,
+  ssrt numeric, mean_ssd numeric,
+  final_level text, -- livello raggiunto a fine sessione, per ogni esercizio (non solo N-back) — testo perché il Doppio compito lo scrive come "3/4" (due canali)
+  neglect jsonb,     -- dati esercizio Cancellazione
+  goaltask jsonb,    -- dati esercizio Scenari ecologici
+  memoria jsonb,     -- dati esercizio Strategie di memoria
+  inserted_at timestamptz default now()
+);
+alter table sessioni add column if not exists operatore_id uuid references auth.users;
+alter table sessioni add column if not exists paziente_id uuid references pazienti;
+alter table sessioni add column if not exists local_patient_id text;
+alter table sessioni add column if not exists neglect jsonb;
+alter table sessioni add column if not exists goaltask jsonb;
+alter table sessioni add column if not exists memoria jsonb;
+alter table sessioni add column if not exists final_level text;
+alter table sessioni add column if not exists titration_mode text; -- 'manuale'|'livello'|'adattivo' al momento di QUESTA sessione — serve al controllo di comparabilità dell'RCI (vedi sezione RCI), senza questa colonna il controllo tratta il dato come "non verificabile" per i pazienti in cloud, non come "comparabile"
+alter table sessioni add column if not exists target_rate numeric; -- frequenza bersaglio/no-go/trial-di-stop al momento di QUESTA sessione, stesso motivo della colonna sopra
+update sessioni set operatore_id = user_id where operatore_id is null;
+alter table sessioni alter column operatore_id set not null;
+alter table sessioni enable row level security;
+drop policy if exists "lettura sessioni proprie o dei propri pazienti" on sessioni;
+create policy "lettura sessioni proprie o dei propri pazienti" on sessioni for select
+  using (auth.uid() = operatore_id or auth.uid() = paziente_id);
+drop policy if exists "inserimento sessioni proprie o come paziente proprio" on sessioni;
+create policy "inserimento sessioni proprie o come paziente proprio" on sessioni for insert
+  with check (
+    (auth.uid() = operatore_id and paziente_id is null)
+    or (auth.uid() = paziente_id and operatore_id = (select operatore_id from pazienti where id = auth.uid()))
+    or (auth.uid() = operatore_id and exists(select 1 from pazienti p where p.id = sessioni.paziente_id and p.operatore_id = auth.uid()))
+  );
+drop policy if exists "aggiornamento sessioni proprie o dei propri pazienti" on sessioni;
+create policy "aggiornamento sessioni proprie o dei propri pazienti" on sessioni for update
+  using (auth.uid() = operatore_id or auth.uid() = paziente_id)
+  with check (auth.uid() = operatore_id or auth.uid() = paziente_id);
+drop policy if exists "solo i propri dati" on sessioni;
+
+-- Profili paziente "in presenza": solo un'etichetta scelta dall'operatore,
+-- senza account/login (a differenza di pazienti sopra). Rispecchiano su
+-- Supabase i profili che prima vivevano solo in localStorage — così non
+-- spariscono cambiando browser/dispositivo/cache. Isolati per operatore
+-- da RLS, non referenziano auth.users come id (id è generato dal client).
+create table if not exists pazienti_locali (
+  id text primary key,
+  operatore_id uuid references auth.users not null,
+  nome text not null,
+  ultima_config jsonb,
+  screening_flags jsonb, -- vedi sezione Batteria di screening
+  screening_risultati jsonb, -- ultimo screening completo (tutti i domini) — vedi sopra
+  programma_assegnato jsonb, -- elenco di esercizi assegnati come scorciatoia di avvio rapido in presenza (non vincolante)
+  attivo boolean default true, -- vedi sopra
+  remote_paziente_id uuid references pazienti(id), -- vedi sopra
+  creato_il timestamptz default now()
+);
+alter table pazienti_locali add column if not exists screening_flags jsonb;
+alter table pazienti_locali add column if not exists programma_assegnato jsonb;
+alter table pazienti_locali add column if not exists screening_risultati jsonb;
+alter table pazienti_locali add column if not exists livelli_esercizi jsonb;
+alter table pazienti_locali add column if not exists obiettivo jsonb; -- stessa struttura di pazienti.obiettivo (array di {tipo:'livello'|'tempo', ...}) — obiettivi per i pazienti seguiti solo in presenza, gestiti da "Gestisci programma" esattamente come per i remoti
+alter table pazienti_locali add column if not exists attivo boolean default true; -- come pazienti.attivo — nasconde il profilo dalla lista principale, spostandolo in Archivio
+alter table pazienti_locali add column if not exists remote_paziente_id uuid references pazienti(id); -- valorizzato da "Trasforma in account remoto": collega il profilo in presenza superato al nuovo account remoto
+alter table pazienti_locali enable row level security;
+drop policy if exists "operatore vede e gestisce i propri pazienti locali" on pazienti_locali;
+create policy "operatore vede e gestisce i propri pazienti locali" on pazienti_locali for all
+  using (auth.uid() = operatore_id) with check (auth.uid() = operatore_id);
+
+-- Sessione unica per account: una riga per utente con un gettone casuale,
+-- sovrascritto ad ogni login. Ogni scheda/dispositivo collegato controlla
+-- periodicamente se il proprio gettone è ancora quello valido; se un altro
+-- accesso lo sovrascrive nel frattempo, quella sessione si disconnette da
+-- sola. Impedisce l'uso concorrente delle stesse credenziali da più persone.
+create table if not exists sessioni_login (
+  user_id uuid primary key references auth.users on delete cascade,
+  token text not null,
+  aggiornato_il timestamptz default now()
+);
+alter table sessioni_login add column if not exists iniziata_il timestamptz default now(); -- inizio di QUESTA sessione (si azzera a ogni nuovo claim, incluse le riprese silenziose) — serve a calcolare la durata, distinto da aggiornato_il che è il "battito" più recente
+alter table sessioni_login add column if not exists user_type text; -- 'operatore' | 'paziente', valorizzato al claim — evita un join con pazienti/operatori solo per etichettare il pannello "chi è online"
+alter table sessioni_login add column if not exists etichetta text; -- nickname leggibile (email operatore, codice_paziente) — stessa scelta già fatta per accessi.etichetta, per non mostrare credenziali nel pannello
+alter table sessioni_login enable row level security;
+drop policy if exists "solo il proprio gettone di sessione" on sessioni_login;
+create policy "solo il proprio gettone di sessione" on sessioni_login for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "il super-operatore legge tutte le sessioni attive" on sessioni_login;
+create policy "il super-operatore legge tutte le sessioni attive" on sessioni_login for select
+  using (is_super_operatore());
+
+-- Ruoli: distingue il super-operatore (unico che può leggere il registro
+-- accessi sotto) dagli altri operatori. Nessuna riga = operatore normale;
+-- va creata a mano una sola volta per l'account che deve avere accesso
+-- completo (vedi istruzioni subito dopo il blocco SQL).
+create table if not exists operatori (
+  id uuid primary key references auth.users on delete cascade,
+  super boolean default false,
+  creato_il timestamptz default now()
+);
+alter table operatori enable row level security;
+drop policy if exists "un operatore vede solo la propria riga di ruolo" on operatori;
+
+-- Gestione operatori (archiviazione): nome leggibile al posto
+-- dell'identificativo tecnico, e 'attivo' con lo stesso significato già
+-- in uso per i pazienti (false = archiviato, login rifiutato). Il
+-- super-operatore deve poter leggere/aggiornare la riga di CHIUNQUE, non
+-- solo la propria — da qui le due policy aggiuntive sotto, in sostituzione
+-- della singola policy "vede solo la propria riga" di prima.
+alter table operatori add column if not exists nome text;
+alter table operatori add column if not exists attivo boolean not null default true;
+
+-- Funzione che verifica "l'utente corrente è super-operatore?" bypassando
+-- RLS al suo interno (SECURITY DEFINER). Necessaria: una policy su
+-- operatori che rilegge operatori in una sotto-query per controllare
+-- o.super riattiva la RLS di operatori su quella stessa sotto-query, che
+-- richiede di nuovo la stessa verifica — un ciclo che Postgres blocca con
+-- "infinite recursion detected in policy" (visibile lato app come 500).
+-- La funzione rompe il ciclo leggendo la tabella con i privilegi del suo
+-- proprietario, non con quelli (filtrati da RLS) di chi chiama la policy.
+create or replace function is_super_operatore()
+returns boolean language sql security definer set search_path = public stable as $$
+  select coalesce((select super from operatori where id = auth.uid()), false);
+$$;
+
+drop policy if exists "un operatore vede la propria riga; il super-operatore le vede tutte" on operatori;
+create policy "un operatore vede la propria riga; il super-operatore le vede tutte" on operatori for select
+  using (auth.uid() = id or is_super_operatore());
+drop policy if exists "il super-operatore aggiorna nome/attivo di qualunque operatore" on operatori;
+create policy "il super-operatore aggiorna nome/attivo di qualunque operatore" on operatori for update
+  using (is_super_operatore()) with check (is_super_operatore());
+drop policy if exists "un operatore crea la propria riga alla registrazione" on operatori;
+create policy "un operatore crea la propria riga alla registrazione" on operatori for insert
+  with check (auth.uid() = id);
+-- Senza questa policy, la registrazione di un nuovo operatore (cloudSignUp)
+-- crea comunque l'account di autenticazione ma non riesce a scrivere la
+-- riga in 'operatori' — l'operatore resta "senza ruolo" (visibile con una
+-- query diretta come account senza corrispondenza né in operatori né in
+-- pazienti) finché qualcuno non gliela inserisce a mano.
+
+-- Registro accessi: eventi discreti di login (riuscito/fallito) e logout,
+-- per operatori e pazienti. L'insert è volutamente aperto a chiunque
+-- (anche prima del login, quando un tentativo fallisce non esiste ancora
+-- una sessione autenticata) — la protezione dei dati sta tutta nella
+-- policy di lettura, riservata al super-operatore. Nessuna cancellazione
+-- automatica: la conservazione minima di 6 mesi richiesta è già garantita
+-- semplicemente non cancellando nulla; un'eventuale pulizia periodica va
+-- fatta a mano o con un cron dedicato, in un secondo momento.
+create table if not exists accessi (
+  id bigint generated always as identity primary key,
+  evento text not null,          -- 'login' | 'logout'
+  esito text not null,           -- 'successo' | 'fallito'
+  user_type text not null,       -- 'operatore' | 'paziente'
+  user_id uuid references auth.users,  -- null se il login è fallito (nessuna sessione creata)
+  email_tentata text,            -- email reale (operatore) o indirizzo sintetico/codice (paziente) — anche per i tentativi falliti
+  etichetta text,                -- nickname leggibile (per ora solo per i pazienti: codice_paziente), valorizzato quando disponibile — preferito a email_tentata nel registro, per non mostrare la credenziale del paziente
+  ts timestamptz default now()
+);
+alter table accessi add column if not exists etichetta text;
+alter table accessi enable row level security;
+drop policy if exists "chiunque può registrare un evento di accesso" on accessi;
+create policy "chiunque può registrare un evento di accesso" on accessi for insert
+  with check (true);
+drop policy if exists "solo il super-operatore legge il registro accessi" on accessi;
+create policy "solo il super-operatore legge il registro accessi" on accessi for select
+  using (is_super_operatore());
+```
+
+**Attivare il super-operatore (una sola volta, solo per il tuo account).**
+Dopo aver eseguito lo script sopra:
+1. Su Supabase, **Authentication → Users**, copia l'UUID del tuo account operatore (quello con cui accedi normalmente all'app).
+2. Nel **SQL Editor**, esegui (sostituendo l'UUID):
+   ```sql
+   insert into operatori (id, super) values ('INCOLLA-QUI-IL-TUO-UUID', true)
+   on conflict (id) do update set super = true;
+   ```
+3. Ricarica l'app e accedi di nuovo: nella home operatore comparirà una sezione "Solo super-operatore" con il Registro accessi. Gli altri operatori non la vedranno, e un tentativo di lettura diretto della tabella `accessi` con le loro credenziali restituirà righe vuote per via della RLS.
+
+Il Registro accessi si apre su una schermata con due pulsanti, "Registro
+operatori" e "Registro pazienti" — ciascuno con la propria tabella,
+filtro e dettaglio sessione per sessione, non più tutto insieme sulla
+stessa schermata. Il registro operatori include anche **"Gestione
+operatori"**: archiviare un operatore blocca il suo accesso (login
+rifiutato, anche da una scheda già aperta in precedenza) senza toccare
+nulla di quello che ha già fatto — programmi assegnati e storico sessioni
+dei suoi pazienti restano intatti, esattamente come l'archiviazione di un
+paziente non cancella le sue sedute passate. Il campo "nome" è solo
+un'etichetta leggibile al posto dell'identificativo tecnico, impostabile
+da lì in qualunque momento; non richiede altro oltre alla migrazione SQL
+sopra (colonne `nome`/`attivo` + le due policy aggiuntive).
+
+**Registro accessi — una sola schermata, stato attuale e storico insieme.**
+Una riga per persona (operatore o paziente): stato attuale (🟢 online da
+X, o l'orario dell'ultima attività vista) e, nel dettaglio, lo storico
+delle sessioni passate con durata. Due fonti diverse dietro le quinte,
+unite qui: lo storico da `accessi` (sessioni chiuse da un logout
+esplicito registrato, durata esatta) e lo stato live da `sessioni_login`
+(battito ogni 25 secondi, comprese le riprese senza login esplicito —
+credenziali salvate nel browser — che lo storico da solo non vede mai,
+perché non generano un evento "login" in `accessi`). "Online" = battito
+negli ultimi 90 secondi; oltre, la riga resta visibile come "visto
+l'ultima volta" con orario, non sparisce — una scheda chiusa di scatto o
+una rete caduta non avvisano l'app, quindi non c'è un vero evento di
+disconnessione da registrare in quel caso, solo l'assenza di battiti
+successivi. La schermata si auto-aggiorna ogni 20 secondi finché resta
+aperta. Due menù a tendina (uno per gli operatori, uno per i pazienti)
+permettono di saltare direttamente a una persona invece di scorrere
+l'elenco intero — "Tutti" (il default) non filtra nulla.
+
+Ogni riga espansa ha in fondo un pulsante "Elimina storico di questa
+persona dal registro" — cancella dal registro tutte le righe di
+login/logout/tentativi di quella persona (utile per account di prova),
+senza toccare l'account stesso, che resta attivo o archiviato quel che
+era. Azione non annullabile, richiede conferma.
+
+Il registro mostra, per ciascun utente (operatore o paziente): numero di
+login riusciti/falliti, tempo **medio** e tempo **totale** sull'app (somma
+delle sessioni chiuse da un logout registrato — una sessione senza logout,
+es. scheda chiusa senza uscire, non contribuisce a nessuno dei due:
+entrambi sono quindi una stima per difetto, non un valore esatto), e
+l'ultimo accesso. Per un paziente il cui login è **riuscito** almeno una
+volta, l'etichetta mostrata è il suo **nickname** (`codice_paziente`, lo
+stesso che l'operatore vede ovunque nell'app), non il codice di accesso
+digitato — anche per i suoi eventuali tentativi falliti precedenti, dato
+che sono raggruppati sotto lo stesso account. Un tentativo **mai
+riuscito** (codice sbagliato, nessun account corrispondente) non ha
+invece un nickname da mostrare: resta raggruppato sotto il testo digitato
+stesso, l'unica informazione disponibile in quel caso. L'export CSV
+riporta comunque entrambe le colonne separate (`nickname` e
+`identificativo_digitato`), riga per riga.
+
+
+**Checklist di sicurezza per ogni nuova tabella.** La chiave "anon" incollata
+nell'app è pubblica per design — l'unica cosa che impedisce a chiunque abbia
+URL+chiave di leggere/scrivere dati altrui è Row Level Security. Prima di
+mettere in produzione qualsiasi tabella nuova:
+
+1. `alter table NOME_TABELLA enable row level security;` — senza questo
+   comando la tabella è raggiungibile da chiunque via REST, chiave anon
+   incluso, a prescindere da qualunque policy scritta dopo.
+2. Almeno una `create policy` per ogni operazione che l'app userà su quella
+   tabella (`select`/`insert`/`update`/`delete`, o `for all`) — una tabella
+   con RLS abilitata ma senza policy nega tutto per default, quindi l'errore
+   qui si manifesta come "l'app non funziona" (facile da notare) più spesso
+   che come falla silenziosa — ma va comunque verificato esplicitamente.
+3. Testare la policy con l'utente meno privilegiato previsto (es. un account
+   paziente) prima di considerarla pronta, non solo con l'account operatore.
+4. Verificare in **Authentication → Sign In / Providers** che "Allow new
+   users to sign up" sia disattivato su ogni progetto in uso clinico reale
+   (va ricontrollato periodicamente, non solo alla configurazione iniziale).
+
+Le sei tabelle sopra (`pazienti`, `sessioni`, `pazienti_locali`,
+`sessioni_login`, `operatori`, `accessi`) hanno già RLS abilitata con policy
+verificate — questa checklist riguarda solo eventuali tabelle aggiunte in
+futuro. Le colonne `screening_flags` aggiunte a `pazienti`/`pazienti_locali`
+sono coperte dalle stesse policy già esistenti su quelle tabelle (le policy
+sono per riga, non per colonna).
+
+Infine, in **Project Settings → API**, copia **Project URL** e la chiave
+**anon public** (non la "service_role" — quella non va mai incollata
+nell'app, serve solo al passo successivo, lato server).
+
+### 3 — La funzione che crea gli account paziente
+
+Creare un account non è un'operazione che il browser può fare da solo in
+sicurezza: servirebbe la chiave "service_role", che non deve mai stare nel
+codice pubblico. Per questo la creazione degli account paziente passa da una
+piccola **Edge Function** — un frammento di codice che gira sui server di
+Supabase, non nel browser di nessuno, e **non va caricato su GitHub**: si
+carica direttamente nel progetto Supabase, dal browser.
+
+**Nota sulle chiavi:** Supabase fornisce automaticamente a ogni Edge
+Function le chiavi di cui ha bisogno (incluse URL e service role) — **non
+serve creare nessun segreto manualmente**, anzi Supabase blocca esplicitamente
+la creazione di segreti con nome che inizia per `SUPABASE_` (comparirebbe
+l'errore "Name must not start with the SUPABASE_ prefix" se lo tentassi). Il
+codice della funzione in questo pacchetto è già scritto per leggerle da solo.
+Supabase ha rinominato queste chiavi nel 2026 (`SUPABASE_SECRET_KEYS` /
+`SUPABASE_PUBLISHABLE_KEYS`, ora dizionari JSON con una voce `default`)
+mantenendo per un periodo di transizione anche i nomi precedenti
+(`SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY`, stringhe semplici) — la
+funzione prova prima il formato nuovo e ripiega sul vecchio solo se il nuovo
+non è disponibile, così funziona su entrambi senza bisogno di sapere quale
+dei due il tuo progetto sta ancora usando.
+
+Il file è incluso in questo pacchetto in
+`supabase/functions/create-patient/index.ts`.
+
+**Via più semplice — dalla Dashboard, senza installare nulla:**
+
+1. Nel tuo progetto Supabase, vai su **Edge Functions** nel menu laterale.
+2. Clicca **"Deploy a new function"** → **"Via Editor"**.
+3. Come nome della funzione scrivi esattamente `create-patient` (deve
+   combaciare con quello che l'app si aspetta).
+4. Si apre un editor di codice nel browser con un template — cancella tutto
+   il contenuto e incolla al suo posto il contenuto del file
+   `supabase/functions/create-patient/index.ts` di questo pacchetto (aprilo
+   con un editor di testo qualsiasi, seleziona tutto, copia).
+5. Clicca **Deploy**. Fatto — nessun altro passaggio, la funzione è già
+   attiva e l'app può creare account paziente.
+
+**Origin consentito (CORS):** per difesa in profondità, la funzione accetta
+richieste solo dall'origin GitHub Pages di TracciaN (`https://latonshriek.github.io`
+di default, scritto nel codice). Se pubblichi l'app su un dominio diverso o
+su più domini, aggiungi un secret **Edge Functions → create-patient →
+Secrets → `ALLOWED_ORIGIN`** con l'URL (o gli URL, separati da virgola)
+corretto — altrimenti il browser bloccherà le chiamate con un errore CORS.
+Non è comunque una barriera di sicurezza da sola (la funzione resta protetta
+principalmente dal controllo "operatore autenticato" nel codice), solo un
+livello in più.
+
+**Via alternativa — con la CLI (se preferisci lavorare da terminale, o vuoi
+tenere la funzione sotto controllo versione insieme al resto del codice):**
+
+1. Installa la [CLI di Supabase](https://supabase.com/docs/guides/cli) sul tuo
+   computer (una volta sola): `npm install -g supabase`.
+2. Nella cartella di questo progetto (quella che contiene anche la cartella
+   `supabase/`), collega il tuo progetto Supabase:
+   ```
+   supabase login
+   supabase link --project-ref <il-tuo-project-ref>
+   ```
+   (il project-ref è nell'URL del progetto: `https://<project-ref>.supabase.co`)
+3. Pubblica la funzione:
+   ```
+   supabase functions deploy create-patient
+   ```
+
+Da quel momento, dalla schermata "Gestisci pazienti" dell'app, ogni nuovo
+paziente creato genera un account reale e isolato, con un codice di accesso
+di 8 caratteri mostrato una sola volta all'operatore (da consegnare al
+paziente — non è recuperabile in seguito dall'interfaccia, solo dal database
+se serve).
+
+### 4 — Collegare l'app
+
+Due modi, a seconda se vuoi che URL e chiave siano già incorporate nell'app
+per tutti (consigliato per un team) o configurabili da ciascuno (utile solo
+per test rapidi).
+
+**Modo consigliato — incorporata per tutti (una volta sola per ogni
+consegna aggiornata del codice):**
+
+1. Apri `index.html` con un editor di testo, cerca le righe:
+   ```js
+   const BAKED_SUPABASE_URL = '';
+   const BAKED_SUPABASE_KEY = '';
+   ```
+   (sono vicine all'inizio del file, dentro il tag `<script>`).
+2. Incolla il tuo Project URL e la chiave anon/publishable tra gli apici,
+   es. `const BAKED_SUPABASE_URL = 'https://xxxxx.supabase.co';`.
+3. Salva, ricarica `index.html` su GitHub.
+
+Da quel momento **chiunque apra l'app — operatori e pazienti — vede subito
+la schermata di accesso**, senza alcun campo di configurazione.
+
+**Modo alternativo — configurabile in-app:** lascia quelle due righe vuote.
+Al primo utilizzo comparirà un campo per incollare URL e chiave manualmente
+(utile per provare l'app con progetti Supabase diversi senza modificare il
+codice ogni volta).
+
+In entrambi i casi, poi:
+
+- **Come operatore**: scegli "Operatore", "Registrati" con un'email e una
+  password (solo la prima volta — e solo finché "Allow new users to sign up"
+  è attivo su Supabase, vedi sotto). Sugli altri dispositivi fai "Accedi"
+  con le stesse credenziali. Da "Gestisci pazienti" crei i profili paziente
+  e assegni loro uno o più allenamenti.
+- **Come paziente**: scegli "Paziente", inserisci il codice di 8 caratteri
+  ricevuto dall'operatore. Non serve altro — l'app mostra direttamente
+  gli allenamenti assegnati.
+
+**Limitare chi può registrarsi come operatore:** per impostazione predefinita
+chiunque trovi l'URL dell'app può registrarsi. Per impedirlo — utile dopo
+esserti registrato tu la prima volta — vai su **Authentication → Sign In /
+Providers** e disattiva **"Allow new users to sign up"**. Da quel momento
+solo chi ha già un account può accedere; per aggiungere un nuovo collega
+operatore vai su **Authentication → Users → "Add user"** e crealo tu
+direttamente dal pannello (spunta "Auto Confirm User" per evitare l'email
+di conferma). Per rimuovere un account operatore, stessa schermata → elimina
+l'utente. Per rimuovere davvero un account paziente (oltre a "Elimina"
+nell'app, che rimuove il profilo ma non le credenziali sottostanti), cerca
+in quella stessa schermata l'email `<codice minuscolo>@paz.traccian.local`
+ed eliminala.
+
+Ogni sessione salvata si sincronizza automaticamente in background; se il
+dispositivo è offline resta salvata in locale e si sincronizza al primo
+accesso a Internet. Un operatore vede sempre lo storico proprio e di tutti i
+suoi pazienti insieme; un paziente vede solo il proprio, e non può esportare
+CSV (riservato all'operatore).
+
+La chiave "anon"/"publishable" è pensata per essere pubblica — la
+protezione reale sono le policy SQL sopra più il login di ciascuno. Non
+mettere mai la chiave "service_role"/"secret" nell'app, nemmeno qui: quella
+resta solo nel segreto della Edge Function.
+
+Per applicare modifiche future, basta sostituire `index.html` (e gli altri
+file se cambiati) nello stesso repository — GitHub Pages si aggiorna da solo
+in circa un minuto. Lo storico salvato sul tablet non viene toccato.
+
+## Eliminazione definitiva di un account (pazienti e operatori)
+
+Archiviare (già descritto sotto per i pazienti, e nella sezione
+Sincronizzazione cloud per gli operatori) blocca l'accesso senza
+toccare nulla dei dati — è la via normale per un paziente che ha
+concluso il percorso, o un operatore che lascia la struttura.
+**Eliminare** è diverso e irreversibile: cancella l'account vero e
+proprio (login compreso), pensato per i profili di prova, non per un
+percorso clinico concluso.
+
+**Perché serve una funzione a parte, non un pulsante diretto.**
+Eliminare un account richiede i privilegi di amministratore di Supabase
+(la "service role key") — una chiave che non deve **mai** comparire nel
+codice che gira nel browser: chiunque riuscisse a leggerla potrebbe
+cancellare qualunque account di chiunque. Per questo l'eliminazione
+passa da una **Edge Function** (`supabase/functions/delete-account`),
+un piccolo programma che gira sui server di Supabase, dove quella
+chiave resta al sicuro come variabile d'ambiente — il client le manda
+solo "elimina questo account", mai la chiave stessa.
+
+**Come funziona, in due fasi**: la funzione verifica prima CHI sta
+chiamando (con il suo token normale, senza privilegi elevati — deve
+essere un vero super-operatore) — solo dopo questa verifica usa i
+privilegi di amministratore, e solo per l'unica operazione che li
+richiede davvero. Gestisce sia pazienti sia operatori con la stessa
+funzione (`accountType: 'paziente'|'operatore'`), non due separate — la
+logica di verifica e di registrazione è identica, cambia solo quale
+tabella controllare.
+
+**Un operatore con pazienti ancora assegnati (o sedute proprie
+registrate) non si può eliminare** — le tabelle `pazienti`/`sessioni`
+referenziano `operatore_id` senza cascata (vedi lo schema più sopra),
+quindi Postgres rifiuta l'eliminazione invece di trascinarsi dietro
+dati clinici altrui. La funzione intercetta questo caso e restituisce
+un messaggio comprensibile ("riassegna i pazienti prima di eliminarlo"),
+non l'errore grezzo del database.
+
+**Pubblicazione** — richiede la Supabase CLI:
+```bash
+supabase functions deploy delete-account --project-ref IL-TUO-PROJECT-REF
+```
+Il project-ref è visibile nell'URL del tuo progetto Supabase. In
+alternativa, dalla dashboard Supabase → Edge Functions → Create
+function → incolla il contenuto del file.
+
+### Creazione operatori (`create-operator`)
+
+Stesso motivo di `create-patient`: creare un account Supabase da codice
+client-side richiederebbe la chiave segreta nel browser, oppure
+`supabase.auth.signUp()` dal client — che però disconnetterebbe
+l'operatore che sta creando l'account, sostituendo la sua sessione con
+quella del nuovo utente. La funzione gira lato server, verifica che chi
+chiama sia un super-operatore, crea l'account con una password
+provvisoria generata al momento (mostrata una sola volta, da comunicare
+fuori dall'app) e la riga in `operatori` nello stesso passaggio — non
+resta mai un account "senza ruolo" come poteva succedere prima con la
+registrazione diretta dall'app.
+
+**Pubblicazione**:
+```bash
+supabase functions deploy create-operator --project-ref IL-TUO-PROJECT-REF
+```
+
+
+
+Ogni archiviazione, riattivazione ed eliminazione (di pazienti e
+operatori) scrive una riga in `audit_log` — chi, quando, che azione, su
+chi. Sopravvive anche dopo che l'account bersaglio è stato eliminato
+(le colonne `eseguita_da`/`bersaglio_id` non sono chiavi esterne
+rigide di proposito — altrimenti la riga di log sparirebbe insieme
+all'account nel momento stesso in cui serve di più). La scrittura è
+**best-effort**: se fallisce (es. la migrazione SQL della tabella non
+è ancora stata eseguita), l'azione principale resta comunque valida —
+solo senza traccia nel registro. Nessuna schermata dedicata per
+consultarlo ancora — leggibile per ora solo dall'SQL Editor di
+Supabase (`select * from audit_log order by ts desc`), riservato al
+super-operatore dalla RLS.
+
+## Gestione pazienti: programma, modalità di accesso, obiettivi, limiti, RCI, archiviazione
+
+**Programma assegnato** — dalla schermata "Gestisci programma", identica
+per pazienti remoti e in presenza, l'operatore costruisce il programma un
+esercizio alla volta: **"+ Aggiungi esercizio personalizzato"** porta
+dritto a Setup, dove si configura l'esercizio (livello, materiale,
+parametri) e si preme "+ Aggiungi al programma" — il nome viene generato
+automaticamente, senza doverlo scrivere a mano, e si resta su Setup
+pronti a configurare il successivo prima di tornare al programma. Se il
+nome proposto coincide con una voce già presente nel programma (es. due
+varianti di Cancellazione con stesso materiale e livello, o due voci
+aggiunte senza cambiare i parametri fra l'una e l'altra), l'app aggiunge
+da sola un contatore leggibile ("(2)", "(3)"...) invece di lasciare due
+voci identiche indistinguibili nell'elenco. In alternativa, se sul
+dispositivo esistono già preset salvati non ancora assegnati a questo
+paziente, compaiono in una "libreria" con un tocco per aggiungerli così
+come sono. Ogni voce del programma si rimuove singolarmente, senza
+toccare le altre. Per un paziente remoto il programma è ciò che vede e
+può avviare da solo a ogni accesso. Per un paziente in presenza è una
+scorciatoia di continuazione: toccando il nome del paziente nell'elenco
+"Paziente in presenza", l'operatore sceglie ogni volta fra **"Setup
+libero"** (esercizio estemporaneo, come prima) e **"Programma"** (apre
+"Gestisci programma") — nessuna delle due è un vincolo, resta libero di
+lanciare qualunque altro esercizio in qualsiasi momento. Ogni voce del
+programma ha tre azioni: **"▶ Avvia"** (riprende l'esercizio subito, al
+livello adattivo raggiunto in QUELLA voce — non l'ultimo esercizio fatto
+in assoluto — saltando Setup e andando dritto alle istruzioni: stessa
+logica di "Inizia" nella scheda del paziente remoto autonomo),
+**"Modifica"** (riapre Setup con quella configurazione, sostituisce la
+voce invece di aggiungerne una — preserva la provenienza da screening se
+presente, con una nota che confronta il livello suggerito originariamente
+con quello attuale) e **"✕ Rimuovi"**. Un **tempo consigliato** opzionale
+(minuti al giorno o totali) è impostabile per ciascuna voce, mostrato al
+paziente accanto all'esercizio.
+
+**Modalità di accesso** (solo pazienti remoti) — scelta alla creazione
+del profilo, modificabile in seguito da "Gestisci programma":
+- **Diretto**: il paziente vede subito il programma assegnato sopra.
+- **Solo screening all'inizio**: al primo accesso il paziente vede solo
+  l'ingresso alla batteria di screening, non il programma. Al termine,
+  i domini risultati sotto soglia (vedi sezione "Batteria di screening
+  iniziale") vengono **autorizzati automaticamente** nel programma
+  assegnato — il paziente li vede da quel momento senza bisogno di un
+  intervento manuale dell'operatore. Il gate scatta **una sola volta**:
+  una volta superato, il paziente vede sempre il programma direttamente,
+  anche se l'operatore lancia altri screening in seguito.
+
+**Risultati screening e suggerimenti → programma** — tutto accessibile da
+un unico posto: "Gestisci programma" (pazienti remoti) o "Assegna
+programma" (pazienti in presenza). Lì trovi, oltre alla selezione multipla
+dei preset:
+- il **quadro completo dell'ultimo screening** — tutti i domini testati,
+  non solo quelli flaggati, con accuratezza base/caricato per ciascuno;
+- i **suggerimenti attivi** (⭐), con due azioni: **"+ Aggiungi"** li
+  trasforma subito in una voce reale del programma (con una
+  configurazione di partenza già tarata su quel dominio, adattiva),
+  **"✕"** li scarta. È la stessa leva usata dall'autorizzazione
+  automatica del gate — la differenza è solo se scatta da sola alla
+  prima valutazione o se la usa l'operatore a mano, anche ripetutamente;
+- un pulsante per **fare (o rifare) lo screening** direttamente da qui.
+
+Solo l'ultimo screening completo resta consultabile (non uno storico di
+tutti quelli fatti); i suggerimenti invece si accumulano nel tempo tra
+uno screening e l'altro, a meno di essere scartati a mano. Le liste
+pazienti (remoti e in presenza) mostrano solo un conteggio dei
+suggerimenti attivi, come promemoria — la gestione vera è sempre nel
+profilo.
+
+**Eredità da un profilo in presenza** — il pulsante "Trasforma in
+account remoto" (disponibile ovunque sia selezionato un paziente in
+presenza) porta con sé, oltre allo storico già registrato, anche il
+programma assegnato e i suggerimenti da screening del profilo locale,
+se presenti. Il nuovo account remoto parte in modalità "Diretto".
+
+**Obiettivi** — disponibili sia per pazienti remoti sia per pazienti in
+presenza, stessa struttura dati e stessa sezione in "Gestisci programma"
+per entrambi (persistita su `pazienti.obiettivo` o
+`pazienti_locali.obiettivo` a seconda del tipo). Un paziente può averne
+più di uno contemporaneamente, di due tipi: **livello** (un livello
+target su un esercizio specifico, tetto massimo coerente con la scala
+reale di quell'esercizio — 10 per la maggior parte, 16 per Chunking/
+PQRST, 30 per Cancellazione in modalità Progressiva, 5 per gli Scenari
+ecologici; il Doppio compito è escluso, avendo due canali/livelli
+indipendenti non riducibili a un solo numero) o **tempo** (minuti di
+allenamento accumulati, a settimana o in totale, indipendentemente
+dall'esercizio). Facoltativi: senza obiettivi impostati il paziente si
+allena normalmente. Per un paziente remoto autosomministrato, la barra è
+mostrata nella sua scheda e a fine sessione; per un paziente in presenza,
+la barra è mostrata all'operatore in "Gestisci programma" e — visto che
+lo schermo è condiviso durante la seduta — anche al termine di ogni
+esercizio nella schermata Risultati, esattamente come per il remoto. Il
+paziente vede solo una barra percentuale per ciascuno, senza etichetta;
+l'operatore vede la stessa barra con l'etichetta completa. Per un
+obiettivo di livello, il progresso non salta a scatti del 20% per
+livello: usa l'accuratezza dell'ultima sessione confrontata con le soglie
+70-85% per dare una posizione continua dentro il livello corrente
+(eccezione: lo Stop-Signal resta a gradino secco, essendo guidato dallo
+staircase SSD e non dalla regola 70-85%). Il progresso di un obiettivo di
+livello legge il livello raggiunto dal campo corretto per ciascun
+esercizio (lo stesso usato dalla titolazione adattiva) — Categorizzazione
+condizionale, Chunking/PQRST e Scenari ecologici hanno ciascuno il
+proprio campo dedicato, distinto da quello usato da N-back/Cancellazione/
+Go-No-Go/ecc.
+
+**Limiti giornalieri** — numero massimo di sessioni e/o minuti al giorno,
+impostabili indipendentemente.
+
+**Archiviazione** — pulsante "Archivia"/"Riattiva" su ciascun paziente
+remoto. Un profilo archiviato: il paziente non può più accedere da solo
+(login bloccato con messaggio esplicito), ma resta visibile all'operatore
+(etichettato "archiviato"), utilizzabile per sedute in presenza, e il suo
+storico/report restano consultabili. "Riattiva" lo riporta come prima,
+stesso codice di accesso. Diverso da "Elimina", che resta distruttivo.
+
+**Storico sessione-per-sessione** — pulsante "Storico" su ciascun
+paziente, remoto o in presenza: elenco cronologico di ogni sessione con
+esercizio, livello, accuratezza. Diverso dal report RCI sotto, che è un
+confronto aggregato, non un elenco.
+
+**Valutazione RCI (Reliable Change Index)** — pulsante "Genera report
+RCI", disponibile sia per pazienti remoti sia per profili in presenza.
+Confronta la media delle **prime sessioni** (baseline) con la media delle
+**ultime sessioni disponibili al momento del calcolo**, per ciascun
+esercizio — non sessione per sessione: pensato per essere lanciato quando
+si vuole fare il punto su una fase di trattamento, non ad ogni export.
+Servono almeno 4 sessioni sullo stesso esercizio. Scarica un CSV separato
+(`traccian_rci_<codice>.csv`) con, per ciascun esercizio: sessioni
+totali, media baseline, media finale, valore RCI, se il cambiamento è
+significativo (soglia ±1.96). I valori di affidabilità test-retest usati
+nel calcolo sono stime prudenti di default (0.65-0.75 a seconda
+dell'esercizio) — se hai valori più precisi dalla letteratura per un dato
+paradigma, si correggono nella costante `RCI_RELIABILITY` nel codice.
+
+**Controllo di comparabilità: l'RCI si rifiuta di calcolare un numero
+quando le sessioni confrontate non sono comparabili.** Un cambiamento di
+accuratezza fra sessioni con parametri diversi (livello, ISI, numero di
+prove, frequenza bersaglio/no-go, modalità di titolazione Manuale/
+Livello/Adattivo) misurerebbe quanto è cambiato il compito, non quanto è
+cambiato il paziente — l'assunzione di base di Crawford & Howell (stessa
+misura, stesse condizioni) salterebbe silenziosamente. Confrontare il
+livello 1 con il livello 10 dello stesso esercizio ha esattamente lo
+stesso problema di un ISI diverso fra le due sedute: **stesso controllo,
+non un caso a parte**. Quando viene rilevato uno scostamento sostanziale,
+il CSV e il report stampabile mostrano comunque le medie grezze (dato
+legittimo da guardare per quello che è) ma **non** il numero RCI, insieme
+al motivo specifico dello scostamento. Questo controllo dipende dai
+parametri registrati per ciascuna sessione (colonne `titration_mode` e
+`target_rate` nella tabella `sessioni`, vedi schema Supabase) — per le
+sessioni registrate prima di questa consegna, o per pazienti in cloud
+finché non si aggiungono quelle due colonne, il dato è assente e il
+controllo lo tratta come "non verificabile", non come "sicuramente
+comparabile": non blocca un confronto per un dato che semplicemente non
+c'è ancora, ma nemmeno lo dichiara valido senza prove.
+
+**Sessioni di verifica a parametri fissi — proposta non ancora
+implementata.** Il modo più solido per garantire confrontabilità nel
+tempo, discusso ma non ancora costruito: periodicamente, invece di
+confrontare sedute di allenamento (che si spostano di proposito, in
+Livello/Adattivo), far svolgere una seduta a una configurazione FISSA di
+riferimento, usata solo per la misura — l'allenamento vero e proprio
+resta libero di muoversi a qualunque livello serva clinicamente, senza
+dover scegliere fra "titolare bene" e "poter confrontare bene".
+
+## Scenari ecologici (pianificazione / multitasking)
+
+Nono esercizio della batteria. Motore condiviso per compiti strutturati
+come: un elenco di elementi da completare, vincoli di dipendenza fra
+loro, regole comportamentali il cui mancato rispetto viene tracciato come
+violazione distinta dal semplice "non fatto", e un budget di tempo
+opzionale — copre in un unico impianto pianificazione procedurale,
+multitasking (Modified Six Elements/Multiple Errands) e scenari
+ecologici quotidiani. Il paziente può sempre **tentare** qualsiasi
+elemento visibile (come nei paradigmi reali): le regole non bloccano il
+tocco, penalizzano come violazione — fa eccezione la mutua esclusione
+(una scelta reale rimuove l'alternativa) e gli elementi nascosti
+(finestra oraria non ancora aperta, memoria prospettica non ancora
+dovuta), che non sono nemmeno mostrati finché non è il momento.
+
+**10 scenari disponibili**, ciascuno con **5 livelli di complessità**
+selezionabili in setup (1 = molto facile, 2 = lo scenario base, 3-5 =
+un meccanismo in più a ogni gradino, in modo **cumulativo**: il livello
+5 contiene sempre anche i meccanismi introdotti ai livelli 3 e 4, non li
+sostituisce — così la progressione è graduale invece di un salto secco
+da "poche regole" a "tutte insieme"). In più, ogni elemento mostra
+un'icona (emoji, nessuna dipendenza esterna) legata alla sua categoria,
+per un riferimento visivo rapido oltre al testo:
+
+1. **Sei compiti** (Modified Six Elements) — L3: vera regola delle due
+   metà dello stesso compito ("non fare le due storielle di fila"); L4:
+   settimo elemento con dipendenza incrociata; L5: soglia di errori
+   tollerati (oltre la quale la prova è "Fallita")
+2. **Preparare il tè** — L3: elemento zucchero; L4: diventa una scelta
+   reale (zucchero *o* dolcificante); L5: introduce un budget di tempo,
+   assente nello scenario base
+3. **Gestione farmacologica settimanale** — L3: prima finestra oraria
+   (dose mattutina); L4: finestre anche su pomeriggio/sera; L5: memoria
+   prospettica nascosta (annotare senza promemoria)
+4. **Spesa con budget limitato** — L3: mutua esclusione (dolce *o*
+   rivista); L4: elemento condizionale in più; L5: integrazione
+   informativa (il prezzo della frutta serve per verificare il conto)
+5. **Appuntamenti e mezzi pubblici** — L3: prima finestra oraria (il
+   bus); L4: finestre anche su appuntamento e ritorno; L5: integrazione
+   informativa + introduce un budget di tempo, assente nello scenario base
+6. **Sicurezza domestica prima di uscire** — L3: controllo aggiuntivo
+   con dipendenza; L4: interruzione/distrattore da gestire; L5: soglia
+   di errori tollerati
+7. **Commissioni in centro** (Multiple Errands) — L3: vera regola
+   ingresso unico per luogo; L4: integrazione informativa; L5: soglia di
+   errori tollerati
+8. **Organizzare un pranzo in famiglia** — L3: elemento aggiuntivo; L4:
+   memoria prospettica nascosta (controllare il forno senza promemoria);
+   L5: scelta reale in più (dolce fatto in casa *o* comprato)
+9. **Routine mattutina** — L3: elemento aggiuntivo con dipendenza; L4:
+   finestra oraria complessiva (uscire in tempo); L5: soglia di errori
+   tollerati
+10. **Percorso a tappe con regole** (Mappa dello zoo) — L3: vera regola
+    ingresso unico per luogo; L4: scelta reale in più (due souvenir
+    alternativi); L5: soglia di errori tollerati
+
+Vocabolario completo delle regole/meccanismi nel codice (funzione
+`completeGoalTaskItem`/`goalTaskTick`, ben commentata): finestra oraria,
+mutua esclusione, soglia di errori tollerati, interruzione/distrattore,
+non-ripetere-versioni-dello-stesso-compito, ingresso unico per luogo,
+integrazione informativa, memoria prospettica nascosta. Sono riusabili
+su qualunque scenario aggiungendo i campi giusti agli elementi — non
+richiedono un motore diverso per essere estesi ad altri scenari.
+
+Due idee discusse in fase di progettazione — un labirinto di
+pianificazione spaziale e un puzzle di trasformazione risorse (tipo
+"lupo-capra-cavolo") — non sono incluse: sono problemi di percorso/spazio
+di stati, una struttura diversa da "elenco con vincoli", che
+richiederebbe un motore dedicato separato da questo.
+
+## Strategie di memoria
+
+Decimo esercizio della batteria (il sesto in ordine di comparsa nel
+selettore). **Cinque tecniche**, un livello 1-16 da scegliere in setup:
+
+**PQRST** (sempre su brano, 16 brani graduati) — la fase di studio è
+guidata a passaggi veri, non un unico schermo con tutto il testo:
+1) **Anteprima** (solo il titolo — "cosa pensi che racconterà?"),
+2) **Domanda** (formularsi una domanda a cui il brano dovrebbe
+rispondere), 3) **Lettura** (il testo compare, con opzione di ascolto
+vocale), 4) **Ripeti a te stesso** (il testo si nasconde, il paziente
+richiama mentalmente prima del test) — le quattro lettere della
+tecnica, con il richiamo finale a fare da quinto passaggio ("Test"). I
+brani crescono per lunghezza (~30→~220 parole), densità di idee,
+presenza di dettagli interferenti (numeri, nomi, date — assenti nei
+primi livelli), complessità sintattica, astrattezza del contenuto.
+
+Il ciclo P-Q-R-S non gira sull'intero brano in un unico passaggio: segue
+lo schema di riferimento in letteratura, che lo applica **per sezione
+tematica** (anteprima → domanda → lettura → ripetizione su una sezione,
+poi si passa alla successiva), con il richiamo finale a fare da Test
+cumulativo su tutte le sezioni insieme. Ogni sezione raggruppa ~2 unità
+concettuali. I brani storici a blocco unico vengono trattati come una
+sola sezione, quindi il meccanismo è identico per tutti i livelli anche
+prima che vengano riscritti in forma segmentata.
+
+**Forme parallele (RCI)** — ai livelli 1-2 sono disponibili 3 forme
+equivalenti (A/B/C: stessa lunghezza, stessa struttura a sezioni/unità,
+stesso registro), selezionabili a mano in setup quando un livello ne ha
+più di una. Servono a separare il vero miglioramento clinico
+dall'apprendimento specifico del materiale nel confronto RCI
+baseline/finale (Crawford): usando forme diverse a sessioni diverse, un
+recupero maggiore non può essere spiegato dalla semplice esposizione
+ripetuta allo stesso testo. La forma usata è tracciata nello storico
+sessione e nel CSV (`memoria_forma`). Il selettore forma in setup
+segnala con un tag "✓ già usata" le forme già impiegate con quel
+paziente a quel livello/tecnica (letto dallo storico sessioni, caricato
+in background all'apertura del setup se non già in cache) — puramente
+informativo, non impedisce la scelta: resta sempre l'operatore a
+decidere se ripetere una forma è appropriato per quel caso. Popolati con
+3 forme anche i livelli 3-5 (PQRST e Chunking) — stessa lunghezza,
+stesso numero di unità/parole, stesso registro della forma A originale.
+I livelli 6-16 restano per ora a forma singola — l'estensione è un
+lavoro di contenuto da proseguire gradualmente, non un limite del
+meccanismo: `memoriaListaResolve()` supporta forme parallele sia per
+liste a sotto-gruppi (livelli 1-2) sia per liste "flat" a categoria
+singola o non categorizzate (livelli 3+), quindi l'estensione ai livelli
+successivi (incluse le liste non categorizzate, 6 in su) è già
+tecnicamente pronta quando arriverà il contenuto.
+
+**Chunking** (sempre su lista, 16 liste di parole graduate) —
+**multi-metodo**: in setup l'operatore sceglie fino a 2 tecniche fra
+cinque, mai in automatico:
+- *Categorizzazione semantica* — se la lista è categorizzabile (livelli
+  1-5), rivela la categoria e invita a raggruppare mentalmente; se non lo
+  è (dal livello 6 in su), invita a creare associazioni proprie.
+- *Acronimo/acrostico* — evidenzia la prima lettera di ogni parola
+  direttamente sulla lista mostrata, invitando a costruire insieme (operatore
+  e paziente) una parola o frase che le usi in ordine.
+- *Narrazione/concatenamento* — invita a costruire insieme una breve
+  storia che colleghi le parole in sequenza.
+- *Immagine associativa* — invita a creare un'immagine mentale vivida
+  che colleghi ogni parola (o coppia di parole consecutive) alla
+  successiva, senza un percorso spaziale fisso (a differenza del metodo
+  dei loci sotto).
+- *Personale* — nessun box automatico: un campo di testo libero dove
+  l'operatore annota la tecnica concordata con quel paziente specifico,
+  quando non rientra nelle quattro codificate.
+
+Sotto il livello 11 è selezionabile una sola tecnica alla volta; dal
+livello 11 in su se ne possono combinare due, a scelta manuale — la
+combinazione utile dipende dal singolo paziente, non è deducibile a
+priori dal livello. Le liste crescono per lunghezza (4→14 parole),
+presenza di categorie semantiche raggruppabili, concretezza/immaginabilità
+delle parole, frequenza d'uso.
+
+**Struttura a sotto-gruppi (ai livelli 1-2, popolata finora)** — la lista
+non è più un blocco indifferenziato di parole con un'unica etichetta di
+categoria: è composta da più sotto-gruppi (2-3 categorie diverse, es.
+"frutta" + "animali"), ciascuno mostrato come box separato con la sua
+etichetta. Salendo di livello crescono **insieme** numero di sotto-gruppi
+e dimensione di ciascuno (mai uno dei due a scapito dell'altro), così il
+carico di raggruppamento aumenta in modo graduale invece che con un
+salto di lunghezza secco. Fino al livello 10 i gruppi sono mostrati
+esplicitamente; dal livello 11 in su la struttura resta nel dato (usata
+per osservare il clustering in fase di richiamo) ma **non viene
+mostrata** — il paziente deve organizzare il materiale con una tecnica
+propria fra quelle già esistenti (compresa "personale", per una
+strategia del tutto autogenerata), riusando lo stesso confine 1-10/11-16
+già in uso per il numero di tecniche combinabili, invece di introdurre
+una seconda soglia indipendente. È la stessa logica delle **forme
+parallele** del PQRST: 3 forme equivalenti disponibili ai livelli 1-2,
+selezionabili a mano in setup, tracciate nello storico sessione e nel
+CSV (`memoria_forma`) per lo stesso motivo di equivalenza RCI. I livelli
+3-16 restano nella forma "lista flat" storica (singola categoria o
+acategorica) finché non vengono anch'essi riscritti con la stessa
+struttura — lavoro di contenuto da proseguire gradualmente.
+
+Le tre tecniche seguenti sono selezionabili **sia su lista di parole sia
+su brano** (campo `memoriaMateriale` in setup — su PQRST/Chunking resta
+fisso, rispettivamente brano/lista):
+
+**Metodo dei loci** — un elemento per tappa, tappa ed elemento sempre
+mostrati esplicitamente insieme (mai lasciati all'immaginazione libera),
+con l'istruzione di immaginare la scena il più vividamente possibile.
+Tre percorsi disponibili, scelti in setup:
+- *Casa tipo* — percorso fisso di 16 luoghi familiari (portone, ingresso,
+  cucina, scala...), adatto quando non si conosce l'ambiente reale del
+  paziente o si vuole un percorso standardizzato fra sedute diverse.
+- *Corpo* — percorso fisso di 16 parti del corpo, in ordine anatomico
+  (testa→piedi): per pazienti con scarsa familiarità ambientale attuale,
+  o ricoverati da tempo, per cui un percorso domestico non è un
+  riferimento stabile.
+- *Personalizzato* — l'operatore digita le tappe reali del paziente
+  (es. il proprio domicilio effettivo), una per riga: il percorso più
+  efficace quando è praticabile, perché sfrutta una familiarità spaziale
+  già consolidata invece di costruirne una nuova.
+
+Base di evidenza consolidata in riabilitazione (Kaschel et al., 2002).
+
+**Errorless learning** — **spaced retrieval**: l'informazione viene
+presentata direttamente (mai indovinata), poi richiamata a intervalli
+crescenti — 5s, poi doppio ad ogni richiamo riuscito (10s, 20s, 40s...).
+Se il richiamo fallisce, la risposta corretta viene ridata subito e si
+riparte dall'ultimo intervallo riuscito, mai da un tentativo libero senza
+rete. Un elemento si considera consolidato dopo 4 successi consecutivi o
+al superamento dei 60s, poi si passa al successivo — soglie provvisorie,
+regolabili se l'uso clinico suggerisce altri valori. Rispetto alla
+versione precedente (due passaggi di sola esposizione, senza alcun
+richiamo), questa aderisce meglio al principio stesso della tecnica: il
+punto dell'errorless learning non è evitare *ogni* richiamo, ma
+strutturare il richiamo in modo che l'errore resti altamente improbabile
+— l'intervallo cresce solo quando il successo è già garantito dal
+precedente, e si contrae immediatamente al primo segnale di difficoltà
+(Wilson & Evans; Camp, per la spaced retrieval nello specifico).
+
+**Vanishing cues** — per ciascun elemento, due stadi di suggerimento
+decrescente (prima ~65% delle lettere iniziali visibili, poi ~25%) prima
+del richiamo libero finale a cue zero. Il paziente prova a completare
+l'elemento ad alta voce a ogni stadio; un pulsante "Mostra la risposta"
+è disponibile ma non registrato ai fini del punteggio — la fase di
+richiamo finale (uguale alle altre tecniche) resta l'unica base per il
+punteggio percentuale salvato.
+
+**Valutazione del richiamo** — uguale per tutte e cinque le tecniche: il
+paziente racconta/richiama liberamente a voce, e **l'operatore** (non il
+paziente) spunta su una checklist a schermo quali idee-chiave o parole
+sono state effettivamente recuperate — non serve la formulazione esatta
+del testo, conta il concetto. Il punteggio (% recuperato) si calcola da
+solo. Il richiamo libero è un giudizio qualitativo: automatizzarlo con
+riconoscimento vocale rischierebbe di introdurre errori di misura proprio
+nel dato che si vuole raccogliere, per una popolazione che può avere
+difficoltà di eloquio o di reperimento della parola — per questo la
+valutazione resta manuale, sullo stesso principio già in uso con
+`respMode='operatore'` negli altri esercizi.

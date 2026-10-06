@@ -1,5 +1,5 @@
-const CACHE = 'traccian-v4'; // v4: corretto il bug che intercettava anche le chiamate cross-origin a Supabase — bump per pulire qualunque risposta rimasta in cache dalla versione precedente
-const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'traccian-v5'; // v5: CSS spostato in css/app.css. v4: corretto il bug che intercettava anche le chiamate cross-origin a Supabase — bump per pulire qualunque risposta rimasta in cache dalla versione precedente
+const ASSETS = ['./', './index.html', './css/app.css', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));

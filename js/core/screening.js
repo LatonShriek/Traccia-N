@@ -48,25 +48,21 @@ import { primaryAccuracyOf } from './scores.js';
   export const SCREENING_PROBES = {
     ant: { label:'ANT classico', suggestTaskMode:'ant', suggestLabel:'ANT classico', variant:'ant',
       patch:()=>({taskMode:'ant', stimType:'lettere', adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:3200, stimDuration:700, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'ant', stimType:'simboli', adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:3200, stimDuration:700, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     tapat: { label:'TAPAT (allerta sostenuta)', suggestTaskMode:'tapat', suggestLabel:'TAPAT', variant:'tapat',
       patch:()=>({taskMode:'tapat', tapatModalita:'visivo', tapatSpatial:false, tapatStartLevel:1, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     gonogo: { label:'Go/No-Go', suggestTaskMode:'gonogo', suggestLabel:'Go/No-Go', variant:'gonogo',
       patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,2), adaptive:false, targetRate:0.35, isi:1000, stimDuration:500, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'gonogo', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), adaptive:false, targetRate:0.35, isi:1000, stimDuration:500, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     stopsignal: { label:'Stop-Signal', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal', variant:'stopsignal',
       // 'frecce' era l'unico materiale usato prima di questa estensione —
       // simboliche/spaziali, non linguistiche: qui diventa la forma NON
       // verbale, 'lettere' quella verbale aggiunta.
       patch:()=>({taskMode:'stopsignal', stimType:'lettere', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'no', titrationMode:'manuale', trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'stopsignal', stimType:'frecce', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'no', titrationMode:'manuale', trials:SCREENING_TRIALS}),
       scoreOf:r=>r.goAccuracy },
     stopsignal_interferenza: { label:'Stop-Signal con interferenza', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal (con interferenza)', variant:'stopsignal_interferenza',
       patch:()=>({taskMode:'stopsignal', stimType:'lettere', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'si', titrationMode:'manuale', trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'stopsignal', stimType:'frecce', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'si', titrationMode:'manuale', trials:SCREENING_TRIALS}),
       scoreOf:r=>r.goAccuracy },
     simon: { label:'Simon (verifica conflitto)', suggestTaskMode:'simon', suggestLabel:'Simon', variant:'simon',
       patch:()=>({taskMode:'simon', simonMateriale:'colori', simonCongruenza:'bilanciato', adaptStartLevel:1, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
@@ -75,11 +71,9 @@ import { primaryAccuracyOf } from './scores.js';
     // lettere/numeri) — vedi buildMantenimento/POOLS.simboli.
     mantenimento: { label:'Mantenimento (tipo Sternberg)', suggestTaskMode:'mantenimento', suggestLabel:'Mantenimento (tipo Sternberg)', variant:'mantenimento',
       patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:4, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'simboli', mantenimentoListLen:4, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     sequenza: { label:'Sequenza bersaglio', suggestTaskMode:'sequenza', suggestLabel:'Sequenza bersaglio', variant:'sequenza',
       patch:()=>({taskMode:'sequenza', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'sequenza', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     categorizzazione: { label:'Categorizzazione condizionale', suggestTaskMode:'categorizzazione', suggestLabel:'Categorizzazione condizionale', variant:'categorizzazione',
       // Entrambe le forme sono visive: 'lettere' (lettere scritte a schermo,
@@ -90,29 +84,23 @@ import { primaryAccuracyOf } from './scores.js';
       // identica (SWITCH_RULESETS.lettereVoce è un alias di .lettere), cambia
       // solo la presentazione: scritta invece che ascoltata.
       patch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'lettere', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'simboli', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     nback: { label:'N-back', suggestTaskMode:'nback', suggestLabel:'N-back', variant:'nback',
       patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:2, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'nback', stimType:'simboli', nLevel:2, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}),
       scoreOf:r=>primaryAccuracyOf(r) },
     runningspan: { label:'Running Span', suggestTaskMode:'runningspan', suggestLabel:'Running Span', variant:'runningspan',
       // trials:4, non SCREENING_TRIALS: qui un "trial" è un intero ciclo
       // sequenza+richiamo (7-15s l'uno), non una prova rapida — 16 cicli
       // renderebbero questa sonda da sola più lunga di tutto il resto.
       patch:()=>({taskMode:'runningspan', stimType:'lettere', adaptStartLevel:1, trials:4}),
-      nonVerbalPatch:()=>({taskMode:'runningspan', stimType:'simboli', adaptStartLevel:1, trials:4}),
       scoreOf:r=>primaryAccuracyOf(r) },
     switching: { label:'Flessibilità cognitiva', suggestTaskMode:'switching', suggestLabel:'Task-switching', variant:'switching', isSplit:true, splitAccKeys:{base:'repAcc', caricato:'switchAcc'},
-      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:24}),
-      nonVerbalPatch:()=>({taskMode:'switching', switchMaterial:'simboli', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:24}) },
+      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:24}) },
     neglect_classico: { label:'Cancellazione classico', suggestTaskMode:'neglect', suggestLabel:'Cancellazione classico', variant:'neglect_classico',
       patch:()=>({taskMode:'neglect', neglectMode:'classico', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
-      nonVerbalPatch:()=>({taskMode:'neglect', neglectMode:'classico', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
       scoreOf:r=>primaryAccuracyOf(r) },
     neglect_intruso: { label:'Cancellazione — Trova l\'intruso', suggestTaskMode:'neglect', suggestLabel:'Cancellazione — Trova l\'intruso', variant:'neglect_intruso',
       patch:()=>({taskMode:'neglect', neglectMode:'intruso', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:30, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
-      nonVerbalPatch:()=>({taskMode:'neglect', neglectMode:'intruso', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), neglectBoardSize:30, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
       scoreOf:r=>primaryAccuracyOf(r) },
     // "A regola" resta a singola somministrazione (limite dichiarato): il
     // testo della regola distingue solo numeri/lettere in modo rigido
@@ -135,6 +123,29 @@ import { primaryAccuracyOf } from './scores.js';
       scoreOf:r=> r.goaltask && r.goaltask.violazioniCount<=1 ? 1 : 0,
       suggestedCfgOverride:{taskMode:'goaltask', goaltaskScenario:'sei_compiti_classico', goaltaskLivello:1} }
   };
+  // Forma NON VERBALE di una sonda = la stessa configurazione della forma verbale
+  // con il solo materiale cambiato (nessun'altra differenza: verificato sul
+  // codice precedente, dove le due righe erano copie quasi identiche). Prima
+  // ogni sonda ripeteva per intero la riga non verbale; ora si dichiara solo
+  // ciò che cambia.
+  const NONVERBAL_OVERRIDES = {
+    ant: ()=>({stimType:'simboli'}),
+    gonogo: ()=>({stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2)}),
+    stopsignal: ()=>({stimType:'frecce'}),
+    stopsignal_interferenza: ()=>({stimType:'frecce'}),
+    mantenimento: ()=>({mantenimentoMateriale:'simboli'}),
+    sequenza: ()=>({stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2)}),
+    categorizzazione: ()=>({categMateriale:'simboli'}),
+    nback: ()=>({stimType:'simboli'}),
+    runningspan: ()=>({stimType:'simboli'}),
+    switching: ()=>({switchMaterial:'simboli'}),
+    neglect_classico: ()=>({stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2)}),
+    neglect_intruso: ()=>({stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2)})
+  };
+  Object.keys(NONVERBAL_OVERRIDES).forEach(k=>{
+    const probe = SCREENING_PROBES[k];
+    probe.nonVerbalPatch = ()=> Object.assign(probe.patch(), NONVERBAL_OVERRIDES[k]());
+  });
   // Secondo giro a livello intermedio — SOLO per un dominio che risulta
   // interamente pulito (ogni sonda passata, verbale e non verbale
   // insieme): un profilo "pulito" può riflettere la scarsa esigenza dello

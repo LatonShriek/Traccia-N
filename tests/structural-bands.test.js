@@ -1,8 +1,5 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
 const { importCore } = require('./lib/core');
-const REPO_ROOT = path.join(__dirname, '..');
 
 // Prima di questa sessione, nessun test copriva sessionLevelBounds/
 // STRUCTURAL_BANDS affatto (verificato: nessun file in tests/ le nomina) —
@@ -11,16 +8,13 @@ const REPO_ROOT = path.join(__dirname, '..');
 // (N-back, Go/No-Go), per avere una rete di sicurezza reale su un
 // meccanismo che protegge da un cambio di regola a metà seduta.
 const cfg = { taskMode: 'nback' };
-// ADAPT_ISI vive in js/core/levels.js (passo 3b).
+// Le fasce e i limiti vivono in js/core/bands.js (passo 3c) e ricevono la cfg come
+// parametro: qui sotto, wrapper che passano lo stub `cfg` mutato dai test.
 let structuralBandBounds, sessionLevelBounds, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL;
 async function setup() {
-const L = await importCore('levels.js');
-const mod = loadPure(REPO_ROOT, [
-  { name: 'adaptLevelKey', start: '  function adaptLevelKey(){', end: "return null;\n  }" },
-  { name: 'currentLevelMax', start: '  function currentLevelMax(){', end: "return 5;\n  }" },
-  { name: 'STRUCTURAL_BANDS+bounds', start: '  const STRUCTURAL_BANDS = {', end: "return {min:1, max:currentLevelMax()};\n  }" }
-], ['structuralBandBounds', 'sessionLevelBounds', 'STRUCTURAL_BANDS', 'TASK_SWITCHING_BIVALENTE_MIN_LEVEL', 'STOPSIGNAL_INTERFERENZA_MIN_LEVEL'], Object.assign({ cfg }, L));
-({ structuralBandBounds, sessionLevelBounds, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL } = mod);
+  const B = await importCore('bands.js');
+  ({ structuralBandBounds, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL } = B);
+  sessionLevelBounds = () => B.sessionLevelBounds(cfg);
 }
 
 module.exports = async function run(t) {

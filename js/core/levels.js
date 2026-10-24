@@ -13,9 +13,11 @@
     sequenza: {1:4500,2:3900,3:3200,4:2700,5:2200,6:1900,7:1700,8:1500,9:1150,10:900},
     dualtask: {1:3000,2:2700,3:2400,4:2100,5:1800,6:1550,7:1300,8:1100,9:900,10:700}, // ISI condivisa (leva secondaria), esteso da 5 a 10 livelli
     ant:      {1:3200,2:2800,3:2400,4:2000,5:1600,6:1400,7:1200,8:1000,9:800,10:650},  // solo ANT classico, non TAPAT
-    simon:    {1:3200,2:2800,3:2400,4:2000,5:1600,6:1400,7:1200,8:1000,9:800,10:650},  // stessa scala dell'ANT classico — complessità percettivo-motoria comparabile (2AFC spaziale)
     stopsignal: {1:3600,2:3200,3:2800,4:2400,5:2000,6:1700,7:1400,8:1150,9:950,10:750} // leva secondaria, indipendente dallo staircase SSD
   };
+  // Simon usa ESATTAMENTE la scala dell'ANT classico (complessità percettivo-motoria comparabile, 2AFC spaziale): una sola tabella, due nomi.
+  // Per darle valori propri basta sostituire questa riga con una tabella dedicata.
+  ADAPT_ISI.simon = ADAPT_ISI.ant;
   export const ADAPT_GONOGO_FREQ = {1:0.48,2:0.44,3:0.40,4:0.34,5:0.28,6:0.22,7:0.17,8:0.12,9:0.08,10:0.05}; // frequenza no-go — più bassa = più difficile
   // N-back: il "livello" (1-10) non è più uguale a n. n resta clinicamente
   // vincolato a un ceiling di 3 (a sua volta confinato al solo livello 10);

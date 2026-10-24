@@ -226,6 +226,11 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
       await page.click('button:has-text("' + subMode + '")');
       await page.waitForTimeout(250);
     }
+    if (opts && opts.adattivo) {
+      // modalità Adattivo (titolazione automatica): esercita maybeAdapt e i limiti di livello
+      await page.click('button:has-text("Adattivo")');
+      await page.waitForTimeout(250);
+    }
     if (family === 'neglect') {
       await decreaseStepperByLabel(page, 'Numero di tavole');
       await decreaseStepperByLabel(page, 'Elementi per tavola');

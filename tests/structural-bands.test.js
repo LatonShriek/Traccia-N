@@ -1,6 +1,7 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 // Prima di questa sessione, nessun test copriva sessionLevelBounds/
@@ -10,16 +11,20 @@ const REPO_ROOT = path.join(__dirname, '..');
 // (N-back, Go/No-Go), per avere una rete di sicurezza reale su un
 // meccanismo che protegge da un cambio di regola a metà seduta.
 const cfg = { taskMode: 'nback' };
+// ADAPT_ISI vive in js/core/levels.js (passo 3b).
+let structuralBandBounds, sessionLevelBounds, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL;
+async function setup() {
+const L = await importCore('levels.js');
 const mod = loadPure(REPO_ROOT, [
   { name: 'adaptLevelKey', start: '  function adaptLevelKey(){', end: "return null;\n  }" },
   { name: 'currentLevelMax', start: '  function currentLevelMax(){', end: "return 5;\n  }" },
-  { name: 'STRUCTURAL_BANDS+bounds', start: '  const STRUCTURAL_BANDS = {', end: "return {min:1, max:currentLevelMax()};\n  }" },
-  { name: 'ADAPT_ISI', start: '  const ADAPT_ISI = {', end: "10:750} // leva secondaria, indipendente dallo staircase SSD\n  };" }
-], ['structuralBandBounds', 'sessionLevelBounds', 'STRUCTURAL_BANDS', 'TASK_SWITCHING_BIVALENTE_MIN_LEVEL', 'STOPSIGNAL_INTERFERENZA_MIN_LEVEL'], { cfg });
+  { name: 'STRUCTURAL_BANDS+bounds', start: '  const STRUCTURAL_BANDS = {', end: "return {min:1, max:currentLevelMax()};\n  }" }
+], ['structuralBandBounds', 'sessionLevelBounds', 'STRUCTURAL_BANDS', 'TASK_SWITCHING_BIVALENTE_MIN_LEVEL', 'STOPSIGNAL_INTERFERENZA_MIN_LEVEL'], Object.assign({ cfg }, L));
+({ structuralBandBounds, sessionLevelBounds, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL } = mod);
+}
 
-const { structuralBandBounds, sessionLevelBounds, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL } = mod;
-
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   t.group('structuralBandBounds — casi già esistenti, per non regredire mentre si estende il meccanismo', () => {
     t.eq(structuralBandBounds('nback', 1), { min: 1, max: 4 }, 'N-back livello 1: fascia n=1 (1-4)');
     t.eq(structuralBandBounds('nback', 7), { min: 5, max: 9 }, 'N-back livello 7: fascia n=2 (5-9)');

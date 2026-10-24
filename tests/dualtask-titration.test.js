@@ -1,15 +1,19 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
+// ADAPT_ISI / ADAPT_DUAL_* vivono in js/core/levels.js (passo 3b).
+let ADAPT_ISI, ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE, dualTitrationModeHint;
+async function setup() {
+const L = await importCore('levels.js');
 const mod = loadPure(REPO_ROOT, [
-  { name: 'ADAPT_ISI', start: '  const ADAPT_ISI = {', end: '\n  };' },
-  { name: 'ADAPT_DUAL_FREQ+ADAPT_DUAL_LURE', start: '  const ADAPT_DUAL_FREQ = {', end: '  const ADAPT_DUAL_LURE = {1:0,2:0.05,3:0.10,4:0.15,5:0.19,6:0.23,7:0.27,8:0.31,9:0.35,10:0.40};' },
   { name: 'dualTitrationModeHint', start: '  function dualTitrationModeHint(c, mode){', end: "l\\'ISI condiviso segue la media dei due, aggiornata di conseguenza).';\n  }" }
-], ['ADAPT_ISI', 'ADAPT_DUAL_FREQ', 'ADAPT_DUAL_LURE', 'dualTitrationModeHint']);
-
-const { ADAPT_ISI, ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE, dualTitrationModeHint } = mod;
+], ['dualTitrationModeHint'], Object.assign({}, L));
+dualTitrationModeHint = mod.dualTitrationModeHint;
+({ ADAPT_ISI, ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE } = L);
+}
 
 // Ricalca (non estrae) la risoluzione di freq1/freq2 in genDualTaskTrial —
 // stessa scelta già fatta per gli altri esercizi: la funzione vera è
@@ -25,7 +29,8 @@ function runtimeAvgIsi(titrationMode, dualLevel1, dualLevel2, rawIsi) {
   return ADAPT_ISI.dualtask[avgLevel];
 }
 
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   t.group('Manuale non legge mai la tabella, su NESSUNO dei due canali', () => {
     t.eq(runtimeFreq('manuale', 7, 0.30), 0.30, 'canale 1: resta il valore grezzo indipendentemente dal livello');
     t.eq(runtimeFreq('manuale', 2, 0.18), 0.18, 'canale 2 (livello diverso dal canale 1): resta comunque il valore grezzo');

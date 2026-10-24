@@ -1,27 +1,35 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 const cfgStub = {};
 const sessionStub = { seq: [] };
+// CATEG_* / categStructureOfLevel vivono in js/core/levels.js (passo 3b).
+let categEffectiveStructure, genCategTrial, categStructureOfLevel, categTitrationModeHint, CATEG_ISI, CATEG_LURE;
+async function setup() {
+const L = await importCore('levels.js');
 const mod = loadPure(REPO_ROOT, [
   { name: 'categEffectiveStructure+labels+hints+hint', start: '  function categEffectiveStructure(c){', end: "vedi \"Vincolo di fascia strutturale\" nel README).';\n  }" },
-  { name: 'genCategTrial', start: '  function genCategTrial(){', end: "categBivalente:true, isiOverride};\n    session.seq.push(trial);\n    return trial;\n  }" },
-  { name: 'CATEG_STRUCTURE_OF_LEVEL+categStructureOfLevel+CATEG_ISI+CATEG_LURE', start: '  const CATEG_STRUCTURE_OF_LEVEL = {', end: "function categStructureOfLevel(level){ return CATEG_STRUCTURE_OF_LEVEL[level] || 1; }" }
-], ['categEffectiveStructure', 'genCategTrial', 'categStructureOfLevel', 'categTitrationModeHint', 'CATEG_ISI', 'CATEG_LURE', 'CATEG_STRUCTURE_LABELS'], {
+  { name: 'genCategTrial', start: '  function genCategTrial(){', end: "categBivalente:true, isiOverride};\n    session.seq.push(trial);\n    return trial;\n  }" }
+], ['categEffectiveStructure', 'genCategTrial', 'categTitrationModeHint', 'CATEG_STRUCTURE_LABELS'], {
   cfg: cfgStub, session: sessionStub,
+  CATEG_STRUCTURE_OF_LEVEL: L.CATEG_STRUCTURE_OF_LEVEL, categStructureOfLevel: L.categStructureOfLevel, CATEG_ISI: L.CATEG_ISI, CATEG_LURE: L.CATEG_LURE,
   POOLS: { simboli: ['●', '▲', '■'], lettereVoce: ['A', 'B', 'C'], numeriVoce: ['1', '2', '3'] },
   SWITCH_RULESETS: { simboli: { ruleA: { classify: v => v === '●', labelA: 'Tondo', labelB: 'Con angoli' } } }
 });
 
-const { categEffectiveStructure, genCategTrial, categStructureOfLevel, categTitrationModeHint, CATEG_ISI, CATEG_LURE } = mod;
+({ categEffectiveStructure, genCategTrial, categTitrationModeHint } = mod);
+({ categStructureOfLevel, CATEG_ISI, CATEG_LURE } = L);
+}
 
 function baseCfg(overrides) {
   return Object.assign({ categLivello: 1, categStructManual: 1, categMateriale: 'simboli', targetRate: 0.20, isi: 1800, adaptive: false }, overrides);
 }
 
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   t.group('categEffectiveStructure — Manuale usa la scelta libera, Livello/Adattivo derivano dal livello', () => {
     t.eq(categEffectiveStructure(baseCfg({ titrationMode: 'manuale', categStructManual: 4, categLivello: 1 })), 4,
       'Manuale: struttura 4 scelta liberamente, anche con livello impostato su 1 (che da solo darebbe struttura 1) — è esattamente il disaccoppiamento voluto');

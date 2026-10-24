@@ -1,20 +1,25 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 const cfgStub = {};
 const sessionStub = {};
+// ADAPT_NEGLECT_SIZE / ADAPT_NEGLECT_TIME vivono in js/core/levels.js (passo 3b).
+let neglectProgressivaPhase, neglectBoardSubLevel, neglectSubLevelForDisplay, ADAPT_NEGLECT_SIZE, ADAPT_NEGLECT_TIME;
+async function setup() {
+const L = await importCore('levels.js');
 const mod = loadPure(REPO_ROOT, [
   { name: 'neglectSubLevelForDisplay+neglectTitrationModeHint', start: '  function neglectSubLevelForDisplay(c){', end: "'accuratezza.';\n  }" },
-  { name: 'neglectProgressivaPhase+currentNeglectEffMode+neglectBoardSubLevel', start: '  function neglectProgressivaPhase(absLevel){', end: "return cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;\n  }" },
-  { name: 'ADAPT_NEGLECT_SIZE', start: '  const ADAPT_NEGLECT_SIZE = {', end: '\n' },
-  { name: 'ADAPT_NEGLECT_TIME', start: '  const ADAPT_NEGLECT_TIME = {', end: '\n' }
-], ['neglectProgressivaPhase', 'neglectBoardSubLevel', 'neglectSubLevelForDisplay', 'ADAPT_NEGLECT_SIZE', 'ADAPT_NEGLECT_TIME'], { cfg: cfgStub, session: sessionStub });
+  { name: 'neglectProgressivaPhase+currentNeglectEffMode+neglectBoardSubLevel', start: '  function neglectProgressivaPhase(absLevel){', end: "return cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;\n  }" }
+], ['neglectProgressivaPhase', 'neglectBoardSubLevel', 'neglectSubLevelForDisplay'], Object.assign({ cfg: cfgStub, session: sessionStub }, L));
+({ neglectProgressivaPhase, neglectBoardSubLevel, neglectSubLevelForDisplay } = mod);
+({ ADAPT_NEGLECT_SIZE, ADAPT_NEGLECT_TIME } = L);
+}
 
-const { neglectProgressivaPhase, neglectBoardSubLevel, neglectSubLevelForDisplay, ADAPT_NEGLECT_SIZE, ADAPT_NEGLECT_TIME } = mod;
-
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   t.group('neglectProgressivaPhase — traduzione livello assoluto 1-30 → fase + sotto-livello', () => {
     t.eq(neglectProgressivaPhase(1), { mode: 'classico', subLevel: 1 }, 'livello 1 → Classico, sotto-livello 1');
     t.eq(neglectProgressivaPhase(10), { mode: 'classico', subLevel: 10 }, 'livello 10 → ancora Classico, sotto-livello 10 (pavimento della fase)');

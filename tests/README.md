@@ -186,3 +186,11 @@ l'account **senza ruolo**, che non deve entrare come operatore.
   l'agente `tests/e2e/patient-agent.js` avvia da solo un piccolo server locale.
 - In ambienti senza sandbox del browser (container, CI) lancia con
   `TRACCIAN_NO_SANDBOX=1 node tests/run-all.js`.
+
+## Passo 3b — js/core/levels.js
+Le tabelle di livello (ADAPT_*, NBACK_LEVEL_TABLE, CATEG_*, ADAPT_SEQ_LEN, ...)
+e le piccole funzioni che le leggono (nbackParamsForLevel, nbackLureLag,
+categStructureOfLevel) vivono in `js/core/levels.js`. I test `titration`,
+`dualtask-titration`, `categorizzazione-titration`, `neglect-titration` e
+`structural-bands` le importano dal modulo e le passano anche al codice che
+estraggono ancora da `index.html`.

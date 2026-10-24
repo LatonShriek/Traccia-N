@@ -1,6 +1,7 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 
 const REPO_ROOT = path.join(__dirname, '..');
 
@@ -9,23 +10,24 @@ const REPO_ROOT = path.join(__dirname, '..');
 // da rendere il testo di inizio/fine non più unico, questo elenco va
 // aggiornato — ed è corretto che il test fallisca finché non lo si fa,
 // invece di continuare a testare in silenzio una versione vecchia.
-const mod = loadPure(REPO_ROOT, [
+// Le tabelle ADAPT_* / NBACK_LEVEL_TABLE vivono in js/core/levels.js (passo 3b):
+// arrivano dal modulo vero e vengono date anche al codice estratto da index.html.
+let mod, TITRATION_EXERCISES, resolvedFreqForDisplay, resolvedIsiForDisplay, levelOfCfg,
+  ADAPT_ISI, ADAPT_GONOGO_FREQ, nbackParamsForLevel, ADAPT_SWITCH_BALANCE, ADAPT_SWITCH_CSI, ADAPT_SEQ_LEN, POOLS;
+async function setup() {
+const L = await importCore('levels.js');
+mod = loadPure(REPO_ROOT, [
   { name: 'POOLS', start: '  const POOLS = {', end: "POOLS.numeriVoce = POOLS.numeri;" },
   { name: 'TITRATION_EXERCISES+resolvedDisplay', start: "  const TITRATION_EXERCISES = [", end: "ADAPT_ISI.ant[c.adaptStartLevel];\n    return null;\n  }" },
   { name: 'LEVEL_FIELD_OF_TASKMODE+levelOfCfg', start: '  const LEVEL_FIELD_OF_TASKMODE = {', end: '    return c[field];\n  }' },
-  { name: 'SWITCH_RULESETS', start: '  const SWITCH_RULESETS = {', end: "SWITCH_RULESETS.numeriVoce = SWITCH_RULESETS.numeri;" },
-  { name: 'ADAPT_ISI+GONOGO_FREQ+NBACK+SWITCH_BALANCE+SWITCH_CSI+SEQ_LEN', start: '  const ADAPT_ISI = {', end: '  const ADAPT_SEQ_LEN = {1:2,2:2,3:3,4:3,5:3,6:3,7:4,8:4,9:5,10:5};' }
+  { name: 'SWITCH_RULESETS', start: '  const SWITCH_RULESETS = {', end: "SWITCH_RULESETS.numeriVoce = SWITCH_RULESETS.numeri;" }
 ], [
   'POOLS', 'TITRATION_EXERCISES', 'resolvedFreqForDisplay', 'resolvedIsiForDisplay',
-  'LEVEL_FIELD_OF_TASKMODE', 'levelOfCfg',
-  'ADAPT_ISI', 'ADAPT_GONOGO_FREQ', 'NBACK_LEVEL_TABLE', 'nbackParamsForLevel',
-  'ADAPT_SWITCH_BALANCE', 'ADAPT_SWITCH_CSI', 'ADAPT_SEQ_LEN'
-]);
-
-const {
-  TITRATION_EXERCISES, resolvedFreqForDisplay, resolvedIsiForDisplay, levelOfCfg,
-  ADAPT_ISI, ADAPT_GONOGO_FREQ, nbackParamsForLevel, ADAPT_SWITCH_BALANCE, ADAPT_SWITCH_CSI, ADAPT_SEQ_LEN, POOLS
-} = mod;
+  'LEVEL_FIELD_OF_TASKMODE', 'levelOfCfg'
+], Object.assign({}, L));
+({ TITRATION_EXERCISES, resolvedFreqForDisplay, resolvedIsiForDisplay, levelOfCfg, POOLS } = mod);
+({ ADAPT_ISI, ADAPT_GONOGO_FREQ, nbackParamsForLevel, ADAPT_SWITCH_BALANCE, ADAPT_SWITCH_CSI, ADAPT_SEQ_LEN } = L);
+}
 
 // --- riproduzione minima e dichiarata della logica di risoluzione a runtime ---
 // Queste funzioni ricalcano (non estraggono) la logica sparsa nei punti di
@@ -54,7 +56,8 @@ function runtimeISI(taskMode, titrationMode, level, rawIsi) {
   return rawIsi;
 }
 
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   t.group('TITRATION_EXERCISES — perimetro dichiarato', () => {
     t.eq(TITRATION_EXERCISES.slice().sort(), ['ant', 'gonogo', 'mantenimento', 'nback', 'runningspan', 'sequenza', 'simon', 'stopsignal', 'switching'].sort(),
       'i 9 esercizi con stepper Livello condiviso sono esattamente quelli attesi — nessuno aggiunto o tolto senza che questo test lo segnali (runningspan aggiunto quando gli è stata data una titolazione adattiva propria, su media di due proporzioni invece che su un booleano per prova)');

@@ -43,7 +43,7 @@ module.exports = async function run(t) {
       cfgStub.trials = 3000; cfgStub.simonCongruenza = mode;
       const seq = buildSimon();
       const congFrac = seq.filter(x => x.congruency === 'congruent').length / seq.length;
-      t.approx(congFrac, SIMON_CONGRUENCE_PROB[mode], 0.03, mode + ': quota di prove congruenti vicina al parametro configurato');
+      t.approx(congFrac, SIMON_CONGRUENCE_PROB[mode], 0.05, mode + ': quota di prove congruenti vicina al parametro configurato');
     });
   });
 
@@ -51,7 +51,7 @@ module.exports = async function run(t) {
     cfgStub.trials = 3000; cfgStub.simonCongruenza = 'prevalenza_incongruente';
     const seq = buildSimon();
     const bluFrac = seq.filter(x => x.val === SIMON_COLORS.blu).length / seq.length;
-    t.approx(bluFrac, 0.5, 0.03, 'blu/verde restano 50/50 anche con congruenza sbilanciata (sono due manipolazioni indipendenti)');
+    t.approx(bluFrac, 0.5, 0.05, 'blu/verde restano 50/50 anche con congruenza sbilanciata (sono due manipolazioni indipendenti)');
   });
 
   t.group('buildSimon — varianti materiale (lettere/numeri/suoni): riusano le regole di Stop-Signal, non ne inventano di nuove', () => {

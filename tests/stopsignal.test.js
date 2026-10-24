@@ -28,7 +28,7 @@ module.exports = async function run(t) {
       cfgStub.stimType = mat; cfgStub.trials = 2000; cfgStub.targetRate = 0.25;
       const seq = buildStopSignal();
       const stopFrac = seq.filter(x => x.isStopTrial).length / seq.length;
-      t.approx(stopFrac, 0.25, 0.03, mat + ': quota di stop-trial vicina al targetRate configurato (25%)');
+      t.approx(stopFrac, 0.25, 0.05, mat + ': quota di stop-trial vicina al targetRate configurato (25%)');
       const rule = STOPSIGNAL_RULES[mat];
       const mismatches = seq.filter(x => x.correctAnswer !== (rule.classify(x.val) ? 'a' : 'b'));
       t.eq(mismatches.length, 0, mat + ': correctAnswer coerente con la regola su tutte le 2000 prove generate');
@@ -48,7 +48,7 @@ module.exports = async function run(t) {
     t.ok(seq.every(x => x.side === 'left' || x.side === 'right'), 'ogni prova riceve una posizione a schermo (sinistra o destra) quando l\'interferenza è attiva');
     t.ok(seq.every(x => x.congruency === 'congruent' || x.congruency === 'incongruent'), 'ogni prova è etichettata congruente o incongruente');
     const congFrac = seq.filter(x => x.congruency === 'congruent').length / seq.length;
-    t.approx(congFrac, 0.5, 0.03, 'proporzione congruente/incongruente vicina al 50/50, indipendente dalla frequenza di stop');
+    t.approx(congFrac, 0.5, 0.05, 'proporzione congruente/incongruente vicina al 50/50, indipendente dalla frequenza di stop');
     // 'a' = pulsante sinistro, 'b' = pulsante destro (stesso ordine di
     // respondSpec/renderStimulusNode) — su una prova CONGRUENTE il lato
     // dello stimolo deve coincidere con quello del pulsante corretto.

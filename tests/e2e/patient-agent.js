@@ -72,6 +72,7 @@ const EXERCISE_BUTTON_TEXT = {
   mantenimento: 'Mantenimento (tipo Sternberg)',
   runningspan: { exercise: 'Running Span', family: 'runningspan' },
   neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' },
+  goaltask: { exercise: 'Scenari ecologici', family: 'goaltask' },
   neglect_intruso: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: "Trova l'intruso" },
   neglect_regola: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: 'Conteggio a regola' },
   neglect_progressiva: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: 'Progressiva' }
@@ -168,6 +169,26 @@ async function simulateNeglectResponses(page, { maxMs = 60000, tapEveryMs = 120 
   return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
 }
 
+
+// Simula il "paziente" per gli Scenari ecologici (compito a obiettivi): tocca "Completa" sui
+// primi elementi visibili, poi chiude con "Termina qui". Basta a esercitare motore e punteggio.
+async function simulateGoalTaskResponses(page, { maxMs = 30000, tapEveryMs = 250 } = {}) {
+  const start = Date.now();
+  let taps = 0;
+  while (Date.now() - start < maxMs && taps < 6) {
+    const stillRunning = await page.locator('button:has-text("Interrompi")').count();
+    if (!stillRunning) break;
+    const btn = page.locator('button:has-text("Completa")');
+    if (await btn.count() > 0) { await btn.first().click({ timeout: 800 }).catch(() => {}); taps++; }
+    await page.waitForTimeout(tapEveryMs);
+  }
+  if (await page.locator('button:has-text("Termina qui")').count() > 0) {
+    await page.click('button:has-text("Termina qui")').catch(() => {});
+    await page.waitForTimeout(500);
+  }
+  return { taps, elapsedMs: Date.now() - start, timedOut: false };
+}
+
 // Simula le risposte per Running Span: nessuna interazione durante la
 // presentazione della sequenza o la schermata "Ora richiama!" (solo
 // attesa) — la vera interazione è nella fase di richiamo, un tastierino
@@ -255,6 +276,8 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
 
     const { taps, elapsedMs, timedOut } = family === 'neglect'
       ? await simulateNeglectResponses(page, opts)
+      : family === 'goaltask'
+      ? await simulateGoalTaskResponses(page, opts)
       : family === 'runningspan'
       ? await simulateRunningSpanResponses(page, opts)
       : await simulatePatientResponses(page, opts);

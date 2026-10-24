@@ -18,6 +18,7 @@ const FILES = [
   'memoria.test.js',
   'registry.test.js',
   'record.test.js',
+  'export.test.js',
   'dualtask-titration.test.js',
   'categorizzazione-titration.test.js',
   'tapat-titration.test.js',

@@ -297,3 +297,6 @@
     }
     return LOCI_ROUTE;
   }
+
+  // Etichette delle tecniche (spostata da index.html nel passo 5j: la usano anche l'export CSV e le schermate).
+  export const MEMORIA_MODO_LABELS = {pqrst:'PQRST', chunking:'chunking', loci:'metodo dei loci', errorless:'errorless learning', vanishing:'vanishing cues'};

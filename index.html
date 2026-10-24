@@ -40,6 +40,7 @@ import { ADAPT_ISI, ADAPT_GONOGO_FREQ, NBACK_LEVEL_TABLE, nbackParamsForLevel, n
 import { POOLS, defaultTargetSeq } from './js/core/pools.js';
 import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_PROBES, probeFailed, suggestionFor, ATTENZIONE_ORDER, attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER } from './js/core/screening.js';
 import { DUAL_LEVEL_MAX, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL, structuralBandBounds, adaptLevelKey as adaptLevelKeyOf, currentLevelMax as currentLevelMaxOf, sessionLevelBounds as sessionLevelBoundsOf } from './js/core/bands.js';
+import { KEY, getRaw, setRaw, readJSON, writeJSON, removeKey, listByPrefix, getLocalPatient, readAllLocalPatients, setLocalPatient, removeLocalPatient, updateLocalPatient, saveSessionLocal, listSessionsLocal, rewriteSessionsLocal } from './js/services/local-store.js';
 import { ADAPT_BLOCK, adaptStep, countedOutcome } from './js/core/adapt.js';
 import { computeEZDiffusion, computeLISAS, primaryAccuracyOf, computeExerciseTimeSummary } from './js/core/scores.js';
 import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TARGET_RATE, resolvedFreqForDisplay, resolvedIsiForDisplay, neglectSubLevelForDisplay, categEffectiveStructure, CATEG_STRUCTURE_LABELS, CATEG_STRUCTURE_HINTS, categTitrationModeHint, tapatTitrationModeHint, neglectTitrationModeHint, dualTitrationModeHint, titrationModeHint, neglectProgressivaPhase, LEVEL_FIELD_OF_TASKMODE, levelOfCfg } from './js/core/titration.js';
@@ -564,24 +565,16 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     };
   }
   function listPresets(){
-    const out = [];
-    try{
-      for(let i=0;i<localStorage.length;i++){
-        const k = localStorage.key(i);
-        if(k && k.indexOf('traccian:preset:')===0){
-          try{ out.push(JSON.parse(localStorage.getItem(k))); }catch(e){}
-        }
-      }
-    }catch(e){}
+    const out = listByPrefix(KEY.preset).map(x=>x.value);
     out.sort((a,b)=> b.savedAt - a.savedAt);
     return out;
   }
   function savePreset(name){
     const id = Date.now()+'-'+Math.random().toString(36).slice(2,7);
     const rec = {id, name, savedAt: Date.now(), cfg: presetCfgOf(cfg)};
-    try{ localStorage.setItem('traccian:preset:'+id, JSON.stringify(rec)); }catch(e){}
+    try{ writeJSON(KEY.preset+id, rec); }catch(e){}
   }
-  function deletePreset(id){ try{ localStorage.removeItem('traccian:preset:'+id); }catch(e){} }
+  function deletePreset(id){ removeKey(KEY.preset+id); }
   function resetLevelField(taskMode){
     const field = LEVEL_FIELD_OF_TASKMODE[taskMode];
     if(Array.isArray(field)) field.forEach(k=>{ cfg[k]=1; });
@@ -595,7 +588,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(patientProfile) return patientProfile;
     if(buildingProgramFor && editingPatient) return editingPatient;
     if(activeLocalPatientId){
-      try{ const raw = localStorage.getItem('traccian:localpatient:'+activeLocalPatientId); return raw?JSON.parse(raw):null; }catch(e){ return null; }
+      return getLocalPatient(activeLocalPatientId);
     }
     if(activeRemotePatientId){
       return (cachedRemotePatients||[]).find(p=>p.id===activeRemotePatientId) || null;
@@ -687,14 +680,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function listLocalPatients(){
     const out = [];
     const seen = {};
-    try{
-      for(let i=0;i<localStorage.length;i++){
-        const k = localStorage.key(i);
-        if(k && k.indexOf('traccian:localpatient:')===0){
-          try{ const p = JSON.parse(localStorage.getItem(k)); out.push(p); seen[p.id]=true; }catch(e){}
-        }
-      }
-    }catch(e){}
+    readAllLocalPatients().forEach(p=>{ if(p){ out.push(p); seen[p.id]=true; } });
     if(sb && cloudUser && !patientProfile){
       if(localPatientsCloudCache===null){
         localPatientsCloudCache = [];
@@ -710,7 +696,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
             // altrove) non riceveva mai l'aggiornamento e continuava a
             // mostrarlo attivo all'infinito — bug reale, non solo teorico.
             localPatientsCloudCache.forEach(p=>{
-              try{ localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(p)); }catch(e){}
+              try{ setLocalPatient(p); }catch(e){}
             });
           }
           render();
@@ -733,18 +719,14 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function saveLocalPatient(nome){
     const id = 'lp-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
     const p = {id, nome, createdAt: Date.now()};
-    try{ localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(p)); }catch(e){}
+    try{ setLocalPatient(p); }catch(e){}
     syncLocalPatientToCloud(p);
     return p;
   }
   function updateLocalPatientConfig(id, presetCfg){
     let p = null;
     try{
-      const raw = localStorage.getItem('traccian:localpatient:'+id);
-      if(!raw) return;
-      p = JSON.parse(raw);
-      p.lastConfig = presetCfg;
-      localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(p));
+      updateLocalPatient(id, q=>{ q.lastConfig = presetCfg; p = q; }); // p resta valorizzato anche se la scrittura fallisce: la sincronizzazione cloud sotto parte comunque, come prima
     }catch(e){}
     if(p) syncLocalPatientToCloud(p);
   }
@@ -815,20 +797,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // account remoto — sia quelle salvate solo in locale, sia quelle già
   // sincronizzate in cloud sotto l'account dell'operatore.
   async function migrateLocalPatientSessions(localId, remotePazienteId){
-    try{
-      for(let i=0;i<localStorage.length;i++){
-        const k = localStorage.key(i);
-        if(k && k.indexOf('traccian:sessione:')===0){
-          try{
-            const rec = JSON.parse(localStorage.getItem(k));
-            if(rec.localPatientId===localId){
-              rec.pazienteId = remotePazienteId;
-              localStorage.setItem(k, JSON.stringify(rec));
-            }
-          }catch(e){}
-        }
-      }
-    }catch(e){}
+    rewriteSessionsLocal(rec=>{
+      if(rec.localPatientId!==localId) return false;
+      rec.pazienteId = remotePazienteId;
+      return true;
+    });
     if(sb && cloudUser){
       try{ await sb.from('sessioni').update({paziente_id:remotePazienteId}).eq('operatore_id',cloudUser.id).eq('local_patient_id', localId); }
       catch(e){ console.error('migrazione cloud fallita', e); }
@@ -843,7 +816,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     try{
       localPatient.attivo = false;
       localPatient.remotePazienteId = remotePazienteId;
-      localStorage.setItem('traccian:localpatient:'+localPatient.id, JSON.stringify(localPatient));
+      setLocalPatient(localPatient);
       syncLocalPatientToCloud(localPatient);
     }catch(e){}
   }
@@ -854,20 +827,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // remoto (senza toglierlo — stessa logica, simmetrica, della migrazione
   // in avanti) e disattiva l'accesso remoto senza eliminarlo.
   async function migrateRemoteSessionsToLocal(remotePazienteId, localId){
-    try{
-      for(let i=0;i<localStorage.length;i++){
-        const k = localStorage.key(i);
-        if(k && k.indexOf('traccian:sessione:')===0){
-          try{
-            const rec = JSON.parse(localStorage.getItem(k));
-            if(rec.pazienteId===remotePazienteId && !rec.localPatientId){
-              rec.localPatientId = localId;
-              localStorage.setItem(k, JSON.stringify(rec));
-            }
-          }catch(e){}
-        }
-      }
-    }catch(e){}
+    rewriteSessionsLocal(rec=>{
+      if(!(rec.pazienteId===remotePazienteId && !rec.localPatientId)) return false;
+      rec.localPatientId = localId;
+      return true;
+    });
     if(sb && cloudUser){
       try{ await sb.from('sessioni').update({local_patient_id:localId}).eq('operatore_id',cloudUser.id).eq('paziente_id', remotePazienteId).is('local_patient_id', null); }
       catch(e){ console.error('migrazione cloud fallita', e); }
@@ -880,7 +844,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(p.screening_flags && p.screening_flags.length) localP.screeningFlags = p.screening_flags;
     if(p.livelli_esercizi) localP.livelliEsercizi = p.livelli_esercizi;
     if(p.obiettivo) localP.obiettivo = p.obiettivo;
-    try{ localStorage.setItem('traccian:localpatient:'+localP.id, JSON.stringify(localP)); }catch(e){}
+    try{ setLocalPatient(localP); }catch(e){}
     syncLocalPatientToCloud(localP);
     await migrateRemoteSessionsToLocal(p.id, localP.id);
     if(sb && cloudUser){
@@ -934,97 +898,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       wrap.appendChild(rb);
     }
     if(activeRemote){
-      wrap.appendChild(el('p',{class:'hint'},['Sessione registrata direttamente sul suo account: la vedrà anche lui accedendo da remoto.']));
-    }
-    return wrap;
-  }
-
-  function localPatientDropdown(){
-    const wrap = el('div',{class:'field'});
-    wrap.appendChild(el('label',{},['Modalità']));
-    const patients = listLocalPatients();
-
-    if(cachedRemotePatients===null && sb && cloudUser && !patientProfile){
-      cachedRemotePatients = []; // evita richieste ripetute mentre carica
-      listMyPatients().then(list=>{ cachedRemotePatients = list; render(); });
-    }
-    const remotePatients = cachedRemotePatients || [];
-
-    const sel = el('select',{style:'width:100%; border:1.5px solid var(--line); border-radius:10px; padding:11px 12px; font-family:Inter; font-size:14px; background:var(--paper); color:var(--ink);'});
-    const optFree = el('option',{value:''},['Esercizi liberi']);
-    sel.appendChild(optFree);
-    patients.forEach(p=>{
-      const o = el('option',{value:'loc:'+p.id},['Paziente (in presenza): '+p.nome]);
-      if(activeLocalPatientId===p.id) o.setAttribute('selected','selected');
-      sel.appendChild(o);
-    });
-    remotePatients.forEach(p=>{
-      const o = el('option',{value:'rem:'+p.id},['Paziente (account remoto): '+p.codice_paziente]);
-      if(activeRemotePatientId===p.id) o.setAttribute('selected','selected');
-      sel.appendChild(o);
-    });
-    sel.appendChild(el('option',{value:'__new__'},['+ Nuovo paziente (in presenza)']));
-    if(!activeLocalPatientId && !activeRemotePatientId) optFree.setAttribute('selected','selected');
-
-    sel.addEventListener('change', ()=>{
-      const v = sel.value;
-      if(v==='__new__'){
-        const nome = prompt('Nome o codice del nuovo paziente (es. "Sig. Rossi" — valuta se usare un\'iniziale invece del nominativo completo):');
-        if(nome && nome.trim()){
-          const p = saveLocalPatient(nome.trim());
-          activeLocalPatientId = p.id; activeRemotePatientId = null; cfg.patientCode = p.nome;
-        }
-        render(); return;
-      }
-      if(v.indexOf('rem:')===0){
-        activeRemotePatientId = v.slice(4); activeLocalPatientId = null;
-        const rp = remotePatients.find(x=>x.id===activeRemotePatientId);
-        cfg.patientCode = rp ? rp.codice_paziente : '';
-        render(); return;
-      }
-      if(v.indexOf('loc:')===0){
-        activeLocalPatientId = v.slice(4); activeRemotePatientId = null;
-        const p = patients.find(x=>x.id===activeLocalPatientId);
-        cfg.patientCode = p ? p.nome : '';
-        render(); return;
-      }
-      activeLocalPatientId = null; activeRemotePatientId = null; cfg.patientCode = '';
-      render();
-    });
-    wrap.appendChild(sel);
-
-    const activeLocal = patients.find(x=>x.id===activeLocalPatientId);
-    const activeRemote = remotePatients.find(x=>x.id===activeRemotePatientId);
-    if(activeLocal){
-      const rb = el('div',{class:'rowbtns'});
-      rb.appendChild(el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId = activeLocal.id; historyFilterKind='local'; view='history'; render(); }},['Storico di '+activeLocal.nome]));
-      if(sb && cloudUser && !patientProfile){
-        rb.appendChild(el('button',{class:'ghost', onclick: async ()=>{
-          if(!confirm('Trasformare "'+activeLocal.nome+'" in un account paziente remoto? Potrà accedere da solo con un codice, e lo storico già registrato in presenza — insieme al programma assegnato e ai suggerimenti da screening, se presenti — resterà collegato a lui.')) return;
-          const res = await createPatientAccount(activeLocal.nome);
-          if(res){
-            await migrateLocalPatientSessions(activeLocal.id, res.pazienteId);
-            const ereditato = {};
-            if(activeLocal.programma && activeLocal.programma.length) ereditato.programma_assegnato = activeLocal.programma;
-            if(activeLocal.screeningFlags && activeLocal.screeningFlags.length) ereditato.screening_flags = activeLocal.screeningFlags;
-            if(Object.keys(ereditato).length){
-              try{ await sb.from('pazienti').update(ereditato).eq('id', res.pazienteId).eq('operatore_id', cloudUser.id); }
-              catch(e){ console.error('eredità programma/flag fallita', e); }
-            }
-            await archiveLocalPatientLinkedTo(activeLocal, res.pazienteId);
-            if(activeLocalPatientId===activeLocal.id) activeLocalPatientId=null;
-            cachedRemotePatients = null; // forza il ricaricamento dell'elenco remoto
-            pendingAccessCode = {codice: res.codiceAccesso, patientLabel: activeLocal.nome, pazienteId: res.pazienteId, modalitaAccesso:'diretto', hasProgram: !!(activeLocal.programma && activeLocal.programma.length)};
-            view='accessCode'; render();
-          }
-        }},['Trasforma in account remoto →']));
-      }
-      wrap.appendChild(rb);
-    }
-    if(activeRemote){
-      const rb = el('div',{class:'rowbtns'});
-      rb.appendChild(el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId = null; view='history'; render(); }},['Storico completo (locale + remoto)']));
-      wrap.appendChild(rb);
       wrap.appendChild(el('p',{class:'hint'},['Sessione registrata direttamente sul suo account: la vedrà anche lui accedendo da remoto.']));
     }
     return wrap;
@@ -1127,8 +1000,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   const BAKED_SUPABASE_URL = 'https://qfzpjebloxstjotdytbe.supabase.co';
   const BAKED_SUPABASE_KEY = 'sb_publishable_3ANWIVg80o2YXvZ9R9Ybdg_orqUFxdS';
   let cloudCfg = {
-    url: BAKED_SUPABASE_URL || localStorage.getItem('traccian:cloud:url') || '',
-    key: BAKED_SUPABASE_KEY || localStorage.getItem('traccian:cloud:key') || ''
+    url: BAKED_SUPABASE_URL || getRaw(KEY.cloudUrl) || '',
+    key: BAKED_SUPABASE_KEY || getRaw(KEY.cloudKey) || ''
   };
   const cloudConfigLocked = !!(BAKED_SUPABASE_URL && BAKED_SUPABASE_KEY);
   let sb = null;
@@ -1207,7 +1080,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     editingPatientKind = snap.editingPatientKind || 'remote';
     if(snap.editingPatientId){
       if(editingPatientKind==='local'){
-        try{ const raw = localStorage.getItem('traccian:localpatient:'+snap.editingPatientId); editingPatient = raw?JSON.parse(raw):null; }catch(e){ editingPatient=null; }
+        editingPatient = getLocalPatient(snap.editingPatientId);
       } else {
         const id = snap.editingPatientId;
         editingPatient = (cachedRemotePatients||[]).find(p=>p.id===id) || {id, codice_paziente:'—'};
@@ -2102,7 +1975,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(aObj || bObj) return aObj && bObj && a.stimType===b.stimType && a.item===b.item;
     return seqLabel(a)===seqLabel(b);
   }
-  function describeTargetSeq(){ return cfg.targetSeq.map(seqLabel).join(' → '); }
 
   /* ---------- scoring ---------- */
   function scoreFromCounts(c){
@@ -2155,23 +2027,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // Storage: plain browser localStorage — works fully offline, no account,
   // no server. Data stays on this device/browser only.
   async function saveSession(rec){
-    const key = 'traccian:sessione:'+rec.id;
-    try{ localStorage.setItem(key, JSON.stringify(rec)); }
+    try{ saveSessionLocal(rec); }
     catch(e){ console.error(e); alert('Impossibile salvare: memoria del browser piena o non disponibile.'); }
     historyCache = null;
     pushSession(rec); // fire-and-forget: la sessione è già al sicuro in locale comunque
   }
   async function loadHistory(){
-    let local;
-    try{
-      local = [];
-      for(let i=0;i<localStorage.length;i++){
-        const k = localStorage.key(i);
-        if(k && k.indexOf('traccian:sessione:')===0){
-          try{ local.push(JSON.parse(localStorage.getItem(k))); }catch(e){}
-        }
-      }
-    }catch(e){ local = []; }
+    const local = listSessionsLocal();
 
     if(sb && cloudUser){
       const remote = await pullRemote();
@@ -2179,7 +2041,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       local.forEach(r=> map[r.id]=r);
       remote.forEach(r=>{
         map[r.id]=r;
-        try{ localStorage.setItem('traccian:sessione:'+r.id, JSON.stringify(r)); }catch(e){}
+        try{ saveSessionLocal(r); }catch(e){}
       });
       const merged = Object.values(map).sort((a,b)=> b.ts-a.ts);
       historyCache = merged;
@@ -3321,8 +3183,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   async function cloudSaveConfig(url, key){
     cloudCfg = {url:url.trim().replace(/\/$/,''), key:key.trim()};
-    localStorage.setItem('traccian:cloud:url', cloudCfg.url);
-    localStorage.setItem('traccian:cloud:key', cloudCfg.key);
+    setRaw(KEY.cloudUrl, cloudCfg.url);
+    setRaw(KEY.cloudKey, cloudCfg.key);
     initSupabase();
     await restoreCloudSession();
     historyCache = null; render();
@@ -3440,12 +3302,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   async function saveExerciseLevel(kind, id, taskMode, snap){
     if(kind==='local'){
       try{
-        const raw = localStorage.getItem('traccian:localpatient:'+id);
-        if(!raw) return;
-        const p = JSON.parse(raw);
-        p.livelliEsercizi = p.livelliEsercizi || {};
-        p.livelliEsercizi[taskMode] = snap;
-        localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(p));
+        const p = updateLocalPatient(id, q=>{
+          q.livelliEsercizi = q.livelliEsercizi || {};
+          q.livelliEsercizi[taskMode] = snap;
+        });
+        if(!p) return;
         syncLocalPatientToCloud(p);
       }catch(e){}
     } else if(sb && cloudUser){
@@ -3507,16 +3368,15 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   async function saveNamedConfig(kind, id, taskMode, nome, snap){
     if(kind==='local'){
       try{
-        const raw = localStorage.getItem('traccian:localpatient:'+id);
-        if(!raw) return false;
-        const p = JSON.parse(raw);
-        p.configurazioniSalvate = p.configurazioniSalvate || {};
-        p.configurazioniSalvate[taskMode] = p.configurazioniSalvate[taskMode] || [];
-        const list = p.configurazioniSalvate[taskMode];
-        const i = list.findIndex(x=>x.nome===nome);
-        const entry = {nome, cfg:snap, savedAt:Date.now()};
-        if(i>=0) list[i]=entry; else list.push(entry);
-        localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(p));
+        const p = updateLocalPatient(id, q=>{
+          q.configurazioniSalvate = q.configurazioniSalvate || {};
+          q.configurazioniSalvate[taskMode] = q.configurazioniSalvate[taskMode] || [];
+          const list = q.configurazioniSalvate[taskMode];
+          const i = list.findIndex(x=>x.nome===nome);
+          const entry = {nome, cfg:snap, savedAt:Date.now()};
+          if(i>=0) list[i]=entry; else list.push(entry);
+        });
+        if(!p) return false;
         syncLocalPatientToCloud(p);
         return true;
       }catch(e){ return false; }
@@ -3545,13 +3405,12 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   async function deleteNamedConfig(kind, id, taskMode, nome){
     if(kind==='local'){
       try{
-        const raw = localStorage.getItem('traccian:localpatient:'+id);
-        if(!raw) return false;
-        const p = JSON.parse(raw);
-        if(p.configurazioniSalvate && p.configurazioniSalvate[taskMode]){
-          p.configurazioniSalvate[taskMode] = p.configurazioniSalvate[taskMode].filter(x=>x.nome!==nome);
-        }
-        localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(p));
+        const p = updateLocalPatient(id, q=>{
+          if(q.configurazioniSalvate && q.configurazioniSalvate[taskMode]){
+            q.configurazioniSalvate[taskMode] = q.configurazioniSalvate[taskMode].filter(x=>x.nome!==nome);
+          }
+        });
+        if(!p) return false;
         syncLocalPatientToCloud(p);
         return true;
       }catch(e){ return false; }
@@ -6429,22 +6288,22 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // ricominciato da capo su richiesta.
   function screeningProgressKey(){
     const id = patientProfile ? patientProfile.id : (activeLocalPatientId || activeRemotePatientId);
-    return id ? 'traccian:screeningprogress:'+id : null;
+    return id ? KEY.screeningProgress+id : null;
   }
   function saveScreeningProgress(){
     const key = screeningProgressKey();
     if(!key || !screeningState) return;
-    try{ localStorage.setItem(key, JSON.stringify({screeningState, screeningMaterialMode, ts:Date.now()})); }catch(e){}
+    try{ writeJSON(key, {screeningState, screeningMaterialMode, ts:Date.now()}); }catch(e){}
   }
   function loadScreeningProgress(){
     const key = screeningProgressKey();
     if(!key) return null;
-    try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+    return readJSON(key);
   }
   function clearScreeningProgress(){
     const key = screeningProgressKey();
     if(!key) return;
-    try{ localStorage.removeItem(key); }catch(e){}
+    removeKey(key);
   }
   // Ogni passo dello screening che porta a una nuova sonda passa da qui,
   // invece che impostare view='screeningIntro' direttamente — così il
@@ -6805,13 +6664,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   async function appendProgramEntry(kind, id, entry){
     if(kind==='local'){
       try{
-        const raw = localStorage.getItem('traccian:localpatient:'+id);
-        if(!raw) return false;
-        const pp = JSON.parse(raw);
-        const programmaEsistente = pp.programma||[];
-        const voce = Object.assign({}, entry, {nome: dedupeEntryName(entry.nome, programmaEsistente)});
-        pp.programma = programmaEsistente.concat([voce]);
-        localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(pp));
+        let voce;
+        const pp = updateLocalPatient(id, q=>{
+          const programmaEsistente = q.programma||[];
+          voce = Object.assign({}, entry, {nome: dedupeEntryName(entry.nome, programmaEsistente)});
+          q.programma = programmaEsistente.concat([voce]);
+        });
+        if(!pp) return false;
         syncLocalPatientToCloud(pp);
         if(editingPatient && editingPatient.id===id) editingPatient.programma = pp.programma;
         return voce;
@@ -6838,14 +6697,14 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   async function replaceProgramEntry(kind, id, idx, patch){
     if(kind==='local'){
       try{
-        const raw = localStorage.getItem('traccian:localpatient:'+id);
-        if(!raw) return false;
-        const pp = JSON.parse(raw);
-        const programma = (pp.programma||[]).slice();
-        if(!programma[idx]) return false;
-        programma[idx] = Object.assign({}, programma[idx], patch);
-        pp.programma = programma;
-        localStorage.setItem('traccian:localpatient:'+id, JSON.stringify(pp));
+        let programma;
+        const pp = updateLocalPatient(id, q=>{
+          programma = (q.programma||[]).slice();
+          if(!programma[idx]) return false;
+          programma[idx] = Object.assign({}, programma[idx], patch);
+          q.programma = programma;
+        });
+        if(!pp) return false;
         syncLocalPatientToCloud(pp);
         if(editingPatient && editingPatient.id===id) editingPatient.programma = programma;
         return true;
@@ -6896,12 +6755,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     }
     if(!patientProfile && activeLocalPatientId){
       try{
-        const raw = localStorage.getItem('traccian:localpatient:'+activeLocalPatientId);
-        if(!raw) return;
-        const p = JSON.parse(raw);
-        if(flagged.length) p.screeningFlags = mergeScreeningFlags(p.screeningFlags, flagged);
-        if(risultati) p.screeningRisultati = risultati;
-        localStorage.setItem('traccian:localpatient:'+activeLocalPatientId, JSON.stringify(p));
+        const p = updateLocalPatient(activeLocalPatientId, q=>{
+          if(flagged.length) q.screeningFlags = mergeScreeningFlags(q.screeningFlags, flagged);
+          if(risultati) q.screeningRisultati = risultati;
+        });
+        if(!p) return;
         syncLocalPatientToCloud(p);
       }catch(e){}
     } else if(!patientProfile && activeRemotePatientId && sb && cloudUser){
@@ -8375,11 +8233,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
             el('button',{class:'primary', style:'padding:8px 14px; font-size:13px; width:auto;', onclick: async ()=>{
               if(isLocal){
                 try{
-                  const raw = localStorage.getItem('traccian:localpatient:'+p.id);
-                  if(!raw) return;
-                  const pp = JSON.parse(raw);
-                  pp.attivo = true;
-                  localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(pp));
+                  const pp = updateLocalPatient(p.id, q=>{ q.attivo = true; });
+                  if(!pp) return;
                   syncLocalPatientToCloud(pp);
                   render();
                 }catch(e){}
@@ -8395,7 +8250,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
             el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px; color:var(--alert); border-color:var(--alert);', onclick: async ()=>{
               if(!confirm('Eliminare definitivamente il profilo di '+nome+'? Le sessioni già registrate restano nello storico, ma non saranno più raggruppate sotto il suo nome.')) return;
               if(isLocal){
-                try{ localStorage.removeItem('traccian:localpatient:'+p.id); }catch(e){}
+                removeLocalPatient(p.id);
                 await deleteLocalPatientCloud(p.id);
               } else {
                 try{
@@ -8478,14 +8333,14 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
             el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px;', onclick:()=>{
               if(!confirm('Archiviare '+p.nome+'? Non comparirà più in questa lista — lo ritrovi in Archivio, sempre riattivabile.')) return;
               p.attivo = false;
-              try{ localStorage.setItem('traccian:localpatient:'+p.id, JSON.stringify(p)); }catch(e){}
+              try{ setLocalPatient(p); }catch(e){}
               syncLocalPatientToCloud(p);
               if(activeLocalPatientId===p.id){ activeLocalPatientId=null; cfg.patientCode=''; }
               render();
             }},['Archivia']),
             el('button',{class:'ghost', style:'padding:8px 14px; font-size:13px; color:var(--alert); border-color:var(--alert);', onclick: async ()=>{
               if(!confirm('Eliminare il profilo locale di '+p.nome+'? Le sessioni già registrate restano nello storico, ma non saranno più raggruppate sotto il suo nome.')) return;
-              try{ localStorage.removeItem('traccian:localpatient:'+p.id); }catch(e){}
+              removeLocalPatient(p.id);
               await deleteLocalPatientCloud(p.id);
               if(activeLocalPatientId===p.id){ activeLocalPatientId=null; cfg.patientCode=''; }
               render();
@@ -8886,11 +8741,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
                 const rimasti = programmaAttuale.slice(0,idx).concat(programmaAttuale.slice(idx+1));
                 if(isLocal){
                   try{
-                    const raw = localStorage.getItem('traccian:localpatient:'+editingPatient.id);
-                    if(!raw) return;
-                    const pp = JSON.parse(raw);
-                    pp.programma = rimasti;
-                    localStorage.setItem('traccian:localpatient:'+editingPatient.id, JSON.stringify(pp));
+                    const pp = updateLocalPatient(editingPatient.id, q=>{ q.programma = rimasti; });
+                    if(!pp) return;
                     syncLocalPatientToCloud(pp);
                     editingPatient.programma = rimasti;
                     render();
@@ -9022,12 +8874,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
             const nuovaVoce = programEntryFromFlag(f);
             if(isLocal){
               try{
-                const raw = localStorage.getItem('traccian:localpatient:'+editingPatient.id);
-                if(!raw) return;
-                const pp = JSON.parse(raw);
-                pp.programma = (pp.programma||[]).concat([nuovaVoce]);
-                (pp.screeningFlags||[]).forEach(x=>{ if(x.taskMode===f.taskMode) x.attivo=false; });
-                localStorage.setItem('traccian:localpatient:'+editingPatient.id, JSON.stringify(pp));
+                const pp = updateLocalPatient(editingPatient.id, q=>{
+                  q.programma = (q.programma||[]).concat([nuovaVoce]);
+                  (q.screeningFlags||[]).forEach(x=>{ if(x.taskMode===f.taskMode) x.attivo=false; });
+                });
+                if(!pp) return;
                 syncLocalPatientToCloud(pp);
                 editingPatient.programma = pp.programma; editingPatient.screeningFlags = pp.screeningFlags;
                 render();
@@ -9048,11 +8899,10 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
           el('button',{style:'border:none; background:none; cursor:pointer; color:var(--ink-soft); padding:0; font-size:12px;', title:'Rimuovi suggerimento', onclick: async ()=>{
             if(isLocal){
               try{
-                const raw = localStorage.getItem('traccian:localpatient:'+editingPatient.id);
-                if(!raw) return;
-                const pp = JSON.parse(raw);
-                (pp.screeningFlags||[]).forEach(x=>{ if(x.taskMode===f.taskMode) x.attivo=false; });
-                localStorage.setItem('traccian:localpatient:'+editingPatient.id, JSON.stringify(pp));
+                const pp = updateLocalPatient(editingPatient.id, q=>{
+                  (q.screeningFlags||[]).forEach(x=>{ if(x.taskMode===f.taskMode) x.attivo=false; });
+                });
+                if(!pp) return;
                 syncLocalPatientToCloud(pp);
                 editingPatient.screeningFlags = pp.screeningFlags;
                 render();
@@ -9232,11 +9082,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   async function saveGoalsForPatient(isLocal, patient, nextGoals){
     if(isLocal){
       try{
-        const raw = localStorage.getItem('traccian:localpatient:'+patient.id);
-        if(!raw) return false;
-        const pp = JSON.parse(raw);
-        pp.obiettivo = nextGoals;
-        localStorage.setItem('traccian:localpatient:'+patient.id, JSON.stringify(pp));
+        const pp = updateLocalPatient(patient.id, q=>{ q.obiettivo = nextGoals; });
+        if(!pp) return false;
         syncLocalPatientToCloud(pp);
         patient.obiettivo = nextGoals;
         return true;

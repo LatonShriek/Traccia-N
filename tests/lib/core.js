@@ -27,3 +27,10 @@ function loadCoreSync(fileName, names) {
   return vm.runInNewContext('(function(){\n' + src + '\nreturn {' + names.join(',') + '};\n})()', {});
 }
 module.exports.loadCoreSync = loadCoreSync;
+
+// Come loadCoreSync, ma per js/services/ e con variabili globali finte (es. localStorage).
+function loadServiceSync(fileName, names, globals) {
+  const src = fs.readFileSync(path.join(CORE_DIR, '..', 'services', fileName), 'utf8').replace(/^(\s*)export /gm, '$1');
+  return vm.runInNewContext('(function(){\n' + src + '\nreturn {' + names.join(',') + '};\n})()', Object.assign({}, globals));
+}
+module.exports.loadServiceSync = loadServiceSync;

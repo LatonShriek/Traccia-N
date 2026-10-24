@@ -1,6 +1,7 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { loadServiceSync } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 // localStorage finto, in memoria — le funzioni reali usano getItem/
@@ -22,10 +23,12 @@ const fakeLocalStorage = makeFakeLocalStorage();
 // la sincronizzazione cloud) o servono solo perché il ramo 'remote' della
 // stessa funzione deve poter essere ANALIZZATO senza errori, anche se i
 // nostri test lo evitano sempre passando kind:'local'.
+// updateLocalPatient arriva dal vero js/services/local-store.js (passo 4a), legato al localStorage finto.
+const { updateLocalPatient } = loadServiceSync('local-store.js', ['updateLocalPatient'], { localStorage: fakeLocalStorage });
 const mod = loadPure(REPO_ROOT, [
   { name: 'namedConfigsFor+saveNamedConfig+deleteNamedConfig', start: '  function namedConfigsFor(patientLike, taskMode){', end: "'cancellazione configurazione nominale fallita', e); return false; }\n    }\n    return false;\n  }" }
 ], ['namedConfigsFor', 'saveNamedConfig', 'deleteNamedConfig'], {
-  localStorage: fakeLocalStorage,
+  updateLocalPatient,
   syncLocalPatientToCloud: () => {},
   patientProfile: null,
   sb: null,

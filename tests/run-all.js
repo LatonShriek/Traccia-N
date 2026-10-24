@@ -26,7 +26,9 @@ const FILES = [
   'structural-bands.test.js',
   'ez-diffusion-lisas.test.js',
   'role-check.test.js',
-  'adapt.test.js'
+  'adapt.test.js',
+  'local-store.test.js',
+  'import-clash.test.js'
 ];
 
 // Suite end-to-end (browser vero via Playwright — più lenta, richiede

@@ -1,26 +1,34 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 const cfgStub = {};
 const sessionStub = { seq: [] };
+// tapatTitrationModeHint (js/core/titration.js) e TAPAT_LEVELS (js/core/levels.js) arrivano dai moduli (passo 3b).
+let tapatTitrationModeHint, genTapatTrial, TAPAT_LEVELS;
+async function setup() {
+const L = await importCore('levels.js');
+const T = await importCore('titration.js');
 const mod = loadPure(REPO_ROOT, [
-  { name: 'tapatTitrationModeHint', start: '  function tapatTitrationModeHint(c, mode){', end: "ma il livello si sposta da solo in base all\\'accuratezza.';\n  }" },
-  { name: 'genTapatTrial', start: '  function genTapatTrial(){', end: 'return trial;\n  }' },
-  { name: 'TAPAT_LEVELS', start: '  const TAPAT_LEVELS = {', end: '\n' }
-], ['tapatTitrationModeHint', 'genTapatTrial', 'TAPAT_LEVELS'], {
-  cfg: cfgStub, session: sessionStub,
+  { name: 'genTapatTrial', start: '  function genTapatTrial(){', end: 'return trial;\n  }' }
+], ['genTapatTrial'], {
+  cfg: cfgStub, session: sessionStub, TAPAT_LEVELS: L.TAPAT_LEVELS,
   POOLS: { frecce: ['◀', '▶'] }
 });
 
-const { tapatTitrationModeHint, genTapatTrial, TAPAT_LEVELS } = mod;
+genTapatTrial = mod.genTapatTrial;
+tapatTitrationModeHint = T.tapatTitrationModeHint;
+TAPAT_LEVELS = L.TAPAT_LEVELS;
+}
 
 function baseCfg(overrides) {
   return Object.assign({ stimType: 'frecce', trials: 20, tapatSpatial: false, tapatIsiMin: 900, tapatIsiMax: 1800 }, overrides);
 }
 
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   t.group('genTapatTrial — blocco tonico, Manuale: usa SEMPRE il range libero, mai la tabella', () => {
     Object.assign(cfgStub, baseCfg({ titrationMode: 'manuale', tapatIsiMin: 5000, tapatIsiMax: 6000 }));
     Object.assign(sessionStub, { seq: [], tapatLevel: 1 }); // livello 1 in tabella darebbe un range molto più basso (900-1800) — se il bug tornasse, lo vedremmo qui

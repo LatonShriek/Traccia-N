@@ -8,10 +8,8 @@ const REPO_ROOT = path.join(__dirname, '..');
 let ADAPT_ISI, ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE, dualTitrationModeHint;
 async function setup() {
 const L = await importCore('levels.js');
-const mod = loadPure(REPO_ROOT, [
-  { name: 'dualTitrationModeHint', start: '  function dualTitrationModeHint(c, mode){', end: "l\\'ISI condiviso segue la media dei due, aggiornata di conseguenza).';\n  }" }
-], ['dualTitrationModeHint'], Object.assign({}, L));
-dualTitrationModeHint = mod.dualTitrationModeHint;
+const T = await importCore('titration.js');
+dualTitrationModeHint = T.dualTitrationModeHint;
 ({ ADAPT_ISI, ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE } = L);
 }
 

@@ -10,17 +10,18 @@ const sessionStub = { seq: [] };
 let categEffectiveStructure, genCategTrial, categStructureOfLevel, categTitrationModeHint, CATEG_ISI, CATEG_LURE;
 async function setup() {
 const L = await importCore('levels.js');
+const T = await importCore('titration.js');
 const mod = loadPure(REPO_ROOT, [
-  { name: 'categEffectiveStructure+labels+hints+hint', start: '  function categEffectiveStructure(c){', end: "vedi \"Vincolo di fascia strutturale\" nel README).';\n  }" },
   { name: 'genCategTrial', start: '  function genCategTrial(){', end: "categBivalente:true, isiOverride};\n    session.seq.push(trial);\n    return trial;\n  }" }
-], ['categEffectiveStructure', 'genCategTrial', 'categTitrationModeHint', 'CATEG_STRUCTURE_LABELS'], {
-  cfg: cfgStub, session: sessionStub,
+], ['genCategTrial'], {
+  cfg: cfgStub, session: sessionStub, categEffectiveStructure: T.categEffectiveStructure, CATEG_STRUCTURE_LABELS: T.CATEG_STRUCTURE_LABELS,
   CATEG_STRUCTURE_OF_LEVEL: L.CATEG_STRUCTURE_OF_LEVEL, categStructureOfLevel: L.categStructureOfLevel, CATEG_ISI: L.CATEG_ISI, CATEG_LURE: L.CATEG_LURE,
   POOLS: { simboli: ['●', '▲', '■'], lettereVoce: ['A', 'B', 'C'], numeriVoce: ['1', '2', '3'] },
   SWITCH_RULESETS: { simboli: { ruleA: { classify: v => v === '●', labelA: 'Tondo', labelB: 'Con angoli' } } }
 });
 
-({ categEffectiveStructure, genCategTrial, categTitrationModeHint } = mod);
+({ genCategTrial } = mod);
+({ categEffectiveStructure, categTitrationModeHint } = T);
 ({ categStructureOfLevel, CATEG_ISI, CATEG_LURE } = L);
 }
 

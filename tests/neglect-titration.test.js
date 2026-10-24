@@ -10,11 +10,12 @@ const sessionStub = {};
 let neglectProgressivaPhase, neglectBoardSubLevel, neglectSubLevelForDisplay, ADAPT_NEGLECT_SIZE, ADAPT_NEGLECT_TIME;
 async function setup() {
 const L = await importCore('levels.js');
+const T = await importCore('titration.js');
 const mod = loadPure(REPO_ROOT, [
-  { name: 'neglectSubLevelForDisplay+neglectTitrationModeHint', start: '  function neglectSubLevelForDisplay(c){', end: "'accuratezza.';\n  }" },
-  { name: 'neglectProgressivaPhase+currentNeglectEffMode+neglectBoardSubLevel', start: '  function neglectProgressivaPhase(absLevel){', end: "return cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;\n  }" }
-], ['neglectProgressivaPhase', 'neglectBoardSubLevel', 'neglectSubLevelForDisplay'], Object.assign({ cfg: cfgStub, session: sessionStub }, L));
-({ neglectProgressivaPhase, neglectBoardSubLevel, neglectSubLevelForDisplay } = mod);
+  { name: 'currentNeglectEffMode+neglectBoardSubLevel', start: '  function currentNeglectEffMode(){', end: "return cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;\n  }" }
+], ['neglectBoardSubLevel'], Object.assign({ cfg: cfgStub, session: sessionStub }, L, T));
+({ neglectBoardSubLevel } = mod);
+({ neglectProgressivaPhase, neglectSubLevelForDisplay } = T);
 ({ ADAPT_NEGLECT_SIZE, ADAPT_NEGLECT_TIME } = L);
 }
 

@@ -16,16 +16,15 @@ let mod, TITRATION_EXERCISES, resolvedFreqForDisplay, resolvedIsiForDisplay, lev
   ADAPT_ISI, ADAPT_GONOGO_FREQ, nbackParamsForLevel, ADAPT_SWITCH_BALANCE, ADAPT_SWITCH_CSI, ADAPT_SEQ_LEN, POOLS;
 async function setup() {
 const L = await importCore('levels.js');
+const T = await importCore('titration.js');
 mod = loadPure(REPO_ROOT, [
   { name: 'POOLS', start: '  const POOLS = {', end: "POOLS.numeriVoce = POOLS.numeri;" },
-  { name: 'TITRATION_EXERCISES+resolvedDisplay', start: "  const TITRATION_EXERCISES = [", end: "ADAPT_ISI.ant[c.adaptStartLevel];\n    return null;\n  }" },
-  { name: 'LEVEL_FIELD_OF_TASKMODE+levelOfCfg', start: '  const LEVEL_FIELD_OF_TASKMODE = {', end: '    return c[field];\n  }' },
   { name: 'SWITCH_RULESETS', start: '  const SWITCH_RULESETS = {', end: "SWITCH_RULESETS.numeriVoce = SWITCH_RULESETS.numeri;" }
 ], [
-  'POOLS', 'TITRATION_EXERCISES', 'resolvedFreqForDisplay', 'resolvedIsiForDisplay',
-  'LEVEL_FIELD_OF_TASKMODE', 'levelOfCfg'
-], Object.assign({}, L));
-({ TITRATION_EXERCISES, resolvedFreqForDisplay, resolvedIsiForDisplay, levelOfCfg, POOLS } = mod);
+  'POOLS'
+], Object.assign({}, L, T));
+({ POOLS } = mod);
+({ TITRATION_EXERCISES, resolvedFreqForDisplay, resolvedIsiForDisplay, levelOfCfg } = T);
 ({ ADAPT_ISI, ADAPT_GONOGO_FREQ, nbackParamsForLevel, ADAPT_SWITCH_BALANCE, ADAPT_SWITCH_CSI, ADAPT_SEQ_LEN } = L);
 }
 

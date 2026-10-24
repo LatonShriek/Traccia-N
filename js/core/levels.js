@@ -79,3 +79,6 @@
   // manualmente dall'operatore in targetSeq.
   export const ADAPT_SEQ_LEN = {1:2,2:2,3:3,4:3,5:3,6:3,7:4,8:4,9:5,10:5};
   export const ADAPT_NEGLECT_TIME = {1:0,2:0,3:110,4:90,5:70,6:55,7:42,8:32,9:24,10:18}; // secondi per tavola (0=nessun limite) — più basso = più difficile; nessun limite ora anche al livello 2 (pavimento più graduale)
+
+  // TAPAT (blocco tonico): intervallo min-max fra stimoli, in ms, per livello.
+  export const TAPAT_LEVELS = { 1:[900,1800],2:[1400,2600],3:[2000,4000],4:[3000,6000],5:[4000,8000],6:[5000,9500],7:[6000,11000],8:[8000,13000],9:[10000,18000],10:[12000,25000] };

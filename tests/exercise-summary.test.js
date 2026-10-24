@@ -1,14 +1,8 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
 const { importCore } = require('./lib/core');
-const REPO_ROOT = path.join(__dirname, '..');
 
-// Blocchi puri: computeExerciseTimeSummary dipende da EXERCISES/EXERCISE_GROUPS
-// (forniti come stub qui sotto — solo le chiavi/label servono, non le
-// istruzioni vere) e da primaryAccuracyOf (estratta dal vero index.html,
-// mai copiata a mano) più mean/isTapatKey, che vivono ormai in js/core/
-// e arrivano come stub importati dai moduli veri.
+// computeExerciseTimeSummary (js/core/scores.js) riceve EXERCISES/EXERCISE_GROUPS come
+// parametri: qui sotto stub minimi (servono solo chiavi e label, non le istruzioni vere).
 const EXERCISES = {
   nback: { label: 'N-back classico' },
   gonogo: { label: 'Go/No-Go' },
@@ -21,15 +15,13 @@ const EXERCISE_GROUPS = [
   { label: 'Memoria di lavoro', keys: ['nback'] }
 ];
 
+// computeExerciseTimeSummary vive in js/core/scores.js e riceve EXERCISES /
+// EXERCISE_GROUPS come parametri (passo 3b): qui sotto i soli stub necessari.
 let computeExerciseTimeSummary, isTapatKey;
 async function setup() {
-  const { mean } = await importCore('stats.js');
+  const scores = await importCore('scores.js');
   const records = await importCore('records.js');
-  const mod = loadPure(REPO_ROOT, [
-    { name: 'primaryAccuracyOf', start: '  function primaryAccuracyOf(rec){', end: "return null;\n  }" },
-    { name: 'computeExerciseTimeSummary', start: '  function computeExerciseTimeSummary(items){', end: "ultimaSeduta: last ? last.dateLabel : null\n      };\n    });\n  }" }
-  ], ['computeExerciseTimeSummary'], { EXERCISES, EXERCISE_GROUPS, mean, isTapatKey: records.isTapatKey });
-  computeExerciseTimeSummary = mod.computeExerciseTimeSummary;
+  computeExerciseTimeSummary = items => scores.computeExerciseTimeSummary(items, EXERCISES, EXERCISE_GROUPS);
   isTapatKey = records.isTapatKey;
 }
 

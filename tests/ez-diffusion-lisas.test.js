@@ -1,21 +1,10 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
 const { importCore } = require('./lib/core');
-const REPO_ROOT = path.join(__dirname, '..');
 
-// mean e sd vivono in js/core/stats.js (modulo ES): arrivano come stub
-// importati dal modulo vero; computeEZDiffusion/computeLISAS si estraggono
-// ancora da index.html.
+// computeEZDiffusion / computeLISAS vivono in js/core/scores.js (passo 3b).
 let computeEZDiffusion, computeLISAS;
 async function setup() {
-  const { mean, sd } = await importCore('stats.js');
-  const mod = loadPure(REPO_ROOT, [
-    { name: 'computeEZDiffusion', start: '  function computeEZDiffusion(nCorrect, nTotal, meanRTsec, varRTsec){', end: 'return {v, a, Ter};\n  }' },
-    { name: 'computeLISAS', start: '  function computeLISAS(rtsCorrectMs, correctFlags){', end: 'return mean(rtsCorrectMs) + (sdRT/sdErr)*errRate;\n  }' }
-  ], ['computeEZDiffusion', 'computeLISAS'], { mean, sd });
-  computeEZDiffusion = mod.computeEZDiffusion;
-  computeLISAS = mod.computeLISAS;
+  ({ computeEZDiffusion, computeLISAS } = await importCore('scores.js'));
 }
 
 module.exports = async function run(t) {

@@ -12,6 +12,7 @@ const FILES = [
   'rci.test.js',
   'named-configs.test.js',
   'neglect-titration.test.js',
+  'neglect-boards.test.js',
   'dualtask-titration.test.js',
   'categorizzazione-titration.test.js',
   'tapat-titration.test.js',

@@ -71,7 +71,10 @@ const EXERCISE_BUTTON_TEXT = {
   simon: 'Simon (conflitto spazio-risposta)',
   mantenimento: 'Mantenimento (tipo Sternberg)',
   runningspan: { exercise: 'Running Span', family: 'runningspan' },
-  neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' }
+  neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' },
+  neglect_intruso: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: "Trova l'intruso" },
+  neglect_regola: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: 'Conteggio a regola' },
+  neglect_progressiva: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: 'Progressiva' }
 };
 
 // Riduce al minimo il campo che controlla la lunghezza della sessione —
@@ -130,7 +133,7 @@ async function simulatePatientResponses(page, { maxMs = 60000, tapEveryMs = 300,
 // non l'accuratezza della risposta.
 async function simulateNeglectResponses(page, { maxMs = 60000, tapEveryMs = 120 } = {}) {
   const start = Date.now();
-  let taps = 0;
+  let taps = 0, tapsOnBoard = 0;
   while (Date.now() - start < maxMs) {
     const stillRunning = await page.locator('button:has-text("Interrompi")').count();
     if (!stillRunning) break;
@@ -143,12 +146,20 @@ async function simulateNeglectResponses(page, { maxMs = 60000, tapEveryMs = 120 
     }
     const remaining = page.locator('.neglect-item:not(.found):not(.falsetap)');
     const n = await remaining.count();
+    // 'Conteggio a regola': il tocco non segna nulla, le celle restano libere — dopo qualche tocco si preme comunque "Fatto"
+    if (n > 0 && tapsOnBoard >= 6 && await page.locator('.neglect-item.found, .neglect-item.falsetap').count() === 0) {
+      const doneBtn0 = page.locator('button:has-text("Fatto con questa tavola")');
+      if (await doneBtn0.count() > 0) { await doneBtn0.click().catch(() => {}); await page.waitForTimeout(300); }
+      tapsOnBoard = 0;
+      continue;
+    }
     if (n > 0) {
       const idx = Math.floor(Math.random() * n);
       await remaining.nth(idx).click({ timeout: 800 }).catch(() => {});
-      taps++;
+      taps++; tapsOnBoard++;
       await page.waitForTimeout(tapEveryMs);
     } else {
+      tapsOnBoard = 0;
       const doneBtn = page.locator('button:has-text("Fatto con questa tavola")');
       if (await doneBtn.count() > 0) { await doneBtn.click().catch(() => {}); await page.waitForTimeout(300); }
       else { await page.waitForTimeout(tapEveryMs); }

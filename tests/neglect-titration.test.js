@@ -1,8 +1,5 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
 const { importCore } = require('./lib/core');
-const REPO_ROOT = path.join(__dirname, '..');
 
 const cfgStub = {};
 const sessionStub = {};
@@ -11,10 +8,8 @@ let neglectProgressivaPhase, neglectBoardSubLevel, neglectSubLevelForDisplay, AD
 async function setup() {
 const L = await importCore('levels.js');
 const T = await importCore('titration.js');
-const mod = loadPure(REPO_ROOT, [
-  { name: 'currentNeglectEffMode+neglectBoardSubLevel', start: '  function currentNeglectEffMode(){', end: "return cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;\n  }" }
-], ['neglectBoardSubLevel'], Object.assign({ cfg: cfgStub, session: sessionStub }, L, T));
-({ neglectBoardSubLevel } = mod);
+const N = await importCore('../exercises/neglect.js'); // modulo vero (passo 5d); cfg e session si passano come parametri
+neglectBoardSubLevel = () => N.neglectBoardSubLevel(cfgStub, sessionStub);
 ({ neglectProgressivaPhase, neglectSubLevelForDisplay } = T);
 ({ ADAPT_NEGLECT_SIZE, ADAPT_NEGLECT_TIME } = L);
 }

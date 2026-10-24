@@ -15,6 +15,7 @@ const FILES = [
   'neglect-boards.test.js',
   'resolve.test.js',
   'goaltask.test.js',
+  'memoria.test.js',
   'dualtask-titration.test.js',
   'categorizzazione-titration.test.js',
   'tapat-titration.test.js',

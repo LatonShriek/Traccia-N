@@ -21,16 +21,16 @@ function readAppScript(repoRoot) {
   const htmlPath = path.join(repoRoot, 'index.html');
   const html = fs.readFileSync(htmlPath, 'utf8');
   const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
-  if (scripts.length < 2) {
+  if (scripts.length < 1) {
     throw new Error(
-      'Atteso un secondo tag <script> con la logica dell\'app in ' + htmlPath +
-      ' — trovati solo ' + scripts.length + '. La struttura del file è cambiata?'
+      'Nessun tag <script> in ' + htmlPath + ' — la struttura del file è cambiata?'
     );
   }
-  // Lo stesso schema usato ovunque in questo progetto per separare lo
-  // script applicativo dall'HTML che lo ospita (indice 1, non 0 — il primo
-  // <script> è il service worker registration inline, non la logica).
-  return scripts[1][1];
+  // Lo script applicativo è il PIÙ LUNGO (oggi: <script type="module"> con gli
+  // import da js/core/ e la IIFE dell'app). Non si usa la posizione: la pagina
+  // ha anche lo script del CDN (vuoto) e il piccolo avviso per file://, e un
+  // nuovo script aggiunto in testa sposterebbe l'indice.
+  return scripts.map(m => m[1]).reduce((a, b) => (b.length > a.length ? b : a));
 }
 
 // Trova un blocco per testo di inizio/fine esatto. endMarker è INCLUSO nel

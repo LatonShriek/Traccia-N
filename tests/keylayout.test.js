@@ -1,20 +1,18 @@
 'use strict';
 const path = require('path');
-const { loadPure } = require('./lib/extract-source');
-const REPO_ROOT = path.join(__dirname, '..');
+const { importCore } = require('./lib/core');
 
-const mod = loadPure(REPO_ROOT, [
-  { name: 'KEY_LAYOUTS', start: '  const KEY_LAYOUTS = {', end: '  };' }
-], ['KEY_LAYOUTS']);
-
-const { KEY_LAYOUTS } = mod;
+// KEY_LAYOUTS vive in js/core/keylayout.js (modulo ES): il test lo importa
+// direttamente, non lo estrae più da index.html.
+let KEY_LAYOUTS;
 // Ordine fisico reale della riga inferiore di una tastiera QWERTY italiana/
 // internazionale standard — usato per verificare l'adiacenza, non copiato
 // da nessuna tabella dell'app (è un fatto sulla tastiera fisica, non sul
 // codice).
 const BOTTOM_ROW = 'zxcvbnm'.split('');
 
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  ({ KEY_LAYOUTS } = await importCore('keylayout.js'));
   ['standard', 'ravvicinata'].forEach(name => {
     t.group('Disposizione "' + name + '"', () => {
       const l = KEY_LAYOUTS[name];

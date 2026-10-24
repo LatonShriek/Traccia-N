@@ -19,6 +19,23 @@
 <div id="app"></div>
 
 <script>
+// I moduli ES (js/core/*.js) non si caricano da file:// (doppio clic su index.html):
+// la pagina resterebbe vuota. In quel caso si mostra un avviso leggibile.
+if(location.protocol === "file:"){
+  document.getElementById("app").innerHTML =
+    '<div style="font-family:system-ui,sans-serif;max-width:34em;margin:3em auto;padding:0 1em;line-height:1.5">'
+    + '<h2>TracciaN non si apre con un doppio clic</h2>'
+    + '<p>L\'app va servita da un indirizzo web (https://…, per esempio GitHub Pages) oppure da un piccolo server locale: '
+    + 'aperta direttamente dal file, il browser blocca i moduli e la pagina resterebbe vuota.</p>'
+    + '<p>Da una cartella del progetto: <code>python3 -m http.server</code>, poi apri <code>http://localhost:8000</code>.</p></div>';
+}
+</script>
+
+<script type="module">
+import { KEY_LAYOUTS } from './js/core/keylayout.js';
+import { mean, sd } from './js/core/stats.js';
+import { isTapatLike, isTapatKey } from './js/core/records.js';
+import { RCI_BASELINE_N, computeRCIRows } from './js/core/rci.js';
 (function(){
   "use strict";
 
@@ -58,13 +75,7 @@
   // stimolo autonomo utilizzabile in qualunque esercizio con usesStimType.
   function isSpokenStim(t){ return t==='lettereVoce' || t==='numeriVoce' || t==='paroleVoce'; }
   function isAudioOnlyStim(t){ return t==='suoni' || isSpokenStim(t); }
-  // TAPAT era una sotto-modalità di ANT (taskMode:'ant', antMode:'tapat')
-  // prima della separazione in due esercizi distinti. Le sessioni già
-  // salvate con il formato vecchio restano leggibili/esportabili con
-  // questo helper, usato ovunque occorra riconoscere "è una sessione
-  // TAPAT" su un cfg o un record storico, vecchio o nuovo formato che sia.
-  // Le sessioni NUOVE scrivono sempre taskMode:'tapat' direttamente.
-  function isTapatLike(o){ return !!o && (o.taskMode==='tapat' || (o.taskMode==='ant' && o.antMode==='tapat')); }
+  // isTapatLike / isTapatKey: vedi js/core/records.js (importati in cima allo script).
   // Riproduce lo stimolo per il tipo corrente — un'unica chiamata invece di
   // ripetere ovunque il branch toni/voce.
   function playStimulusAudio(stimType, val, dur){
@@ -1338,6 +1349,7 @@
   let patientProfile = null; // riga di "pazienti" se l'utente loggato è un paziente, altrimenti null (operatore)
   let isSuperOperatore = false; // vero solo se la riga 'operatori' del cloudUser ha super=true (tabella 'operatori', vedi checkRole)
   let operatorInactive = false; // vero se l'operatore è stato archiviato da un super-operatore (colonna 'attivo' su operatori, vedi checkRole) — blocca l'accesso, stesso principio già in uso per i pazienti
+  let operatorNoRole = false; // vero se l'account è autenticato ma non ha NESSUNA riga né in 'pazienti' né in 'operatori' (vedi checkRole): entra nello stesso blocco di operatorInactive, con un messaggio diverso
   let accessLogCache = null; // cache in-memory della tabella 'accessi', solo per il super-operatore
   let cloudLoginMode = 'operatore'; // 'operatore' | 'paziente' — quale form di accesso mostrare
   let editingPatient = null; // riga paziente correntemente aperta in "Gestisci programma"
@@ -2447,18 +2459,8 @@
     return local;
   }
   // ---------- Reliable Change Index (RCI) — solo per l'export operatore ----------
-  // Stima ogni sessione rispetto alla BASELINE del singolo paziente su quello
-  // stesso esercizio (le prime N sessioni disponibili), non contro un campione
-  // normativo esterno (che non abbiamo). Valori di affidabilità test-retest
-  // sono stime prudenti di default: se hai valori più precisi dalla letteratura
-  // per un dato paradigma, si possono correggere qui.
-  const RCI_BASELINE_N = 3; // numero di sessioni iniziali usate come baseline
-  const RCI_RELIABILITY = {
-    nback:0.75, sequenza:0.70, gonogo:0.70, stopsignal:0.75,
-    ant:0.70, switching:0.70, dualtask:0.65, neglect:0.70
-  };
-  // Restituisce {value, higherIsBetter} — la metrica principale per la riga,
-  // oppure null se quell'esercizio/famiglia non ha una metrica adatta.
+  // Il calcolo (costanti, metrica primaria, controllo di comparabilità, righe RCI)
+  // vive in js/core/rci.js; qui restano solo la generazione del report e l'export.
   // Estrae un valore 0-1 assimilabile ad "accuratezza" dalla sessione appena
   // conclusa, da usare per rendere il progresso verso l'obiettivo più sfumato
   // (vedi computeLevelGoalProgress) — non per l'RCI, che ha la propria logica.
@@ -2483,7 +2485,6 @@
   // sessioni di UN SOLO paziente (in presenza + remoto insieme, già
   // filtrate da chi chiama — vedi ScreenHistory), non serve distinguere
   // qui la provenienza.
-  function isTapatKey(r){ return isTapatLike(r) ? 'tapat' : r.taskMode; }
   function computeExerciseTimeSummary(items){
     const groups = {};
     items.forEach(r=>{
@@ -2512,155 +2513,9 @@
       };
     });
   }
-  function rciPrimaryMetric(r){
-    const family = r.family || 'signal';
-    if(r.taskMode==='stopsignal') return (r.ssrt!=null) ? {value:r.ssrt, higherIsBetter:false} : null;
-    if(family==='signal'){
-      if(r.metrics && r.metrics.dprime!=null) return {value:r.metrics.dprime, higherIsBetter:true};
-      if(r.metrics && r.metrics.acc!=null) return {value:r.metrics.acc, higherIsBetter:true};
-      return null;
-    }
-    if(family==='choice'){
-      if(r.choice && r.choice.total) return {value:r.choice.correct/r.choice.total, higherIsBetter:true};
-      return null;
-    }
-    if(family==='dual'){
-      const vals = [];
-      if(r.metrics && r.metrics.acc!=null) vals.push(r.metrics.acc);
-      if(r.metricsAud && r.metricsAud.acc!=null) vals.push(r.metricsAud.acc);
-      if(!vals.length) return null;
-      return {value: vals.reduce((a,b)=>a+b,0)/vals.length, higherIsBetter:true};
-    }
-    if(family==='spatial'){
-      // 'Conteggio a regola': niente asimmetria misurabile con un unico
-      // numero riportato (vedi nota sopra) — l'RCI per queste sedute usa
-      // invece l'accuratezza del conteggio, una misura scalare pulita come
-      // quella già usata per le famiglie 'choice'/'signal', non un
-      // ripiego di fortuna.
-      if(r.neglect && r.neglect.modalitaConteggio) return (r.neglect.accuratezzaConteggio!=null) ? {value:r.neglect.accuratezzaConteggio, higherIsBetter:true} : null;
-      if(r.neglect && r.neglect.asymmetry!=null) return {value:Math.abs(r.neglect.asymmetry), higherIsBetter:false};
-      return null;
-    }
-    return null;
-  }
-  function mean(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
-  function sd(arr){
-    if(arr.length<2) return null;
-    const m = mean(arr);
-    return Math.sqrt(arr.reduce((s,v)=>s+(v-m)*(v-m),0)/(arr.length-1));
-  }
-  // items: elenco di sessioni di UN SOLO paziente (già filtrate da chi chiama).
-  // Confronta la media delle prime sessioni (baseline) con la media delle
-  // ultime sessioni disponibili al momento in cui lo generi — non sessione
-  // per sessione: è pensato per essere lanciato quando si vuole valutare
-  // l'esito di una fase di trattamento, non ad ogni singolo export.
-  // Calcolo condiviso fra l'export CSV e il report stampabile: entrambi
-  // devono mostrare esattamente le stesse righe con la stessa logica, quindi
-  // il calcolo vive qui una sola volta.
-  // Confronta i parametri usati nelle sessioni di baseline con quelli delle
-  // sessioni finali incluse nel confronto RCI — un cambiamento di
-  // accuratezza fra condizioni diverse (livello, ISI, frequenza, modalità
-  // di titolazione) misura quanto è cambiato IL COMPITO, non quanto è
-  // cambiato il paziente, e userebbe la formula di Crawford & Howell fuori
-  // dalla sua assunzione di fondo (stessa misura, stesse condizioni).
-  // Risposta diretta a una domanda di Rodrigo: confrontare il livello 1
-  // con il livello 10 dello stesso esercizio ha ESATTAMENTE lo stesso
-  // problema di un ISI diverso fra le due sedute — coperto dallo stesso
-  // controllo, sul campo finalLevel salvato per ogni sessione, non da un
-  // meccanismo a parte.
-  function sessionMismatchWarnings(baselineItems, finalItems){
-    const warnings = [];
-    function numField(getter){
-      const b = baselineItems.map(x=>getter(x.r)).filter(v=>v!=null && !isNaN(v));
-      const f = finalItems.map(x=>getter(x.r)).filter(v=>v!=null && !isNaN(v));
-      if(!b.length || !f.length) return null; // dato non registrato per una delle due parti (es. sessioni storiche precedenti a questa consegna) — non verificabile, non si dichiara comparabile per default
-      return {mb: mean(b), mf: mean(f)};
-    }
-    const isi = numField(r=>r.isi);
-    if(isi && isi.mb>0 && Math.abs(isi.mf-isi.mb)/isi.mb > 0.15){
-      warnings.push('ISI diverso fra baseline ('+Math.round(isi.mb)+'ms) e punto finale ('+Math.round(isi.mf)+'ms)');
-    }
-    const lvl = numField(r=> typeof r.finalLevel==='number' ? r.finalLevel : null);
-    if(lvl && Math.abs(lvl.mf-lvl.mb) >= 2){
-      warnings.push('livello diverso fra baseline (~'+lvl.mb.toFixed(1)+') e punto finale (~'+lvl.mf.toFixed(1)+')');
-    }
-    const trials = numField(r=>r.trials);
-    if(trials && trials.mb>0 && Math.abs(trials.mf-trials.mb)/trials.mb > 0.20){
-      warnings.push('numero di prove diverso fra baseline ('+Math.round(trials.mb)+') e punto finale ('+Math.round(trials.mf)+')');
-    }
-    const rate = numField(r=>r.targetRate);
-    if(rate && Math.abs(rate.mf-rate.mb) > 0.05){
-      warnings.push('frequenza bersaglio/no-go diversa fra baseline ('+Math.round(rate.mb*100)+'%) e punto finale ('+Math.round(rate.mf*100)+'%)');
-    }
-    const modesB = new Set(baselineItems.map(x=>x.r.titrationMode).filter(Boolean));
-    const modesF = new Set(finalItems.map(x=>x.r.titrationMode).filter(Boolean));
-    if(modesB.size && modesF.size && (![...modesB].every(m=>modesF.has(m)) || ![...modesF].every(m=>modesB.has(m)))){
-      warnings.push('modalità di titolazione diversa fra baseline ('+[...modesB].join('/')+') e punto finale ('+[...modesF].join('/')+')');
-    }
-    return warnings;
-  }
-  function computeRCIRows(items){
-    const groups = {};
-    items.forEach(r=>{
-      const metric = rciPrimaryMetric(r);
-      if(!metric) return;
-      const key = isTapatKey(r);
-      if(!groups[key]) groups[key] = [];
-      groups[key].push({r, metric});
-    });
-    const rows = [];
-    Object.keys(groups).forEach(taskMode=>{
-      const list = groups[taskMode];
-      list.sort((a,b)=> a.r.ts - b.r.ts);
-      const n = list.length;
-      if(n < 4) return; // troppo poche sessioni per separare baseline e punto finale in modo sensato
-      const half = Math.min(RCI_BASELINE_N, Math.floor(n/2));
-      const baselineItems = list.slice(0, half), finalItems = list.slice(n-half);
-      const baselineVals = baselineItems.map(x=>x.metric.value);
-      const finalVals = finalItems.map(x=>x.metric.value);
-      const higherIsBetter = list[0].metric.higherIsBetter;
-      const baselineMean = mean(baselineVals), finalMean = mean(finalVals);
-      const baselineSD = sd(baselineVals);
-      const rawReliability = RCI_RELIABILITY[taskMode] != null ? RCI_RELIABILITY[taskMode] : 0.70;
-      // Correzione di Spearman-Brown: baseline e punto finale non sono una
-      // singola misurazione ciascuno, sono già la media di 'half' sedute (2
-      // o 3, a seconda di quante sedute totali sono disponibili per questo
-      // paziente/esercizio) — una media è più affidabile di una singola
-      // seduta, e va trattata come tale. Usare il coefficiente di
-      // affidabilità di una singola seduta quando si sta in realtà
-      // confrontando due medie rendeva il test sistematicamente più
-      // conservativo del dovuto (una differenza reale aveva meno probabilità
-      // di essere segnalata come significativa di quanto sarebbe corretto),
-      // mai nella direzione opposta — non è un allentamento arbitrario del
-      // criterio, è smettere di sottostimare l'affidabilità reale della
-      // misura. reliability_k = k·r / (1 + (k-1)·r); con k=half=1 (caso
-      // limite, non dovrebbe presentarsi dato il minimo di 4 sessioni sopra)
-      // la formula si riduce identicamente al coefficiente originale.
-      const reliability = (half*rawReliability) / (1 + (half-1)*rawReliability);
-      if(!baselineSD) return;
-      const seDiff = baselineSD * Math.sqrt(2*(1-reliability));
-      if(!seDiff) return;
-      let rci = (finalMean - baselineMean) / seDiff;
-      if(!higherIsBetter) rci = -rci;
-      const exLabel = EXERCISES[taskMode] ? EXERCISES[taskMode].label : taskMode;
-      // Il controllo di comparabilità viene DOPO il calcolo, non prima: si
-      // vuole sempre poter mostrare le medie grezze (baseline/finale) anche
-      // quando il confronto non è valido — solo il numero RCI viene
-      // soppresso (null), mai le due medie, che restano dati legittimi da
-      // guardare per quello che sono anche senza un indice sintetico sopra.
-      const warnings = sessionMismatchWarnings(baselineItems, finalItems);
-      rows.push({
-        exLabel, n, half, baselineMean, finalMean,
-        rci: warnings.length ? null : rci,
-        comparable: !warnings.length,
-        warnings,
-        significativo: warnings.length ? false : Math.abs(rci)>=1.96
-      });
-    });
-    return rows;
-  }
+  // mean / sd: vedi js/core/stats.js (importati in cima allo script).
   function generateRCIReport(items, patientLabel){
-    const rows = computeRCIRows(items);
+    const rows = computeRCIRows(items, EXERCISES);
     if(!rows.length){ alert('Non ci sono ancora abbastanza sessioni per un report RCI (servono almeno 4 sessioni sullo stesso esercizio).'); return; }
     const head = ['esercizio','sessioni_totali','sessioni_per_gruppo','media_baseline','media_finale','rci','cambiamento_significativo','confronto_valido','motivo_non_validita'];
     const csv = [head.join(';')].concat(rows.map(r=>[
@@ -2681,7 +2536,7 @@
   // sovrascrivere lo schermo corrente, così l'operatore non perde il
   // contesto da cui l'ha lanciato.
   function printRCIReport(items, patientLabel){
-    const rows = computeRCIRows(items);
+    const rows = computeRCIRows(items, EXERCISES);
     if(!rows.length){ alert('Non ci sono ancora abbastanza sessioni per un report RCI (servono almeno 4 sessioni sullo stesso esercizio).'); return; }
     const w = window.open('', '_blank');
     if(!w){ alert('Il browser ha bloccato l\'apertura della finestra di stampa. Consenti i popup per questo sito e riprova.'); return; }
@@ -3548,7 +3403,7 @@
   }
   // Un account è "paziente" se esiste una riga in pazienti con id = auth.uid().
   async function checkRole(){
-    patientProfile = null; isSuperOperatore = false; operatorInactive = false;
+    patientProfile = null; isSuperOperatore = false; operatorInactive = false; operatorNoRole = false;
     if(!sb || !cloudUser) return;
     try{
       const { data } = await sb.from('pazienti').select('*').eq('id', cloudUser.id).maybeSingle();
@@ -3556,7 +3411,7 @@
     }catch(e){ patientProfile = null; }
     if(!patientProfile){
       try{
-        const { data } = await sb.from('operatori').select('super, attivo').eq('id', cloudUser.id).maybeSingle();
+        const { data, error } = await sb.from('operatori').select('super, attivo').eq('id', cloudUser.id).maybeSingle();
         isSuperOperatore = !!(data && data.super);
         // 'attivo' potrebbe non esistere ancora se la migrazione SQL di
         // questa funzione (colonne nome/attivo, vedi README) non è ancora
@@ -3564,7 +3419,16 @@
         // undefined, mai false: nessun blocco per errore prima che la
         // colonna esista davvero.
         operatorInactive = !!(data && data.attivo === false);
-      }catch(e){ isSuperOperatore = false; operatorInactive = false; } // tabella 'operatori' assente o non ancora migrata: nessun accesso al registro, nessun blocco dell'app
+        // Account senza ruolo: la query ha risposto SENZA errore ma non esiste
+        // nessuna riga in 'operatori' (e sopra non è risultato un paziente).
+        // Prima questo caso entrava come operatore a tutti gli effetti
+        // (operatorInactive restava false); ora viene bloccato come un
+        // operatore archiviato, con un messaggio dedicato. Se invece la query
+        // dà errore (tabella assente o non ancora migrata, rete assente) non
+        // si blocca nulla, come prima: il blocco scatta solo con una risposta
+        // valida che dice "nessuna riga".
+        if(!error && !data){ operatorInactive = true; operatorNoRole = true; }
+      }catch(e){ isSuperOperatore = false; operatorInactive = false; operatorNoRole = false; } // tabella 'operatori' assente o non ancora migrata: nessun accesso al registro, nessun blocco dell'app
     }
   }
   // ---------- Registro accessi (solo lettura per il super-operatore) ----------
@@ -3810,7 +3674,9 @@
     if(error){ alert('Errore accesso: '+error.message); logAccessEvent('login','fallito','operatore',null,email); render(); return; }
     cloudUser = data.user; await checkRole(); await claimSession(); historyCache=null;
     if(!patientProfile && operatorInactive){
-      alert('Questo account operatore è stato archiviato e non può accedere. Contatta il super-operatore della struttura.');
+      alert(operatorNoRole
+        ? 'Questo account non ha un ruolo assegnato (né operatore né paziente) e non può accedere. Contatta il super-operatore della struttura.'
+        : 'Questo account operatore è stato archiviato e non può accedere. Contatta il super-operatore della struttura.');
       logAccessEvent('login','fallito','operatore',cloudUser.id,email);
       cloudUser=null; await cloudSignOut(); return;
     }
@@ -10855,10 +10721,7 @@
   // tastiera, un vuoto reale per chi non può individuare il pulsante a
   // schermo (basso vedente, o in generale su materiale uditivo dove non
   // c'è nulla da guardare) — Tab+Invio funzionava già ma è più lento.
-  const KEY_LAYOUTS = {
-    standard:    { map2:{'a':0,'l':1}, map4:{'a':0,'l':1,'z':2,'m':3}, labels2:['A','L'], labels4:['A','L','Z','M'] },
-    ravvicinata: { map2:{'b':0,'n':1}, map4:{'v':0,'b':1,'n':2,'m':3}, labels2:['B','N'], labels4:['V','B','N','M'] }
-  };
+  // KEY_LAYOUTS (le due disposizioni dei tasti): vedi js/core/keylayout.js.
   function activeKeyLayout(){ return KEY_LAYOUTS[cfg.keyLayout] || KEY_LAYOUTS.standard; }
   document.addEventListener('keydown', function(ev){
     if(view!=='task' || !taskDom || !taskDom.btns || session.paused) return;

@@ -101,6 +101,15 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'un account paziente non può creare altri pazienti' }), { status: 403, headers: CORS_HEADERS });
     }
 
+    // Solo un operatore REGISTRATO e ATTIVO può creare pazienti: un account
+    // autenticato qualsiasi (ad es. una registrazione libera, o un account
+    // senza riga in 'operatori') non basta. La riga è leggibile dal
+    // chiamante stesso grazie alla policy "un operatore vede la propria riga".
+    const { data: opRow } = await callerClient.from('operatori').select('attivo').eq('id', operatore.id).maybeSingle();
+    if (!opRow || opRow.attivo === false) {
+      return new Response(JSON.stringify({ error: 'solo un operatore attivo può creare pazienti' }), { status: 403, headers: CORS_HEADERS });
+    }
+
     const body = await req.json().catch(() => ({}));
     const codicePaziente = (body.codicePaziente || '').trim();
     if (!codicePaziente) {

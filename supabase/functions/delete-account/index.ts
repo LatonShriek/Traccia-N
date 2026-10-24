@@ -21,6 +21,24 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Legge una chiave dal nuovo formato (dizionario JSON, di solito con una
+// voce "default") con ripiego sul nome legacy (stringa semplice) — stesso
+// criterio di create-patient/create-operator, così la funzione continua a
+// funzionare anche quando Supabase ritirerà i nomi vecchi.
+function readKey(jsonVarName, legacyVarName) {
+  const jsonRaw = Deno.env.get(jsonVarName);
+  if (jsonRaw) {
+    try {
+      const dict = JSON.parse(jsonRaw);
+      const val = dict.default || Object.values(dict)[0];
+      if (typeof val === 'string' && val) return val;
+    } catch (_e) { /* formato inatteso, prova il legacy sotto */ }
+  }
+  const legacy = Deno.env.get(legacyVarName);
+  if (legacy) return legacy;
+  throw new Error('Chiave non trovata (' + jsonVarName + ' / ' + legacyVarName + ')');
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
@@ -33,9 +51,12 @@ Deno.serve(async (req) => {
 
     // Fase 1 — verifica CHI chiama, con le sue RLS normali (nessun
     // privilegio elevato qui): chi è, ed è davvero super-operatore?
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const PUBLISHABLE_KEY = readKey('SUPABASE_PUBLISHABLE_KEYS', 'SUPABASE_ANON_KEY');
+    const SECRET_KEY = readKey('SUPABASE_SECRET_KEYS', 'SUPABASE_SERVICE_ROLE_KEY');
     const callerClient = createClient(
-      Deno.env.get('SUPABASE_URL'),
-      Deno.env.get('SUPABASE_ANON_KEY'),
+      SUPABASE_URL,
+      PUBLISHABLE_KEY,
       { global: { headers: { Authorization: authHeader } } }
     );
     const { data: { user }, error: userErr } = await callerClient.auth.getUser();
@@ -65,7 +86,7 @@ Deno.serve(async (req) => {
     // Fase 2 — solo ORA, dopo le verifiche sopra, si usano i privilegi di
     // amministratore, e solo per l'unica operazione che li richiede
     // davvero.
-    const adminClient = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+    const adminClient = createClient(SUPABASE_URL, SECRET_KEY);
     const { error: deleteErr } = await adminClient.auth.admin.deleteUser(accountId);
     if (deleteErr) {
       // Un operatore con pazienti ancora assegnati (o sedute proprie

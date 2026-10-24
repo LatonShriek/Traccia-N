@@ -1,18 +1,25 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
-const mod = loadPure(REPO_ROOT, [
-  { name: 'mean', start: '  function mean(arr){', end: 'return arr.reduce((a,b)=>a+b,0)/arr.length; }' },
-  { name: 'sd', start: '  function sd(arr){', end: '  }' },
-  { name: 'computeEZDiffusion', start: '  function computeEZDiffusion(nCorrect, nTotal, meanRTsec, varRTsec){', end: 'return {v, a, Ter};\n  }' },
-  { name: 'computeLISAS', start: '  function computeLISAS(rtsCorrectMs, correctFlags){', end: 'return mean(rtsCorrectMs) + (sdRT/sdErr)*errRate;\n  }' }
-], ['mean', 'sd', 'computeEZDiffusion', 'computeLISAS'], {});
+// mean e sd vivono in js/core/stats.js (modulo ES): arrivano come stub
+// importati dal modulo vero; computeEZDiffusion/computeLISAS si estraggono
+// ancora da index.html.
+let computeEZDiffusion, computeLISAS;
+async function setup() {
+  const { mean, sd } = await importCore('stats.js');
+  const mod = loadPure(REPO_ROOT, [
+    { name: 'computeEZDiffusion', start: '  function computeEZDiffusion(nCorrect, nTotal, meanRTsec, varRTsec){', end: 'return {v, a, Ter};\n  }' },
+    { name: 'computeLISAS', start: '  function computeLISAS(rtsCorrectMs, correctFlags){', end: 'return mean(rtsCorrectMs) + (sdRT/sdErr)*errRate;\n  }' }
+  ], ['computeEZDiffusion', 'computeLISAS'], { mean, sd });
+  computeEZDiffusion = mod.computeEZDiffusion;
+  computeLISAS = mod.computeLISAS;
+}
 
-const { computeEZDiffusion, computeLISAS } = mod;
-
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   t.group('computeEZDiffusion — casi sensati', () => {
     // Alta accuratezza + RT veloce -> drift rate più alto di bassa accuratezza + RT lento
     const bravoVeloce = computeEZDiffusion(30, 32, 0.55, 0.02);

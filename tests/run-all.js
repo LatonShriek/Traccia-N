@@ -24,7 +24,8 @@ const FILES = [
   'bivalente-audio.test.js',
   'exercise-summary.test.js',
   'structural-bands.test.js',
-  'ez-diffusion-lisas.test.js'
+  'ez-diffusion-lisas.test.js',
+  'role-check.test.js'
 ];
 
 // Suite end-to-end (browser vero via Playwright — più lenta, richiede

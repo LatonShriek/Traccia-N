@@ -1,12 +1,14 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 // Blocchi puri: computeExerciseTimeSummary dipende da EXERCISES/EXERCISE_GROUPS
 // (forniti come stub qui sotto — solo le chiavi/label servono, non le
-// istruzioni vere) e da primaryAccuracyOf/mean/isTapatLike/isTapatKey,
-// tutti estratti dal vero index.html, mai copiati a mano.
+// istruzioni vere) e da primaryAccuracyOf (estratta dal vero index.html,
+// mai copiata a mano) più mean/isTapatKey, che vivono ormai in js/core/
+// e arrivano come stub importati dai moduli veri.
 const EXERCISES = {
   nback: { label: 'N-back classico' },
   gonogo: { label: 'Go/No-Go' },
@@ -19,13 +21,17 @@ const EXERCISE_GROUPS = [
   { label: 'Memoria di lavoro', keys: ['nback'] }
 ];
 
-const mod = loadPure(REPO_ROOT, [
-  { name: 'isTapatLike', start: "  function isTapatLike(o){", end: "o.antMode==='tapat')); }" },
-  { name: 'primaryAccuracyOf', start: '  function primaryAccuracyOf(rec){', end: "return null;\n  }" },
-  { name: 'summaryBlock', start: '  function isTapatKey(r){', end: "  }\n  function mean(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }" }
-], ['computeExerciseTimeSummary', 'isTapatKey'], { EXERCISES, EXERCISE_GROUPS });
-
-const { computeExerciseTimeSummary, isTapatKey } = mod;
+let computeExerciseTimeSummary, isTapatKey;
+async function setup() {
+  const { mean } = await importCore('stats.js');
+  const records = await importCore('records.js');
+  const mod = loadPure(REPO_ROOT, [
+    { name: 'primaryAccuracyOf', start: '  function primaryAccuracyOf(rec){', end: "return null;\n  }" },
+    { name: 'computeExerciseTimeSummary', start: '  function computeExerciseTimeSummary(items){', end: "ultimaSeduta: last ? last.dateLabel : null\n      };\n    });\n  }" }
+  ], ['computeExerciseTimeSummary'], { EXERCISES, EXERCISE_GROUPS, mean, isTapatKey: records.isTapatKey });
+  computeExerciseTimeSummary = mod.computeExerciseTimeSummary;
+  isTapatKey = records.isTapatKey;
+}
 
 function rec(overrides) {
   return Object.assign({
@@ -34,7 +40,8 @@ function rec(overrides) {
   }, overrides);
 }
 
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   t.group('computeExerciseTimeSummary — aggregazione base per esercizio', () => {
     const items = [
       rec({ taskMode: 'nback', ts: 1000, dateLabel: '01/01', durationMs: 60000, finalLevel: 2, metrics: { acc: 0.7 } }),

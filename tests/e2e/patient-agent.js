@@ -28,7 +28,32 @@
 // più alto del beneficio.
 
 const path = require('path');
+const fs = require('fs');
+const http = require('http');
 const { chromium } = require('playwright');
+
+// I moduli ES (js/core/*.js) non si caricano da file:// — la pagina va servita
+// via http. Piccolo server statico locale, solo per i test: porta casuale,
+// serve i file della cartella del progetto, chiuso a fine sessione.
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8', '.png': 'image/png' };
+function startStaticServer(root) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+      const rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
+      const file = path.join(root, rel);
+      if (!file.startsWith(root)) { res.writeHead(403); return res.end(); }
+      fs.readFile(file, (err, data) => {
+        if (err) { res.writeHead(404); return res.end('non trovato'); }
+        res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
+        res.end(data);
+      });
+    });
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => resolve({ url: 'http://127.0.0.1:' + server.address().port, close: () => new Promise(r => { server.close(r); if (server.closeAllConnections) server.closeAllConnections(); }) }));
+  });
+}
 
 const EXERCISE_BUTTON_TEXT = {
   nback: 'N-back classico',
@@ -182,14 +207,16 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
   const subMode = typeof entry === 'string' ? null : entry.subMode;
   const family = typeof entry === 'string' ? null : entry.family;
 
-  const browser = await chromium.launch();
+  const server = await startStaticServer(repoRoot);
+  // In ambienti senza sandbox del browser (container, CI) lanciare con TRACCIAN_NO_SANDBOX=1.
+  const browser = await chromium.launch(process.env.TRACCIAN_NO_SANDBOX ? { args: ['--no-sandbox'] } : {});
   const page = await browser.newPage();
   const jsErrors = [];
   page.on('pageerror', e => jsErrors.push(e.message));
   page.on('dialog', async d => { await d.accept().catch(() => {}); });
 
   try {
-    await page.goto('file://' + path.join(repoRoot, 'index.html'));
+    await page.goto(server.url + '/index.html');
     await page.waitForTimeout(400);
     await page.click('text=usa questo dispositivo in locale');
     await page.waitForTimeout(250);
@@ -223,6 +250,7 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
     return { exerciseKey, reachedResults, timedOut, taps, elapsedMs, jsErrors, bodyText };
   } finally {
     await browser.close();
+    await server.close();
   }
 }
 

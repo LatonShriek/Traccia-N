@@ -1,7 +1,6 @@
 'use strict';
 const path = require('path');
-const { loadPure } = require('./lib/extract-source');
-const REPO_ROOT = path.join(__dirname, '..');
+const { importCore } = require('./lib/core');
 
 // EXERCISES è enorme e non ci serve per intero qui — computeRCIRows lo usa
 // solo per l'etichetta leggibile (r.exLabel), quindi forniamo uno stub
@@ -12,15 +11,12 @@ const EXERCISES_STUB = {
   ant: { label: 'Attenzione (tipo ANT)' }, tapat: { label: 'TAPAT (allerta tonica/fasica)' }
 };
 
-const mod = loadPure(REPO_ROOT, [
-  { name: 'isTapatLike', start: "  function isTapatLike(o){", end: "o.antMode==='tapat')); }" },
-  { name: 'isTapatKey', start: "  function isTapatKey(r){", end: "'tapat' : r.taskMode; }" },
-  { name: 'mean+sd', start: '  function mean(arr){', end: 'return Math.sqrt(arr.reduce((s,v)=>s+(v-m)*(v-m),0)/(arr.length-1));\n  }' },
-  { name: 'RCI_BASELINE_N+RCI_RELIABILITY+rciPrimaryMetric', start: '  const RCI_BASELINE_N = 3;', end: '      return null;\n    }\n    return null;\n  }' },
-  { name: 'sessionMismatchWarnings+computeRCIRows', start: '  function sessionMismatchWarnings(baselineItems, finalItems){', end: '    return rows;\n  }' }
-], ['sessionMismatchWarnings', 'computeRCIRows', 'RCI_BASELINE_N', 'isTapatKey'], { EXERCISES: EXERCISES_STUB });
-
-const { sessionMismatchWarnings, computeRCIRows, isTapatKey } = mod;
+// Le funzioni vivono in js/core/rci.js e js/core/records.js (moduli ES): il
+// test le importa direttamente. computeRCIRows riceve EXERCISES come secondo
+// parametro: qui un wrapper gli passa sempre lo stub, così i test sotto
+// restano scritti come prima, computeRCIRows(items).
+let sessionMismatchWarnings, computeRCIRowsCore, isTapatKey;
+const computeRCIRows = items => computeRCIRowsCore(items, EXERCISES_STUB);
 
 // Costruisce una sessione finta minima, con solo i campi che
 // sessionMismatchWarnings/computeRCIRows guardano davvero.
@@ -32,7 +28,11 @@ function fakeSession(overrides) {
   }, overrides);
 }
 
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  const rci = await importCore('rci.js');
+  const records = await importCore('records.js');
+  ({ sessionMismatchWarnings, computeRCIRows: computeRCIRowsCore } = rci);
+  ({ isTapatKey } = records);
   t.group('sessionMismatchWarnings — nessun avviso quando i parametri sono stabili', () => {
     const baseline = [1, 2, 3].map(i => ({ r: fakeSession({ finalLevel: 3, isi: 1600 }) }));
     const final = [1, 2, 3].map(i => ({ r: fakeSession({ finalLevel: 3, isi: 1600 }) }));

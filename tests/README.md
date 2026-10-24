@@ -162,3 +162,27 @@ di proposito, un nome di funzione rinominato di proposito). In quel
 caso: aggiornare il test nello stesso commit/consegna della modifica
 che lo ha reso obsoleto, mai ignorarlo o cancellarlo senza motivare
 perché nel messaggio di consegna.
+
+## Moduli in `js/core/` (dal passo 3a)
+
+Una parte della logica pura vive ormai in moduli ES separati
+(`js/core/keylayout.js`, `stats.js`, `records.js`, `rci.js`). I test di
+quei moduli (`keylayout.test.js`, `rci.test.js`) li **importano
+direttamente** (helper `tests/lib/core.js`, `import()` dinamico); gli
+altri test continuano a estrarre il codice da `index.html`, e quando una
+funzione estratta dipende da codice già spostato (es. `mean`,
+`isTapatKey`) la ricevono come stub importato dal modulo vero.
+
+`tests/lib/extract-source.js` sceglie come "script dell'app" quello più
+lungo della pagina (ora `<script type="module">`), non una posizione fissa.
+
+`role-check.test.js` prova `checkRole` (ruolo all'accesso) con un Supabase
+finto: paziente, operatore attivo, super-operatore, archiviato e, soprattutto,
+l'account **senza ruolo**, che non deve entrare come operatore.
+
+## Test end-to-end: due note pratiche
+
+- La pagina va servita via http (i moduli ES non si caricano da `file://`):
+  l'agente `tests/e2e/patient-agent.js` avvia da solo un piccolo server locale.
+- In ambienti senza sandbox del browser (container, CI) lancia con
+  `TRACCIAN_NO_SANDBOX=1 node tests/run-all.js`.

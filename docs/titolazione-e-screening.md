@@ -4,7 +4,7 @@ Documento di riferimento (24/10/2026). Descrive ciò che fa il codice oggi.
 Dove la giustificazione è un'**ipotesi di partenza dichiarata** (non un dato di
 letteratura) lo si dice. I parametri clinici non si cambiano senza richiesta
 esplicita di Rodrigo. Codice: `js/core/` (`levels.js`, `titration.js`,
-`bands.js`, `adapt.js` — la regola 8 prove, 0.85/0.70 e il filtro RT in un solo punto —, `screening.js`) e, per ciò che legge `cfg`/`session`, `index.html`.
+`bands.js`, `adapt.js` — la regola 8 prove, 0.85/0.70 e il filtro RT in un solo punto —, `screening.js`), `js/exercises/` (generatori di prove, tavole Neglect in `neglect.js`, e in `resolve.js` la valutazione di ogni prova e l'applicazione della regola di titolazione: `pushAdaptOutcome`, `maybeAdapt`, `maybeAdaptDualChannel`) e, per il flusso della seduta e lo screening, `index.html`.
 
 ## 1. Titolazione
 

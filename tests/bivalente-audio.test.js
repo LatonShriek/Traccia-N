@@ -1,23 +1,20 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
-const { loadPoolsSync } = require('./lib/core');
-const REPO_ROOT = path.join(__dirname, '..');
+const { importCore } = require('./lib/core');
 
-// cfg come variabile libera, stesso approccio degli altri test — mutata
-// prima di ogni chiamata invece che passata come argomento.
+// Moduli veri (passo 5c): js/core/rules.js, js/exercises/switching.js, js/exercises/categorizzazione.js.
+// cfg si passa come parametro: un oggetto condiviso, mutato prima di ogni chiamata.
 const cfg = { taskMode: 'categorizzazione', categRegime: 'tipo_colore', categRegimeSessione: 'tipo_colore', switchRegime: 'tipo_colore', trials: 10, targetRate: 0.3, titrationMode: 'manuale' };
 
-// POOLS arriva da js/core/pools.js (passo 3b).
-const POOLS = loadPoolsSync();
-const mod = loadPure(REPO_ROOT, [
-  { name: 'SWITCH_RULESETS+dualLabels+switchRulesetFor+buildSwitching', start: '  const SWITCH_RULESETS = {', end: "    return seq;\n  }" },
-  { name: 'CATEG_LETTERE+NUMERI+regimi+genCategItem+outcomes', start: '  const CATEG_LETTERE', end: "    return categDim2IsA(item) ? 'z' : 'm';\n  }" }
-], ['switchRulesetFor', 'buildSwitching', 'genCategItem', 'categDim1IsA', 'categDim2IsA', 'categL2Outcome', 'categL3Outcome', 'categL5Outcome', 'pickCategRegime', 'CATEG_REGIMES', 'dualDim1IsA', 'dualDim2IsA', 'genDualDimItem', 'pickDualDimRegime', 'DUAL_DIM_ROTATION'], { cfg, POOLS });
+module.exports = async function run(t) {
+  const Rl = await importCore('rules.js');
+  const Sw = await importCore('../exercises/switching.js');
+  const Ct = await importCore('../exercises/categorizzazione.js');
+  const { POOLS } = await importCore('pools.js');
+  const { switchRulesetFor, dualDim1IsA, dualDim2IsA, genDualDimItem, pickDualDimRegime, DUAL_DIM_ROTATION } = Rl;
+  const { categDim1IsA, categDim2IsA, categL2Outcome, categL3Outcome, categL5Outcome, pickCategRegime, CATEG_REGIMES } = Ct;
+  const buildSwitching = () => Sw.buildSwitching(cfg);
+  const genCategItem = () => Ct.genCategItem(cfg);
 
-const { switchRulesetFor, buildSwitching, genCategItem, categDim1IsA, categDim2IsA, categL2Outcome, categL3Outcome, categL5Outcome, pickCategRegime, CATEG_REGIMES, dualDim1IsA, dualDim2IsA, genDualDimItem, pickDualDimRegime, DUAL_DIM_ROTATION } = mod;
-
-module.exports = function run(t) {
   t.group('categDim1IsA — legge tipo o forma a seconda del regime', () => {
     t.eq(categDim1IsA({ tipo: 'lettera' }), true, 'tipo lettera → polo A (nessun dim1 impostato, ricade su tipo)');
     t.eq(categDim1IsA({ tipo: 'numero' }), false, 'tipo numero → polo B');

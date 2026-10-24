@@ -1,26 +1,15 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
-const { loadPoolsSync } = require('./lib/core');
-const REPO_ROOT = path.join(__dirname, '..');
+const { importCore } = require('./lib/core');
 
-// buildStopSignal(), come scritta nell'app reale, legge `cfg` come
-// variabile LIBERA (non un parametro) — nell'app è chiusa nello scope della
-// grande IIFE che racchiude tutto. Per richiamarla qui isolata, le forniamo
-// un oggetto `cfg` condiviso nel sandbox (stub), che mutiamo prima di ogni
-// chiamata invece di passarlo come argomento — coerente con come la
-// funzione è davvero scritta, senza doverla riscrivere per il test.
+// buildStopSignal (js/exercises/stopsignal.js) e STOPSIGNAL_RULES (js/core/rules.js): moduli veri
+// (passo 5c). cfg si passa come parametro: uno stub condiviso, mutato prima di ogni chiamata.
 const cfgStub = {};
-// POOLS arriva da js/core/pools.js (passo 3b).
-const POOLS = loadPoolsSync();
-const mod = loadPure(REPO_ROOT, [
-  { name: 'buildStopSignal', start: '  function buildStopSignal(){', end: "      seq.push(trial);\n    }\n    return seq;\n  }" },
-  { name: 'SWITCH_RULESETS+STOPSIGNAL_RULES', start: '  const SWITCH_RULESETS = {', end: "suoni:  {labelA:'Grave', labelB:'Acuto', classify:v=> v.f < 380}\n  };" }
-], ['STOPSIGNAL_RULES', 'buildStopSignal'], { cfg: cfgStub, POOLS });
 
-const { STOPSIGNAL_RULES, buildStopSignal } = mod;
+module.exports = async function run(t) {
+  const { STOPSIGNAL_RULES } = await importCore('rules.js');
+  const S = await importCore('../exercises/stopsignal.js');
+  const buildStopSignal = () => S.buildStopSignal(cfgStub);
 
-module.exports = function run(t) {
   t.group('STOPSIGNAL_RULES — una regola fissa per materiale, coerente con l\'app reale', () => {
     t.eq(STOPSIGNAL_RULES.lettere.classify('A'), true, 'lettere: vocale → true (regola A)');
     t.eq(STOPSIGNAL_RULES.lettere.classify('B'), false, 'lettere: consonante → false (regola B)');

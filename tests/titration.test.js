@@ -1,9 +1,6 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
 const { importCore, loadPoolsSync } = require('./lib/core');
 
-const REPO_ROOT = path.join(__dirname, '..');
 
 // Blocchi estratti dal VERO index.html — nessuna tabella ricopiata a mano.
 // Se una di queste funzioni/costanti viene rinominata o spostata in modo
@@ -17,11 +14,7 @@ let mod, TITRATION_EXERCISES, resolvedFreqForDisplay, resolvedIsiForDisplay, lev
 async function setup() {
 const L = await importCore('levels.js');
 const T = await importCore('titration.js');
-mod = loadPure(REPO_ROOT, [
-  { name: 'SWITCH_RULESETS', start: '  const SWITCH_RULESETS = {', end: "SWITCH_RULESETS.numeriVoce = SWITCH_RULESETS.numeri;" }
-], [
-  'SWITCH_RULESETS'
-], Object.assign({ POOLS: loadPoolsSync() }, L, T));
+mod = await importCore('rules.js'); // SWITCH_RULESETS dal modulo vero (passo 5c)
 POOLS = loadPoolsSync();
 ({ TITRATION_EXERCISES, resolvedFreqForDisplay, resolvedIsiForDisplay, levelOfCfg } = T);
 ({ ADAPT_ISI, ADAPT_GONOGO_FREQ, nbackParamsForLevel, ADAPT_SWITCH_BALANCE, ADAPT_SWITCH_CSI, ADAPT_SEQ_LEN } = L);

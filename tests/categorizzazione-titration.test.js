@@ -1,8 +1,5 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
 const { importCore } = require('./lib/core');
-const REPO_ROOT = path.join(__dirname, '..');
 
 const cfgStub = {};
 const sessionStub = { seq: [] };
@@ -11,16 +8,8 @@ let categEffectiveStructure, genCategTrial, categStructureOfLevel, categTitratio
 async function setup() {
 const L = await importCore('levels.js');
 const T = await importCore('titration.js');
-const mod = loadPure(REPO_ROOT, [
-  { name: 'genCategTrial', start: '  function genCategTrial(){', end: "categBivalente:true, isiOverride};\n    session.seq.push(trial);\n    return trial;\n  }" }
-], ['genCategTrial'], {
-  cfg: cfgStub, session: sessionStub, categEffectiveStructure: T.categEffectiveStructure, CATEG_STRUCTURE_LABELS: T.CATEG_STRUCTURE_LABELS,
-  CATEG_STRUCTURE_OF_LEVEL: L.CATEG_STRUCTURE_OF_LEVEL, categStructureOfLevel: L.categStructureOfLevel, CATEG_ISI: L.CATEG_ISI, CATEG_LURE: L.CATEG_LURE,
-  POOLS: { simboli: ['●', '▲', '■'], lettereVoce: ['A', 'B', 'C'], numeriVoce: ['1', '2', '3'] },
-  SWITCH_RULESETS: { simboli: { ruleA: { classify: v => v === '●', labelA: 'Tondo', labelB: 'Con angoli' } } }
-});
-
-({ genCategTrial } = mod);
+const Ct = await importCore('../exercises/categorizzazione.js'); // modulo vero (passo 5c); cfg e session si passano come parametri
+genCategTrial = () => Ct.genCategTrial(cfgStub, sessionStub);
 ({ categEffectiveStructure, categTitrationModeHint } = T);
 ({ categStructureOfLevel, CATEG_ISI, CATEG_LURE } = L);
 }

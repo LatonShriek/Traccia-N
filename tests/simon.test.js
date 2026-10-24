@@ -1,23 +1,16 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
-const { loadPoolsSync } = require('./lib/core');
-const REPO_ROOT = path.join(__dirname, '..');
+const { importCore } = require('./lib/core');
 
-// buildSimon(), come scritta nell'app reale, legge `cfg` come variabile
-// LIBERA (non un parametro) — stesso approccio già usato in
-// stopsignal.test.js: uno stub condiviso, mutato prima di ogni chiamata.
+// buildSimon (js/exercises/simon.js) e le tabelle di js/core/rules.js: moduli veri (passo 5c).
+// cfg si passa come parametro: uno stub condiviso, mutato prima di ogni chiamata.
 const cfgStub = {};
-// POOLS arriva da js/core/pools.js (passo 3b).
-const POOLS = loadPoolsSync();
-const mod = loadPure(REPO_ROOT, [
-  { name: 'SWITCH_RULESETS+STOPSIGNAL_RULES', start: '  const SWITCH_RULESETS = {', end: "suoni:  {labelA:'Grave', labelB:'Acuto', classify:v=> v.f < 380}\n  };" },
-  { name: 'SIMON_COLORS+PROB+buildSimon', start: "  const SIMON_COLORS = { blu:{hex:'#3B72D6', icon:'Blu'}, verde:{hex:'#3FA34D', icon:'Verde'} };", end: '    return seq;\n  }' }
-], ['SIMON_COLORS', 'SIMON_CONGRUENCE_PROB', 'buildSimon', 'STOPSIGNAL_RULES'], { cfg: cfgStub, POOLS });
 
-const { SIMON_COLORS, SIMON_CONGRUENCE_PROB, buildSimon, STOPSIGNAL_RULES } = mod;
+module.exports = async function run(t) {
+  const { SIMON_COLORS, SIMON_CONGRUENCE_PROB, STOPSIGNAL_RULES } = await importCore('rules.js');
+  const { POOLS } = await importCore('pools.js');
+  const S = await importCore('../exercises/simon.js');
+  const buildSimon = () => S.buildSimon(cfgStub);
 
-module.exports = function run(t) {
   t.group('Simon — costanti', () => {
     t.eq(SIMON_COLORS.blu.hex, '#3B72D6', 'blu: stesso hex già usato in POOLS.colori, non un colore nuovo inventato');
     t.eq(SIMON_COLORS.verde.hex, '#3FA34D', 'verde: stesso hex già usato in POOLS.colori');

@@ -70,3 +70,25 @@
     const pool = POOLS[t];
     return {stimType:t, item: pool[Math.floor(Math.random()*pool.length)]};
   }
+
+  // ---- etichette e identita' degli stimoli (passo 5b): SPOSTATE da index.html senza modifiche, con "export" ----
+  // seqLabel: estrae l'etichetta leggibile di un elemento di sequenza.
+  // Nella Sequenza bersaglio mista, ogni elemento è {stimType, item} (serve
+  // il tipo per sapere come renderizzarlo/riprodurlo) — qui viene "svolto"
+  // in modo trasparente, così tutto il resto del codice (istruzioni,
+  // anteprima, CSV) continua a funzionare senza saperlo.
+  export function seqLabel(v){
+    if(v && typeof v==='object' && Object.prototype.hasOwnProperty.call(v,'stimType') && Object.prototype.hasOwnProperty.call(v,'item')) return seqLabel(v.item);
+    return (v && typeof v==='object') ? v.icon : v;
+  }
+  // A differenza di seqLabel (pensato per l'etichetta da mostrare), questo
+  // serve per l'IDENTITÀ: due stimoli con lo stesso valore ma tipo diverso
+  // (es. lettera "A" vista vs "A" pronunciata) non sono lo stesso stimolo —
+  // serve quando il materiale può essere misto (vedi cfg.*Mista) e il
+  // confronto va fatto su stimType+item, non solo sul valore visualizzato.
+  export function sameStim(a,b){
+    const aObj = a && typeof a==='object' && Object.prototype.hasOwnProperty.call(a,'stimType');
+    const bObj = b && typeof b==='object' && Object.prototype.hasOwnProperty.call(b,'stimType');
+    if(aObj || bObj) return aObj && bObj && a.stimType===b.stimType && a.item===b.item;
+    return seqLabel(a)===seqLabel(b);
+  }

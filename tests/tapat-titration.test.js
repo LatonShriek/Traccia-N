@@ -1,8 +1,5 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
 const { importCore } = require('./lib/core');
-const REPO_ROOT = path.join(__dirname, '..');
 
 const cfgStub = {};
 const sessionStub = { seq: [] };
@@ -11,14 +8,8 @@ let tapatTitrationModeHint, genTapatTrial, TAPAT_LEVELS;
 async function setup() {
 const L = await importCore('levels.js');
 const T = await importCore('titration.js');
-const mod = loadPure(REPO_ROOT, [
-  { name: 'genTapatTrial', start: '  function genTapatTrial(){', end: 'return trial;\n  }' }
-], ['genTapatTrial'], {
-  cfg: cfgStub, session: sessionStub, TAPAT_LEVELS: L.TAPAT_LEVELS,
-  POOLS: { frecce: ['◀', '▶'] }
-});
-
-genTapatTrial = mod.genTapatTrial;
+const G = await importCore('../exercises/tapat.js'); // modulo vero (passo 5b); cfg e session si passano come parametri
+genTapatTrial = () => G.genTapatTrial(cfgStub, sessionStub);
 tapatTitrationModeHint = T.tapatTitrationModeHint;
 TAPAT_LEVELS = L.TAPAT_LEVELS;
 }

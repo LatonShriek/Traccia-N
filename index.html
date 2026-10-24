@@ -37,8 +37,12 @@ import { mean, sd } from './js/core/stats.js';
 import { isTapatLike, isTapatKey } from './js/core/records.js';
 import { RCI_BASELINE_N, computeRCIRows } from './js/core/rci.js';
 import { ADAPT_ISI, ADAPT_GONOGO_FREQ, NBACK_LEVEL_TABLE, nbackParamsForLevel, nbackLureLag, ADAPT_SWITCH_BALANCE, ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE, CATEG_STRUCTURE_OF_LEVEL, CATEG_ISI, CATEG_LURE, categStructureOfLevel, DUAL_DOUBLE_TARGET_GRACE_MS, ADAPT_GONOGO_COUNT, ADAPT_SWITCH_CSI, ADAPT_NEGLECT_SIZE, ADAPT_SEQ_LEN, ADAPT_NEGLECT_TIME, TAPAT_LEVELS } from './js/core/levels.js';
-import { POOLS, defaultTargetSeq, VISUAL_MISTA_TYPES, AUDIO_MISTA_TYPES, SEQUENZA_MISTA_TYPES, mistaTypesFor, randMistaStim } from './js/core/pools.js';
+import { POOLS, defaultTargetSeq, VISUAL_MISTA_TYPES, AUDIO_MISTA_TYPES, SEQUENZA_MISTA_TYPES, mistaTypesFor, randMistaStim, seqLabel, sameStim } from './js/core/pools.js';
 import { genNbackTrial as genNbackTrialOf } from './js/exercises/nback.js';
+import { genGoNoGoTrial as genGoNoGoTrialOf } from './js/exercises/gonogo.js';
+import { genTapatTrial as genTapatTrialOf } from './js/exercises/tapat.js';
+import { buildDualTask as buildDualTaskOf, genDualTaskTrial as genDualTaskTrialOf } from './js/exercises/dualtask.js';
+import { RUNNINGSPAN_LEVELS, RUNNINGSPAN_ADAPT_BLOCK, genRunningSpanTrial as genRunningSpanTrialOf, runningSpanItemsEqual, scoreRunningSpanTrial, maybeAdaptRunningSpan as maybeAdaptRunningSpanOf } from './js/exercises/runningspan.js';
 import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_PROBES, probeFailed, suggestionFor, ATTENZIONE_ORDER, attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER } from './js/core/screening.js';
 import { DUAL_LEVEL_MAX, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL, structuralBandBounds, adaptLevelKey as adaptLevelKeyOf, currentLevelMax as currentLevelMaxOf, sessionLevelBounds as sessionLevelBoundsOf } from './js/core/bands.js';
 import { KEY, getRaw, setRaw, readJSON, writeJSON, removeKey, listByPrefix, getLocalPatient, readAllLocalPatients, setLocalPatient, removeLocalPatient, updateLocalPatient, saveSessionLocal, listSessionsLocal, rewriteSessionsLocal } from './js/services/local-store.js';
@@ -1878,82 +1882,9 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     session.seq.push(trial);
     return trial;
   }
-  // buildCategorizzazione (generazione dell'intera sequenza in anticipo) è
-  // stata sostituita da genCategTrial (sopra) — Categorizzazione condizionale
-  // è ora sempre incrementale, necessario per l'adattivo con vincolo di
-  // fascia strutturale (vedi STRUCTURAL_BANDS).
-  // Doppio compito: canale visivo (lettere) + uditivo (toni), ciascuno con
-  // regola 1-back indipendente, presentati simultaneamente.
-  function buildDualTask(){
-    const pairing = cfg.dualPairing || 'vis-aud';
-    const pool1 = pairing==='aud-aud' ? POOLS.suoni : POOLS[cfg.dualVisual];
-    const pool2 = pairing==='vis-vis' ? POOLS[cfg.dualVisual2] : pairing==='aud-aud' ? POOLS.suoni2 : POOLS.suoni;
-    const seq = [];
-    let prev1=null, prev2=null;
-    for(let i=0;i<cfg.trials;i++){
-      let v1 = pool1[Math.floor(Math.random()*pool1.length)];
-      let v2 = pool2[Math.floor(Math.random()*pool2.length)];
-      let t1 = i>0 && Math.random()<cfg.targetRate;
-      let t2 = i>0 && Math.random()<cfg.targetRate;
-      if(t1) v1 = prev1;
-      if(t2) v2 = prev2;
-      seq.push({val:v1, visualVal:v1, audioVal:v2, visualIsTarget: i>0?t1:false, audioIsTarget: i>0?t2:false, valid:i>0});
-      prev1=v1; prev2=v2;
-    }
-    return seq;
-  }
-  // Generazione incrementale del doppio compito: necessaria per una vera
-  // adattività indipendente sui due canali (ciascuno valutato sulla sua
-  // accuratezza, non su una media che le confonderebbe).
-  function genDualTaskTrial(){
-    const pairing = cfg.dualPairing || 'vis-aud';
-    const pool1 = pairing==='aud-aud' ? POOLS.suoni : POOLS[cfg.dualVisual];
-    const pool2 = pairing==='vis-vis' ? POOLS[cfg.dualVisual2] : pairing==='aud-aud' ? POOLS.suoni2 : POOLS.suoni;
-    const i = session.seq.length;
-    const freq1 = cfg.titrationMode!=='manuale' ? (ADAPT_DUAL_FREQ[session.dualLevel1]||cfg.targetRate) : cfg.targetRate;
-    const freq2 = cfg.titrationMode!=='manuale' ? (ADAPT_DUAL_FREQ[session.dualLevel2]||cfg.targetRate) : cfg.targetRate;
-    const lure1 = ADAPT_DUAL_LURE[session.dualLevel1]||0;
-    const lure2 = ADAPT_DUAL_LURE[session.dualLevel2]||0;
-    let v1 = pool1[Math.floor(Math.random()*pool1.length)];
-    let v2 = pool2[Math.floor(Math.random()*pool2.length)];
-    let t1 = i>0 && Math.random()<freq1;
-    let t2 = i>0 && Math.random()<freq2;
-    let isLure1=false, isLure2=false;
-    if(t1) v1 = session.prevDual1;
-    else if(i>=2 && lure1>0 && Math.random()<lure1){
-      const cand = session.seq[i-2].visualVal;
-      if(cand!==session.prevDual1){ v1 = cand; isLure1 = true; }
-    }
-    if(t2) v2 = session.prevDual2;
-    else if(i>=2 && lure2>0 && Math.random()<lure2){
-      const cand = session.seq[i-2].audioVal;
-      if(cand!==session.prevDual2){ v2 = cand; isLure2 = true; }
-    }
-    const trial = {val:v1, visualVal:v1, audioVal:v2, visualIsTarget: i>0?t1:false, audioIsTarget: i>0?t2:false, valid:i>0, visualIsLure:isLure1, audioIsLure:isLure2};
-    session.seq.push(trial);
-    session.prevDual1 = v1; session.prevDual2 = v2;
-    return trial;
-  }
-  // seqLabel: estrae l'etichetta leggibile di un elemento di sequenza.
-  // Nella Sequenza bersaglio mista, ogni elemento è {stimType, item} (serve
-  // il tipo per sapere come renderizzarlo/riprodurlo) — qui viene "svolto"
-  // in modo trasparente, così tutto il resto del codice (istruzioni,
-  // anteprima, CSV) continua a funzionare senza saperlo.
-  function seqLabel(v){
-    if(v && typeof v==='object' && Object.prototype.hasOwnProperty.call(v,'stimType') && Object.prototype.hasOwnProperty.call(v,'item')) return seqLabel(v.item);
-    return (v && typeof v==='object') ? v.icon : v;
-  }
-  // A differenza di seqLabel (pensato per l'etichetta da mostrare), questo
-  // serve per l'IDENTITÀ: due stimoli con lo stesso valore ma tipo diverso
-  // (es. lettera "A" vista vs "A" pronunciata) non sono lo stesso stimolo —
-  // serve quando il materiale può essere misto (vedi cfg.*Mista) e il
-  // confronto va fatto su stimType+item, non solo sul valore visualizzato.
-  function sameStim(a,b){
-    const aObj = a && typeof a==='object' && Object.prototype.hasOwnProperty.call(a,'stimType');
-    const bObj = b && typeof b==='object' && Object.prototype.hasOwnProperty.call(b,'stimType');
-    if(aObj || bObj) return aObj && bObj && a.stimType===b.stimType && a.item===b.item;
-    return seqLabel(a)===seqLabel(b);
-  }
+  // buildDualTask / genDualTaskTrial: logica in js/exercises/dualtask.js (passo 5b).
+  function buildDualTask(){ return buildDualTaskOf(cfg); }
+  function genDualTaskTrial(){ return genDualTaskTrialOf(cfg, session); }
 
   /* ---------- scoring ---------- */
   function scoreFromCounts(c){
@@ -4840,75 +4771,10 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
 
   // genNbackTrial: logica in js/exercises/nback.js (passo 5a); qui solo la chiamata con la cfg e la seduta correnti.
   function genNbackTrial(){ return genNbackTrialOf(cfg, session); }
-  // Titolazione automatica: valuta un blocco di 8 prove valide alla volta.
-  // Livelli di difficoltà TAPAT: più alto = attese toniche più lunghe e
-  // imprevedibili (più difficile sostenere l'attenzione da soli).
-  // TAPAT_LEVELS: vedi js/core/levels.js.
-  // Running Span — n da richiamare (il "carico" del livello) e intervallo
-  // di lunghezza totale della sequenza (sconosciuta al paziente, sorteggiata
-  // a ogni prova dentro l'intervallo del livello). Tetto a n=4, non 5 come
-  // nella proposta iniziale — stessa cautela già usata per N-back (mai
-  // oltre n=2-3), qui un poco più alta perché il richiamo è a fine
-  // sequenza, non un giudizio continuo, ma resta un'ipotesi di partenza,
-  // non un valore di letteratura.
-  const RUNNINGSPAN_LEVELS = {
-    1:{n:2, seqMin:3, seqMax:4, isi:1800}, 2:{n:2, seqMin:4, seqMax:5, isi:1800},
-    3:{n:3, seqMin:4, seqMax:6, isi:1600}, 4:{n:3, seqMin:5, seqMax:7, isi:1500}, 5:{n:3, seqMin:6, seqMax:9, isi:1400},
-    6:{n:4, seqMin:6, seqMax:8, isi:1400}, 7:{n:4, seqMin:7, seqMax:10, isi:1300}, 8:{n:4, seqMin:8, seqMax:12, isi:1200},
-    9:{n:4, seqMin:9, seqMax:13, isi:1100}, 10:{n:4, seqMin:10, seqMax:14, isi:1000}
-  };
-  // Go/No-Go: generazione incrementale, necessaria perché con l'adattivo
-  // attivo la frequenza no-go cambia durante la sessione.
-  function genGoNoGoTrial(){
-    const isMista = cfg.gonogoMista && cfg.gonogoMista!=='no';
-    const mistaTypes = isMista ? mistaTypesFor(cfg.gonogoMista) : null;
-    const pool = isMista ? null : POOLS[cfg.stimType];
-    const fullSet = cfg.targetSeq;
-    const count = cfg.adaptive ? Math.min(fullSet.length, ADAPT_GONOGO_COUNT[session.adaptLevel]||1) : fullSet.length;
-    const activeNoGo = fullSet.slice(0, Math.max(1,count));
-    const freq = cfg.titrationMode!=='manuale' ? (ADAPT_GONOGO_FREQ[session.adaptLevel] || cfg.targetRate) : cfg.targetRate;
-    let val;
-    if(Math.random() < freq){ val = activeNoGo[Math.floor(Math.random()*activeNoGo.length)]; }
-    else if(isMista){
-      // Rete di sicurezza: senza un tetto ai tentativi, un pool misto
-      // ristretto (o un set no-go che arriva a coprirlo quasi per intero
-      // con l'adattivo) può far girare il rejection-sampling all'infinito,
-      // bloccando la scheda (bug segnalato da Rodrigo: schermo che si
-      // ferma dopo pochi elementi in Go/No-Go misto adattivo). Stessa
-      // soglia di guardia già usata in randomMistaTargetSeq.
-      let guard = 0;
-      do{ val = randMistaStim(mistaTypes); guard++; } while(activeNoGo.some(x=>sameStim(x,val)) && guard<200);
-    }
-    else { do{ val = pool[Math.floor(Math.random()*pool.length)]; } while(activeNoGo.some(x=>seqLabel(x)===seqLabel(val)) && pool.length>activeNoGo.length); }
-    const isNoGo = activeNoGo.some(x=>sameStim(x,val));
-    const trial = {val, isTarget: !isNoGo, valid:true};
-    session.seq.push(trial);
-    return trial;
-  }
-  function genTapatTrial(){
-    const i = session.seq.length;
-    const half = Math.floor(cfg.trials/2);
-    const block = i<half ? 'tonic' : 'phasic';
-    const pool = POOLS[cfg.stimType];
-    let cueType, isiOverride;
-    if(block==='tonic'){
-      cueType = 'none';
-      const range = cfg.titrationMode==='manuale' ? [cfg.tapatIsiMin, cfg.tapatIsiMax] : (TAPAT_LEVELS[session.tapatLevel] || TAPAT_LEVELS[3]);
-      isiOverride = range[0] + Math.random()*(range[1]-range[0]);
-    } else {
-      cueType = Math.random()<0.5 ? 'none' : 'center';
-      isiOverride = null; // usa l'ISI normale impostato in setup
-    }
-    const val = pool[Math.floor(Math.random()*pool.length)];
-    let side = 'center';
-    if(cfg.tapatSpatial){
-      const gradient = session.liveTapatGradient!=null ? session.liveTapatGradient : cfg.tapatGradient;
-      side = Math.random()*100 < gradient ? 'left' : 'right';
-    }
-    const trial = {val, cueType, congruency:'neutral', side, targetDir:null, correctAnswer:'go', block, isiOverride, valid:true};
-    session.seq.push(trial);
-    return trial;
-  }
+  // genGoNoGoTrial: logica in js/exercises/gonogo.js (passo 5b).
+  function genGoNoGoTrial(){ return genGoNoGoTrialOf(cfg, session); }
+  // genTapatTrial: logica in js/exercises/tapat.js (passo 5b).
+  function genTapatTrial(){ return genTapatTrialOf(cfg, session); }
   // adaptLevelKey / currentLevelMax / sessionLevelBounds: logica in js/core/bands.js (passo 3c);
   // qui solo le chiamate con la cfg corrente.
   function adaptLevelKey(){ return adaptLevelKeyOf(cfg); }
@@ -7181,37 +7047,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function finishMemoriaSession(){
     completeAndSave(Date.now()-session.startedAtWall);
   }
-  // ---------- Running Span ----------
-  // Ogni "prova" qui è un intero ciclo sequenza+richiamo, non un singolo
-  // stimolo — motivo per cui, come neglect/goaltask/memoria, ha una
-  // schermata dedicata invece di incastrarsi nel flusso generico a un
-  // tocco per stimolo. session.trials è pre-costruito da
-  // buildRunningSpanTrials() con la lunghezza totale di ciascuna sequenza
-  // già sorteggiata — mai nota al paziente in anticipo, quello è il punto
-  // del costrutto (Bunting, Cowan & Saults, 2006).
-  // Genera UN ciclo alla volta, non tutti insieme all'inizio — a
-  // differenza della prima versione. Necessario per l'adattivo: se i cicli
-  // fossero tutti pre-costruiti all'avvio, cambiare cfg.adaptStartLevel a
-  // metà seduta non avrebbe alcun effetto sui cicli successivi (erano già
-  // tutti fissati sul livello di partenza). Stesso principio già in uso
-  // per N-back/Go-No-Go (genNbackTrial/genGoNoGoTrial), non un'invenzione
-  // nuova per questo esercizio.
-  function genRunningSpanTrial(){
-    const lvl = RUNNINGSPAN_LEVELS[cfg.adaptStartLevel] || RUNNINGSPAN_LEVELS[1];
-    const pool = POOLS[cfg.stimType];
-    const totalLen = lvl.seqMin + Math.floor(Math.random()*(lvl.seqMax-lvl.seqMin+1));
-    const items = [];
-    for(let j=0;j<totalLen;j++) items.push(pool[Math.floor(Math.random()*pool.length)]);
-    return { items, n: lvl.n, isi: lvl.isi };
-  }
-  // Confronto per valore, non per riferimento — necessario per colori
-  // (oggetti con .hex) e suoni (oggetti con .f), non solo lettere/numeri/
-  // simboli (stringhe, dove === già basterebbe).
-  function runningSpanItemsEqual(a,b){
-    if(a==null || b==null) return false;
-    if(typeof a==='object') return (a.hex!=null && a.hex===b.hex) || (a.f!=null && a.f===b.f);
-    return a===b;
-  }
+  // genRunningSpanTrial / maybeAdaptRunningSpan: logica in js/exercises/runningspan.js (passo 5b).
+  function genRunningSpanTrial(){ return genRunningSpanTrialOf(cfg); }
   function startRunningSpanSession(){
     session = {
       trialIdx:0, showIdx:0, phase:'showing', currentTrial: genRunningSpanTrial(),
@@ -7231,43 +7068,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     render();
     session.timer = setTimeout(()=>{ session.showIdx++; scheduleRunningSpanShow(); }, trial.isi);
   }
-  // Finestra più corta della soglia standard (BLOCK=8 in maybeAdapt): un
-  // ciclo qui porta molta più informazione di un singolo trial altrove
-  // (un'intera sequenza+richiamo, non una sola risposta), quindi bastano
-  // meno cicli per una lettura stabile. Stesse soglie 85%/70% (Wilson et
-  // al.) applicate però alla MEDIA di due proporzioni (posAcc+contentAcc),
-  // non a una proporzione di booleani come fa maybeAdapt() — incompatibile
-  // con quella funzione, richiede questa a parte.
-  const RUNNINGSPAN_ADAPT_BLOCK = 4;
-  function maybeAdaptRunningSpan(){
-    if(!cfg.adaptive) return;
-    if(session.rsAdaptBlock.length < RUNNINGSPAN_ADAPT_BLOCK) return;
-    const meanScore = mean(session.rsAdaptBlock);
-    cfg.adaptStartLevel += adaptStep(meanScore, cfg.adaptStartLevel, 1, 10);
-    session.rsAdaptBlock = [];
-  }
-  // Pura, testabile a sé: dato l'insieme mostrato e la risposta data,
-  // restituisce le due misure. Separata da resolveRunningSpanTrial (che
-  // legge/scrive session) apposta perché è la parte con più da sbagliare
-  // silenziosamente — la stessa ragione per cui altrove in questo
-  // progetto la logica di punteggio è sempre tenuta a parte dal flusso a
-  // schermo.
-  function scoreRunningSpanTrial(trial, given){
-    const actual = trial.items.slice(-trial.n); // ultimi n, nell'ordine di comparsa
-    let posCorrect = 0;
-    for(let i=0;i<trial.n;i++){ if(runningSpanItemsEqual(given[i], actual[i])) posCorrect++; }
-    // Accuratezza di contenuto: quanti degli n richiesti sono presenti da
-    // qualche parte nella risposta, indipendentemente dalla posizione —
-    // dissocia memoria per il contenuto da memoria per l'ordine (Henson,
-    // 1998, Quarterly Journal of Experimental Psychology).
-    const remaining = actual.slice();
-    let contentCorrect = 0;
-    given.forEach(g=>{
-      const idx = remaining.findIndex(a=>runningSpanItemsEqual(a,g));
-      if(idx!==-1){ contentCorrect++; remaining.splice(idx,1); }
-    });
-    return { posAcc: posCorrect/trial.n, contentAcc: contentCorrect/trial.n, n: trial.n, seqLen: trial.items.length };
-  }
+  function maybeAdaptRunningSpan(){ return maybeAdaptRunningSpanOf(cfg, session); }
   function resolveRunningSpanTrial(){
     const trial = session.currentTrial;
     const score = scoreRunningSpanTrial(trial, session.rsAnswer);

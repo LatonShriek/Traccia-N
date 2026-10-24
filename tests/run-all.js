@@ -30,7 +30,8 @@ const FILES = [
   'local-store.test.js',
   'import-clash.test.js',
   'cloud.test.js',
-  'nback.test.js'
+  'nback.test.js',
+  'gonogo-dual.test.js'
 ];
 
 // Suite end-to-end (browser vero via Playwright — più lenta, richiede

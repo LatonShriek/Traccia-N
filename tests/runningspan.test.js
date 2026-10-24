@@ -1,25 +1,17 @@
 'use strict';
-const path = require('path');
-const { loadPure } = require('./lib/extract-source');
-const { loadPoolsSync, loadCoreSync } = require('./lib/core');
-const { adaptStep } = loadCoreSync('adapt.js', ['adaptStep']); // regola unica di js/core/adapt.js
-const REPO_ROOT = path.join(__dirname, '..');
+const { importCore } = require('./lib/core');
 
 const cfg = { taskMode: 'runningspan', stimType: 'lettere', adaptStartLevel: 1, trials: 10, adaptive: false };
 let session = { rsAdaptBlock: [] };
 
-// POOLS arriva da js/core/pools.js (passo 3b).
-const POOLS = loadPoolsSync();
-const mod = loadPure(REPO_ROOT, [
-  { name: 'RUNNINGSPAN_LEVELS', start: '  const RUNNINGSPAN_LEVELS = {', end: '  };' },
-  { name: 'genRunningSpanTrial+runningSpanItemsEqual', start: '  function genRunningSpanTrial(){', end: "    return a===b;\n  }" },
-  { name: 'RUNNINGSPAN_ADAPT_BLOCK+maybeAdaptRunningSpan', start: '  const RUNNINGSPAN_ADAPT_BLOCK = 4;', end: "    session.rsAdaptBlock = [];\n  }" },
-  { name: 'scoreRunningSpanTrial', start: '  function scoreRunningSpanTrial(trial, given){', end: "    return { posAcc: posCorrect/trial.n, contentAcc: contentCorrect/trial.n, n: trial.n, seqLen: trial.items.length };\n  }" }
-], ['RUNNINGSPAN_LEVELS', 'genRunningSpanTrial', 'runningSpanItemsEqual', 'scoreRunningSpanTrial', 'maybeAdaptRunningSpan', 'RUNNINGSPAN_ADAPT_BLOCK'], { POOLS, cfg, session, adaptStep, mean: arr => arr.reduce((a,b)=>a+b,0)/arr.length });
+module.exports = async function run(t) {
+  // Il modulo vero (js/exercises/runningspan.js, passo 5b); cfg e session si passano come parametri.
+  const M = await importCore('../exercises/runningspan.js');
+  const { POOLS } = await importCore('pools.js');
+  const { RUNNINGSPAN_LEVELS, runningSpanItemsEqual, scoreRunningSpanTrial, RUNNINGSPAN_ADAPT_BLOCK } = M;
+  const genRunningSpanTrial = () => M.genRunningSpanTrial(cfg);
+  const maybeAdaptRunningSpan = () => M.maybeAdaptRunningSpan(cfg, session);
 
-const { RUNNINGSPAN_LEVELS, genRunningSpanTrial, runningSpanItemsEqual, scoreRunningSpanTrial, maybeAdaptRunningSpan, RUNNINGSPAN_ADAPT_BLOCK } = mod;
-
-module.exports = function run(t) {
   t.group('RUNNINGSPAN_LEVELS — struttura, tetto a n=4 (non 5, scelta cauta dichiarata)', () => {
     t.eq(RUNNINGSPAN_LEVELS[1].n, 2, 'livello 1: n=2, il più basso');
     t.eq(RUNNINGSPAN_LEVELS[10].n, 4, 'livello 10 (il più alto): n=4, non 5');

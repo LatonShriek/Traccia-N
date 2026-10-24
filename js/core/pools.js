@@ -48,3 +48,25 @@
     for(let i=0;i<len;i++) out.push(shuffled[i % shuffled.length]);
     return out;
   }
+
+  // ---- materiale "misto" (passo 5a): SPOSTATO da index.html senza modifiche, con "export" ----
+  // Tipi di stimolo utilizzabili insieme in una sequenza bersaglio mista.
+  // Escluse le parole: la lunghezza variabile complicherebbe la costruzione
+  // e la lettura rapida della sequenza da parte del paziente.
+  export const VISUAL_MISTA_TYPES = ['lettere','numeri','colori','simboli'];
+  export const AUDIO_MISTA_TYPES = ['suoni','lettereVoce','numeriVoce'];
+  export const SEQUENZA_MISTA_TYPES = VISUAL_MISTA_TYPES.concat(AUDIO_MISTA_TYPES);
+  // cfg.sequenzaMista/nbackMista/gonogoMista: 'no' | 'visivo' | 'uditivo' | 'misto'
+  // (visivo+uditivo insieme) — quali tipi di stimolo entrano nel "mescolati".
+  export function mistaTypesFor(mode){
+    if(mode==='visivo') return VISUAL_MISTA_TYPES;
+    if(mode==='uditivo') return AUDIO_MISTA_TYPES;
+    if(mode==='misto') return SEQUENZA_MISTA_TYPES;
+    return null; // 'no' o non impostato: non mista
+  }
+  export function randMistaStim(types){
+    const list = types || SEQUENZA_MISTA_TYPES;
+    const t = list[Math.floor(Math.random()*list.length)];
+    const pool = POOLS[t];
+    return {stimType:t, item: pool[Math.floor(Math.random()*pool.length)]};
+  }

@@ -37,7 +37,8 @@ import { mean, sd } from './js/core/stats.js';
 import { isTapatLike, isTapatKey } from './js/core/records.js';
 import { RCI_BASELINE_N, computeRCIRows } from './js/core/rci.js';
 import { ADAPT_ISI, ADAPT_GONOGO_FREQ, NBACK_LEVEL_TABLE, nbackParamsForLevel, nbackLureLag, ADAPT_SWITCH_BALANCE, ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE, CATEG_STRUCTURE_OF_LEVEL, CATEG_ISI, CATEG_LURE, categStructureOfLevel, DUAL_DOUBLE_TARGET_GRACE_MS, ADAPT_GONOGO_COUNT, ADAPT_SWITCH_CSI, ADAPT_NEGLECT_SIZE, ADAPT_SEQ_LEN, ADAPT_NEGLECT_TIME, TAPAT_LEVELS } from './js/core/levels.js';
-import { POOLS, defaultTargetSeq } from './js/core/pools.js';
+import { POOLS, defaultTargetSeq, VISUAL_MISTA_TYPES, AUDIO_MISTA_TYPES, SEQUENZA_MISTA_TYPES, mistaTypesFor, randMistaStim } from './js/core/pools.js';
+import { genNbackTrial as genNbackTrialOf } from './js/exercises/nback.js';
 import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_PROBES, probeFailed, suggestionFor, ATTENZIONE_ORDER, attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER } from './js/core/screening.js';
 import { DUAL_LEVEL_MAX, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL, structuralBandBounds, adaptLevelKey as adaptLevelKeyOf, currentLevelMax as currentLevelMaxOf, sessionLevelBounds as sessionLevelBoundsOf } from './js/core/bands.js';
 import { KEY, getRaw, setRaw, readJSON, writeJSON, removeKey, listByPrefix, getLocalPatient, readAllLocalPatients, setLocalPatient, removeLocalPatient, updateLocalPatient, saveSessionLocal, listSessionsLocal, rewriteSessionsLocal } from './js/services/local-store.js';
@@ -496,26 +497,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     nbackMista:'no', // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
     gonogoMista:'no', // solo per Go/No-Go: stesso principio — il/i bersaglio/i no-go possono essere di tipi diversi fra loro, non solo lo stesso cfg.stimType
   };
-  // Tipi di stimolo utilizzabili insieme in una sequenza bersaglio mista.
-  // Escluse le parole: la lunghezza variabile complicherebbe la costruzione
-  // e la lettura rapida della sequenza da parte del paziente.
-  const VISUAL_MISTA_TYPES = ['lettere','numeri','colori','simboli'];
-  const AUDIO_MISTA_TYPES = ['suoni','lettereVoce','numeriVoce'];
-  const SEQUENZA_MISTA_TYPES = VISUAL_MISTA_TYPES.concat(AUDIO_MISTA_TYPES);
-  // cfg.sequenzaMista/nbackMista/gonogoMista: 'no' | 'visivo' | 'uditivo' | 'misto'
-  // (visivo+uditivo insieme) — quali tipi di stimolo entrano nel "mescolati".
-  function mistaTypesFor(mode){
-    if(mode==='visivo') return VISUAL_MISTA_TYPES;
-    if(mode==='uditivo') return AUDIO_MISTA_TYPES;
-    if(mode==='misto') return SEQUENZA_MISTA_TYPES;
-    return null; // 'no' o non impostato: non mista
-  }
-  function randMistaStim(types){
-    const list = types || SEQUENZA_MISTA_TYPES;
-    const t = list[Math.floor(Math.random()*list.length)];
-    const pool = POOLS[t];
-    return {stimType:t, item: pool[Math.floor(Math.random()*pool.length)]};
-  }
   const MISTA_LABELS_SHORT = {visivo:'Mista (visivo)', uditivo:'Mista (uditivo)', misto:'Mista (visivo+uditivo)'};
   // defaultTargetSeq: vedi js/core/pools.js (passo 3b).
   // Stessa idea ma per la sequenza/no-go "mista" (materiale misto fra più
@@ -4857,54 +4838,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     nextBoard();
   }
 
-  // (session.liveNLevel), che può cambiare durante la sessione stessa.
-  // Uguaglianza fra due valori pescati per l'N-back: identica a
-  // sameSeqItem, ma richiamabile anche quando taskMode è 'nback' (non solo
-  // 'sequenza'), per la modalità mista che riusa la stessa forma {stimType,
-  // item} già usata dalla Sequenza bersaglio mista.
-  function nbackSameVal(a,b){
-    if(cfg.taskMode==='nback' && cfg.nbackMista && cfg.nbackMista!=='no') return a && b && a.stimType===b.stimType && a.item===b.item;
-    return a===b;
-  }
-  function genNbackTrial(){
-    const isMista = cfg.nbackMista && cfg.nbackMista!=='no';
-    const pool = isMista ? null : POOLS[cfg.stimType];
-    const mistaTypes = isMista ? mistaTypesFor(cfg.nbackMista) : null;
-    const randMista = ()=> randMistaStim(mistaTypes);
-    const i = session.seq.length;
-    const level = session.liveNLevel;
-    const params = nbackParamsForLevel(level);
-    const n = params.n;
-    const freq = cfg.titrationMode!=='manuale' ? params.freq : cfg.targetRate;
-    const lureFreq = params.lure;
-    const lureLag = nbackLureLag(n);
-    function runLen(val){ let run=1; for(let k=i-1;k>=0;k--){ if(nbackSameVal(session.seq[k].val,val)) run++; else break; } return run; }
-    let makeTarget = i>=n && Math.random() < freq;
-    let val, isLure=false;
-    if(makeTarget){
-      const cand = session.seq[i-n].val;
-      if((isMista || pool.length>1) && runLen(cand) > 3){ makeTarget=false; } else { val = cand; }
-    }
-    if(!makeTarget){
-      // Prova un trial lure: un foil che corrisponde allo scarto vicino a n
-      // (n-1, o n+1 quando n=1) invece che a n — "sembra" familiare per
-      // prossimità recente ma la risposta corretta resta "non rispondere".
-      if(i>=lureLag && lureFreq>0 && Math.random()<lureFreq){
-        const lureCand = session.seq[i-lureLag].val;
-        const wouldBeRealTarget = i>=n && nbackSameVal(lureCand, session.seq[i-n].val);
-        if(!wouldBeRealTarget && (isMista || pool.length>1 ? runLen(lureCand)<=3 : true)){
-          val = lureCand; isLure = true;
-        }
-      }
-      if(val===undefined){
-        do{ val = isMista ? randMista() : pool[Math.floor(Math.random()*pool.length)]; }
-        while((isMista || pool.length>1) && ((i>=n && nbackSameVal(val, session.seq[i-n].val)) || runLen(val)>3));
-      }
-    }
-    const trial = {val, isTarget: i>=n ? makeTarget : false, valid:i>=n, nAtGeneration:n, isLure};
-    session.seq.push(trial);
-    return trial;
-  }
+  // genNbackTrial: logica in js/exercises/nback.js (passo 5a); qui solo la chiamata con la cfg e la seduta correnti.
+  function genNbackTrial(){ return genNbackTrialOf(cfg, session); }
   // Titolazione automatica: valuta un blocco di 8 prove valide alla volta.
   // Livelli di difficoltà TAPAT: più alto = attese toniche più lunghe e
   // imprevedibili (più difficile sostenere l'attenzione da soli).

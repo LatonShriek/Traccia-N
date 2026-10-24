@@ -29,7 +29,8 @@ const FILES = [
   'adapt.test.js',
   'local-store.test.js',
   'import-clash.test.js',
-  'cloud.test.js'
+  'cloud.test.js',
+  'nback.test.js'
 ];
 
 // Suite end-to-end (browser vero via Playwright — più lenta, richiede

@@ -40,6 +40,7 @@ import { ADAPT_ISI, ADAPT_GONOGO_FREQ, NBACK_LEVEL_TABLE, nbackParamsForLevel, n
 import { POOLS, defaultTargetSeq } from './js/core/pools.js';
 import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_PROBES, probeFailed, suggestionFor, ATTENZIONE_ORDER, attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER } from './js/core/screening.js';
 import { DUAL_LEVEL_MAX, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL, structuralBandBounds, adaptLevelKey as adaptLevelKeyOf, currentLevelMax as currentLevelMaxOf, sessionLevelBounds as sessionLevelBoundsOf } from './js/core/bands.js';
+import { ADAPT_BLOCK, adaptStep, countedOutcome } from './js/core/adapt.js';
 import { computeEZDiffusion, computeLISAS, primaryAccuracyOf, computeExerciseTimeSummary } from './js/core/scores.js';
 import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TARGET_RATE, resolvedFreqForDisplay, resolvedIsiForDisplay, neglectSubLevelForDisplay, categEffectiveStructure, CATEG_STRUCTURE_LABELS, CATEG_STRUCTURE_HINTS, categTitrationModeHint, tapatTitrationModeHint, neglectTitrationModeHint, dualTitrationModeHint, titrationModeHint, neglectProgressivaPhase, LEVEL_FIELD_OF_TASKMODE, levelOfCfg } from './js/core/titration.js';
 (function(){
@@ -2141,12 +2142,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // spaziale del TAPAT).
   function pushAdaptOutcome(correct, rtMs){
     session.adaptRTHistory = session.adaptRTHistory || [];
-    let counted = correct;
-    if(correct && rtMs!=null && session.adaptRTHistory.length>=4){
-      const sorted = session.adaptRTHistory.slice().sort((a,b)=>a-b);
-      const median = sorted[Math.floor(sorted.length/2)];
-      if(rtMs > median*1.6) counted = false;
-    }
+    const counted = countedOutcome(correct, rtMs, session.adaptRTHistory);
     if(correct && rtMs!=null) session.adaptRTHistory.push(rtMs);
     session.adaptBlock.push(counted);
     const before = session.adaptBlock.length;
@@ -5058,11 +5054,9 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       const neglectBandKey = cfg.neglectMode==='progressiva' ? 'neglectProgressiva' : cfg.neglectMode==='regola' ? 'neglectRegola' : null;
       const neglectStart = cfg.neglectMode==='regola' ? cfg.neglectRuleLevel : cfg.neglectStartLevel;
       const bounds = neglectBandKey ? (structuralBandBounds(neglectBandKey, neglectStart) || {min:1,max:currentLevelMax()}) : {min:1,max:currentLevelMax()};
-      if(acc > 0.85 && session.liveBoardLevel < bounds.max){
-        session.liveBoardLevel++;
-        session.levelChanges.push({board:session.boardIdx, level:session.liveBoardLevel, how:'auto'});
-      } else if(acc < 0.70 && session.liveBoardLevel > bounds.min){
-        session.liveBoardLevel--;
+      const lvStep = adaptStep(acc, session.liveBoardLevel, bounds.min, bounds.max);
+      if(lvStep){
+        session.liveBoardLevel += lvStep;
         session.levelChanges.push({board:session.boardIdx, level:session.liveBoardLevel, how:'auto'});
       }
       // il gradiente si sposta verso il lato che va peggio: se la
@@ -5207,15 +5201,12 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(!cfg.adaptive) return;
     const levelKey = adaptLevelKey();
     if(!levelKey) return;
-    const BLOCK = 8;
-    if(session.adaptBlock.length < BLOCK) return;
+    if(session.adaptBlock.length < ADAPT_BLOCK) return;
     const acc = session.adaptBlock.filter(Boolean).length / session.adaptBlock.length;
     const bounds = sessionLevelBounds();
-    if(acc > 0.85 && session[levelKey] < bounds.max){
-      session[levelKey]++;
-      session.levelChanges.push({trialIdx:session.idx, level:session[levelKey], how:'auto'});
-    } else if(acc < 0.70 && session[levelKey] > bounds.min){
-      session[levelKey]--;
+    const step = adaptStep(acc, session[levelKey], bounds.min, bounds.max);
+    if(step){
+      session[levelKey] += step;
       session.levelChanges.push({trialIdx:session.idx, level:session[levelKey], how:'auto'});
     }
     session.adaptBlock = [];
@@ -5656,13 +5647,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const blockKey = channel===1 ? 'adaptBlock1' : 'adaptBlock2';
     const levelKey = channel===1 ? 'dualLevel1' : 'dualLevel2';
     const block = session[blockKey];
-    if(block.length < 8) return;
+    if(block.length < ADAPT_BLOCK) return;
     const acc = block.filter(Boolean).length / block.length;
-    if(acc > 0.85 && session[levelKey] < DUAL_LEVEL_MAX){
-      session[levelKey]++;
-      session.levelChanges.push({trialIdx:session.idx, level:session[levelKey], how:'auto', canale:channel});
-    } else if(acc < 0.70 && session[levelKey] > 1){
-      session[levelKey]--;
+    const step = adaptStep(acc, session[levelKey], 1, DUAL_LEVEL_MAX);
+    if(step){
+      session[levelKey] += step;
       session.levelChanges.push({trialIdx:session.idx, level:session[levelKey], how:'auto', canale:channel});
     }
     session[blockKey] = [];
@@ -7540,8 +7529,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(!cfg.adaptive) return;
     if(session.rsAdaptBlock.length < RUNNINGSPAN_ADAPT_BLOCK) return;
     const meanScore = mean(session.rsAdaptBlock);
-    if(meanScore > 0.85 && cfg.adaptStartLevel < 10) cfg.adaptStartLevel++;
-    else if(meanScore < 0.70 && cfg.adaptStartLevel > 1) cfg.adaptStartLevel--;
+    cfg.adaptStartLevel += adaptStep(meanScore, cfg.adaptStartLevel, 1, 10);
     session.rsAdaptBlock = [];
   }
   // Pura, testabile a sé: dato l'insieme mostrato e la risposta data,

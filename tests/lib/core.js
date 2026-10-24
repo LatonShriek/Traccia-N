@@ -20,3 +20,10 @@ function loadPoolsSync() {
   return vm.runInNewContext('(function(){\n' + src + '\nreturn POOLS;\n})()', {});
 }
 module.exports.loadPoolsSync = loadPoolsSync;
+
+// Come loadPoolsSync, ma per un modulo senza import: restituisce gli export indicati.
+function loadCoreSync(fileName, names) {
+  const src = fs.readFileSync(path.join(CORE_DIR, fileName), 'utf8').replace(/^(\s*)export /gm, '$1');
+  return vm.runInNewContext('(function(){\n' + src + '\nreturn {' + names.join(',') + '};\n})()', {});
+}
+module.exports.loadCoreSync = loadCoreSync;

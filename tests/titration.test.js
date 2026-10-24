@@ -1,7 +1,7 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
-const { importCore } = require('./lib/core');
+const { importCore, loadPoolsSync } = require('./lib/core');
 
 const REPO_ROOT = path.join(__dirname, '..');
 
@@ -18,12 +18,11 @@ async function setup() {
 const L = await importCore('levels.js');
 const T = await importCore('titration.js');
 mod = loadPure(REPO_ROOT, [
-  { name: 'POOLS', start: '  const POOLS = {', end: "POOLS.numeriVoce = POOLS.numeri;" },
   { name: 'SWITCH_RULESETS', start: '  const SWITCH_RULESETS = {', end: "SWITCH_RULESETS.numeriVoce = SWITCH_RULESETS.numeri;" }
 ], [
-  'POOLS'
-], Object.assign({}, L, T));
-({ POOLS } = mod);
+  'SWITCH_RULESETS'
+], Object.assign({ POOLS: loadPoolsSync() }, L, T));
+POOLS = loadPoolsSync();
 ({ TITRATION_EXERCISES, resolvedFreqForDisplay, resolvedIsiForDisplay, levelOfCfg } = T);
 ({ ADAPT_ISI, ADAPT_GONOGO_FREQ, nbackParamsForLevel, ADAPT_SWITCH_BALANCE, ADAPT_SWITCH_CSI, ADAPT_SEQ_LEN } = L);
 }

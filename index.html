@@ -37,40 +37,15 @@ import { mean, sd } from './js/core/stats.js';
 import { isTapatLike, isTapatKey } from './js/core/records.js';
 import { RCI_BASELINE_N, computeRCIRows } from './js/core/rci.js';
 import { ADAPT_ISI, ADAPT_GONOGO_FREQ, NBACK_LEVEL_TABLE, nbackParamsForLevel, nbackLureLag, ADAPT_SWITCH_BALANCE, ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE, CATEG_STRUCTURE_OF_LEVEL, CATEG_ISI, CATEG_LURE, categStructureOfLevel, DUAL_DOUBLE_TARGET_GRACE_MS, ADAPT_GONOGO_COUNT, ADAPT_SWITCH_CSI, ADAPT_NEGLECT_SIZE, ADAPT_SEQ_LEN, ADAPT_NEGLECT_TIME, TAPAT_LEVELS } from './js/core/levels.js';
+import { POOLS, defaultTargetSeq } from './js/core/pools.js';
+import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_PROBES, probeFailed, suggestionFor, ATTENZIONE_ORDER, attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER } from './js/core/screening.js';
 import { computeEZDiffusion, computeLISAS, primaryAccuracyOf, computeExerciseTimeSummary } from './js/core/scores.js';
 import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TARGET_RATE, resolvedFreqForDisplay, resolvedIsiForDisplay, neglectSubLevelForDisplay, categEffectiveStructure, CATEG_STRUCTURE_LABELS, CATEG_STRUCTURE_HINTS, categTitrationModeHint, tapatTitrationModeHint, neglectTitrationModeHint, dualTitrationModeHint, titrationModeHint, neglectProgressivaPhase, LEVEL_FIELD_OF_TASKMODE, levelOfCfg } from './js/core/titration.js';
 (function(){
   "use strict";
 
   /* ---------- data pools ---------- */
-  const POOLS = {
-    lettere: ['A','B','C','D','E','F','G','H','I','L','M','N','O','P','R','S','T','U','V'],
-    numeri:  ['1','2','3','4','5','6','7','8','9'], // rigenerato per sessione da regenerateNumeriPool(), in base a cfg.numDigits
-    simboli: ['●','■','▲','◆','★','✚','⬟','⬤'],
-    parole:  [], // rigenerato da regenerateParolePool(), in base a cfg.wordComplexity
-    suoni:   [
-      {f:220,type:'sine',icon:'A'},{f:294,type:'square',icon:'B'},{f:349,type:'sine',icon:'C'},
-      {f:392,type:'triangle',icon:'D'},{f:466,type:'square',icon:'E'},{f:523,type:'triangle',icon:'F'}
-    ],
-    // Materiali dedicati allo Stop-Signal two-choice: frecce (sinistra/destra,
-    // stesso alfabeto grafico dell'ANT classico) e forma (cerchio/triangolo,
-    // sottoinsieme di 'simboli' scelto apposta perché la coppia sia
-    // percettivamente inequivocabile — non "rotondo/con angoli" come nello
-    // Task-switching, ma le due forme letterali richieste).
-    frecce:  ['◀','▶'],
-    forma:   ['●','▲'],
-    suoni2:  [ // registro più acuto, timbro diverso — usato per il secondo canale nel doppio compito uditivo-uditivo
-      {f:660,type:'sine',icon:'G'},{f:740,type:'square',icon:'H'},{f:831,type:'triangle',icon:'I'},
-      {f:932,type:'sine',icon:'J'},{f:1046,type:'square',icon:'K'},{f:1175,type:'triangle',icon:'L'}
-    ],
-    colori: [
-      {hex:'#D64545', icon:'Rosso'}, {hex:'#3B72D6', icon:'Blu'}, {hex:'#3FA34D', icon:'Verde'},
-      {hex:'#E0B12D', icon:'Giallo'}, {hex:'#8E4EC6', icon:'Viola'}, {hex:'#E07B2D', icon:'Arancione'},
-      {hex:'#2DB6C7', icon:'Ciano'}, {hex:'#D6469B', icon:'Magenta'}
-    ]
-  };
-  POOLS.lettereVoce = POOLS.lettere; // stessi contenuti di 'lettere', letti dal sintetizzatore invece che mostrati
-  POOLS.numeriVoce = POOLS.numeri;   // tenuto sincronizzato con POOLS.numeri in regenerateNumeriPool()
+  // POOLS (dati degli stimoli): vedi js/core/pools.js (passo 3b).
   const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati', paroleVoce:'Parole pronunciate', frecce:'Frecce', forma:'Forma'};
   // Stimoli uditivi puri: 'suoni' (toni) e le due varianti "voce" (lettere o
   // numeri letti dal sintetizzatore vocale, nessuna rivelazione visiva) —
@@ -538,21 +513,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     return {stimType:t, item: pool[Math.floor(Math.random()*pool.length)]};
   }
   const MISTA_LABELS_SHORT = {visivo:'Mista (visivo)', uditivo:'Mista (uditivo)', misto:'Mista (visivo+uditivo)'};
-  // Proposta di default per la sequenza bersaglio/no-go: prima era
-  // sequenziale sul pool (sempre gli stessi primi elementi, in ordine) —
-  // ora pesca a caso, senza ripetizioni, così ogni volta che si apre un
-  // esercizio con materiale personalizzabile parte già una proposta
-  // sensata invece di uno schema fisso o di una selezione vuota da
-  // costruire a mano. Resta sempre pienamente modificabile dopo (chip
-  // "← Rimuovi ultimo"/"Reimposta", o aggiungendo altri elementi).
-  function defaultTargetSeq(stimType, len){
-    len = len || (cfg.targetSeq ? cfg.targetSeq.length : 3);
-    const pool = POOLS[stimType];
-    const shuffled = pool.slice().sort(()=>Math.random()-0.5);
-    const out = [];
-    for(let i=0;i<len;i++) out.push(shuffled[i % shuffled.length]);
-    return out;
-  }
+  // defaultTargetSeq: vedi js/core/pools.js (passo 3b).
   // Stessa idea ma per la sequenza/no-go "mista" (materiale misto fra più
   // tipologie) — pesca a caso fra i tipi ammessi (visivo/uditivo/misto),
   // evitando duplicati stimType+item.
@@ -6353,238 +6314,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
 
   /* ---------- FINISH / RESULTS ---------- */
-  /* ---------- Batteria di screening iniziale ---------- */
-  // 4 domini (Attenzione divisa rimossa: considerata di livello superiore
-  // rispetto a uno screening rapido — vedi discussione con Rodrigo. Il
-  // Doppio compito resta un esercizio pienamente disponibile, semplicemente
-  // non più proposto/confrontato in automatico da questa batteria), ciascuno
-  // con un blocco "base" (stimolo semplice, nessun carico esecutivo) e un
-  // blocco "caricato" (versione con carico esecutivo dello stesso dominio).
-  // Ogni blocco è breve e a difficoltà FISSA (adaptive:false), non la
-  // solita titolazione automatica: qui l'obiettivo non è trovare il
-  // livello ideale del paziente, ma un confronto pulito e riproducibile
-  // fra "senza carico" e "con carico" allo stesso dominio.
-  const SCREENING_TRIALS = 16;
-  // "Attenzione sostenuta / inibizione" (domainLabel sotto) è
-  // un'etichetta pragmatica per l'operatore, non una posizione teorica:
-  // il framework della batteria (vedi README, "Framework teorico") tratta
-  // inibizione e attenzione selettiva come due facce dello stesso
-  // meccanismo di mantenimento dell'obiettivo attivo (Munakata, Herd,
-  // Chatham, Depue, Banich & O'Reilly, 2011), non come moduli a sé — qui
-  // restano accorpate in una sola etichetta perché lo screening ha
-  // bisogno di un nome breve e leggibile a colpo d'occhio, non perché il
-  // codice le consideri la stessa cosa altrove (Go/No-Go, Stop-Signal,
-  // ANT e Cancellazione, per esempio, restano distinti per costrutto
-  // specifico in tutto il resto della batteria).
-  // ========================================================================
-  // MOTORE DI SCREENING — riscritto per intero su questo principio unico:
-  // ogni dominio ha un elenco di SONDE, sempre somministrate tutte (nessun
-  // "se flagga il base, approfondisci" a cascata come nella versione
-  // precedente) — poi una regola di suggerimento propria del dominio legge
-  // il PATTERN di chi ha fallito e chi no, non solo "quante".
-  // Non ancora incluso in questa riscrittura (prossimo giro, dichiarato
-  // esplicitamente): la doppia somministrazione verbale/non verbale, e il
-  // secondo giro a livello intermedio per chi risulta pulito ovunque.
-  const SCREENING_FLAG_THRESHOLD = 0.70; // coerente con la soglia Wilson già in uso per la titolazione adattiva
-  // Catalogo delle sonde — una voce per ogni test che può comparire in un
-  // dominio, con la propria configurazione e come calcolarne l'esito.
-  // 'variant' distingue sonde che condividono lo stesso esercizio (es. i 3
-  // modi di Cancellazione, o le 2 strutture di Categorizzazione usate come
-  // suggerimento) — necessario perché più di una può comparire nello
-  // stesso riepilogo finale senza che una sovrascriva l'altra.
-  const SCREENING_PROBES = {
-    ant: { label:'ANT classico', suggestTaskMode:'ant', suggestLabel:'ANT classico', variant:'ant',
-      patch:()=>({taskMode:'ant', stimType:'lettere', adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:3200, stimDuration:700, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'ant', stimType:'simboli', adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:3200, stimDuration:700, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    tapat: { label:'TAPAT (allerta sostenuta)', suggestTaskMode:'tapat', suggestLabel:'TAPAT', variant:'tapat',
-      patch:()=>({taskMode:'tapat', tapatModalita:'visivo', tapatSpatial:false, tapatStartLevel:1, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    gonogo: { label:'Go/No-Go', suggestTaskMode:'gonogo', suggestLabel:'Go/No-Go', variant:'gonogo',
-      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,2), adaptive:false, targetRate:0.35, isi:1000, stimDuration:500, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'gonogo', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), adaptive:false, targetRate:0.35, isi:1000, stimDuration:500, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    stopsignal: { label:'Stop-Signal', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal', variant:'stopsignal',
-      // 'frecce' era l'unico materiale usato prima di questa estensione —
-      // simboliche/spaziali, non linguistiche: qui diventa la forma NON
-      // verbale, 'lettere' quella verbale aggiunta.
-      patch:()=>({taskMode:'stopsignal', stimType:'lettere', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'no', titrationMode:'manuale', trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'stopsignal', stimType:'frecce', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'no', titrationMode:'manuale', trials:SCREENING_TRIALS}),
-      scoreOf:r=>r.goAccuracy },
-    stopsignal_interferenza: { label:'Stop-Signal con interferenza', suggestTaskMode:'stopsignal', suggestLabel:'Stop-Signal (con interferenza)', variant:'stopsignal_interferenza',
-      patch:()=>({taskMode:'stopsignal', stimType:'lettere', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'si', titrationMode:'manuale', trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'stopsignal', stimType:'frecce', adaptive:false, targetRate:0.25, isi:2000, stimDuration:800, ssd:250, ssdStep:50, stopsignalInterferenza:'si', titrationMode:'manuale', trials:SCREENING_TRIALS}),
-      scoreOf:r=>r.goAccuracy },
-    simon: { label:'Simon (verifica conflitto)', suggestTaskMode:'simon', suggestLabel:'Simon', variant:'simon',
-      patch:()=>({taskMode:'simon', simonMateriale:'colori', simonCongruenza:'bilanciato', adaptStartLevel:1, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    // Mantenimento ora ha anche un materiale non verbale (simboli, non
-    // lettere/numeri) — vedi buildMantenimento/POOLS.simboli.
-    mantenimento: { label:'Mantenimento (tipo Sternberg)', suggestTaskMode:'mantenimento', suggestLabel:'Mantenimento (tipo Sternberg)', variant:'mantenimento',
-      patch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'lettere', mantenimentoListLen:4, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'mantenimento', mantenimentoModalita:'riconoscimento', mantenimentoMateriale:'simboli', mantenimentoListLen:4, titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    sequenza: { label:'Sequenza bersaglio', suggestTaskMode:'sequenza', suggestLabel:'Sequenza bersaglio', variant:'sequenza',
-      patch:()=>({taskMode:'sequenza', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'sequenza', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), adaptStartLevel:1, titrationMode:'manuale', adaptive:false, isi:2200, stimDuration:700, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    categorizzazione: { label:'Categorizzazione condizionale', suggestTaskMode:'categorizzazione', suggestLabel:'Categorizzazione condizionale', variant:'categorizzazione',
-      // Entrambe le forme sono visive: 'lettere' (lettere scritte a schermo,
-      // regola Vocale/Consonante) per la forma verbale, 'simboli' per quella
-      // non verbale — non più 'lettereVoce' (lettere pronunciate dal
-      // sintetizzatore), che introduceva una modalità acustica non prevista
-      // per uno screening dichiarato visivo. La regola di classificazione è
-      // identica (SWITCH_RULESETS.lettereVoce è un alias di .lettere), cambia
-      // solo la presentazione: scritta invece che ascoltata.
-      patch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'lettere', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'categorizzazione', categStructManual:1, categMateriale:'simboli', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    nback: { label:'N-back', suggestTaskMode:'nback', suggestLabel:'N-back', variant:'nback',
-      patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:2, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}),
-      nonVerbalPatch:()=>({taskMode:'nback', stimType:'simboli', nLevel:2, adaptive:false, targetRate:0.24, isi:1700, stimDuration:600, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    runningspan: { label:'Running Span', suggestTaskMode:'runningspan', suggestLabel:'Running Span', variant:'runningspan',
-      // trials:4, non SCREENING_TRIALS: qui un "trial" è un intero ciclo
-      // sequenza+richiamo (7-15s l'uno), non una prova rapida — 16 cicli
-      // renderebbero questa sonda da sola più lunga di tutto il resto.
-      patch:()=>({taskMode:'runningspan', stimType:'lettere', adaptStartLevel:1, trials:4}),
-      nonVerbalPatch:()=>({taskMode:'runningspan', stimType:'simboli', adaptStartLevel:1, trials:4}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    switching: { label:'Flessibilità cognitiva', suggestTaskMode:'switching', suggestLabel:'Task-switching', variant:'switching', isSplit:true, splitAccKeys:{base:'repAcc', caricato:'switchAcc'},
-      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:24}),
-      nonVerbalPatch:()=>({taskMode:'switching', switchMaterial:'simboli', adaptive:false, targetRate:0.35, isi:1400, stimDuration:700, trials:24}) },
-    neglect_classico: { label:'Cancellazione classico', suggestTaskMode:'neglect', suggestLabel:'Cancellazione classico', variant:'neglect_classico',
-      patch:()=>({taskMode:'neglect', neglectMode:'classico', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
-      nonVerbalPatch:()=>({taskMode:'neglect', neglectMode:'classico', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), neglectBoardSize:20, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    neglect_intruso: { label:'Cancellazione — Trova l\'intruso', suggestTaskMode:'neglect', suggestLabel:'Cancellazione — Trova l\'intruso', variant:'neglect_intruso',
-      patch:()=>({taskMode:'neglect', neglectMode:'intruso', stimType:'lettere', targetSeq:defaultTargetSeq('lettere',2), neglectBoardSize:30, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
-      nonVerbalPatch:()=>({taskMode:'neglect', neglectMode:'intruso', stimType:'simboli', targetSeq:defaultTargetSeq('simboli',2), neglectBoardSize:30, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    // "A regola" resta a singola somministrazione (limite dichiarato): il
-    // testo della regola distingue solo numeri/lettere in modo rigido
-    // (vedi il ramo dedicato nelle istruzioni) — un materiale 'simboli'
-    // qui ricadrebbe silenziosamente sul trattamento testuale di
-    // 'lettere', un risultato "non verbale" che non lo sarebbe
-    // veramente. Raddoppiarla richiede prima sistemare quella parte.
-    neglect_regola: { label:'Cancellazione a regola', suggestTaskMode:'neglect', suggestLabel:'Cancellazione a regola', variant:'neglect_regola',
-      patch:()=>({taskMode:'neglect', neglectMode:'regola', neglectRuleLevel:2, stimType:'lettere', neglectBoardSize:40, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    dualtask: { label:'Doppio compito (verifica finale)', suggestTaskMode:'dualtask', suggestLabel:'Doppio compito', variant:'dualtask',
-      patch:()=>({taskMode:'dualtask', dualStartLevel1:1, dualStartLevel2:1, dualPairing:'vis-aud', titrationMode:'manuale', adaptive:false, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    goaltask_mini: { label:'Scenari ecologici — mini scenario', suggestTaskMode:'goaltask', suggestLabel:'Scenari ecologici', variant:'goaltask',
-      patch:()=>({taskMode:'goaltask', goaltaskScenario:'screening_breve', goaltaskLivello:2}),
-      // Non una soglia di accuratezza (non è quel genere di compito): il
-      // segnale è il numero di violazioni — ipotesi di partenza dichiarata
-      // (>1 violazione su un mini-scenario a 4 elementi/90s), non un
-      // valore di letteratura.
-      scoreOf:r=> r.goaltask && r.goaltask.violazioniCount<=1 ? 1 : 0,
-      suggestedCfgOverride:{taskMode:'goaltask', goaltaskScenario:'sei_compiti_classico', goaltaskLivello:1} }
-  };
-  // Secondo giro a livello intermedio — SOLO per un dominio che risulta
-  // interamente pulito (ogni sonda passata, verbale e non verbale
-  // insieme): un profilo "pulito" può riflettere la scarsa esigenza dello
-  // screening stesso, non l'assenza di difficoltà a un carico più
-  // impegnativo (stesso principio già usato per il gate Doppio compito/
-  // Scenari ecologici, qui esteso a ogni dominio). Un solo esercizio
-  // "ancora" per dominio, non l'intero elenco di sonde — a un livello
-  // intermedio (non il minimo di screening, non il massimo), scelto come
-  // ipotesi di partenza dichiarata, non un valore di letteratura.
-  const CEILING_PROBES = {
-    memoria: { label:'N-back (verifica a carico più alto)', domainLabel:'Memoria di lavoro', suggestTaskMode:'nback', suggestLabel:'N-back',
-      patch:()=>({taskMode:'nback', stimType:'lettere', nLevel:3, adaptive:false, targetRate:0.22, isi:1500, stimDuration:550, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    attenzione: { label:'Go/No-Go (verifica a carico più alto)', domainLabel:'Attenzione sostenuta / inibizione', suggestTaskMode:'gonogo', suggestLabel:'Go/No-Go',
-      patch:()=>({taskMode:'gonogo', stimType:'lettere', targetSeq:POOLS.lettere.slice(0,3), adaptive:false, targetRate:0.25, isi:1000, stimDuration:450, trials:SCREENING_TRIALS}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    esplorazione: { label:'Cancellazione a regola (verifica a carico più alto)', domainLabel:'Esplorazione visuospaziale', suggestTaskMode:'neglect', suggestLabel:'Cancellazione a regola',
-      patch:()=>({taskMode:'neglect', neglectMode:'regola', neglectRuleLevel:4, stimType:'lettere', neglectBoardSize:50, neglectGradient:50, neglectTimeLimit:0, neglectBottomUp:'off', neglectRuleClauses:null, trials:1}),
-      scoreOf:r=>primaryAccuracyOf(r) },
-    flessibilita: { label:'Task-switching (verifica a carico più alto)', domainLabel:'Flessibilità cognitiva', suggestTaskMode:'switching', suggestLabel:'Task-switching',
-      patch:()=>({taskMode:'switching', switchMaterial:'numeri', adaptive:false, targetRate:0.35, isi:1000, stimDuration:500, trials:24}),
-      scoreOf:r=>primaryAccuracyOf(r) }
-  };
-  function probeFailed(probeKey, rec){
-    const probe = SCREENING_PROBES[probeKey];
-    const acc = probe.scoreOf(rec);
-    return acc==null || acc < SCREENING_FLAG_THRESHOLD;
-  }
-  // Costruisce una "voce di suggerimento" pronta per mergeScreeningFlags —
-  // key univoca per sonda/variante (mai solo taskMode: Cancellazione ha 3
-  // varianti che devono poter comparire tutte insieme, non sovrascriversi).
-  function suggestionFor(probeKey, extraCfg){
-    const p = SCREENING_PROBES[probeKey];
-    const suggestedCfg = Object.assign({}, p.suggestedCfgOverride || p.patch(), {trials: p.suggestedCfgOverride ? undefined : 24, adaptive: p.suggestedCfgOverride ? undefined : true}, extraCfg||{});
-    return { flagKey:p.variant, suggestTaskMode:p.suggestTaskMode, suggestLabel:p.suggestLabel, suggestedCfg };
-  }
-  // Regola di suggerimento per Attenzione: ordine di esigenza crescente,
-  // suggerisce il PIÙ SEMPLICE fra quelli falliti (non il più complesso) —
-  // stesso principio per cui, quando più di un gradino cede insieme, si
-  // consiglia il punto più semplice/sicuro da cui ripartire, non una via
-  // di mezzo inventata. ANT è solo screening (nessuna letteratura di
-  // training): se è lui il più semplice fra i falliti, il suggerimento
-  // scivola su TAPAT. Simon si aggiunge SOLO quando Stop-Signal+
-  // interferenza è l'unico a fallire (per costruzione, l'unico caso in cui
-  // può essere "il più semplice fra i falliti" è quando è anche l'unico).
-  const ATTENZIONE_ORDER = ['ant','tapat','gonogo','stopsignal','stopsignal_interferenza'];
-  function attenzioneSuggestRule(fail){
-    const failed = ATTENZIONE_ORDER.filter(k=>fail[k]);
-    if(!failed.length) return [];
-    const simplest = failed[0]==='ant' ? 'tapat' : failed[0];
-    const out = [suggestionFor(simplest)];
-    if(failed.length===1 && failed[0]==='stopsignal_interferenza' && fail.simon) out.push(suggestionFor('simon'));
-    return out;
-  }
-  // Regola di suggerimento per Memoria di lavoro: Mantenimento/Sequenza
-  // bersaglio/Categorizzazione condivisa formano un gruppo (misure di
-  // applicazione di regola/mantenimento, non di aggiornamento continuo) —
-  // un fallimento singolo nel gruppo localizza sulla struttura di
-  // Categorizzazione più vicina a quel costrutto; più di uno insieme non
-  // ha una struttura che combini propriamente le due difficoltà, si
-  // ripiega sulla base (Struttura 1). N-back e Running Span sono fuori dal
-  // gruppo — sono già esercizi ad allenamento adattivo di per sé, si
-  // autopropongono.
-  function memoriaSuggestRule(fail){
-    const group = ['mantenimento','sequenza','categorizzazione'].filter(k=>fail[k]);
-    const out = [];
-    if(group.length===1){
-      const struct = group[0]==='sequenza' ? 4 : 1; // mantenimento→1 (cautela, nessun collegamento di costrutto pulito), categorizzazione→1 (segnale diretto), sequenza→4 (stessa natura: riconoscimento continuo)
-      out.push(suggestionFor('categorizzazione', {categStructManual:struct}));
-    } else if(group.length>=2){
-      out.push(suggestionFor('categorizzazione', {categStructManual:1}));
-    }
-    if(fail.nback) out.push(suggestionFor('nback'));
-    if(fail.runningspan) out.push(suggestionFor('runningspan'));
-    return out;
-  }
-  // Esplorazione: le 3 modalità sono somministrate sempre tutte, e TUTTE
-  // quelle che falliscono vengono suggerite insieme — a differenza di
-  // Attenzione/Memoria non c'è qui una singola localizzazione da scegliere,
-  // sono 3 modalità dello stesso identico esercizio, non 3 costrutti
-  // diversi da confrontare fra loro.
-  function esplorazioneSuggestRule(fail){
-    const out = [];
-    if(fail.neglect_classico) out.push(suggestionFor('neglect_classico'));
-    if(fail.neglect_intruso) out.push(suggestionFor('neglect_intruso'));
-    if(fail.neglect_regola) out.push(suggestionFor('neglect_regola'));
-    return out;
-  }
-  function flessibilitaSuggestRule(fail){
-    return fail.switching ? [suggestionFor('switching')] : [];
-  }
-  // Un dominio = un elenco di sonde (sempre tutte somministrate, nell'ordine
-  // dato) + la regola che trasforma il pattern di fallimenti in
-  // suggerimenti. 'simon' non compare nell'elenco 'probes' di Attenzione:
-  // è amministrata solo condizionalmente (vedi buildScreeningQueue), non
-  // sempre.
-  const SCREENING_DOMAINS = {
-    attenzione: { label:'Attenzione sostenuta / inibizione', probes:['ant','tapat','gonogo','stopsignal','stopsignal_interferenza'], suggestRule:attenzioneSuggestRule },
-    memoria: { label:'Memoria di lavoro', probes:['mantenimento','sequenza','categorizzazione','nback','runningspan'], suggestRule:memoriaSuggestRule },
-    flessibilita: { label:'Flessibilità cognitiva', probes:['switching'], suggestRule:flessibilitaSuggestRule },
-    esplorazione: { label:'Esplorazione visuospaziale', probes:['neglect_classico','neglect_intruso','neglect_regola'], suggestRule:esplorazioneSuggestRule }
-  };
-  const SCREENING_DOMAIN_ORDER = ['memoria','attenzione','flessibilita','esplorazione']; // memoria per prima: Mantenimento è la prima sonda in assoluto di tutto lo screening, come richiesto
+  // Motore di screening (sonde, domini, regole di suggerimento): vedi js/core/screening.js (passo 3b).
   // Prova dimostrativa: 6 prove a difficoltà fissa e facile, con feedback
   // esplicativo dopo ogni risposta, per far capire la regola prima che le
   // prove "contino" davvero. Solo per i 6 esercizi con la regola meno

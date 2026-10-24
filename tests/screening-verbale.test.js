@@ -1,21 +1,28 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 const screeningStateStub = { probeResults: {} };
 let screeningMaterialMode = 'auto';
 
-const mod = loadPure(REPO_ROOT, [
-  { name: 'POOLS', start: '  const POOLS = {', end: 'POOLS.numeriVoce = POOLS.numeri;' },
-  { name: 'SCREENING_PROBES', start: '  const SCREENING_PROBES = {', end: "      suggestedCfgOverride:{taskMode:'goaltask', goaltaskScenario:'sei_compiti_classico', goaltaskLivello:1} }\n  };" },
+// SCREENING_PROBES e le costanti vivono in js/core/screening.js (passo 3b); gli helper
+// (recordProbeResult, ...) si estraggono ancora da index.html.
+let S, SCREENING_PROBES, recordProbeResult, computeFailMap, materialPatternFor, buildScreeningQueueEntry;
+function loadHelpers(mode) {
+  return loadPure(REPO_ROOT, [
   { name: 'helpers', start: '  function recordProbeResult(probeKey, form, acc, failed){', end: "    return [{domainKey, probeKey, form:'verbale'}, {domainKey, probeKey, form:'non_verbale'}];\n  }" }
-], ['SCREENING_PROBES', 'recordProbeResult', 'computeFailMap', 'materialPatternFor', 'buildScreeningQueueEntry'], {
-  defaultTargetSeq: () => [], primaryAccuracyOf: () => null, SCREENING_TRIALS: 16,
-  screeningState: screeningStateStub, screeningMaterialMode: 'auto'
-});
-
-const { SCREENING_PROBES, recordProbeResult, computeFailMap, materialPatternFor, buildScreeningQueueEntry } = mod;
+], ['recordProbeResult', 'computeFailMap', 'materialPatternFor', 'buildScreeningQueueEntry'], {
+    SCREENING_PROBES: S.SCREENING_PROBES, SCREENING_TRIALS: S.SCREENING_TRIALS,
+    screeningState: screeningStateStub, screeningMaterialMode: mode
+  });
+}
+async function setup() {
+  S = await importCore('screening.js');
+  SCREENING_PROBES = S.SCREENING_PROBES;
+  ({ recordProbeResult, computeFailMap, materialPatternFor, buildScreeningQueueEntry } = loadHelpers('auto'));
+}
 
 // screeningMaterialMode è passato per valore alla creazione del contesto
 // (non un binding vivo) — buildScreeningQueueEntry lo legge dentro il
@@ -27,19 +34,13 @@ const { SCREENING_PROBES, recordProbeResult, computeFailMap, materialPatternFor,
 // testa le 3 modalità su una sonda CON forma non verbale, ricreo il
 // modulo con ciascuna modalità.
 function loadWithMode(mode) {
-  return loadPure(REPO_ROOT, [
-    { name: 'POOLS', start: '  const POOLS = {', end: 'POOLS.numeriVoce = POOLS.numeri;' },
-    { name: 'SCREENING_PROBES', start: '  const SCREENING_PROBES = {', end: "      suggestedCfgOverride:{taskMode:'goaltask', goaltaskScenario:'sei_compiti_classico', goaltaskLivello:1} }\n  };" },
-    { name: 'helpers', start: '  function recordProbeResult(probeKey, form, acc, failed){', end: "    return [{domainKey, probeKey, form:'verbale'}, {domainKey, probeKey, form:'non_verbale'}];\n  }" }
-  ], ['buildScreeningQueueEntry'], {
-    defaultTargetSeq: () => [], primaryAccuracyOf: () => null, SCREENING_TRIALS: 16,
-    screeningState: screeningStateStub, screeningMaterialMode: mode
-  }).buildScreeningQueueEntry;
+  return loadHelpers(mode).buildScreeningQueueEntry;
 }
 
 function freshState() { screeningStateStub.probeResults = {}; }
 
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   t.group('SCREENING_PROBES — quali hanno davvero una forma non verbale, dichiarato esplicitamente', () => {
     const withNonVerbal = Object.keys(SCREENING_PROBES).filter(k => !!SCREENING_PROBES[k].nonVerbalPatch);
     t.eq(withNonVerbal.sort(), ['ant', 'categorizzazione', 'gonogo', 'mantenimento', 'nback', 'neglect_classico', 'neglect_intruso', 'runningspan', 'sequenza', 'stopsignal', 'stopsignal_interferenza', 'switching'].sort(),

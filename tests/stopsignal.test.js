@@ -1,6 +1,7 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { loadPoolsSync } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 // buildStopSignal(), come scritta nell'app reale, legge `cfg` come
@@ -10,13 +11,14 @@ const REPO_ROOT = path.join(__dirname, '..');
 // chiamata invece di passarlo come argomento — coerente con come la
 // funzione è davvero scritta, senza doverla riscrivere per il test.
 const cfgStub = {};
+// POOLS arriva da js/core/pools.js (passo 3b).
+const POOLS = loadPoolsSync();
 const mod = loadPure(REPO_ROOT, [
-  { name: 'POOLS', start: '  const POOLS = {', end: 'POOLS.numeriVoce = POOLS.numeri;' },
   { name: 'buildStopSignal', start: '  function buildStopSignal(){', end: "      seq.push(trial);\n    }\n    return seq;\n  }" },
   { name: 'SWITCH_RULESETS+STOPSIGNAL_RULES', start: '  const SWITCH_RULESETS = {', end: "suoni:  {labelA:'Grave', labelB:'Acuto', classify:v=> v.f < 380}\n  };" }
-], ['POOLS', 'STOPSIGNAL_RULES', 'buildStopSignal'], { cfg: cfgStub });
+], ['STOPSIGNAL_RULES', 'buildStopSignal'], { cfg: cfgStub, POOLS });
 
-const { POOLS, STOPSIGNAL_RULES, buildStopSignal } = mod;
+const { STOPSIGNAL_RULES, buildStopSignal } = mod;
 
 module.exports = function run(t) {
   t.group('STOPSIGNAL_RULES — una regola fissa per materiale, coerente con l\'app reale', () => {

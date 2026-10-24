@@ -1,18 +1,20 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { loadPoolsSync } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 const cfg = { taskMode: 'runningspan', stimType: 'lettere', adaptStartLevel: 1, trials: 10, adaptive: false };
 let session = { rsAdaptBlock: [] };
 
+// POOLS arriva da js/core/pools.js (passo 3b).
+const POOLS = loadPoolsSync();
 const mod = loadPure(REPO_ROOT, [
-  { name: 'POOLS', start: '  const POOLS = {', end: 'POOLS.numeriVoce = POOLS.numeri;' },
   { name: 'RUNNINGSPAN_LEVELS', start: '  const RUNNINGSPAN_LEVELS = {', end: '  };' },
   { name: 'genRunningSpanTrial+runningSpanItemsEqual', start: '  function genRunningSpanTrial(){', end: "    return a===b;\n  }" },
   { name: 'RUNNINGSPAN_ADAPT_BLOCK+maybeAdaptRunningSpan', start: '  const RUNNINGSPAN_ADAPT_BLOCK = 4;', end: "    session.rsAdaptBlock = [];\n  }" },
   { name: 'scoreRunningSpanTrial', start: '  function scoreRunningSpanTrial(trial, given){', end: "    return { posAcc: posCorrect/trial.n, contentAcc: contentCorrect/trial.n, n: trial.n, seqLen: trial.items.length };\n  }" }
-], ['RUNNINGSPAN_LEVELS', 'genRunningSpanTrial', 'runningSpanItemsEqual', 'scoreRunningSpanTrial', 'maybeAdaptRunningSpan', 'RUNNINGSPAN_ADAPT_BLOCK'], { cfg, session, mean: arr => arr.reduce((a,b)=>a+b,0)/arr.length });
+], ['RUNNINGSPAN_LEVELS', 'genRunningSpanTrial', 'runningSpanItemsEqual', 'scoreRunningSpanTrial', 'maybeAdaptRunningSpan', 'RUNNINGSPAN_ADAPT_BLOCK'], { POOLS, cfg, session, mean: arr => arr.reduce((a,b)=>a+b,0)/arr.length });
 
 const { RUNNINGSPAN_LEVELS, genRunningSpanTrial, runningSpanItemsEqual, scoreRunningSpanTrial, maybeAdaptRunningSpan, RUNNINGSPAN_ADAPT_BLOCK } = mod;
 

@@ -1,17 +1,19 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { loadPoolsSync } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 // cfg come variabile libera, stesso approccio degli altri test — mutata
 // prima di ogni chiamata invece che passata come argomento.
 const cfg = { taskMode: 'categorizzazione', categRegime: 'tipo_colore', categRegimeSessione: 'tipo_colore', switchRegime: 'tipo_colore', trials: 10, targetRate: 0.3, titrationMode: 'manuale' };
 
+// POOLS arriva da js/core/pools.js (passo 3b).
+const POOLS = loadPoolsSync();
 const mod = loadPure(REPO_ROOT, [
-  { name: 'POOLS', start: '  const POOLS = {', end: 'POOLS.numeriVoce = POOLS.numeri;' },
   { name: 'SWITCH_RULESETS+dualLabels+switchRulesetFor+buildSwitching', start: '  const SWITCH_RULESETS = {', end: "    return seq;\n  }" },
   { name: 'CATEG_LETTERE+NUMERI+regimi+genCategItem+outcomes', start: '  const CATEG_LETTERE', end: "    return categDim2IsA(item) ? 'z' : 'm';\n  }" }
-], ['switchRulesetFor', 'buildSwitching', 'genCategItem', 'categDim1IsA', 'categDim2IsA', 'categL2Outcome', 'categL3Outcome', 'categL5Outcome', 'pickCategRegime', 'CATEG_REGIMES', 'dualDim1IsA', 'dualDim2IsA', 'genDualDimItem', 'pickDualDimRegime', 'DUAL_DIM_ROTATION'], { cfg, POOLS: null });
+], ['switchRulesetFor', 'buildSwitching', 'genCategItem', 'categDim1IsA', 'categDim2IsA', 'categL2Outcome', 'categL3Outcome', 'categL5Outcome', 'pickCategRegime', 'CATEG_REGIMES', 'dualDim1IsA', 'dualDim2IsA', 'genDualDimItem', 'pickDualDimRegime', 'DUAL_DIM_ROTATION'], { cfg, POOLS });
 
 const { switchRulesetFor, buildSwitching, genCategItem, categDim1IsA, categDim2IsA, categL2Outcome, categL3Outcome, categL5Outcome, pickCategRegime, CATEG_REGIMES, dualDim1IsA, dualDim2IsA, genDualDimItem, pickDualDimRegime, DUAL_DIM_ROTATION } = mod;
 

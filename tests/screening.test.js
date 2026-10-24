@@ -1,17 +1,23 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
-const mod = loadPure(REPO_ROOT, [
-  { name: 'POOLS', start: '  const POOLS = {', end: 'POOLS.numeriVoce = POOLS.numeri;' },
-  { name: 'screening engine', start: '  const SCREENING_FLAG_THRESHOLD = 0.70;', end: "  const SCREENING_DOMAIN_ORDER = ['memoria','attenzione','flessibilita','esplorazione']; // memoria per prima: Mantenimento è la prima sonda in assoluto di tutto lo screening, come richiesto" },
-  { name: 'domainsQualifyingForCeiling', start: '  function domainsQualifyingForCeiling(fail){', end: "      SCREENING_DOMAINS[domainKey].probes.every(pk=>!fail[pk])\n    );\n  }" }
-], ['SCREENING_PROBES', 'SCREENING_DOMAINS', 'SCREENING_DOMAIN_ORDER', 'ATTENZIONE_ORDER', 'suggestionFor', 'probeFailed', 'SCREENING_FLAG_THRESHOLD', 'CEILING_PROBES', 'domainsQualifyingForCeiling'], { defaultTargetSeq: () => [], primaryAccuracyOf: r => (r && r.family === 'choice' && r.choice && r.choice.total) ? r.choice.correct / r.choice.total : null, SCREENING_TRIALS: 16 });
+// Il motore di screening (SCREENING_PROBES, domini, regole) vive in js/core/screening.js
+// (passo 3b) e importa POOLS, defaultTargetSeq e primaryAccuracyOf dai moduli veri.
+// domainsQualifyingForCeiling si estrae ancora da index.html.
+let SCREENING_PROBES, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER, ATTENZIONE_ORDER, suggestionFor, probeFailed, SCREENING_FLAG_THRESHOLD, CEILING_PROBES, domainsQualifyingForCeiling;
+async function setup() {
+  const S = await importCore('screening.js');
+  ({ SCREENING_PROBES, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER, ATTENZIONE_ORDER, suggestionFor, probeFailed, SCREENING_FLAG_THRESHOLD, CEILING_PROBES } = S);
+  domainsQualifyingForCeiling = loadPure(REPO_ROOT, [
+    { name: 'domainsQualifyingForCeiling', start: '  function domainsQualifyingForCeiling(fail){', end: "      SCREENING_DOMAINS[domainKey].probes.every(pk=>!fail[pk])\n    );\n  }" }
+  ], ['domainsQualifyingForCeiling'], { SCREENING_DOMAINS: S.SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER: S.SCREENING_DOMAIN_ORDER }).domainsQualifyingForCeiling;
+}
 
-const { SCREENING_PROBES, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER, ATTENZIONE_ORDER, suggestionFor, probeFailed, SCREENING_FLAG_THRESHOLD, CEILING_PROBES, domainsQualifyingForCeiling } = mod;
-
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   t.group('SCREENING_DOMAIN_ORDER — Memoria per prima (Mantenimento è la prima sonda in assoluto, come richiesto)', () => {
     t.eq(SCREENING_DOMAIN_ORDER[0], 'memoria', 'Memoria è il primo dominio somministrato');
     t.eq(SCREENING_DOMAINS.memoria.probes[0], 'mantenimento', 'Mantenimento è la prima sonda del dominio Memoria — quindi la prima sonda di tutto lo screening');

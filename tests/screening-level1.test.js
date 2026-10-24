@@ -1,16 +1,17 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
-const mod = loadPure(REPO_ROOT, [
-  { name: 'POOLS', start: '  const POOLS = {', end: 'POOLS.numeriVoce = POOLS.numeri;' },
-  { name: 'screening engine + regole', start: '  const SCREENING_FLAG_THRESHOLD = 0.70;', end: "  function flessibilitaSuggestRule(fail){\n    return fail.switching ? [suggestionFor('switching')] : [];\n  }" }
-], ['attenzioneSuggestRule', 'memoriaSuggestRule', 'esplorazioneSuggestRule', 'flessibilitaSuggestRule', 'ATTENZIONE_ORDER', 'suggestionFor'], { defaultTargetSeq: () => [], primaryAccuracyOf: () => null, SCREENING_TRIALS: 16 });
+// Regole di suggerimento: js/core/screening.js (passo 3b).
+let attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule;
+async function setup() {
+  ({ attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule } = await importCore('screening.js'));
+}
 
-const { attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule } = mod;
-
-module.exports = function run(t) {
+module.exports = async function run(t) {
+  await setup();
   // ---------------- Attenzione ----------------
   t.group('attenzioneSuggestRule — nulla fallisce: nessun suggerimento', () => {
     t.eq(attenzioneSuggestRule({}), [], 'oggetto vuoto: nessun fallimento, nessun suggerimento');

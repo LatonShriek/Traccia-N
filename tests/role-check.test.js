@@ -1,15 +1,16 @@
 'use strict';
-// Controllo del ruolo all'accesso (checkRole): estrae la funzione VERA da
-// index.html e la prova con un Supabase finto in memoria. Il caso che
+// Controllo del ruolo all'accesso: checkRole (estratta VERA da index.html) con la
+// query vera di js/services/cloud.js (fetchRole, passo 4b), provate con un Supabase finto in memoria. Il caso che
 // interessa di più è l'account "senza ruolo" (autenticato ma senza riga né in
 // 'pazienti' né in 'operatori'): non deve entrare come operatore.
 const path = require('path');
 const vm = require('vm');
 const { readAppScript, extractBlocks } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 const code = extractBlocks(readAppScript(REPO_ROOT), [
-  { name: 'checkRole', start: '  async function checkRole(){', end: "nessun blocco dell'app\n    }\n  }" }
+  { name: 'checkRole', start: '  async function checkRole(){', end: "operatorNoRole = r.operatorNoRole;\n  }" }
 ]);
 
 // Supabase finto: sb.from(tabella).select(...).eq('id', ...).maybeSingle()
@@ -33,8 +34,9 @@ function fakeSb(cfg) {
 
 async function runCheckRole(cfg, opts) {
   opts = opts || {};
+  const { fetchRole } = await importCore('../services/cloud.js');
   const sandbox = {
-    console,
+    console, fetchRole,
     sb: opts.noSb ? null : fakeSb(cfg),
     cloudUser: opts.noUser ? null : { id: 'u1', email: 'prova@example.com' },
     patientProfile: 'DA-AZZERARE', isSuperOperatore: 'DA-AZZERARE',

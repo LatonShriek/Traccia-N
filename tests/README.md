@@ -66,7 +66,7 @@ Il meccanismo di estrazione è in `tests/lib/extract-source.js`.
   ciascuna).
 - **`dualtask-titration.test.js`** — l'estensione del modello triplice al
   Doppio compito: un solo selettore condiviso per due canali indipendenti
-  (non uno per canale — vedi il paragrafo dedicato nel README principale),
+  (non uno per canale — vedi il paragrafo dedicato in docs/difficolta-adattiva.md),
   verifica che ciascun canale risolva alla propria tabella senza
   interferire con l'altro, e che l'ISI condiviso derivi correttamente
   dalla media dei due livelli.

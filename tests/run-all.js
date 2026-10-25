@@ -19,6 +19,7 @@ const FILES = [
   'registry.test.js',
   'demo-preset.test.js',
   'livelli-doc.test.js',
+  'docs-links.test.js',
   'record.test.js',
   'export.test.js',
   'dualtask-titration.test.js',

@@ -53,6 +53,7 @@ import { memoriaEffectiveMateriale, memoriaNForme, memoriaFormeUsatePerPaziente 
 import { STIM_LABELS, isSpokenStim, isAudioOnlyStim, MISTA_LABELS_SHORT, CHUNKING_METODI_LABELS, EXERCISES, EXERCISE_GROUPS, defaultCfg, presetCfgOf } from './js/exercises/registry.js';
 import { DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoFeedbackText as demoFeedbackTextOf } from './js/exercises/demo.js';
 import { buildSessionRecord } from './js/exercises/record.js';
+import { buildBackup, validateBackup, restoreBackup } from './js/services/backup.js';
 import { buildCSV, buildRCIReportHtml } from './js/exercises/export.js';
 import { genNbackTrial as genNbackTrialOf } from './js/exercises/nback.js';
 import { genGoNoGoTrial as genGoNoGoTrialOf } from './js/exercises/gonogo.js';
@@ -998,6 +999,48 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const a = document.createElement('a'); a.href = url; a.download = 'traccian_sessioni.csv';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  // Copia di sicurezza dei dati locali (passo 8): il file contiene dati dei pazienti in chiaro.
+  function exportBackupJSON(){
+    const b = buildBackup(localStorage);
+    const c = b.conteggi;
+    const blob = new Blob([JSON.stringify(b)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'traccian_copia_'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    alert('Copia salvata: '+c.pazienti+' pazienti, '+c.sedute+' sedute, '+c.preset+' preset.\n\nIl file contiene dati dei pazienti: conservalo come una cartella clinica (non per email, non su servizi non protetti).');
+  }
+  function importBackupJSON(){
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json,.json';
+    inp.onchange = ()=>{
+      const f = inp.files && inp.files[0]; if(!f) return;
+      const rd = new FileReader();
+      rd.onload = ()=>{
+        let obj = null;
+        try{ obj = JSON.parse(String(rd.result)); }catch(e){ alert('Il file non è leggibile come copia di TracciaN.'); return; }
+        const v = validateBackup(obj);
+        if(!v.ok){ alert('Copia non valida: '+v.errori[0]); return; }
+        const c = v.conteggi;
+        const desc = c.pazienti+' pazienti, '+c.sedute+' sedute, '+c.preset+' preset (creata '+String(obj.creato||'').slice(0,10)+')';
+        const unisci = confirm('Copia trovata: '+desc+'.\n\nOK = AGGIUNGI solo ciò che manca su questo dispositivo (non tocca i dati esistenti).\nAnnulla = scegli un\'altra opzione.');
+        let modo = unisci ? 'unisci' : null;
+        if(!modo){
+          if(!confirm('SOSTITUIRE tutti i dati locali di questo dispositivo con quelli della copia?\n\nI pazienti, le sedute e i preset attuali verranno cancellati. Se non sei sicuro, premi Annulla.')) return;
+          modo = 'sostituisci';
+        }
+        try{
+          const r = restoreBackup(obj, localStorage, modo);
+          alert('Ripristino completato: '+r.aggiunti+' voci scritte'+(modo==='unisci' ? ', '+r.giaPresenti+' già presenti (non toccate)' : ', '+r.rimossi+' voci precedenti rimosse')+'.\n\nL\'app si ricarica.');
+          location.reload();
+        }catch(e){
+          alert('Ripristino non riuscito (memoria piena?): '+((e&&e.message)||e)+'\n\nI dati di prima sono rimasti com\'erano.');
+        }
+      };
+      rd.readAsText(f);
+    };
+    inp.click();
   }
 
   /* ---------- cloud sync (Supabase, opzionale) ---------- */
@@ -6327,6 +6370,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         if(items.length) exportCSV(items);
       }},[filterLabel ? 'Esporta CSV — solo '+filterLabel : 'Esporta CSV']);
       rowbtns.appendChild(exportBtn);
+      rowbtns.appendChild(el('button',{class:'ghost', onclick:exportBackupJSON},['Salva copia dei dati (JSON)']));
+      rowbtns.appendChild(el('button',{class:'ghost', onclick:importBackupJSON},['Ripristina da copia…']));
     }
     card.appendChild(rowbtns);
     s.appendChild(card); root.appendChild(s);

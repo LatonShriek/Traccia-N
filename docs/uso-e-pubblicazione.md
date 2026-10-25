@@ -81,3 +81,14 @@ sicuro più vicino (Setup per l'operatore, home per il paziente).
   Home) si perde anche lo storico locale non sincronizzato: esporta
   periodicamente il CSV se vuoi conservarlo altrove.
 - Usa un codice paziente anonimizzato, non il nominativo, nel campo dedicato.
+
+## Copia di sicurezza dei dati locali (JSON)
+
+Nello **Storico sessioni** (solo per l'operatore) ci sono due pulsanti accanto a «Esporta CSV»:
+
+- **Salva copia dei dati (JSON)** scarica `traccian_copia_AAAA-MM-GG.json` con i profili paziente locali, le sedute, i preset di allenamento e l'avanzamento dello screening.
+- **Ripristina da copia…** legge un file salvato così. Prima mostra cosa contiene e chiede: *Aggiungi* (scrive solo ciò che manca, non tocca niente di esistente) oppure *Sostituisci* (cancella i dati locali attuali e mette quelli della copia). Se la memoria si riempie a metà, i dati di prima restano com'erano.
+
+Cosa **non** entra nella copia: l'indirizzo e la chiave del cloud (non devono girare in un file), i dati che stanno solo sul cloud, le impostazioni di altre app.
+
+Il file contiene dati dei pazienti **in chiaro**: va conservato come una cartella clinica (non per email, non su servizi non protetti). Con il piano gratuito di Supabase non ci sono backup automatici: la copia JSON (con il CSV settimanale) è l'unica protezione contro la perdita dei dati. Codice: `js/services/backup.js`; prove: `tests/backup.test.js`.

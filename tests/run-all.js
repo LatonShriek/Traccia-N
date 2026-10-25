@@ -21,6 +21,7 @@ const FILES = [
   'livelli-doc.test.js',
   'docs-links.test.js',
   'backup.test.js',
+  'session-groups.test.js',
   'record.test.js',
   'export.test.js',
   'dualtask-titration.test.js',

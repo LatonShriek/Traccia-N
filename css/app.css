@@ -195,3 +195,26 @@
   @media (hover:hover){ .landing-card:hover{border-color:var(--accent); background:var(--paper-dim);} }
   @media (min-width:560px){ .landing-choices{flex-direction:row;} }
   .navlinks a, .navlinks .link{color:var(--ink-soft); font-size:12.5px; text-decoration:underline; cursor:pointer; background:none; border:none; font-family:'Inter';}
+
+  /* Storico a sedute espandibili (js/ui/history-view.js) */
+  .sess{border:1px solid var(--line); border-radius:12px; margin-bottom:10px; background:var(--white);}
+  .sess-sum{list-style:none; cursor:pointer; padding:12px 14px;}
+  .sess-sum::-webkit-details-marker{display:none;}
+  .sess-sum::before{content:'▸'; float:right; color:var(--ink-soft); transition:transform .15s;}
+  .sess[open] > .sess-sum::before{transform:rotate(90deg);}
+  .sess-l1{display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:14px; font-weight:600;}
+  .sess-time{font-family:'JetBrains Mono',monospace; font-weight:400; font-size:12.5px; color:var(--ink-soft);}
+  .sess-l2{font-size:12.5px; color:var(--ink-soft); margin-top:3px;}
+  .chip-o{font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; border:1px solid var(--line); background:var(--paper);}
+  .chip-presenza{background:var(--signal-soft); border-color:var(--signal);}
+  .chip-remoto{background:var(--paper-dim);}
+  .sess-body{padding:0 10px 10px;}
+  .ex{border-top:1px solid var(--line);}
+  .ex-sum{list-style:none; cursor:pointer; display:flex; gap:10px; align-items:baseline; padding:9px 4px; font-size:13.5px; flex-wrap:wrap;}
+  .ex-sum::-webkit-details-marker{display:none;}
+  .ex-t{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-soft); min-width:42px;}
+  .ex-n{flex:1 1 180px; min-width:0;}
+  .ex-p{font-family:'JetBrains Mono',monospace; font-size:12.5px;}
+  .ex-det{padding:2px 4px 10px 56px;}
+  .ex-row{display:flex; justify-content:space-between; gap:12px; font-size:12.5px; padding:3px 0; border-bottom:1px dashed var(--line);}
+  .ex-k{color:var(--ink-soft);} .ex-v{font-family:'JetBrains Mono',monospace; text-align:right;}

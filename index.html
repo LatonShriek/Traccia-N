@@ -53,6 +53,7 @@ import { memoriaEffectiveMateriale, memoriaNForme, memoriaFormeUsatePerPaziente 
 import { STIM_LABELS, isSpokenStim, isAudioOnlyStim, MISTA_LABELS_SHORT, CHUNKING_METODI_LABELS, EXERCISES, EXERCISE_GROUPS, defaultCfg, presetCfgOf } from './js/exercises/registry.js';
 import { DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoFeedbackText as demoFeedbackTextOf } from './js/exercises/demo.js';
 import { buildSessionRecord } from './js/exercises/record.js';
+import { renderSessionGroups } from './js/ui/history-view.js';
 import { buildBackup, validateBackup, restoreBackup } from './js/services/backup.js';
 import { buildCSV, buildRCIReportHtml } from './js/exercises/export.js';
 import { genNbackTrial as genNbackTrialOf } from './js/exercises/nback.js';
@@ -625,7 +626,33 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // mano (come si faceva prima solo per il controllo motorio).
   const HUB_VIEWS = new Set(['setup','patientHome','history','patients','patientProgram','operatorHome','localPatientPicker','accessLog','accessLogKind','operatorPatients','archive','cloud']);
   let lastHubView = null;
-  function goBack(){ view = lastHubView || homeView(); render(); }
+  // Unica logica "indietro" per tutta l'app: navStack tiene le schermate hub
+  // visitate (con paziente/filtro). Da una schermata hub sale di un livello
+  // e ripristina il contesto di quella precedente; da una sotto-schermata
+  // (istruzioni, sessione, screening, controllo motorio) torna all'ultima
+  // hub. `fallback` serve solo se non c'è nulla da cui tornare.
+  const navStack = [];
+  function trackHub(){
+    const i = navStack.map(x=>x.view).lastIndexOf(view);
+    if(i>=0) navStack.length = i+1;
+    navStack.push(navSnapshot());
+  }
+  function goBack(fallback){
+    if(HUB_VIEWS.has(view)){
+      navStack.pop();
+      const prev = navStack[navStack.length-1];
+      if(prev){ restoreNavSnapshot(prev); render(); return; }
+      view = fallback || homeView(); render(); return;
+    }
+    view = lastHubView || fallback || homeView(); render();
+  }
+  // Barra in alto, uguale in ogni schermata: titolo + "← Indietro" (+ eventuali azioni).
+  function backBar(title, actions, fallback, onBack){
+    return el('div',{class:'topbar'},[
+      el('div',{class:'info'},[title]),
+      el('div',{class:'topbar-actions'},[el('button',{onclick:()=>{ if(onBack) onBack(); goBack(fallback); }},['← Indietro'])].concat(actions||[]))
+    ]);
+  }
   let screeningMaterialMode = 'auto'; // 'auto'|'verbale'|'non_verbale' — scelto prima di avviare lo screening (vedi il selettore sulla scheda "Fai lo screening"); 'auto' somministra entrambe le forme per le sonde che le hanno, isolando quale cade
   // Prova dimostrativa: non-null solo mentre una demo è in corso o appena
   // conclusa. cfgBackup è l'istantanea di cfg presa PRIMA di applicare i
@@ -711,7 +738,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function render(){
     updatePageTitle();
-    if(HUB_VIEWS.has(view)) lastHubView = view;
+    if(HUB_VIEWS.has(view)){ lastHubView = view; trackHub(); }
     if(view==='task'){
       const isNeglect = cfg.taskMode==='neglect';
       const isGoalTask = cfg.taskMode==='goaltask';
@@ -1561,10 +1588,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     // operatorHome) — l'Indietro punta a operatorHome quando esiste un
     // cloudUser, altrimenti alla schermata di accesso cloud (dove c'è il
     // link "usa in locale" che ha portato qui).
-    root.appendChild(el('div',{class:'topbar'},[
-      el('div',{class:'info'},['Esercizi liberi']),
-      el('button',{onclick:()=>{ view = cloudUser ? 'operatorHome' : 'cloud'; render(); }},['← Indietro'])
-    ]));
+    root.appendChild(backBar('Esercizi liberi', null, cloudUser ? 'operatorHome' : 'cloud'));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     if(buildingProgramFor){
@@ -2391,6 +2415,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   /* ---------- COUNTDOWN ---------- */
   /* ---------- ISTRUZIONI ---------- */
   function ScreenInstructions(root){
+    root.appendChild(backBar('Istruzioni — '+EXERCISES[cfg.taskMode].label, null, null, ()=>{ try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){} if(demoState){ Object.assign(cfg, demoState.cfgBackup); demoState=null; } }));
     // Regime di Categorizzazione (vedi CATEG_REGIMES/pickCategRegime):
     // scelto QUI, non in startSession() — questa schermata è sempre
     // l'ultima prima del conto alla rovescia, mentre startSession() gira
@@ -2399,10 +2424,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     // quella che poi compare davvero nella seduta.
     if(cfg.taskMode==='categorizzazione') cfg.categRegimeSessione = pickCategRegime(cfg);
     if(cfg.taskMode==='switching' && cfg.switchMaterial==='bivalente') cfg.switchRegimeSessione = pickDualDimRegime(cfg.switchRegime);
-    root.appendChild(el('div',{class:'brand'},[
-      el('div',{class:'mark'},['Traccia',el('span',{},['N'])]),
-      el('div',{class:'sub'},[EXERCISES[cfg.taskMode].label])
-    ]));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',{},['Prima di iniziare']));
@@ -2461,9 +2482,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     }
 
     card.appendChild(el('button',{class:'primary', style:'margin-top:18px;', onclick:()=>{ view='countdown'; render(); }},['Ho capito, inizia']));
-    const nav = el('div',{class:'navlinks'});
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){} if(demoState){ Object.assign(cfg, demoState.cfgBackup); demoState=null; } view=homeView(); render(); }},['← Torna al setup']));
-    card.appendChild(nav);
 
     s.appendChild(card); root.appendChild(s);
   }
@@ -4269,7 +4287,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     s.appendChild(card); root.appendChild(s);
   }
   function ScreenMotorIntro(root){
-    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    root.appendChild(backBar('Controllo motorio di base', null, null, ()=>{ motorCheck=null; }));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',{},['Controllo motorio di base']));
@@ -4280,9 +4298,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       row.appendChild(el('button',{class:'ghost', onclick:()=> startMotorCheck(key)},[label]));
     });
     card.appendChild(row);
-    const nav = el('div',{class:'navlinks', style:'margin-top:18px;'});
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ goBack(); }},['← Torna indietro']));
-    card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
   }
   function ScreenMotorTask(root){
@@ -4309,7 +4324,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     root.appendChild(s);
   }
   function ScreenMotorResults(root){
-    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    root.appendChild(backBar('Controllo motorio', null, null, ()=>{ motorCheck=null; }));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',{},['Controllo motorio — risultato']));
@@ -4336,9 +4351,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       const verso = cmp.deltaDist > 0.15 ? 'meno preciso' : cmp.deltaDist < -0.15 ? 'più preciso' : 'nella media di quanto già osservato';
       slot.appendChild(el('p',{class:'hint'},['Rispetto all\'ultimo controllo sullo stesso dispositivo ('+new Date(cmp.prior.ts).toLocaleDateString('it-IT')+'): '+verso+' ('+(pct>0?'+':'')+pct+'%). Soglia del 15% scelta per comodità descrittiva, non un valore validato — resta un confronto fra due sole misurazioni, da leggere con cautela.']));
     });
-    const nav = el('div',{class:'navlinks', style:'margin-top:18px;'});
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ motorCheck=null; goBack(); }},['← Torna indietro']));
-    card.appendChild(nav);
     s.appendChild(card); root.appendChild(s);
   }
   function ScreenDemoDone(root){
@@ -5234,10 +5246,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   /* ---------- SELEZIONE PAZIENTE IN PRESENZA ---------- */
   /* ---------- ARCHIVIO (profili in presenza e remoti archiviati) ---------- */
   function ScreenArchive(root){
-    root.appendChild(el('div',{class:'topbar'},[
-      el('div',{class:'info'},['Archivio']),
-      el('button',{onclick:()=>{ view='operatorHome'; render(); }},['← Indietro'])
-    ]));
+    root.appendChild(backBar('Archivio', null, 'operatorHome'));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',{},['Archivio']));
@@ -5309,13 +5318,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
 
   function ScreenLocalPatientPicker(root){
-    root.appendChild(el('div',{class:'topbar'},[
-      el('div',{class:'info'},['Paziente in presenza']),
-      el('div',{class:'topbar-actions'},[
-        el('button',{onclick:()=>{ view='operatorHome'; render(); }},['← Indietro']),
-        el('button',{onclick:()=>{ view='archive'; render(); }},['Archivio'])
-      ])
-    ]));
+    root.appendChild(backBar('Paziente in presenza', [el('button',{onclick:()=>{ view='archive'; render(); }},['Archivio'])], 'operatorHome'));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',{},['Paziente in presenza']));
@@ -5423,7 +5426,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
 
   function ScreenCloud(root){
-    root.appendChild(el('div',{class:'brand'},[
+    if(cloudUser) root.appendChild(backBar('Account', null, 'operatorHome'));
+    else root.appendChild(el('div',{class:'brand'},[
       el('div',{class:'mark'},['Traccia',el('span',{},['N'])]),
       el('div',{class:'sub'},['CT MRI'])
     ]));
@@ -5502,7 +5506,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
 
     const nav = el('div',{class:'navlinks'});
     if(cloudUser){
-      nav.appendChild(el('button',{class:'link', onclick:()=>{ view=homeView(); render(); }},['← Torna al setup']));
+      // "Indietro" sta nella barra in alto
     } else if(!sb){
       // Nessuna sincronizzazione cloud configurata: non esiste alcun sistema
       // di login da far rispettare, l'app può funzionare solo in locale su
@@ -5519,7 +5523,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
 
   /* ---------- GESTIONE PAZIENTI (solo operatore) ---------- */
   function ScreenAccessCode(root){
-    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    root.appendChild(backBar('Codice di accesso', null, 'patients'));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     const info = pendingAccessCode || {codice:'', patientLabel:''};
@@ -5550,13 +5554,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
 
   function ScreenPatients(root){
-    root.appendChild(el('div',{class:'topbar'},[
-      el('div',{class:'info'},['I tuoi pazienti']),
-      el('div',{class:'topbar-actions'},[
-        el('button',{onclick:()=>{ view='operatorHome'; render(); }},['← Indietro']),
-        el('button',{onclick:()=>{ view='archive'; render(); }},['Archivio'])
-      ])
-    ]));
+    root.appendChild(backBar('I tuoi pazienti', [el('button',{onclick:()=>{ view='archive'; render(); }},['Archivio'])], 'operatorHome'));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     card.appendChild(el('h2',{},['I tuoi pazienti']));
@@ -5670,7 +5668,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
 
   /* ---------- PROGRAMMA PAZIENTE (assegna più esercizi) ---------- */
   function ScreenPatientProgram(root){
-    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    root.appendChild(backBar('Programma', null, 'patients'));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     if(!editingPatient){
@@ -5681,8 +5679,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const isLocal = editingPatientKind==='local';
     const displayName = isLocal ? editingPatient.nome : editingPatient.codice_paziente;
     const risultati = isLocal ? editingPatient.screeningRisultati : editingPatient.screening_risultati;
-    const backTop = el('button',{class:'link', style:'margin-bottom:10px; padding:0;', onclick:()=>{ editingPatient=null; view= isLocal ? 'localPatientPicker' : 'patients'; render(); }},[isLocal ? '← Torna ai pazienti in presenza' : '← Torna ai pazienti']);
-    card.appendChild(backTop);
     card.appendChild(el('h2',{},['Programma di '+displayName]));
     if(!isLocal && isSuperOperatore){
       card.appendChild(el('div',{style:'border:1px solid var(--alert); border-radius:10px; padding:10px 12px; margin-bottom:14px;'},[
@@ -6024,9 +6020,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     }},['+ Aggiungi obiettivo']));
 
     if(isLocal){
-      const nav = el('div',{class:'navlinks'});
-      nav.appendChild(el('button',{class:'link', onclick:()=>{ editingPatient=null; view='localPatientPicker'; render(); }},['← Torna ai pazienti in presenza']));
-      card.appendChild(nav);
       s.appendChild(card); root.appendChild(s); return;
     }
 
@@ -6081,13 +6074,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       printRCIReport(mine, editingPatient.codice_paziente);
     }},['Genera report RCI (stampa/PDF)']));
 
-    const nav = el('div',{class:'navlinks'});
-    // Non "Annulla": ogni sezione di questa schermata (programma, modalità
-    // di accesso, obiettivi...) salva già da sola a ogni tocco, non c'è
-    // nulla da scartare — vedi anche il link identico in cima alla
-    // schermata, per non dover scorrere fino in fondo per tornare indietro.
-    nav.appendChild(el('button',{class:'link', onclick:()=>{ editingPatient=null; view='patients'; render(); }},['← Torna ai pazienti']));
-    card.appendChild(nav);
+    // Nessun "Annulla" né link in fondo: ogni sezione salva da sola a ogni tocco, e "← Indietro" sta nella barra in alto.
     s.appendChild(card); root.appendChild(s);
   }
 
@@ -6325,7 +6312,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
 
 
   function ScreenHistory(root){
-    root.appendChild(el('div',{class:'brand'},[el('div',{class:'mark'},['Traccia',el('span',{},['N'])])]));
+    root.appendChild(backBar('Storico sessioni', null, 'operatorHome'));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     const filterId = historyFilterPatientId;
@@ -6362,7 +6349,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const listWrap = el('div',{},[el('p',{class:'empty'},['Caricamento…'])]);
     card.appendChild(listWrap);
     const rowbtns = el('div',{class:'rowbtns'});
-    rowbtns.appendChild(el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId=null; view=homeView(); render(); }},['← Nuova sessione']));
+    rowbtns.appendChild(el('button',{class:'ghost', onclick:()=>{ historyFilterPatientId=null; view=homeView(); render(); }},['Nuova sessione']));
     if(!patientProfile){
       const exportBtn = el('button',{class:'ghost', onclick:async ()=>{
         const allItems = await loadHistory();
@@ -6433,48 +6420,20 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       }
       listWrap.innerHTML='';
       if(!items.length){ listWrap.appendChild(el('p',{class:'empty'},['Nessuna sessione salvata.'])); return; }
-      items.forEach(r=>{
-        const family = r.family || 'signal';
-        const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
-        const detail = (r.finalLevel!=null ? exLabel+' livello '+r.finalLevel : (r.taskMode==='nback' ? exLabel+' livello '+r.nLevel : exLabel));
-        const scoreLabel = family==='choice'
-          ? fmtPct(r.choice.accuracy)+' corr.'
-          : family==='dual'
-            ? fmtPct(r.metrics.acc)+' vis · '+fmtPct(r.metricsAud.acc)+' ud.'
-            : family==='spatial'
-              ? (r.neglect.modalitaConteggio ? fmtPct(r.neglect.accuratezzaConteggio)+' conteggi esatti' : fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des')
-              : family==='goaltask'
-                ? r.goaltask.percentualeCompletamento+'% completato'+(r.goaltask.violazioniCount?' · '+r.goaltask.violazioniCount+' viol.':'')
-                : family==='memoria'
-                  ? r.memoria.recuperati+'/'+r.memoria.totale+' ('+r.memoria.percentuale+'%)'
-                  : fmtPct(r.metrics.acc)+(r.metrics.dprime!=null? ' · d′ '+r.metrics.dprime.toFixed(2):'');
-        // Se la vista è filtrata su un paziente remoto che in passato è
-        // stato un profilo in presenza migrato (vedi
-        // migrateLocalPatientSessions), le sessioni pre-migrazione portano
-        // ancora localPatientId: distinguerle rende leggibile lo storico
-        // combinato, invece di farle sembrare tutte fatte da remoto.
-        const origineTag = (filterKind==='remote' && filterId) ? (r.localPatientId ? ' · in presenza' : ' · da remoto') : '';
-        const forPatientView = !!patientProfile;
-        const rowLine1 = forPatientView
-          ? detail
-          : (isTapatLike(r) ? (r.tapatModalita==='uditivo' ? 'Uditivo · ' : '')
-            : (EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && r.taskMode!=='ant') ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ':'')+detail+' · '+r.trials+' prove'+(r.patientCode?' · '+r.patientCode:'')+origineTag;
-        const rowScore = forPatientView
-          ? (family==='choice' ? fmtPct(r.choice.accuracy)+' corr.'
-            : family==='dual' ? fmtPct(r.metrics.acc)+' vis · '+fmtPct(r.metricsAud.acc)+' ud.'
-            : family==='spatial' ? (r.neglect.modalitaConteggio ? fmtPct(r.neglect.accuratezzaConteggio) : fmtPct(r.neglect.pctLeft)+' sin · '+fmtPct(r.neglect.pctRight)+' des')
-            : family==='goaltask' ? r.goaltask.percentualeCompletamento+'% completato'
-            : family==='memoria' ? r.memoria.recuperati+'/'+r.memoria.totale
-            : fmtPct(r.metrics.acc)) // niente d′ nella vista del paziente: non aggiunge nulla di leggibile senza spiegazione
-          : scoreLabel;
-        const row = el('div',{class:'histrow'},[
-          el('div',{},[
-            el('div',{},[rowLine1]),
-            el('div',{class:'l'},[r.dateLabel])
-          ]),
-          el('div',{},[rowScore])
-        ]);
-        listWrap.appendChild(row);
+      // Storico a sedute espandibili: il raggruppamento e le righe vivono in js/ui/history-view.js (passo 9).
+      const forPatientView = !!patientProfile;
+      renderSessionGroups(listWrap, items, {
+        el, forPatient: forPatientView,
+        patientLabelOf: r=> r.localPatientId ? ((listLocalPatients().find(p=>p.id===r.localPatientId)||{}).nome || null)
+                          : r.pazienteId ? (((cachedRemotePatients||[]).find(p=>p.id===r.pazienteId)||{}).codice_paziente || null)
+                          : (r.patientCode || null),
+        exerciseLabelOf: r=>{
+          const exLabel = EXERCISES[r.taskMode] ? EXERCISES[r.taskMode].label : (r.taskMode==='sequenza'?'sequenza':'n-back');
+          const detail = (r.finalLevel!=null ? exLabel+' livello '+r.finalLevel : (r.taskMode==='nback' ? exLabel+' livello '+r.nLevel : exLabel));
+          if(forPatientView) return detail;
+          return (isTapatLike(r) ? (r.tapatModalita==='uditivo' ? 'Uditivo · ' : '')
+            : (EXERCISES[r.taskMode] && EXERCISES[r.taskMode].usesStimType && r.taskMode!=='ant') ? (r.taskMode==='sequenza' && r.sequenzaMista ? 'Mista' : STIM_LABELS[r.stimType])+' · ':'')+detail;
+        }
       });
     });
   }
@@ -6555,10 +6514,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // stessa schermata — quelli vivono ora in ScreenAccessLogKind, aperta
   // scegliendo uno dei due pulsanti qui sotto.
   function ScreenAccessLog(root){
-    root.appendChild(el('div',{class:'topbar'},[
-      el('div',{class:'info'},['Registro accessi']),
-      el('button',{onclick:()=>{ view='operatorHome'; render(); }},['← Indietro'])
-    ]));
+    root.appendChild(backBar('Registro accessi', null, 'operatorHome'));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     if(!isSuperOperatore){
@@ -6606,10 +6562,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function ScreenAccessLogKind(root){
     const kindLabel = accessLogKind==='operatore' ? 'Registro operatori' : 'Registro pazienti';
-    root.appendChild(el('div',{class:'topbar'},[
-      el('div',{class:'info'},[kindLabel]),
-      el('button',{onclick:()=>{ view='accessLog'; render(); }},['← Indietro'])
-    ]));
+    root.appendChild(backBar(kindLabel, null, 'accessLog'));
     const s = el('div',{class:'screen'});
     if(isSuperOperatore && accessLogKind==='operatore'){
       const mgmtCard = el('div',{class:'card'});
@@ -6804,10 +6757,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // ormai anche l'attività di accesso, vedi ScreenHistory) — non
   // duplica quella vista, ci porta.
   function ScreenOperatorPatients(root){
-    root.appendChild(el('div',{class:'topbar'},[
-      el('div',{class:'info'},['Pazienti del collega']),
-      el('button',{onclick:()=>{ view='accessLogKind'; render(); }},['← Indietro'])
-    ]));
+    root.appendChild(backBar('Pazienti del collega', null, 'accessLogKind'));
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
     if(!isSuperOperatore || !accessLogOperatorFilter){

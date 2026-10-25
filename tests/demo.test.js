@@ -1,6 +1,7 @@
 'use strict';
 const path = require('path');
 const { loadPure } = require('./lib/extract-source');
+const { importCore } = require('./lib/core');
 const REPO_ROOT = path.join(__dirname, '..');
 
 // Blocchi puri: dipendono solo da `cfg` ed `EXERCISES`, forniti come stub
@@ -15,18 +16,20 @@ const EXERCISES = {
   tapat: { label: 'TAPAT (allerta tonica/fasica)' }
 };
 
-const mod = loadPure(REPO_ROOT, [
-  { name: 'DEMO_CONSTS', start: '  const DEMO_TRIALS = 6;', end: "  const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','ant','simon'];" },
-  { name: 'DEMO_PATCHES', start: '  const DEMO_PATCHES = {', end: "    simon: ()=>({taskMode:'simon', adaptStartLevel:1, simonCongruenza:'bilanciato', isi:3200, stimDuration:700, trials:DEMO_TRIALS})\n  };" },
-  { name: 'demoLabelFor', start: '  function demoLabelFor(key){', end: "    return EXERCISES[key].label;\n  }" },
-  { name: 'demoKeyForCurrentCfg', start: '  function demoKeyForCurrentCfg(){', end: "    return DEMO_ELIGIBLE.includes(cfg.taskMode) ? cfg.taskMode : null;\n  }" },
-  { name: 'demoPrereqOk', start: '  function demoPrereqOk(key){', end: "    return true;\n  }" },
-  { name: 'demoFeedbackText', start: '  function demoFeedbackText(trial, outcome){', end: "    return ok ? 'Giusto.' : 'Risposta non corretta per questa prova.';\n  }" }
-], ['DEMO_TRIALS', 'DEMO_ELIGIBLE', 'DEMO_PATCHES', 'demoLabelFor', 'demoKeyForCurrentCfg', 'demoPrereqOk', 'demoFeedbackText'], { cfg, EXERCISES, alert: () => {} });
+let DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoLabelFor, demoKeyForCurrentCfg, demoPrereqOk, demoFeedbackText;
 
-const { DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoLabelFor, demoKeyForCurrentCfg, demoPrereqOk, demoFeedbackText } = mod;
+module.exports = async function run(t) {
+  // Passo 5k: costanti e testo di feedback vivono in js/exercises/demo.js; il resto (etichetta, idoneità, prerequisiti) è ancora in index.html.
+  const D = await importCore('../exercises/demo.js');
+  DEMO_TRIALS = D.DEMO_TRIALS; DEMO_ELIGIBLE = D.DEMO_ELIGIBLE; DEMO_PATCHES = D.DEMO_PATCHES;
+  const mod = loadPure(REPO_ROOT, [
+    { name: 'demoLabelFor', start: '  function demoLabelFor(key){', end: "    return EXERCISES[key].label;\n  }" },
+    { name: 'demoKeyForCurrentCfg', start: '  function demoKeyForCurrentCfg(){', end: "    return DEMO_ELIGIBLE.includes(cfg.taskMode) ? cfg.taskMode : null;\n  }" },
+    { name: 'demoPrereqOk', start: '  function demoPrereqOk(key){', end: "    return true;\n  }" }
+  ], ['demoLabelFor', 'demoKeyForCurrentCfg', 'demoPrereqOk'], { cfg, EXERCISES, DEMO_ELIGIBLE, alert: () => {} });
+  ({ demoLabelFor, demoKeyForCurrentCfg, demoPrereqOk } = mod);
+  demoFeedbackText = (trial, outcome) => D.demoFeedbackText(cfg, trial, outcome);
 
-module.exports = function run(t) {
   t.group('Demo — idoneità e parametri fissi', () => {
     t.eq(DEMO_TRIALS, 6, 'la demo dura 6 prove');
     const eligible = ['nback', 'sequenza', 'gonogo', 'switching', 'stopsignal', 'categorizzazione', 'dualtask', 'tapat', 'ant', 'simon'];

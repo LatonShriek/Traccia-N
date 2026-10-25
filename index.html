@@ -37,7 +37,7 @@ import { mean, sd } from './js/core/stats.js';
 import { isTapatLike, isTapatKey } from './js/core/records.js';
 import { RCI_BASELINE_N, computeRCIRows } from './js/core/rci.js';
 import { ADAPT_ISI, ADAPT_GONOGO_FREQ, NBACK_LEVEL_TABLE, nbackParamsForLevel, nbackLureLag, ADAPT_SWITCH_BALANCE, ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE, CATEG_STRUCTURE_OF_LEVEL, CATEG_ISI, CATEG_LURE, categStructureOfLevel, DUAL_DOUBLE_TARGET_GRACE_MS, ADAPT_GONOGO_COUNT, ADAPT_SWITCH_CSI, ADAPT_NEGLECT_SIZE, ADAPT_SEQ_LEN, ADAPT_NEGLECT_TIME, TAPAT_LEVELS } from './js/core/levels.js';
-import { POOLS, defaultTargetSeq, VISUAL_MISTA_TYPES, AUDIO_MISTA_TYPES, SEQUENZA_MISTA_TYPES, mistaTypesFor, randMistaStim, seqLabel, sameStim } from './js/core/pools.js';
+import { POOLS, defaultTargetSeq, VISUAL_MISTA_TYPES, AUDIO_MISTA_TYPES, SEQUENZA_MISTA_TYPES, mistaTypesFor, randMistaStim, randomMistaTargetSeq, seqLabel, sameStim } from './js/core/pools.js';
 import { ANT_MATERIAL_OPTIONS, ANT_MATERIAL_TOKENS, CATEG_LETTERE, CATEG_NUMERI, DUAL_DIM1_LABELS, DUAL_DIM2_LABELS, DUAL_DIM_ALL, DUAL_DIM_ROTATION, SIMON_COLORS, SIMON_CONGRUENCE_PROB, STOPSIGNAL_RULES, SWITCH_BIVALENTE_LETTERE, SWITCH_BIVALENTE_NUM_POOL, SWITCH_RULESETS, dualDim1IsA, dualDim1KeyOf, dualDim2IsA, dualDim2KeyOf, genDualDimItem, pickDualDimRegime, switchRulesetFor } from './js/core/rules.js';
 import { adjustTargetSeqToLength as adjustTargetSeqToLengthOf, buildSequenceTarget as buildSequenceTargetOf, sameSeqItem as sameSeqItemOf, sequenceTargetForBuild as sequenceTargetForBuildOf, suggestGoNoGoTargets as suggestGoNoGoTargetsOf } from './js/exercises/sequenza.js';
 import { buildStopSignal as buildStopSignalOf } from './js/exercises/stopsignal.js';
@@ -50,7 +50,8 @@ import { neglectBoardSubLevel as neglectBoardSubLevelOf, neglectBottomUpWeakSide
 import { resolveSignal as resolveSignalOf, resolveChoice as resolveChoiceOf, resolveCategorization as resolveCategorizationOf, resolveDualTask as resolveDualTaskOf } from './js/exercises/resolve.js';
 import { GOALTASK_SCENARIOS, startGoalTask, completeGoalTaskItem, goalTaskVisibleItems, goalTaskTick, scoreGoalTask, goalTaskInstanceFor, goalTaskItemIcon } from './js/exercises/goaltask.js';
 import { memoriaEffectiveMateriale, memoriaNForme, memoriaFormeUsatePerPaziente as memoriaFormeUsatePerPazienteOf, memoriaMaterialFor, memoriaLearnItems, lociRouteFor, MEMORIA_MODO_LABELS } from './js/exercises/memoria.js';
-import { STIM_LABELS, isSpokenStim, isAudioOnlyStim, MISTA_LABELS_SHORT, CHUNKING_METODI_LABELS, EXERCISES, EXERCISE_GROUPS, defaultCfg } from './js/exercises/registry.js';
+import { STIM_LABELS, isSpokenStim, isAudioOnlyStim, MISTA_LABELS_SHORT, CHUNKING_METODI_LABELS, EXERCISES, EXERCISE_GROUPS, defaultCfg, presetCfgOf } from './js/exercises/registry.js';
+import { DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoFeedbackText as demoFeedbackTextOf } from './js/exercises/demo.js';
 import { buildSessionRecord } from './js/exercises/record.js';
 import { buildCSV, buildRCIReportHtml } from './js/exercises/export.js';
 import { genNbackTrial as genNbackTrialOf } from './js/exercises/nback.js';
@@ -152,54 +153,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
 
   /* ---------- state ---------- */
   let cfg = defaultCfg();
-  // defaultTargetSeq: vedi js/core/pools.js (passo 3b).
-  // Stessa idea ma per la sequenza/no-go "mista" (materiale misto fra più
-  // tipologie) — pesca a caso fra i tipi ammessi (visivo/uditivo/misto),
-  // evitando duplicati stimType+item.
-  function randomMistaTargetSeq(len, types){
-    const out = [];
-    let guard = 0;
-    while(out.length < len && guard < len*40){
-      guard++;
-      const candidate = randMistaStim(types);
-      if(!out.some(x=>sameStim(x,candidate))) out.push(candidate);
-    }
-    return out;
-  }
 
   /* ---------- training presets (saved settings, local device) ---------- */
-  // Salva solo i parametri del protocollo, non dati di sessione (codice
-  // paziente/note) — un preset è "come allenare", non "chi" o "quando".
-  // Titolazione: elenco esercizi, trasparenza dei parametri (hint) e risoluzione livello -> js/core/titration.js (passo 3b).
-  function presetCfgOf(c){
-    return {
-      stimType:c.stimType, taskMode:c.taskMode, nLevel:c.nLevel,
-      adaptStartLevel:c.adaptStartLevel, tapatStartLevel:c.tapatStartLevel,
-      dualStartLevel1:c.dualStartLevel1, dualStartLevel2:c.dualStartLevel2, neglectStartLevel:c.neglectStartLevel,
-      targetSeq: (EXERCISES[c.taskMode].usesTargetSeq)
-        ? (c.taskMode==='sequenza' && c.sequenzaMista
-            ? c.targetSeq.map(e=>({stimType:e.stimType, label:seqLabel(e)}))
-            : c.targetSeq.map(seqLabel))
-        : null,
-      sequenzaMista: c.sequenzaMista||'no', nbackMista: c.nbackMista||'no', gonogoMista: c.gonogoMista||'no',
-      trials:c.trials, isi:c.isi, stimDuration:c.stimDuration, targetRate:c.targetRate,
-      respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, stopsignalInterferenza:c.stopsignalInterferenza, adaptive:c.adaptive,
-      titrationMode: hasTitrationMode(c.taskMode) ? (c.titrationMode||'manuale') : undefined,
-      switchMaterial:c.switchMaterial, dualVisual:c.dualVisual, dualVisual2:c.dualVisual2, dualPairing:c.dualPairing, antMode:c.antMode,
-      tapatSpatial:c.tapatSpatial, tapatGradient:c.tapatGradient, tapatModalita:c.tapatModalita, antMaterial:c.antMaterial,
-      tapatIsiMin:c.tapatIsiMin, tapatIsiMax:c.tapatIsiMax,
-      numDigits:c.numDigits, wordComplexity:c.wordComplexity, showTrail:c.showTrail,
-      neglectGradient:c.neglectGradient, neglectLayout:c.neglectLayout, neglectTimeLimit:c.neglectTimeLimit, neglectBoardSize:c.neglectBoardSize,
-      neglectMode:c.neglectMode, neglectRuleLevel:c.neglectRuleLevel,
-      goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx,
-      memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
-      chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
-      categLivello:c.categLivello, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
-      categRegime:c.categRegime, switchRegime:c.switchRegime,
-      simonCongruenza:c.simonCongruenza, simonMateriale:c.simonMateriale,
-      inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'
-    };
-  }
   function listPresets(){
     const out = listByPrefix(KEY.preset).map(x=>x.value);
     out.sort((a,b)=> b.savedAt - a.savedAt);
@@ -3557,32 +3512,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
 
   /* ---------- FINISH / RESULTS ---------- */
-  // Motore di screening (sonde, domini, regole di suggerimento): vedi js/core/screening.js (passo 3b).
-  // Prova dimostrativa: 6 prove a difficoltà fissa e facile, con feedback
-  // esplicativo dopo ogni risposta, per far capire la regola prima che le
-  // prove "contino" davvero. Solo per i 6 esercizi con la regola meno
-  // immediata da intuire da soli — Cancellazione, Sequenza bersaglio e le
-  // strategie di memoria restano fuori: la loro consegna è già
-  // sostanzialmente auto-esplicativa. Riuso, dove possibile, esattamente
-  // gli stessi valori isi/stimDuration già validati nei blocchi di
-  // screening per lo stesso esercizio (non nuovi numeri inventati); dove
-  // lo screening non copre quell'esercizio (Stop-Signal, TAPAT, Doppio
-  // compito) i valori sono una scelta di comodo per un ritmo non
-  // frettoloso — ipotesi di costruzione, non un dato di letteratura.
-  const DEMO_TRIALS = 6;
-  const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','ant','simon'];
-  const DEMO_PATCHES = {
-    nback: ()=>({taskMode:'nback', nLevel:1, isi:2200, stimDuration:700, trials:DEMO_TRIALS}),
-    sequenza: ()=>({taskMode:'sequenza', adaptStartLevel:1, isi:2200, stimDuration:700, trials:DEMO_TRIALS}),
-    gonogo: ()=>({taskMode:'gonogo', adaptStartLevel:1, isi:1600, stimDuration:600, trials:DEMO_TRIALS}),
-    switching: ()=>({taskMode:'switching', adaptStartLevel:1, isi:1800, stimDuration:800, trials:DEMO_TRIALS}),
-    stopsignal: ()=>({taskMode:'stopsignal', adaptStartLevel:1, isi:2000, stimDuration:800, trials:DEMO_TRIALS}),
-    categorizzazione: ()=>({taskMode:'categorizzazione', categLivello:1, isi:1800, stimDuration:700, trials:DEMO_TRIALS}),
-    dualtask: ()=>({taskMode:'dualtask', dualStartLevel1:1, dualStartLevel2:1, isi:2200, stimDuration:800, trials:DEMO_TRIALS}),
-    tapat: ()=>({taskMode:'tapat', tapatStartLevel:1, trials:DEMO_TRIALS}),
-    ant: ()=>({taskMode:'ant', adaptStartLevel:1, isi:3200, stimDuration:700, trials:DEMO_TRIALS}),
-    simon: ()=>({taskMode:'simon', adaptStartLevel:1, simonCongruenza:'bilanciato', isi:3200, stimDuration:700, trials:DEMO_TRIALS})
-  };
   function demoLabelFor(key){
     return EXERCISES[key].label;
   }
@@ -3604,67 +3533,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     Object.assign(cfg, DEMO_PATCHES[key]());
     view='instructions'; render();
   }
-  // Testo di feedback dopo ogni prova della demo — usa la classificazione
-  // che il motore calcola comunque (outcome, isTarget, isLure, isSwitch,
-  // isStopTrial...), non aggiunge nuova logica di valutazione: si limita a
-  // spiegare a parole quello che l'esercizio ha già giudicato.
-  function demoFeedbackText(trial, outcome){
-    const ok = outcome==='hit';
-    if(cfg.taskMode==='nback'){
-      if(ok && trial.isTarget) return 'Giusto — questa lettera era uguale a quella di n prove fa: andava toccato il tasto.';
-      if(ok && trial.isLure) return 'Giusto a non rispondere — questa lettera sembrava familiare, ma non era alla distanza giusta (n prove fa): era una "trappola".';
-      if(ok) return 'Giusto a non rispondere — questa lettera non corrispondeva.';
-      if(trial.isTarget) return 'Qui andava toccato il tasto: questa lettera era uguale a quella di n prove fa.';
-      if(trial.isLure) return 'Qui non andava toccato nulla: questa lettera sembrava familiare, ma era una "trappola" — non alla distanza giusta.';
-      return 'Qui non andava toccato nulla: questa lettera non corrispondeva.';
-    }
-    if(cfg.taskMode==='sequenza'){
-      if(ok && trial.isTarget) return 'Giusto — questo elemento è nella sequenza bersaglio da riconoscere: andava toccato il tasto.';
-      if(ok) return 'Giusto a non rispondere — questo elemento non fa parte della sequenza bersaglio.';
-      if(trial.isTarget) return 'Qui andava toccato il tasto: questo elemento fa parte della sequenza bersaglio.';
-      return 'Qui non andava toccato nulla: questo elemento non fa parte della sequenza bersaglio.';
-    }
-    if(cfg.taskMode==='gonogo'){
-      if(ok && !trial.isTarget) return 'Giusto a non rispondere — questo è l\'elemento "no-go", quello a cui NON si risponde mai.';
-      if(ok) return 'Giusto — hai risposto, ed era corretto farlo.';
-      if(!trial.isTarget) return 'Qui non andava toccato nulla: questo è l\'elemento "no-go".';
-      return 'Qui andava data una risposta: non era l\'elemento "no-go".';
-    }
-    if(cfg.taskMode==='switching'){
-      const regola = trial.ruleDef ? trial.ruleDef.label : '';
-      if(ok) return 'Giusto — la regola di questa prova era «'+regola+'».';
-      return 'Qui la regola era «'+regola+'»'+(trial.isSwitch ? ', cambiata rispetto alla prova precedente.' : ', la stessa della prova precedente.');
-    }
-    if(cfg.taskMode==='stopsignal'){
-      if(trial.isStopTrial) return ok ? 'Giusto — è comparso il segnale di stop: bene a non rispondere.' : 'Qui è comparso il segnale di stop: l\'obiettivo era trattenersi, non rispondere.';
-      return ok ? 'Giusto — hai risposto in tempo con la scelta corretta.' : 'Non era la risposta giusta per questo stimolo — rivedi la regola sopra.';
-    }
-    if(cfg.taskMode==='categorizzazione'){
-      const isNogo = trial.correctAnswer==='nogo';
-      if(isNogo) return ok ? 'Giusto a non rispondere — la regola attuale lo richiedeva.' : 'Qui non andava data nessuna risposta, secondo la regola attuale.';
-      return ok ? 'Giusto.' : 'Non era la categoria corretta secondo la regola attuale.';
-    }
-    if(cfg.taskMode==='dualtask'){
-      return ok ? 'Giusto su entrambi i canali — ricorda: qui si risponde a due cose insieme, ciascuna con la propria regola.' : 'Qui manca o è sbagliata la risposta su almeno uno dei due canali — ricorda: vanno seguiti insieme, ciascuno con la propria regola.';
-    }
-    if(cfg.taskMode==='tapat'){
-      if(trial.block==='tonic') return ok ? 'Giusto — hai risposto al bersaglio anche senza nessun segnale d\'aiuto.' : 'Il bersaglio è comparso senza preavviso: in questo blocco bisogna restare pronti da soli, senza aiuti.';
-      return ok ? 'Giusto — hai risposto al bersaglio dopo il segnale di allerta.' : 'Ricorda: il segnale che precede il bersaglio serve ad anticiparne l\'arrivo.';
-    }
-    if(cfg.taskMode==='ant'){
-      const cueNote = trial.cueType && trial.cueType!=='none' ? ' Il segnale visto poco prima anticipava l\'arrivo del bersaglio.' : '';
-      return ok ? 'Giusto — hai indicato la direzione corretta.'+cueNote : 'La direzione indicata non era corretta — guarda solo la freccia centrale, ignora quelle intorno.'+cueNote;
-    }
-    if(cfg.taskMode==='simon'){
-      const mat = cfg.simonMateriale || 'colori';
-      const dimNames = {colori:'il colore', lettere:'vocale o consonante', numeri:'pari o dispari', suoni:'l\'altezza del suono (grave/acuto)'};
-      const posNames = {colori:'del cerchio', lettere:'della lettera', numeri:'del numero', suoni:'da cui arriva il suono'};
-      const dim = dimNames[mat], pos = posNames[mat];
-      const posNote = trial.congruency==='incongruent' ? ' Qui la posizione '+pos+' "tirava" verso il pulsante sbagliato — conta solo '+dim+', mai la posizione.' : '';
-      return ok ? 'Giusto — hai risposto in base a '+dim+'.'+posNote : 'Risposta sbagliata: la regola è sempre e solo '+dim+', mai la posizione '+pos+'.'+posNote;
-    }
-    return ok ? 'Giusto.' : 'Risposta non corretta per questa prova.';
-  }
+  function demoFeedbackText(trial, outcome){ return demoFeedbackTextOf(cfg, trial, outcome); }
   function continueDemo(){ nextTrial(); }
 
   /* ---------- controllo motorio di base ---------- */

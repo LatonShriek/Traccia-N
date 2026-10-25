@@ -92,3 +92,18 @@
     if(aObj || bObj) return aObj && bObj && a.stimType===b.stimType && a.item===b.item;
     return seqLabel(a)===seqLabel(b);
   }
+
+  // defaultTargetSeq: vedi js/core/pools.js (passo 3b).
+  // Stessa idea ma per la sequenza/no-go "mista" (materiale misto fra più
+  // tipologie) — pesca a caso fra i tipi ammessi (visivo/uditivo/misto),
+  // evitando duplicati stimType+item.
+  export function randomMistaTargetSeq(len, types){
+    const out = [];
+    let guard = 0;
+    while(out.length < len && guard < len*40){
+      guard++;
+      const candidate = randMistaStim(types);
+      if(!out.some(x=>sameStim(x,candidate))) out.push(candidate);
+    }
+    return out;
+  }

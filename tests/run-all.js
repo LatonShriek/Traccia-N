@@ -17,6 +17,7 @@ const FILES = [
   'goaltask.test.js',
   'memoria.test.js',
   'registry.test.js',
+  'demo-preset.test.js',
   'record.test.js',
   'export.test.js',
   'dualtask-titration.test.js',

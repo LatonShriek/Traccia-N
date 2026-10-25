@@ -1,5 +1,6 @@
 // Registro degli esercizi (etichette, istruzioni, domini, gruppi) e configurazione di partenza.
 // SPOSTATO da index.html (passo 5h) senza modifiche al testo, con "export" davanti ai nomi usati altrove.
+// Passo 5k: con il registro sta anche presetCfgOf(c) (le impostazioni salvabili in un preset), senza modifiche.
 // Differenza dichiarata: la configurazione iniziale `let cfg = {...}` è ora la funzione defaultCfg() che
 // restituisce lo stesso oggetto (stessi valori); in index.html resta `let cfg = defaultCfg();`.
 // Con le etichette stanno anche STIM_LABELS, MISTA_LABELS_SHORT, CHUNKING_METODI_LABELS e i piccoli
@@ -7,7 +8,7 @@
 import { ADAPT_GONOGO_COUNT, nbackParamsForLevel } from '../core/levels.js';
 import { POOLS, seqLabel } from '../core/pools.js';
 import { ANT_MATERIAL_TOKENS, STOPSIGNAL_RULES, SWITCH_RULESETS, dualDim1KeyOf, dualDim2KeyOf, pickDualDimRegime, switchRulesetFor } from '../core/rules.js';
-import { categEffectiveStructure, neglectProgressivaPhase } from '../core/titration.js';
+import { categEffectiveStructure, hasTitrationMode, neglectProgressivaPhase } from '../core/titration.js';
 import { pickCategRegime } from './categorizzazione.js';
 import { goalTaskInstanceFor } from './goaltask.js';
 import { neglectRuleFor } from './neglect.js';
@@ -364,5 +365,38 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
     sequenzaMista:'no', // solo per Sequenza bersaglio: 'no'|'visivo'|'uditivo'|'misto' — mescola codici diversi nella stessa sequenza invece di un solo tipo
     nbackMista:'no', // solo per N-back: stesso principio, materiale che cambia tipo prova per prova invece di restare fisso
     gonogoMista:'no', // solo per Go/No-Go: stesso principio — il/i bersaglio/i no-go possono essere di tipi diversi fra loro, non solo lo stesso cfg.stimType
+    };
+  }
+
+  // Salva solo i parametri del protocollo, non dati di sessione (codice
+  // paziente/note) — un preset è "come allenare", non "chi" o "quando".
+  // Titolazione: elenco esercizi, trasparenza dei parametri (hint) e risoluzione livello -> js/core/titration.js (passo 3b).
+  export function presetCfgOf(c){
+    return {
+      stimType:c.stimType, taskMode:c.taskMode, nLevel:c.nLevel,
+      adaptStartLevel:c.adaptStartLevel, tapatStartLevel:c.tapatStartLevel,
+      dualStartLevel1:c.dualStartLevel1, dualStartLevel2:c.dualStartLevel2, neglectStartLevel:c.neglectStartLevel,
+      targetSeq: (EXERCISES[c.taskMode].usesTargetSeq)
+        ? (c.taskMode==='sequenza' && c.sequenzaMista
+            ? c.targetSeq.map(e=>({stimType:e.stimType, label:seqLabel(e)}))
+            : c.targetSeq.map(seqLabel))
+        : null,
+      sequenzaMista: c.sequenzaMista||'no', nbackMista: c.nbackMista||'no', gonogoMista: c.gonogoMista||'no',
+      trials:c.trials, isi:c.isi, stimDuration:c.stimDuration, targetRate:c.targetRate,
+      respMode:c.respMode, voice:c.voice, ssd:c.ssd, ssdStep:c.ssdStep, stopsignalInterferenza:c.stopsignalInterferenza, adaptive:c.adaptive,
+      titrationMode: hasTitrationMode(c.taskMode) ? (c.titrationMode||'manuale') : undefined,
+      switchMaterial:c.switchMaterial, dualVisual:c.dualVisual, dualVisual2:c.dualVisual2, dualPairing:c.dualPairing, antMode:c.antMode,
+      tapatSpatial:c.tapatSpatial, tapatGradient:c.tapatGradient, tapatModalita:c.tapatModalita, antMaterial:c.antMaterial,
+      tapatIsiMin:c.tapatIsiMin, tapatIsiMax:c.tapatIsiMax,
+      numDigits:c.numDigits, wordComplexity:c.wordComplexity, showTrail:c.showTrail,
+      neglectGradient:c.neglectGradient, neglectLayout:c.neglectLayout, neglectTimeLimit:c.neglectTimeLimit, neglectBoardSize:c.neglectBoardSize,
+      neglectMode:c.neglectMode, neglectRuleLevel:c.neglectRuleLevel,
+      goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx,
+      memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
+      chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
+      categLivello:c.categLivello, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
+      categRegime:c.categRegime, switchRegime:c.switchRegime,
+      simonCongruenza:c.simonCongruenza, simonMateriale:c.simonMateriale,
+      inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'
     };
   }

@@ -1,7 +1,7 @@
 # Buone pratiche per rifattorizzare una web app (caso TracciaN)
 
 Documento vivo. Registra cosa facciamo, perché, cosa è andato storto e la regola che ne ricaviamo, per riusarla su altre app (NeuroScore, PdMgenerator, borgo-planner...).
-Ultimo aggiornamento: 2026-10-25 (passi 5a–5k).
+Ultimo aggiornamento: 2026-10-25 (passi 5a–8).
 
 ## 1. Punto di partenza
 - App in un solo `index.html` (~750 KB, ~11.000 righe, ~360 funzioni): CSS, logica, 14 esercizi, UI e cloud insieme.
@@ -107,6 +107,19 @@ Ultimo aggiornamento: 2026-10-25 (passi 5a–5k).
 - `demo.js` (parametri e feedback della prova dimostrativa), `presetCfgOf` in `registry.js`, `randomMistaTargetSeq` in `pools.js`. `index.html` 7.035 → 6.904 righe. Test nuovi: 63.
 - Lezione: una mutazione può restare «viva» perché il test passa un valore già presente e non esercita mai il ripiego (`c.inputDevice||'touch'` con `inputDevice` già valorizzato). Per ogni `||` di default serve un test con il campo mancante.
 
+### Passo 6 (versione leggera): `docs/livelli.md` generato
+- Rodrigo ha scelto di NON mettere le tabelle in JSON: i commenti accanto ai numeri sono importanti e un JSON caricato a runtime è asincrono (rischio per l'uso offline). `tools/livelli-md.mjs` genera il documento leggibile dalle tabelle vere; il test confronta documento e codice e controlla alcune righe note in modo indipendente dal generatore. Mutazione su `CATEG_LURE` → il test fallisce.
+- Lezione: quando una documentazione deriva dal codice, generarla e far fallire il test se diverge, invece di tenerla a mano.
+
+### Passo 7: README → `docs/`
+- Il README (2.171 righe) è un indice di 40 righe; 8 file in `docs/` con il testo originale, verificato riga per riga (nessuna riga persa). Test `docs-links`: ogni link relativo esiste e il README cita ogni pagina di `docs/`.
+- I commenti del codice che dicono «vedi README» non sono stati toccati: il README ha un paragrafo che dice dove sono finite le sezioni citate.
+
+### Passo 8: copia di sicurezza JSON (v27)
+- `js/services/backup.js` (codice NUOVO): riceve lo storage (finto nei test). Salva pazienti locali, sedute, preset, screening; NON salva url/chiave cloud (nessuna chiave in un file che può girare). Ripristino `unisci` (non tocca l'esistente) o `sostituisci`; se la scrittura fallisce rimette lo stato di prima.
+- Il file contiene dati dei pazienti in chiaro → avviso all'esportazione e nel documento.
+- Lezioni: (1) nome del file con `todayStr()` avrebbe avuto «/» e «:» (invalido): provarlo nel browser ha senso anche per questo; (2) confrontare oggetti nei test con l'ordine delle chiavi normalizzato.
+
 ## 4. Incidenti e lezioni
 
 | Cosa è successo | Lezione |
@@ -156,8 +169,6 @@ Ultimo aggiornamento: 2026-10-25 (passi 5a–5k).
 ## 6. Prossimi passi (dal piano)
 5k. Le schermate (`ScreenSetup`, `ScreenPatientProgram`, `ScreenResults`, `ScreenHistory`, ...) in `js/ui/`, previa decisione di Rodrigo su come condividere lo stato (`cfg`, `session`, `view`). La logica pura è ormai quasi tutta nei moduli.
 4c. Funzioni cloud ancora in `index.html` (login/logout, creazione account, salvataggi), da valutare.
-6. Tabelle di livello in `data/levels/*.json`.
-7. README spezzato in `docs/`.
-8. Esporta/Importa tutto in JSON per il backup dei dati locali.
+6–8. Fatti (vedi sezione 3, passi 6, 7, 8). Resta solo l'eventuale spostamento delle schermate.
 
 Quando un passo cambia ciò che sappiamo, questo documento va aggiornato nella stessa sessione.

@@ -1,7 +1,7 @@
 # Buone pratiche per rifattorizzare una web app (caso TracciaN)
 
 Documento vivo. Registra cosa facciamo, perché, cosa è andato storto e la regola che ne ricaviamo, per riusarla su altre app (NeuroScore, PdMgenerator, borgo-planner...).
-Ultimo aggiornamento: 2026-10-25 (passi 5a–8).
+Ultimo aggiornamento: 2026-10-25 (passi 5a–9).
 
 ## 1. Punto di partenza
 - App in un solo `index.html` (~750 KB, ~11.000 righe, ~360 funzioni): CSS, logica, 14 esercizi, UI e cloud insieme.
@@ -119,6 +119,12 @@ Ultimo aggiornamento: 2026-10-25 (passi 5a–8).
 - `js/services/backup.js` (codice NUOVO): riceve lo storage (finto nei test). Salva pazienti locali, sedute, preset, screening; NON salva url/chiave cloud (nessuna chiave in un file che può girare). Ripristino `unisci` (non tocca l'esistente) o `sostituisci`; se la scrittura fallisce rimette lo stato di prima.
 - Il file contiene dati dei pazienti in chiaro → avviso all'esportazione e nel documento.
 - Lezioni: (1) nome del file con `todayStr()` avrebbe avuto «/» e «:» (invalido): provarlo nel browser ha senso anche per questo; (2) confrontare oggetti nei test con l'ordine delle chiavi normalizzato.
+
+### Passo 9: «indietro» uniforme e storico a sedute (v28, `4fdf535`)
+- Problema visto da Rodrigo con due schermate: una aveva il link «← Torna ai pazienti in presenza» in cima come testo, l'altra (Storico) non aveva nulla in alto e «← Nuova sessione» in fondo. Causa: ogni schermata scriveva a mano il proprio «indietro» (barra, link in cima, link in fondo) e la destinazione.
+- Soluzione: un solo helper `backBar(titolo, azioni, fallback)` + `goBack()` con uno stack delle schermate hub (con paziente/filtro). Regola: una schermata nuova usa `backBar`, mai un pulsante indietro proprio.
+- Storico: le registrazioni (una per esercizio) sono raggruppate in sedute (stesso paziente e origine, pausa ≤ 45 min). `<details>` nativi: nessuno stato da gestire, poco codice. Il codice nuovo sta in `js/core/session-groups.js` e `js/ui/history-view.js`, non in `index.html`.
+- Lezione: il server di prova per il browser deve servire il CSS come `text/css`; senza, lo screenshot mostra una pagina senza stile e si rischia di cercare un errore che non c'è.
 
 ## 4. Incidenti e lezioni
 

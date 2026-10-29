@@ -9,7 +9,7 @@ Ultimo aggiornamento: 2026-10-25 (passi 5a–9).
 - Vincoli: nessun build tool pesante, moduli ES nativi, GitHub Pages, uso offline su tablet (PWA), parametri clinici intoccabili.
 
 ## 2. Metodo di lavoro (regole che funzionano)
-1. **Un file `CLAUDE.md` nel progetto**: contesto, regole, piano a passi con caselle da spuntare e sezione "Stato attuale". Si legge a inizio sessione e si aggiorna a fine passo.
+1. **Un file `REGOLE_DI_LAVORO.md` nel progetto**: contesto, regole, piano a passi con caselle da spuntare e sezione "Stato attuale". Si legge a inizio sessione e si aggiorna a fine passo.
 2. **Prima la baseline, poi le modifiche.** Lancia la suite, salva l'output, a ogni passo confrontalo con la baseline.
 3. **Un passo = un commit leggibile**, app funzionante e test verdi alla fine. I passi grossi si spezzano (3a, 3b, 5a...) e ogni pezzo ha il suo commit.
 4. **Spostare, non riscrivere.** Il codice si estrae con uno **script** che cerca i blocchi per testo esatto e si ferma se non li trova, mai ricopiandolo a mano.
@@ -169,7 +169,7 @@ Ultimo aggiornamento: 2026-10-25 (passi 5a–9).
 - [ ] Suite lanciata **dopo**; mutazione di prova su un valore del modulo (ripristino verificato).
 - [ ] Pagina caricata in un browser vero (via http): nessun errore JS; e2e campione.
 - [ ] Commit unico e leggibile; push; verifica del risultato.
-- [ ] `CLAUDE.md` e questo documento aggiornati.
+- [ ] `REGOLE_DI_LAVORO.md` e questo documento aggiornati.
 - [ ] Controllo manuale su tablet per ciò che l'e2e non copre.
 
 ## 6. Prossimi passi (dal piano)

@@ -634,7 +634,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   const navStack = [];
   function trackHub(){
     const i = navStack.map(x=>x.view).lastIndexOf(view);
-    if(i>=0) navStack.length = i+1;
+    // Hub già in cima (o più in basso): si aggiorna il suo contesto, MAI un
+    // duplicato — ogni render() della stessa schermata (e ogni goBack, che
+    // ridisegna la hub di destinazione) ne impilava uno in più e «← Indietro»
+    // restava sulla stessa schermata.
+    if(i>=0){ navStack.length = i+1; navStack[i] = navSnapshot(); return; }
     navStack.push(navSnapshot());
   }
   function goBack(fallback){

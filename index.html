@@ -642,13 +642,27 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     navStack.push(navSnapshot());
   }
   function goBack(fallback){
+    if(internalBack) return; // un history.go() è già in corso: un secondo tocco non deve accodarne un altro
+    let dest = null;
     if(HUB_VIEWS.has(view)){
       navStack.pop();
-      const prev = navStack[navStack.length-1];
-      if(prev){ restoreNavSnapshot(prev); render(); return; }
-      view = fallback || homeView(); render(); return;
+      dest = navStack[navStack.length-1] || null;
+      if(!dest){ view = fallback || homeView(); render(); return; }
+    } else {
+      dest = {view: lastHubView || fallback || homeView()};
     }
-    view = lastHubView || fallback || homeView(); render();
+    // Il tasto di sistema (Android/browser) e «← Indietro» devono fare la stessa
+    // cosa: se la schermata di destinazione è già nella cronologia, ci si
+    // torna con history.go() invece di impilare una voce nuova (che faceva
+    // ripetere A, B, A e il tasto di sistema tornava a B).
+    const j = historyIndexOf(dest.view);
+    if(j>=0){
+      internalBack = dest;
+      setTimeout(()=>{ internalBack = null; }, 1500); // rete di sicurezza se popstate non arriva
+      try{ history.go(j - histIdx); return; }catch(e){ internalBack = null; }
+    }
+    if(dest.editingPatientKind!==undefined) restoreNavSnapshot(dest); else view = dest.view;
+    render();
   }
   // Barra in alto, uguale in ogni schermata: titolo + "← Indietro" (+ eventuali azioni).
   function backBar(title, actions, fallback, onBack){
@@ -677,6 +691,32 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   const root = document.getElementById('app');
   let taskDom = null; // persistent DOM refs while view==='task', so buttons never get torn down mid-tap
   let suppressHistoryPush = false;
+  // Specchio della cronologia del browser: ogni voce che l'app spinge porta un
+  // numero progressivo (idx) e histLog[idx] ricorda la schermata, così goBack()
+  // sa a quale voce saltare con history.go().
+  let histIdx = 0;
+  const histLog = [];
+  let internalBack = null;   // snapshot di destinazione mentre un history.go() lanciato da goBack() è in corso
+  let backSkipping = false;  // true mentre il tasto di sistema attraversa schermate transitorie (conto alla rovescia, prove)
+  function historyIndexOf(v){
+    for(let i=histIdx-1; i>=1; i--) if(histLog[i]===v) return i;
+    return -1;
+  }
+  // Schermate che non hanno senso come destinazione del tasto indietro (non
+  // ricostruibili): il tasto di sistema le attraversa. Le prime due richiedono
+  // conferma se c'è un esercizio in corso.
+  const IN_FLIGHT_VIEWS = new Set(['task','motorTask']);
+  const TRANSIENT_VIEWS = new Set(['countdown','task','motorTask']);
+  // Interruzione di una prova in corso: unione di ciò che facevano a mano i
+  // vari pulsanti «Interrompi» (timer, voce, demo, screening, controllo motorio).
+  function abortRunning(){
+    try{ if(session){ if(session.timer){ clearTimeout(session.timer); clearInterval(session.timer); session.timer=null; } if(session.stopCueTimer){ clearTimeout(session.stopCueTimer); session.stopCueTimer=null; } } }catch(e){}
+    try{ clearErrorlessTimer(); }catch(e){}
+    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+    if(demoState){ Object.assign(cfg, demoState.cfgBackup); demoState=null; }
+    screeningState = null; motorCheck = null;
+    taskDom = null;
+  }
   // Il tasto indietro/avanti del browser, finché la pagina resta aperta
   // (nessun reload), si comporta come su un sito qualunque: ogni
   // navigazione è una voce di history, tornare indietro ripristina
@@ -771,8 +811,16 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       // Vincolo di privacy già dichiarato altrove nel progetto: l'hash
       // finisce nella cronologia del browser e in eventuali screenshot
       // condivisi, un posto sbagliato per un codice paziente.
-      if(!history.state || history.state.view !== view) history.pushState(snap, '', '#'+view);
-      else history.replaceState(snap, '', '#'+view); // stessa "schermata" ma contesto aggiornato (es. paziente diverso, filtro diverso) — non impila una voce nuova
+      if(!history.state || history.state.view !== view){
+        histIdx = (history.state && typeof history.state.idx==='number' ? history.state.idx : histIdx) + 1;
+        histLog.length = histIdx; histLog[histIdx] = view; // le voci "avanti" non esistono più
+        snap.idx = histIdx;
+        history.pushState(snap, '', '#'+view);
+      } else {
+        snap.idx = typeof history.state.idx==='number' ? history.state.idx : histIdx;
+        histLog[snap.idx] = view;
+        history.replaceState(snap, '', '#'+view); // stessa "schermata" ma contesto aggiornato (es. paziente diverso, filtro diverso) — non impila una voce nuova
+      }
     }catch(e){}
   }
   // Sentinella anti-uscita: spinta una sola volta all'avvio (vedi in fondo
@@ -782,26 +830,51 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // l'operatore/paziente annulla, si ripristina lo stato corrente così il
   // tasto indietro torna a funzionare normalmente al prossimo tocco.
   window.addEventListener('popstate', (e)=>{
-    if(e.state && e.state.exitGuard){
+    const st = e.state;
+    if(st && typeof st.idx==='number') histIdx = st.idx;
+    const mine = internalBack; internalBack = null;   // salto voluto da goBack(): destinazione già decisa, nessuna conferma
+    if(st && st.exitGuard){
+      backSkipping = false;
       if(confirm('Vuoi uscire da TracciaN?')){
         history.back(); // prosegue oltre la sentinella: esce davvero
       } else {
-        try{ history.pushState(navSnapshot(), '', '#'+view); }catch(err){}
+        // si resta: se nel frattempo una prova era stata interrotta la schermata va ridisegnata
+        // (la voce della sentinella viene coperta da una nuova voce della schermata corrente)
+        try{ render(); }catch(err){}
       }
       return;
     }
-    // se si stava abbandonando una sessione attiva col tasto indietro,
-    // ripulisci i timer come farebbe "Interrompi" — evita che continui a
-    // girare in background su una schermata che non si vede più
-    if(view==='task' && session && session.timer){ clearTimeout(session.timer); session.timer=null; }
-    suppressHistoryPush = true;
-    if(e.state && e.state.view){
-      restoreNavSnapshot(e.state);
-    } else {
-      view = patientProfile ? 'patientHome' : (cloudUser ? 'operatorHome' : 'cloud');
+    // Tasto di sistema mentre una prova è in corso: chiede conferma come «Interrompi».
+    // Se si annulla, la voce appena lasciata viene rimessa e la prova prosegue.
+    if(!mine && !backSkipping && IN_FLIGHT_VIEWS.has(view)){
+      if(!confirm('Interrompere la sessione in corso?')){
+        try{ histIdx = (typeof histIdx==='number'?histIdx:0) + 1; histLog.length = histIdx; histLog[histIdx] = view; const snap = navSnapshot(); snap.idx = histIdx; history.pushState(snap, '', '#'+view); }catch(err){}
+        return;
+      }
+      abortRunning();
+      view = lastHubView || homeView();
+      backSkipping = true;
     }
-    render();
-    suppressHistoryPush = false;
+    if(!mine && view==='countdown'){ view = lastHubView || homeView(); backSkipping = true; } // il conto alla rovescia si ferma da solo (vedi ScreenCountdown)
+    // La destinazione è una schermata transitoria (conto alla rovescia, prova): non è
+    // ricostruibile, si prosegue all'indietro finché non c'è una schermata vera.
+    if(!mine && st && st.view && TRANSIENT_VIEWS.has(st.view)){
+      backSkipping = true;
+      history.back();
+      return;
+    }
+    backSkipping = false;
+    suppressHistoryPush = true;
+    try{
+      if(mine){ if(mine.editingPatientKind!==undefined) restoreNavSnapshot(mine); else view = mine.view; } // da una sotto-schermata il contesto (paziente, filtro) resta quello corrente
+      else if(st && st.view) restoreNavSnapshot(st);
+      else view = patientProfile ? 'patientHome' : (cloudUser ? 'operatorHome' : 'cloud');
+      render();
+    } finally {
+      suppressHistoryPush = false;
+    }
+    // la voce su cui si è atterrati prende il contesto corrente (paziente, filtro...)
+    try{ const snap = navSnapshot(); snap.idx = histIdx; histLog[histIdx] = view; history.replaceState(snap, '', '#'+view); }catch(err){}
   });
 
   /* ---------- helpers ---------- */
@@ -2501,6 +2574,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     ]));
     root.appendChild(s);
     const iv = setInterval(()=>{
+      if(view!=='countdown'){ clearInterval(iv); return; } // uscito col tasto indietro / Annulla: niente sessione fantasma
       n--;
       if(n<=0){ clearInterval(iv); startSession(); return; }
       num.textContent = String(n);
@@ -6889,7 +6963,19 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // prima schermata vera, così un indietro ripetuto atterra su di essa
   // invece di uscire dal sito senza preavviso.
   const priorHistoryState = history.state;
-  try{ history.pushState({exitGuard:true}, '', ''); }catch(e){}
+  // Dopo un ricaricamento la cronologia contiene già la sentinella (e le
+  // schermate) della visita precedente: spingerne un'altra faceva sì che
+  // «Esci? Sì» atterrasse su una vecchia schermata invece di uscire.
+  // Si riparte dal numero della voce corrente e si lascia la sentinella
+  // originale dove sta.
+  if(priorHistoryState && typeof priorHistoryState.idx==='number' && !priorHistoryState.exitGuard){
+    histIdx = priorHistoryState.idx;
+  } else {
+    // La prima voce della cronologia (quella con cui si è aperta la pagina) DIVENTA la
+    // sentinella, invece di spingerne una sopra: altrimenti «Esci? Sì» tornava a una voce
+    // senza stato, l'app la ridisegnava e la rimetteva in pila, e non si usciva mai.
+    try{ history.replaceState({exitGuard:true, idx:0}, ''); histIdx = 0; histLog[0] = '#guard'; }catch(e){}
+  }
   restoreCloudSession().finally(()=>{ view = decideInitialView(priorHistoryState); render(); });
 })();
 

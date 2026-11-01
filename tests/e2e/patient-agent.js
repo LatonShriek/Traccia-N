@@ -293,4 +293,4 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
   }
 }
 
-module.exports = { runFakePatientSession, EXERCISE_BUTTON_TEXT };
+module.exports = { runFakePatientSession, EXERCISE_BUTTON_TEXT, startStaticServer };

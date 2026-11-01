@@ -9,7 +9,7 @@ module.exports = async function run(t) {
     { name: 'HUB_VIEWS', start: 'const HUB_VIEWS = new Set(', end: ');' },
     { name: 'navStack', start: 'const navStack', end: '= [];' },
     { name: 'trackHub', start: 'function trackHub(){', end: 'navStack.push(navSnapshot());\n  }' },
-    { name: 'goBack', start: 'function goBack(fallback){', end: 'view = lastHubView || fallback || homeView(); render();\n  }' }
+    { name: 'goBack', start: 'function goBack(fallback){', end: 'else view = dest.view;\n    render();\n  }' }
   ];
   // Harness minimale: stessa estrazione, ma con le dipendenze come stub.
   const vm = require('vm');
@@ -18,7 +18,7 @@ module.exports = async function run(t) {
   function mk() {
     const code = `let view='operatorHome', lastHubView=null;
       const navSnapshot=()=>({view}); const restoreNavSnapshot=s=>{view=s.view;};
-      const homeView=()=>'setup'; function render(){ if(HUB_VIEWS.has(view)){ lastHubView=view; trackHub(); } }
+      const homeView=()=>'setup'; let internalBack=null, histIdx=0; const historyIndexOf=()=>-1; /* senza cronologia del browser: percorso di ripiego */ function render(){ if(HUB_VIEWS.has(view)){ lastHubView=view; trackHub(); } }
       ${body}
       return {go:v=>{view=v;render();},render,back:()=>goBack(),get view(){return view},get stack(){return navStack.map(x=>x.view);}};`;
     return new vm.Script('(function(){' + code + '})()').runInContext(vm.createContext({}));

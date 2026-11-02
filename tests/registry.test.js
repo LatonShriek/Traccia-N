@@ -47,6 +47,19 @@ module.exports = async function run(t) {
     t.ok(R.EXERCISE_GROUPS.every(g => g.label && g.keys.length > 0), 'ogni gruppo ha etichetta e almeno un esercizio');
   });
 
+  t.group('ruolo: misura / allenamento / entrambi coerente con lo screening', () => {
+    const probeModes = new Set(Object.values(S.SCREENING_PROBES).map(p => p.suggestTaskMode));
+    t.ok(keys.every(k => ['misura', 'allenamento', 'entrambi'].includes(R.EXERCISES[k].ruolo)), 'ogni esercizio ha un ruolo valido');
+    t.ok(keys.every(k => (R.EXERCISES[k].ruolo !== 'allenamento') === probeModes.has(k)), 'ruolo diverso da "allenamento" <=> esiste una sonda di screening');
+    const misure = keys.filter(k => R.EXERCISES[k].ruolo === 'misura');
+    t.eq(misure.slice().sort(), ['ant', 'mantenimento', 'sequenza'], 'le misure sono Mantenimento, Sequenza bersaglio, ANT');
+    t.ok(misure.every(k => R.EXERCISES[k].dominio), 'ogni misura porta il proprio dominio');
+    const gMis = R.EXERCISE_GROUPS.find(g => /^Misure/.test(g.label));
+    t.eq(gMis && gMis.keys.slice().sort(), misure.slice().sort(), 'la sezione Misure contiene tutte e sole le misure');
+    t.ok(R.EXERCISE_GROUPS.filter(g => g !== gMis).every(g => g.keys.every(k => R.EXERCISES[k].ruolo !== 'misura')), 'nessuna misura fuori dalla sezione Misure');
+    t.ok(Object.keys(R.RUOLO_LABEL).sort().join() === 'allenamento,entrambi,misura', 'etichette per i tre ruoli');
+  });
+
   t.group('coerenza con titolazione e screening', () => {
     t.ok(T.TITRATION_EXERCISES.every(k => keys.includes(k)), 'ogni esercizio titolabile esiste nel registro');
     t.ok(Object.keys(T.LEVEL_FIELD_OF_TASKMODE).every(k => keys.includes(k)), 'ogni campo-livello si riferisce a un esercizio del registro');

@@ -29,7 +29,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
   export const MISTA_LABELS_SHORT = {visivo:'Mista (visivo)', uditivo:'Mista (uditivo)', misto:'Mista (visivo+uditivo)'};
   export const CHUNKING_METODI_LABELS = {categoria:'Categorizzazione semantica', acronimo:'Acronimo/acrostico', narrazione:'Narrazione/concatenamento', immagine:'Immagine associativa', personale:'Personale (nota libera)'};
   export const EXERCISES = {
-    nback:      {label:'N-back classico',        usesStimType:true,  usesTargetSeq:false, family:'signal',
+    nback:      {ruolo:'entrambi', label:'N-back classico',        usesStimType:true,  usesTargetSeq:false, family:'signal',
       domini:['Memoria di lavoro','Attenzione sostenuta'],
       instructions:c=>{
         const isMista = c.nbackMista && c.nbackMista!=='no';
@@ -39,7 +39,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         const matLabel = isMista ? 'stimoli di tipo diverso ogni volta ('+MISTA_LABELS_SHORT[c.nbackMista].toLowerCase()+')' : STIM_LABELS[c.stimType].toLowerCase();
         return verboVis+' una serie di '+matLabel+', '+(f?'una':'uno')+' alla volta. Tocca il pulsante dorato ogni volta che '+(f?'è uguale a quella':'è uguale a quello')+' di '+n+(n===1?' posizione prima':' posizioni prima')+'. Se non lo è, non toccare nulla.';
       }},
-    sequenza:   {label:'Sequenza bersaglio',      usesStimType:true,  usesTargetSeq:true,  family:'signal', screeningOnly:true,
+    sequenza:   {ruolo:'misura', dominio:'Memoria di lavoro', label:'Sequenza bersaglio',      usesStimType:true,  usesTargetSeq:true,  family:'signal',
       domini:['Memoria di lavoro','Attenzione sostenuta'],
       instructions:c=>{
         const verbo = (isAudioOnlyStim(c.stimType)&&!c.sequenzaMista) ? 'Sentirai' : 'Vedrai';
@@ -47,7 +47,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         const n = c.targetSeq.length;
         return verbo+' una serie di stimoli, uno alla volta. Il tuo compito è riconoscere quando compaiono, uno subito dopo l\'altro e nell\'ordine giusto, questi '+n+': '+seqTxt+'. Appena vedi comparire l\'ultimo di questi ('+seqLabel(c.targetSeq[n-1])+'), ma solo se è arrivato subito dopo gli altri '+(n-1)+' nell\'ordine corretto, tocca il pulsante dorato. Per tutti gli altri stimoli — anche se uno di questi appare da solo, fuori sequenza, o nell\'ordine sbagliato — non toccare nulla.';
       }},
-    runningspan: {label:'Running Span',           usesStimType:true,  usesTargetSeq:false, family:'span',
+    runningspan: {ruolo:'entrambi', label:'Running Span',           usesStimType:true,  usesTargetSeq:false, family:'span',
       domini:['Memoria di lavoro (aggiornamento sotto incertezza)'],
       // Pollack, Johnson & Knaff (1959), Journal of Experimental
       // Psychology, 57, 137-146 — origine del paradigma. A differenza
@@ -65,14 +65,14 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         const verbo = isAudioOnlyStim(c.stimType) ? 'Sentirai' : 'Vedrai';
         return verbo+' una serie di '+matName+', uno alla volta — la serie può essere più lunga o più corta, non sai mai in anticipo quando finisce. Non devi rispondere durante la serie: guarda (o ascolta) e basta. Quando la serie finisce (schermo "Ora richiama!"), dovrai indicare, **nell\'ordine esatto**, gli ultimi '+lvl.n+' '+matName+' comparsi — toccando i pulsanti sulla tastiera che compare, uno per casella, nell\'ordine in cui li ricordi. Puoi annullare l\'ultimo inserito prima di confermare.';
       }},
-    gonogo:     {label:'Go/No-Go',                usesStimType:true,  usesTargetSeq:true,  family:'signal',
+    gonogo:     {ruolo:'entrambi', label:'Go/No-Go',                usesStimType:true,  usesTargetSeq:true,  family:'signal',
       domini:['Controllo inibitorio','Attenzione sostenuta'],
       instructions:c=>{
         const active = c.titrationMode && c.titrationMode!=='manuale' ? c.targetSeq.slice(0, Math.max(1,ADAPT_GONOGO_COUNT[c.adaptStartLevel]||1)) : c.targetSeq;
         const list = active.map(seqLabel).join(', ');
         return 'Tocca il pulsante ogni volta che appare uno stimolo, tranne quando appare '+(active.length>1?'uno di questi: '+list:list)+' — in quel caso non toccare nulla.';
       }},
-    stopsignal: {label:'Stop-Signal',             usesStimType:true,  usesTargetSeq:false, family:'signal',
+    stopsignal: {ruolo:'entrambi', label:'Stop-Signal',             usesStimType:true,  usesTargetSeq:false, family:'signal',
       domini:['Controllo inibitorio (motorio)'],
       // Two-choice go-task (non più rilevamento semplice): la risposta corretta
       // dipende dall'identità dello stimolo, non dalla sua sola comparsa — un
@@ -93,7 +93,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         const verbo = c.stimType==='suoni' ? 'Sentirai' : 'Vedrai';
         return verbo+' '+matName+' e devi rispondere il più velocemente possibile toccando "'+rule.labelA+'" o "'+rule.labelB+'", a seconda di quale delle due si applica. A volte, subito dopo, comparirà la scritta STOP: in quel caso non toccare nessuno dei due pulsanti, anche se avevi già iniziato il movimento.';
       }},
-    ant:        {label:'Attenzione (tipo ANT)',   usesStimType:true,  usesTargetSeq:false, family:'choice', screeningOnly:true,
+    ant:        {ruolo:'misura', dominio:'Attenzione e inibizione', label:'Attenzione (tipo ANT)',   usesStimType:true,  usesTargetSeq:false, family:'choice',
       domini:['Orienting spaziale','Controllo esecutivo/conflitto'],
       // Da questa sessione, ANT classico e TAPAT sono due esercizi distinti
       // (vedi 'tapat' più sotto). ANT classico è visivo con flanker
@@ -104,7 +104,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         if(tokens) return 'Vedrai "'+tokens[0]+'" o "'+tokens[1]+'" al centro dello schermo, a volte circondato da altri elementi uguali o diversi. Tocca il pulsante corrispondente a quello al centro, il più velocemente possibile.';
         return 'Vedrai una freccia al centro dello schermo, a volte circondata da altre frecce. Indica la direzione della freccia centrale il più velocemente possibile, toccando il pulsante sinistra o destra.';
       }},
-    tapat:      {label:'TAPAT (allerta tonica/fasica)', usesStimType:true, usesTargetSeq:false, family:'choice',
+    tapat:      {ruolo:'entrambi', label:'TAPAT (allerta tonica/fasica)', usesStimType:true, usesTargetSeq:false, family:'choice',
       domini:['Allerta tonica/sostenuta'],
       // Separato da ANT classico in questa sessione: non ha flanker né cue
       // spaziale predittivo, isola solo l'allerta (blocco tonico + blocco
@@ -122,7 +122,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         const cuffie = isUditivo ? ' Indossa cuffie, o siediti fra due casse: senza un vero audio stereo il tono si sente comunque, ma non da una direzione precisa.' : '';
         return 'Nella prima parte, gli intervalli tra uno stimolo e l\'altro sono lunghi e imprevedibili: mantieni l\'attenzione anche se sembra non succedere nulla, e tocca il pulsante appena '+verbo+' '+matName+'.'+spaziale+cuffie+' Nella seconda parte, gli intervalli sono più brevi e a volte un piccolo segnale sonoro ti avviserà poco prima — rispondi comunque il più velocemente possibile, ogni volta.';
       }},
-    switching:  {label:'Task-switching',          usesStimType:false, usesTargetSeq:false, family:'choice',
+    switching:  {ruolo:'entrambi', label:'Task-switching',          usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Flessibilità cognitiva','Funzioni esecutive'],
       instructions:c=>{
         if(c.switchMaterial==='bivalente'){
@@ -137,7 +137,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         const rs=SWITCH_RULESETS[c.switchMaterial]; const matFem = c.switchMaterial==='lettere';
         const matName = c.switchMaterial==='numeri'?'un numero':c.switchMaterial==='lettere'?'una lettera':c.switchMaterial==='simboli'?'un simbolo':'un colore';
         return 'Vedrai '+matName+', con accanto un\'indicazione che cambia: a volte devi classificar'+(matFem?'la':'lo')+' come "'+rs.ruleA.label+'", altre volte come "'+rs.ruleB.label+'". Segui l\'indicazione mostrata in quel momento.'; }},
-    simon: {label:'Simon (conflitto spazio-risposta)', usesStimType:false, usesTargetSeq:false, family:'choice',
+    simon: {ruolo:'entrambi', label:'Simon (conflitto spazio-risposta)', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Inibizione competitiva','Controllo esecutivo/conflitto'],
       // BUG REALE corretto qui: prima di questa modifica il testo era
       // fisso sulla variante "colori", anche quando cfg.simonMateriale
@@ -156,7 +156,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         const prep = mat==='lettere' ? 'alla' : 'al';
         return 'Vedrai '+nomeSing+' comparire a sinistra o a destra dello schermo. Tocca "'+rule.labelA+'" o "'+rule.labelB+'" a seconda del tipo — rispondi in base '+prep+' '+nomeCap+', non alla posizione in cui compare: la posizione non conta mai per la risposta, anche se a volte può sembrare "attirare" verso il pulsante sbagliato.';
       }},
-    categorizzazione: {label:'Categorizzazione condizionale', usesStimType:false, usesTargetSeq:false, family:'choice',
+    categorizzazione: {ruolo:'entrambi', label:'Categorizzazione condizionale', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Memoria di lavoro (capacità/complessità relazionale)'],
       instructions:c=>{
         const liv = categEffectiveStructure(c);
@@ -209,7 +209,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         }
         return 'Vedrai '+d.a+' o '+d.b+', '+dim2Word.a+' o '+dim2Word.b+'. Tocca A per '+d.a+' '+aWithA+', L per '+d.a+' '+bWithA+', Z per '+d.b+' '+aWithB+', M per '+d.b+' '+bWithB+'.';
       }},
-    dualtask:   {label:'Doppio compito',          usesStimType:false, usesTargetSeq:false, family:'dual',
+    dualtask:   {ruolo:'entrambi', label:'Doppio compito',          usesStimType:false, usesTargetSeq:false, family:'dual',
       domini:['Attenzione divisa','Funzioni esecutive'],
       instructions:c=>{
         const pairing = c.dualPairing || 'vis-aud';
@@ -217,7 +217,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         if(pairing==='aud-aud') return 'Sentirai due toni contemporaneamente, uno grave e uno acuto. Tocca "tono grave" quando quello grave si ripete rispetto a prima, "tono acuto" quando si ripete l\'acuto. Puoi toccare uno, l\'altro, entrambi, o nessuno. Servono cuffie o casse stereo: il tono grave arriva da sinistra, quello acuto da destra.';
         return 'Vedrai e sentirai qualcosa insieme, ogni volta. Tocca il primo pulsante quando l\'immagine si ripete rispetto a prima, il secondo quando si ripete il suono. Puoi toccare uno, l\'altro, entrambi, o nessuno — dipende da cosa si ripete davvero.';
       }},
-    neglect:    {label:'Cancellazione (neglect)',  usesStimType:true,  usesTargetSeq:true,  family:'spatial',
+    neglect:    {ruolo:'entrambi', label:'Cancellazione (neglect)',  usesStimType:true,  usesTargetSeq:true,  family:'spatial',
       domini:['Attenzione visuospaziale','Esplorazione dello spazio'],
       instructions:c=>{
         if(c.neglectMode==='intruso') return 'Sullo schermo compariranno molti simboli, alcuni ripetuti più volte, tranne uno solo: quello non ha nessun doppione da nessuna parte sulla tavola. Esplora tutto lo schermo per individuarlo, poi toccalo. Quando sei sicuro di aver esplorato tutta la tavola, tocca "Fatto".';
@@ -241,7 +241,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         const f = stimGender(c.stimType)==='f';
         return 'Sullo schermo compariranno '+(f?'molte':'molti')+' '+STIM_LABELS[c.stimType].toLowerCase()+'. Tocca solo '+(f?'quelle uguali':'quelli uguali')+' a: '+c.targetSeq.map(seqLabel).join(', ')+'. Ignora tutti gli altri, e vai avanti finché non li hai trovati tutti.';
       }},
-    goaltask:   {label:'Scenari ecologici (pianificazione/multitasking)',      usesStimType:false, usesTargetSeq:false, family:'goaltask',
+    goaltask:   {ruolo:'entrambi', label:'Scenari ecologici (pianificazione/multitasking)',      usesStimType:false, usesTargetSeq:false, family:'goaltask',
       domini:['Funzioni esecutive','Pianificazione','Multitasking'],
       instructions:c=>{
         const sc = goalTaskInstanceFor(c.goaltaskScenario, c.goaltaskLivello);
@@ -260,7 +260,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         const budgetTxt = sc.budgetSecondi ? ' Hai un tempo limitato — potrebbe non essere possibile completare tutto: gestisci le priorità.' : '';
         return 'Ti verrà mostrato un elenco di elementi da completare, uno alla volta, nell\'ordine che preferisci — rispetta però le eventuali dipendenze indicate (alcuni elementi richiedono che un altro sia già stato fatto prima).'+regoleTxt+budgetTxt+' Tocca "Completa" su ciascun elemento quando lo hai fatto (o quando l\'operatore lo segna per te).';
       }},
-    memoria:    {label:'Strategie di memoria',      usesStimType:false, usesTargetSeq:false, family:'memoria',
+    memoria:    {ruolo:'allenamento', label:'Strategie di memoria',      usesStimType:false, usesTargetSeq:false, family:'memoria',
       domini:['Memoria episodica/verbale (strategie compensative)'],
       instructions:c=>{
         if(c.memoriaModo==='chunking'){
@@ -279,7 +279,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         if(c.memoriaModo==='vanishing') return 'Per '+(materiale==='lista'?'ogni parola':'ogni idea')+' vedrai prima un forte suggerimento (quasi tutta l\'informazione), poi uno più debole: prova a completarla tu prima che sparisca del tutto. È la tecnica dei "vanishing cues". Alla fine, un richiamo libero senza alcun suggerimento.';
         return '';
       }},
-    mantenimento: {label:'Mantenimento (tipo Sternberg)', usesStimType:false, usesTargetSeq:false, family:'choice', screeningOnly:true,
+    mantenimento: {ruolo:'misura', dominio:'Memoria di lavoro', label:'Mantenimento (tipo Sternberg)', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Mantenimento in memoria a breve termine'],
       instructions:c=>{
         const matLabel = c.mantenimentoMateriale==='numeri' ? 'numeri' : c.mantenimentoMateriale==='simboli' ? 'simboli' : 'lettere';
@@ -298,7 +298,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
   // vengono mostrati — così un domani riordinare la vetrina non richiede
   // spostare blocchi di codice dentro EXERCISES, solo questa lista.
   export const EXERCISE_GROUPS = [
-    {label:'Attenzione e inibizione', keys:['gonogo','stopsignal','ant','tapat','simon']},
+    {label:'Attenzione e inibizione', keys:['gonogo','stopsignal','tapat','simon']},
     // Memoria di lavoro e mantenimento include qui anche la Categorizzazione
     // condizionale: la teoria della complessità relazionale (Halford, Wilson
     // & Phillips, 1998) la inquadra esplicitamente come un limite di
@@ -308,12 +308,24 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
     // vista, pur misurando qualcosa di diverso da entrambi (integrazione
     // relazionale sotto una regola fissa, non aggiornamento continuo né
     // mantenimento passivo).
-    {label:'Memoria di lavoro e mantenimento', keys:['nback','sequenza','mantenimento','categorizzazione','runningspan']},
+    {label:'Memoria di lavoro e mantenimento', keys:['nback','categorizzazione','runningspan']},
     {label:'Flessibilità cognitiva', keys:['switching']},
     {label:'Esplorazione visuospaziale', keys:['neglect']},
     {label:'Attenzione divisa e multitasking', keys:['dualtask','goaltask']},
-    {label:'Memoria strategica', keys:['memoria']}
+    {label:'Memoria strategica', keys:['memoria']},
+    // Strumenti di MISURA (ruolo 'misura'): servono allo screening e alla rivalutazione
+    // periodica, non all'allenamento quotidiano. Stanno insieme, ma ognuno porta il
+    // proprio dominio (campo `dominio`) così il legame con la teoria resta visibile.
+    {label:'Misure di rivalutazione (non per l\'allenamento)', keys:['mantenimento','sequenza','ant']}
   ];
+  // Ruolo di ogni esercizio: 'misura' (solo screening/rivalutazione), 'allenamento'
+  // (non misurato dallo screening) o 'entrambi'. Un test controlla che coincida con
+  // SCREENING_PROBES: ruolo != 'allenamento' <=> esiste una sonda che lo propone.
+  export const RUOLO_LABEL = {
+    misura: 'solo misura (screening e rivalutazione periodica)',
+    entrambi: 'misura e allenamento',
+    allenamento: 'solo allenamento (lo screening non lo misura)'
+  };
   export function defaultCfg(){
     return {
     stimType:'lettere', nLevel:5, isi:2200, stimDuration:600, trials:24,

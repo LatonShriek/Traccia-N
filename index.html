@@ -50,7 +50,7 @@ import { neglectBoardSubLevel as neglectBoardSubLevelOf, neglectBottomUpWeakSide
 import { resolveSignal as resolveSignalOf, resolveChoice as resolveChoiceOf, resolveCategorization as resolveCategorizationOf, resolveDualTask as resolveDualTaskOf } from './js/exercises/resolve.js';
 import { GOALTASK_SCENARIOS, startGoalTask, completeGoalTaskItem, goalTaskVisibleItems, goalTaskTick, scoreGoalTask, goalTaskInstanceFor, goalTaskItemIcon } from './js/exercises/goaltask.js';
 import { memoriaEffectiveMateriale, memoriaNForme, memoriaFormeUsatePerPaziente as memoriaFormeUsatePerPazienteOf, memoriaMaterialFor, memoriaLearnItems, lociRouteFor, MEMORIA_MODO_LABELS } from './js/exercises/memoria.js';
-import { STIM_LABELS, isSpokenStim, isAudioOnlyStim, MISTA_LABELS_SHORT, CHUNKING_METODI_LABELS, EXERCISES, EXERCISE_GROUPS, defaultCfg, presetCfgOf } from './js/exercises/registry.js';
+import { STIM_LABELS, isSpokenStim, isAudioOnlyStim, MISTA_LABELS_SHORT, CHUNKING_METODI_LABELS, EXERCISES, EXERCISE_GROUPS, RUOLO_LABEL, defaultCfg, presetCfgOf } from './js/exercises/registry.js';
 import { DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoFeedbackText as demoFeedbackTextOf } from './js/exercises/demo.js';
 import { buildSessionRecord } from './js/exercises/record.js';
 import { renderSessionGroups } from './js/ui/history-view.js';
@@ -1726,7 +1726,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       if(v==='neglect' && cfg.trials>10) cfg.trials = 3;
       if(v!=='neglect' && v!=='ant' && cfg.trials<10) cfg.trials = 24;
       render();
-    }, Object.fromEntries(Object.entries(EXERCISES).map(([k,v])=>[k, v.label+(v.screeningOnly?' ⏱':'')])), v=> EXERCISES[v] && EXERCISES[v].screeningOnly ? 'screening-only' : '')));
+    }, Object.fromEntries(Object.entries(EXERCISES).map(([k,v])=>[k, v.label+(v.ruolo==='misura'?' ⏱ ('+v.dominio+')':'')])), v=> EXERCISES[v] && EXERCISES[v].ruolo==='misura' ? 'screening-only' : '')));
     grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:2px 0 8px;'},[
       '⏱ tratteggiato = pensato per la rivalutazione periodica, non per l\'allenamento quotidiano (dettaglio sotto una volta selezionato).'
     ]));
@@ -1737,9 +1737,15 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     // ANT classico) o il disallineamento fra letteratura e implementazione
     // (Sequenza bersaglio: la letteratura di training che esiste è per
     // insegnamento esplicito di strategia, non pratica adattiva ripetuta).
-    if(ex.screeningOnly){
+    if(ex.ruolo==='misura'){
       grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:-6px 0 4px; color:var(--alert);'},[
         '⏱ Pensato per la rivalutazione periodica (es. ogni 4-6 settimane), non come esercizio di allenamento quotidiano — nessuna letteratura di training dedicato trovata per questo compito così com\'è costruito qui (misura solida, allenamento non dimostrato).'
+      ]));
+    }
+
+    if(ex.ruolo && RUOLO_LABEL[ex.ruolo]){
+      grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:-6px 0 4px;'},[
+        el('b',{},['Ruolo: ']), RUOLO_LABEL[ex.ruolo]
       ]));
     }
 

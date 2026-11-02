@@ -68,8 +68,17 @@ principio di lettura richiamato più sopra per "Attenzione e inibizione".
 | Strategie di memoria | Memoria a lungo termine, apprendimento strategico | Ippocampo/lobo temporale mediale (codifica); prefrontale per il controllo strategico | Glisky, Schacter & Tulving (1986), *Journal of Clinical and Experimental Neuropsychology*, 8(3), 292-312 (vanishing cues); Baddeley & Wilson (1994), *Neuropsychologia*, 32(1), 53-68 (errorless learning); Ciaramelli, Neri, Marini & Braghittoni (2015), *Frontiers in Behavioral Neuroscience*, 9, 211 (PQRST, popolazione a lesione prefrontale — la fonte più direttamente pertinente qui, non solo l'origine generica del metodo); Huntley, Hampshire, Bor, Owen & Howard (2017), *British Journal of Psychiatry*, 210(1), 61-66 (chunking, trial randomizzato in Alzheimer lieve); Gross, Brandt, Bandeen-Roche, Carlson, Stuart, Marsiske & Rebok (2014), *Experimental Aging Research*, 40(2), 140-163 (metodo dei loci, anziani) |
 
 I sei raggruppamenti sopra sono gli stessi usati nel selettore dell'app
-(`EXERCISE_GROUPS` in index.html) — un solo criterio di vicinanza
-concettuale, non due tassonomie parallele da mantenere sincronizzate.
+(`EXERCISE_GROUPS` in `js/exercises/registry.js`) — un solo criterio di
+vicinanza concettuale, non due tassonomie parallele da mantenere
+sincronizzate. Unica aggiunta, per ruolo e non per dominio: la sezione
+**«Misure di rivalutazione»** raccoglie gli esercizi con `ruolo:'misura'`
+(Mantenimento, Sequenza bersaglio, ANT): strumenti di misura per screening e
+rivalutazione periodica (ogni 4-6 settimane), non per l'allenamento
+quotidiano. Ognuno conserva il proprio dominio (campo `dominio`, mostrato
+nel selettore), quindi il legame con le tabelle sopra non si perde. Ogni
+esercizio ha un `ruolo` — `misura`, `allenamento` (oggi solo Strategie di
+memoria: lo screening non la valuta) o `entrambi` — e un test verifica che
+coincida con le sonde di `SCREENING_PROBES`.
 Il raggruppamento riflette prossimità di costrutto/dominio, non
 equivalenza, ed è bene non aspettarsi covarianza fra le prestazioni sugli
 esercizi di uno stesso gruppo: dentro "Attenzione e inibizione", ANT

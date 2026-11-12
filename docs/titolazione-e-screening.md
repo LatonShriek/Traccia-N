@@ -56,6 +56,14 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
 - **TAPAT**: il blocco tonico usa un intervallo variabile tra gli stimoli
   (l'imprevedibilità è parte del costrutto). Il gradiente spaziale sinistra/destra
   si sposta di 5 punti (limiti 25–75) quando i due lati differiscono di oltre 15 punti.
+- **Intruso percettivo** (ruolo «allenamento»: lo screening non lo misura): adatta ogni
+  **6 schermate**, stessa regola 70-85%. 10 livelli: da 12 a 27 elementi, simboli di 1-3
+  caratteri, tipi sempre più simili fra loro, da 30 a 15 secondi per schermata. Tabelle
+  in `js/exercises/intrusopercettivo.js` (ipotesi di partenza, da tarare sull'uso clinico).
+- **PASAT / PVSAT con operazione** (ruolo «allenamento»): adatta ogni **8 risposte**.
+  Tre materiali (somme di cifre, giorni della settimana, mesi); risposta a tocco entro il
+  ritmo, altrimenti omissione. Dal livello 4 il ritmo si stringe, dal 7 la regola
+  riguarda lo stimolo di due posti prima. Tabelle in `js/exercises/pasat.js`.
 - **Running Span**: adatta ogni **4 cicli** (non 8: un ciclo porta molta più
   informazione di una prova) sulla media di accuratezza di posizione e contenuto;
   n massimo 4 (cautela dichiarata).

@@ -60,6 +60,8 @@ import { genNbackTrial as genNbackTrialOf } from './js/exercises/nback.js';
 import { genGoNoGoTrial as genGoNoGoTrialOf } from './js/exercises/gonogo.js';
 import { genTapatTrial as genTapatTrialOf, buildTAPAT as buildTAPATOf } from './js/exercises/tapat.js';
 import { buildDualTask as buildDualTaskOf, genDualTaskTrial as genDualTaskTrialOf } from './js/exercises/dualtask.js';
+import { INTRUSO_LEVELS, genIntrusoTrial as genIntrusoTrialOf, scoreIntrusoTrial, maybeAdaptIntruso as maybeAdaptIntrusoOf } from './js/exercises/intrusopercettivo.js';
+import { PASAT_LEVELS, PASAT_MATERIALS, pasatAnswers, genPasatSeries, pasatExpected, scorePasatTrial, maybeAdaptPasat as maybeAdaptPasatOf } from './js/exercises/pasat.js';
 import { RUNNINGSPAN_LEVELS, RUNNINGSPAN_ADAPT_BLOCK, genRunningSpanTrial as genRunningSpanTrialOf, runningSpanItemsEqual, scoreRunningSpanTrial, maybeAdaptRunningSpan as maybeAdaptRunningSpanOf } from './js/exercises/runningspan.js';
 import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_PROBES, probeFailed, suggestionFor, ATTENZIONE_ORDER, attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER } from './js/core/screening.js';
 import { DUAL_LEVEL_MAX, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL, structuralBandBounds, adaptLevelKey as adaptLevelKeyOf, currentLevelMax as currentLevelMaxOf, sessionLevelBounds as sessionLevelBoundsOf } from './js/core/bands.js';
@@ -788,11 +790,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       const isGoalTask = cfg.taskMode==='goaltask';
       const isMemoria = cfg.taskMode==='memoria';
       const isRunningSpan = cfg.taskMode==='runningspan';
+      const isIntruso = cfg.taskMode==='intrusopercettivo';
+      const isPasat = cfg.taskMode==='pasat';
       if(!taskDom){
         root.innerHTML='';
-        taskDom = isNeglect ? mountNeglectScreen(root) : isGoalTask ? mountGoalTaskScreen(root) : isMemoria ? mountMemoriaScreen(root) : isRunningSpan ? mountRunningSpanScreen(root) : mountTaskScreen(root);
+        taskDom = isNeglect ? mountNeglectScreen(root) : isGoalTask ? mountGoalTaskScreen(root) : isMemoria ? mountMemoriaScreen(root) : isRunningSpan ? mountRunningSpanScreen(root) : (isIntruso||isPasat) ? mountTimedChoiceScreen(root) : mountTaskScreen(root);
       }
-      if(isNeglect) updateNeglectScreen(); else if(isGoalTask) updateGoalTaskScreen(); else if(isMemoria) updateMemoriaScreen(); else if(isRunningSpan) updateRunningSpanScreen(); else updateTaskScreen();
+      if(isNeglect) updateNeglectScreen(); else if(isGoalTask) updateGoalTaskScreen(); else if(isMemoria) updateMemoriaScreen(); else if(isRunningSpan) updateRunningSpanScreen(); else if(isIntruso) updateIntrusoScreen(); else if(isPasat) updatePasatScreen(); else updateTaskScreen();
       pushHistoryIfNeeded();
       return;
     }
@@ -1832,13 +1836,22 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       grid.appendChild(field('Livello', stepper(cfg.nLevel,1,10,v=>{cfg.nLevel=v; render();})));
       grid.appendChild(el('p',{class:'hint'},['n='+nbackParamsForLevel(cfg.nLevel).n+' a questo livello. Il livello combina n (1-3, cresce solo ai passaggi di banda) con frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso).']));
     }
-    if(cfg.taskMode==='sequenza' || cfg.taskMode==='switching' || cfg.taskMode==='gonogo' || cfg.taskMode==='stopsignal' || cfg.taskMode==='ant' || cfg.taskMode==='simon' || cfg.taskMode==='runningspan'){
+    if(cfg.taskMode==='sequenza' || cfg.taskMode==='switching' || cfg.taskMode==='gonogo' || cfg.taskMode==='stopsignal' || cfg.taskMode==='ant' || cfg.taskMode==='simon' || cfg.taskMode==='runningspan' || cfg.taskMode==='intrusopercettivo' || cfg.taskMode==='pasat'){
       grid.appendChild(field('Livello', stepper(cfg.adaptStartLevel,1,10,v=>{
         cfg.adaptStartLevel=v;
         if(cfg.taskMode==='sequenza' && cfg.titrationMode!=='manuale') adjustTargetSeqToLength(ADAPT_SEQ_LEN[v]);
         if(cfg.taskMode==='gonogo') suggestGoNoGoTargets(v);
         render();
       })));
+      if(cfg.taskMode==='pasat'){
+        grid.appendChild(field('Materiale', segButtons(['somme','giorni','mesi'], cfg.pasatMateriale||'somme', v=>{ cfg.pasatMateriale=v; render(); }, PASAT_MATERIALS)));
+        const lv = PASAT_LEVELS[cfg.adaptStartLevel]||PASAT_LEVELS[1];
+        card.appendChild(el('p',{class:'hint'},['A questo livello: un nuovo stimolo ogni '+(lv.isi/1000).toFixed(1)+' s, regola sullo stimolo di '+lv.lag+(lv.lag===1?' posto':' posti')+' prima'+((cfg.pasatMateriale||'somme')!=='somme' ? ', avanzando di '+lv.shift : '')+'. Il paziente risponde toccando; se non tocca in tempo la risposta conta come omissione. Con l\'adattivo il livello sale/scende da solo ogni 8 risposte (70-85%).']));
+      }
+      if(cfg.taskMode==='intrusopercettivo'){
+        const lv = INTRUSO_LEVELS[cfg.adaptStartLevel]||INTRUSO_LEVELS[1];
+        card.appendChild(el('p',{class:'hint'},['A questo livello: '+lv.n+' elementi per schermata, simboli di '+lv.len+(lv.len===1?' carattere':' caratteri')+', '+Math.round(lv.limitMs/1000)+' s per schermata. Con l\'adattivo il livello cambia da solo ogni 6 schermate (70-85%).']));
+      }
       if(cfg.taskMode==='runningspan'){
         const lvl = RUNNINGSPAN_LEVELS[cfg.adaptStartLevel]||RUNNINGSPAN_LEVELS[1];
         card.appendChild(el('p',{class:'hint'},[
@@ -2615,6 +2628,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(cfg.taskMode==='goaltask'){ startGoalTaskSession(); return; }
     if(cfg.taskMode==='memoria'){ startMemoriaSession(); return; }
     if(cfg.taskMode==='runningspan'){ startRunningSpanSession(); return; }
+    if(cfg.taskMode==='intrusopercettivo'){ startIntrusoSession(); return; }
+    if(cfg.taskMode==='pasat'){ startPasatSession(); return; }
     const isTapat = cfg.taskMode==='tapat';
     const isIncremental = cfg.taskMode==='nback' || isTapat || cfg.taskMode==='gonogo' || cfg.taskMode==='dualtask' || cfg.taskMode==='categorizzazione';
     session = {
@@ -4933,6 +4948,116 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     } else if(session.phase==='recall'){
       content.appendChild(renderRunningSpanRecall(trial));
     }
+  }
+
+  // ---------- Intruso percettivo e PASAT/PVSAT (esercizi a tocco, a tempo) ----------
+  // Logica pura in js/exercises/intrusopercettivo.js e js/exercises/pasat.js; qui solo schermo e
+  // temporizzazione. Registrano session.choiceLog ({correct, omitted, rt}) come gli altri
+  // esercizi a scelta, quindi storico, RT, EZ-diffusion e affaticamento escono dal ramo
+  // family==='choice' di buildSessionRecord senza codice in più.
+  function timedClearTimer(){ if(session.timer){ clearTimeout(session.timer); session.timer=null; } }
+  function mountTimedChoiceScreen(root){
+    const infoSpan = el('div',{class:'info'},['']);
+    const pauseBtn = el('button',{onclick:()=>{
+      if(session.paused){ session.paused=false; if(cfg.taskMode==='pasat') scheduleNextPasat(); else beginIntrusoTrial(); }
+      else { session.paused=true; timedClearTimer(); render(); }
+    }},['Pausa']);
+    root.appendChild(el('div',{class:'topbar'},[
+      infoSpan,
+      el('div',{class:'topbar-actions'},[pauseBtn, el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ timedClearTimer(); screeningState=null; goBack(); } }},['Interrompi'])])
+    ]));
+    const content = el('div',{style:'padding:16px; max-width:760px; margin:0 auto; width:100%;'},[]);
+    root.appendChild(content);
+    return {infoSpan, content};
+  }
+  // --- Intruso percettivo ---
+  function startIntrusoSession(){
+    session = { trialIdx:0, currentTrial:null, trialShownAt:0, choiceLog:[], ipAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
+    view='task'; render();
+    beginIntrusoTrial();
+  }
+  function beginIntrusoTrial(){
+    if(session.paused) return;
+    if(!session.currentTrial) session.currentTrial = genIntrusoTrialOf(cfg.adaptStartLevel);
+    session.trialShownAt = performance.now();
+    render();
+    session.timer = setTimeout(()=>resolveIntrusoTrial(null), session.currentTrial.limitMs);
+  }
+  function resolveIntrusoTrial(tapped){
+    timedClearTimer();
+    const trial = session.currentTrial;
+    const rt = Math.round(performance.now()-session.trialShownAt);
+    const sc = scoreIntrusoTrial(trial, tapped, rt);
+    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, family:trial.familyId, n:trial.n});
+    session.ipAdaptBlock.push(sc.correct);
+    maybeAdaptIntrusoOf(cfg, session);
+    session.trialIdx++;
+    if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
+    session.currentTrial = genIntrusoTrialOf(cfg.adaptStartLevel); // livello letto ORA, dopo l'eventuale adattamento
+    beginIntrusoTrial();
+  }
+  function updateIntrusoScreen(){
+    const {infoSpan, content} = taskDom;
+    const trial = session.currentTrial;
+    infoSpan.textContent = 'Schermata '+(session.trialIdx+1)+' / '+cfg.trials+' · livello '+cfg.adaptStartLevel;
+    content.innerHTML = '';
+    if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
+    if(!trial) return;
+    const cols = Math.ceil(Math.sqrt(trial.n*1.6));
+    const size = trial.len===1 ? 40 : trial.len===2 ? 30 : 24;
+    const grid = el('div',{style:'display:grid; grid-template-columns:repeat('+cols+',1fr); gap:8px; margin-top:8px;'});
+    trial.items.forEach((v,i)=>{
+      grid.appendChild(el('button',{style:'font-size:'+size+'px; min-height:56px; padding:6px 2px; font-family:inherit;', onclick:()=>{ if(!session.paused) resolveIntrusoTrial(i); }},[v]));
+    });
+    content.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Tocca l\'unico elemento che compare UNA SOLA volta.']));
+    content.appendChild(grid);
+  }
+  // --- PASAT / PVSAT con operazione ---
+  function startPasatSession(){
+    session = { idx:0, series:genPasatSeries(cfg.pasatMateriale||'somme', cfg.trials+4), shownAt:0, answered:null, choiceLog:[], pasatAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
+    view='task'; render();
+    scheduleNextPasat();
+  }
+  function scheduleNextPasat(){
+    if(session.paused) return;
+    const lvl = PASAT_LEVELS[cfg.adaptStartLevel]||PASAT_LEVELS[1];
+    session.answered = null; session.shownAt = performance.now();
+    render();
+    session.timer = setTimeout(()=>finishPasatStimulus(lvl), lvl.isi);
+  }
+  function finishPasatStimulus(lvl){
+    const mat = cfg.pasatMateriale||'somme';
+    const expected = pasatExpected(mat, session.series, session.idx, cfg.adaptStartLevel);
+    if(expected!=null){
+      const sc = scorePasatTrial(expected, session.answered ? session.answered.value : null, session.answered ? session.answered.rt : null);
+      session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, materiale:mat});
+      session.pasatAdaptBlock.push(sc.correct);
+      maybeAdaptPasatOf(cfg, session);
+    }
+    session.idx++;
+    if(session.choiceLog.length >= cfg.trials || session.idx >= session.series.length){ completeAndSave(Date.now()-session.startedAtWall); return; }
+    scheduleNextPasat();
+  }
+  function updatePasatScreen(){
+    const {infoSpan, content} = taskDom;
+    const mat = cfg.pasatMateriale||'somme';
+    infoSpan.textContent = 'Risposta '+Math.min(session.choiceLog.length+1,cfg.trials)+' / '+cfg.trials+' · livello '+cfg.adaptStartLevel;
+    content.innerHTML = '';
+    if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
+    const stim = session.series[session.idx];
+    content.appendChild(el('div',{style:'text-align:center; font-size:64px; font-weight:800; padding:24px 0;'},[String(stim)]));
+    const answers = pasatAnswers(mat);
+    const cols = mat==='somme' ? 6 : mat==='mesi' ? 4 : 4;
+    const grid = el('div',{style:'display:grid; grid-template-columns:repeat('+cols+',1fr); gap:8px;'});
+    answers.forEach(a=>{
+      const chosen = session.answered && session.answered.value===a;
+      grid.appendChild(el('button',{class:chosen?'primary':'', style:'min-height:56px; font-size:'+(mat==='somme'?'24px':'17px')+';', onclick:()=>{
+        if(session.paused || session.answered) return; // vale solo il primo tocco per stimolo
+        session.answered = {value:a, rt:Math.round(performance.now()-session.shownAt)};
+        updatePasatScreen();
+      }},[String(a)]));
+    });
+    content.appendChild(grid);
   }
   async function completeAndSave(durationMs){
     // Rete di sicurezza: se qualunque cosa nel corpo qui sotto lancia

@@ -13,6 +13,8 @@ import { pickCategRegime } from './categorizzazione.js';
 import { goalTaskInstanceFor } from './goaltask.js';
 import { neglectRuleFor } from './neglect.js';
 import { RUNNINGSPAN_LEVELS } from './runningspan.js';
+import { PASAT_LEVELS, PASAT_MATERIALS } from './pasat.js';
+import { INTRUSO_LEVELS } from './intrusopercettivo.js';
 
   // POOLS (dati degli stimoli): vedi js/core/pools.js (passo 3b).
   export const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati', paroleVoce:'Parole pronunciate', frecce:'Frecce', forma:'Forma'};
@@ -64,6 +66,26 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
         const matName = {lettere:'lettere',numeri:'numeri',simboli:'simboli',colori:'colori',suoni:'suoni'}[c.stimType]||'elementi';
         const verbo = isAudioOnlyStim(c.stimType) ? 'Sentirai' : 'Vedrai';
         return verbo+' una serie di '+matName+', uno alla volta — la serie può essere più lunga o più corta, non sai mai in anticipo quando finisce. Non devi rispondere durante la serie: guarda (o ascolta) e basta. Quando la serie finisce (schermo "Ora richiama!"), dovrai indicare, **nell\'ordine esatto**, gli ultimi '+lvl.n+' '+matName+' comparsi — toccando i pulsanti sulla tastiera che compare, uno per casella, nell\'ordine in cui li ricordi. Puoi annullare l\'ultimo inserito prima di confermare.';
+      }},
+    intrusopercettivo: {ruolo:'allenamento', label:'Intruso percettivo',   usesStimType:false, usesTargetSeq:false, family:'choice',
+      domini:['Attenzione selettiva','Ricerca visiva'],
+      // Versione individuale a tocco dell'esercizio "Intruso percettivo" del generatore di schede
+      // PdM CDCD: fra molti simboli ce n'è uno solo che compare una volta sola.
+      instructions:c=>{
+        const lvl = INTRUSO_LEVELS[c.adaptStartLevel]||INTRUSO_LEVELS[1];
+        return 'Vedrai molti simboli: tutti compaiono almeno due volte, tranne uno che compare UNA SOLA volta. Toccalo il più in fretta possibile, senza sbagliare. Hai '+Math.round(lvl.limitMs/1000)+' secondi per ogni schermata.';
+      }},
+    pasat: {ruolo:'allenamento', label:'PASAT / PVSAT con operazione', usesStimType:false, usesTargetSeq:false, family:'choice',
+      domini:['Memoria di lavoro','Velocità di elaborazione','Attenzione sostenuta'],
+      // Gronwall (1977): somme seriali a ritmo imposto; qui estese a giorni e mesi.
+      instructions:c=>{
+        const lvl = PASAT_LEVELS[c.adaptStartLevel]||PASAT_LEVELS[1];
+        const mat = c.pasatMateriale||'somme';
+        const quando = lvl.lag===1 ? 'quello che è comparso subito prima' : 'quello comparso due prima';
+        const regola = mat==='somme' ? 'Somma ogni numero con '+quando+' e tocca il risultato.'
+          : mat==='giorni' ? 'Parti dal giorno '+(lvl.lag===1?'comparso subito prima':'comparso due prima')+', vai avanti di '+lvl.shift+(lvl.shift===1?' giorno':' giorni')+' e tocca il giorno che ottieni.'
+          : 'Parti dal mese '+(lvl.lag===1?'comparso subito prima':'comparso due prima')+', vai avanti di '+lvl.shift+(lvl.shift===1?' mese':' mesi')+' e tocca il mese che ottieni.';
+        return 'Vedrai una serie di '+(mat==='somme'?'numeri':mat==='giorni'?'giorni della settimana':'mesi')+', uno alla volta, a ritmo fisso. '+regola+' Il primo stimolo non richiede risposta. Non aspettare: tocca prima che compaia il successivo.';
       }},
     gonogo:     {ruolo:'entrambi', label:'Go/No-Go',                usesStimType:true,  usesTargetSeq:true,  family:'signal',
       domini:['Controllo inibitorio','Attenzione sostenuta'],
@@ -308,7 +330,8 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
     // vista, pur misurando qualcosa di diverso da entrambi (integrazione
     // relazionale sotto una regola fissa, non aggiornamento continuo né
     // mantenimento passivo).
-    {label:'Memoria di lavoro e mantenimento', keys:['nback','categorizzazione','runningspan']},
+    {label:'Memoria di lavoro e mantenimento', keys:['nback','categorizzazione','runningspan','pasat']},
+    {label:'Attenzione selettiva e ricerca visiva', keys:['intrusopercettivo']},
     {label:'Flessibilità cognitiva', keys:['switching']},
     {label:'Esplorazione visuospaziale', keys:['neglect']},
     {label:'Attenzione divisa e multitasking', keys:['dualtask','goaltask']},
@@ -365,6 +388,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
     neglectRuleClauses:null, // solo per 'regola' — null=progressione automatica cumulativa per livello; altrimenti array di chiavi scelte manualmente fra 'base','colore','riga','sfondo'
     goaltaskScenario:'sei_compiti_classico', goaltaskLivello:2, // solo per Scenari ecologici (1-5, crescente)
     memoriaModo:'pqrst', memoriaLivello:1, memoriaMateriale:'lista', // solo per Strategie di memoria — memoriaMateriale usato solo da loci/errorless/vanishing (pqrst è sempre brano, chunking è sempre lista)
+    pasatMateriale:'somme', // solo per PASAT: 'somme'|'giorni'|'mesi'
     memoriaFormaIdx:0, // solo per pqrst/chunking, solo sui livelli con forme parallele (1-2 al momento) — quale forma (A/B/C...) usare in questa sessione; scelta sempre manuale dall'operatore, mai casuale, per poter pilotare baseline/intermedia/finale nel confronto RCI
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
@@ -403,7 +427,7 @@ import { RUNNINGSPAN_LEVELS } from './runningspan.js';
       numDigits:c.numDigits, wordComplexity:c.wordComplexity, showTrail:c.showTrail,
       neglectGradient:c.neglectGradient, neglectLayout:c.neglectLayout, neglectTimeLimit:c.neglectTimeLimit, neglectBoardSize:c.neglectBoardSize,
       neglectMode:c.neglectMode, neglectRuleLevel:c.neglectRuleLevel,
-      goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx,
+      goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx, pasatMateriale:c.pasatMateriale,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
       categLivello:c.categLivello, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,

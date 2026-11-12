@@ -71,6 +71,8 @@ const EXERCISE_BUTTON_TEXT = {
   simon: 'Simon (conflitto spazio-risposta)',
   mantenimento: 'Mantenimento (tipo Sternberg)',
   runningspan: { exercise: 'Running Span', family: 'runningspan' },
+  intrusopercettivo: { exercise: 'Intruso percettivo', family: 'timedchoice' },
+  pasat: { exercise: 'PASAT / PVSAT con operazione', family: 'timedchoice' },
   neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' },
   goaltask: { exercise: 'Scenari ecologici', family: 'goaltask' },
   neglect_intruso: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: "Trova l'intruso" },
@@ -229,6 +231,21 @@ async function simulateRunningSpanResponses(page, { maxMs = 90000, tapEveryMs = 
   }
   return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
 }
+// Intruso percettivo e PASAT: griglia/tastierino di pulsanti dentro il contenitore centrale della
+// schermata (max-width 760px); tocca a caso uno di quelli finché la sessione non finisce.
+async function simulateTimedChoiceResponses(page, { maxMs = 60000, tapEveryMs = 250 } = {}) {
+  const start = Date.now();
+  let taps = 0;
+  while (Date.now() - start < maxMs) {
+    const stillRunning = await page.locator('button:has-text("Interrompi")').count();
+    if (!stillRunning) break;
+    const btns = page.locator('div[style*="max-width:760px"] button');
+    const n = await btns.count();
+    if (n > 0) { await btns.nth(Math.floor(Math.random() * n)).click({ timeout: 800 }).catch(() => {}); taps++; }
+    await page.waitForTimeout(tapEveryMs);
+  }
+  return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
+}
 // Esegue un'intera sessione finta su un esercizio e restituisce cosa è
 // successo: se è arrivato alla schermata dei risultati, se ci sono stati
 // errori JS non gestiti in pagina, e il testo dei risultati mostrati.
@@ -278,6 +295,8 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
       ? await simulateNeglectResponses(page, opts)
       : family === 'goaltask'
       ? await simulateGoalTaskResponses(page, opts)
+      : family === 'timedchoice'
+      ? await simulateTimedChoiceResponses(page, opts)
       : family === 'runningspan'
       ? await simulateRunningSpanResponses(page, opts)
       : await simulatePatientResponses(page, opts);

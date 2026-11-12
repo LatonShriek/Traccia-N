@@ -14,7 +14,7 @@ import { nbackParamsForLevel, ADAPT_GONOGO_FREQ, ADAPT_ISI, CATEG_ISI, CATEG_LUR
   // con questo gruppo, e non erano fra gli esercizi segnalati col bug di
   // sincronizzazione — includerli sarebbe un allargamento di perimetro non
   // richiesto.
-  export const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant','simon','mantenimento','runningspan'];
+  export const TITRATION_EXERCISES = ['nback','sequenza','gonogo','switching','stopsignal','ant','simon','mantenimento','runningspan','intrusopercettivo','pasat'];
   // Neglect e Doppio compito hanno il CONCETTO di titrationMode (e vanno
   // quindi trattati come gli altri per persistenza/switch dal profilo) ma
   // non fanno parte del gruppo "condiviso" sopra: hanno le proprie
@@ -186,7 +186,7 @@ import { nbackParamsForLevel, ADAPT_GONOGO_FREQ, ADAPT_ISI, CATEG_ISI, CATEG_LUR
   // una configurazione specifica da caricare (vedi applyLevelBaselineOrSuggestion).
   export const LEVEL_FIELD_OF_TASKMODE = {
     nback:'nLevel', categorizzazione:'categLivello',
-    sequenza:'adaptStartLevel', switching:'adaptStartLevel', gonogo:'adaptStartLevel', stopsignal:'adaptStartLevel', ant:'adaptStartLevel', simon:'adaptStartLevel', runningspan:'adaptStartLevel',
+    sequenza:'adaptStartLevel', switching:'adaptStartLevel', gonogo:'adaptStartLevel', stopsignal:'adaptStartLevel', ant:'adaptStartLevel', simon:'adaptStartLevel', runningspan:'adaptStartLevel', intrusopercettivo:'adaptStartLevel', pasat:'adaptStartLevel',
     tapat:'tapatStartLevel',
     neglect:'neglectStartLevel', dualtask:['dualStartLevel1','dualStartLevel2'],
     goaltask:'goaltaskLivello', memoria:'memoriaLivello'

@@ -32,6 +32,7 @@ const FILES = [
   'motor-check.test.js',
   'simon.test.js',
   'runningspan.test.js',
+  'nuovi-esercizi.test.js',
   'screening-level1.test.js',
   'screening-verbale.test.js',
   'bivalente-audio.test.js',

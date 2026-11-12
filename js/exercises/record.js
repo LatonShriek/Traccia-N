@@ -75,6 +75,7 @@ import { EXERCISES } from './registry.js';
       antMode: cfg.taskMode==='ant' ? 'classico' : null,
       tapatModalita: cfg.taskMode==='tapat' ? cfg.tapatModalita : null,
       pasatMateriale: cfg.taskMode==='pasat' ? cfg.pasatMateriale : null,
+      serieRegola: cfg.taskMode==='serie' ? ((cfg.serieRegola|0)||null) : null,
       // Livello raggiunto a fine sessione, in un unico campo generico —
       // prima esisteva solo per l'N-back (finalNLevel sotto): senza
       // questo, lo storico non poteva mostrare il livello per nessun
@@ -87,7 +88,7 @@ import { EXERCISES } from './registry.js';
         if(cfg.taskMode==='dualtask') return session.dualLevel1+'/'+session.dualLevel2;
         if(cfg.taskMode==='goaltask') return cfg.goaltaskLivello;
         if(cfg.taskMode==='memoria') return session.material ? session.material.livello : null;
-        if(cfg.taskMode==='runningspan' || cfg.taskMode==='intrusopercettivo' || cfg.taskMode==='pasat') return cfg.adaptStartLevel;
+        if(cfg.taskMode==='runningspan' || cfg.taskMode==='intrusopercettivo' || cfg.taskMode==='pasat' || cfg.taskMode==='serie') return cfg.adaptStartLevel;
         if(adaptLevelKey(cfg)==='adaptLevel') return session.adaptLevel;
         return null;
       })(),

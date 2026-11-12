@@ -15,6 +15,7 @@ import { neglectRuleFor } from './neglect.js';
 import { RUNNINGSPAN_LEVELS } from './runningspan.js';
 import { PASAT_LEVELS, PASAT_MATERIALS } from './pasat.js';
 import { INTRUSO_LEVELS } from './intrusopercettivo.js';
+import { serieRuleFor } from './serie.js';
 
   // POOLS (dati degli stimoli): vedi js/core/pools.js (passo 3b).
   export const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati', paroleVoce:'Parole pronunciate', frecce:'Frecce', forma:'Forma'};
@@ -86,6 +87,15 @@ import { INTRUSO_LEVELS } from './intrusopercettivo.js';
           : mat==='giorni' ? 'Parti dal giorno '+(lvl.lag===1?'comparso subito prima':'comparso due prima')+', vai avanti di '+lvl.shift+(lvl.shift===1?' giorno':' giorni')+' e tocca il giorno che ottieni.'
           : 'Parti dal mese '+(lvl.lag===1?'comparso subito prima':'comparso due prima')+', vai avanti di '+lvl.shift+(lvl.shift===1?' mese':' mesi')+' e tocca il mese che ottieni.';
         return 'Vedrai una serie di '+(mat==='somme'?'numeri':mat==='giorni'?'giorni della settimana':'mesi')+', uno alla volta, a ritmo fisso. '+regola+' Il primo stimolo non richiede risposta. Non aspettare: tocca prima che compaia il successivo.';
+      }},
+    serie: {ruolo:'allenamento', label:'Serie alternate',        usesStimType:false, usesTargetSeq:false, family:'choice',
+      domini:['Flessibilità cognitiva','Attenzione alternata','Controllo inibitorio'],
+      // Versione individuale a tocco delle "Serie attentive alternate" del generatore di schede PdM
+      // CDCD: la regola di risposta cambia di livello in livello (colore, categoria, mappature a 4 vie,
+      // incroci con No-Go, n-1 e n-2 back).
+      instructions:c=>{
+        const r = serieRuleFor(c).rule;
+        return 'Vedrai una serie di lettere e numeri, neri o rossi, uno alla volta e a ritmo fisso. Regola: '+r.text+' Tocca il pulsante giusto prima che compaia il successivo; quando la regola dice di non rispondere, non toccare nulla.';
       }},
     gonogo:     {ruolo:'entrambi', label:'Go/No-Go',                usesStimType:true,  usesTargetSeq:true,  family:'signal',
       domini:['Controllo inibitorio','Attenzione sostenuta'],
@@ -332,7 +342,7 @@ import { INTRUSO_LEVELS } from './intrusopercettivo.js';
     // mantenimento passivo).
     {label:'Memoria di lavoro e mantenimento', keys:['nback','categorizzazione','runningspan','pasat']},
     {label:'Attenzione selettiva e ricerca visiva', keys:['intrusopercettivo']},
-    {label:'Flessibilità cognitiva', keys:['switching']},
+    {label:'Flessibilità cognitiva', keys:['switching','serie']},
     {label:'Esplorazione visuospaziale', keys:['neglect']},
     {label:'Attenzione divisa e multitasking', keys:['dualtask','goaltask']},
     {label:'Memoria strategica', keys:['memoria']},
@@ -388,6 +398,7 @@ import { INTRUSO_LEVELS } from './intrusopercettivo.js';
     neglectRuleClauses:null, // solo per 'regola' — null=progressione automatica cumulativa per livello; altrimenti array di chiavi scelte manualmente fra 'base','colore','riga','sfondo'
     goaltaskScenario:'sei_compiti_classico', goaltaskLivello:2, // solo per Scenari ecologici (1-5, crescente)
     memoriaModo:'pqrst', memoriaLivello:1, memoriaMateriale:'lista', // solo per Strategie di memoria — memoriaMateriale usato solo da loci/errorless/vanishing (pqrst è sempre brano, chunking è sempre lista)
+    serieRegola:0, // solo per Serie alternate: 0 = la regola segue il livello, 1-32 = regola fissata a mano
     pasatMateriale:'somme', // solo per PASAT: 'somme'|'giorni'|'mesi'
     memoriaFormaIdx:0, // solo per pqrst/chunking, solo sui livelli con forme parallele (1-2 al momento) — quale forma (A/B/C...) usare in questa sessione; scelta sempre manuale dall'operatore, mai casuale, per poter pilotare baseline/intermedia/finale nel confronto RCI
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
@@ -427,7 +438,7 @@ import { INTRUSO_LEVELS } from './intrusopercettivo.js';
       numDigits:c.numDigits, wordComplexity:c.wordComplexity, showTrail:c.showTrail,
       neglectGradient:c.neglectGradient, neglectLayout:c.neglectLayout, neglectTimeLimit:c.neglectTimeLimit, neglectBoardSize:c.neglectBoardSize,
       neglectMode:c.neglectMode, neglectRuleLevel:c.neglectRuleLevel,
-      goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx, pasatMateriale:c.pasatMateriale,
+      goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx, pasatMateriale:c.pasatMateriale, serieRegola:c.serieRegola,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
       categLivello:c.categLivello, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,

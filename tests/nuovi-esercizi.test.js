@@ -2,6 +2,7 @@
 const { importCore } = require('./lib/core');
 
 module.exports = async function run(t) {
+  await module.exports.serie(t);
   const IP = await importCore('../exercises/intrusopercettivo.js');
   const PS = await importCore('../exercises/pasat.js');
 
@@ -71,5 +72,49 @@ module.exports = async function run(t) {
     const cfg = { adaptive: true, adaptStartLevel: 1 }, s = { pasatAdaptBlock: [1, 1, 1, 1, 1, 1, 1, 1] };
     PS.maybeAdaptPasat(cfg, s);
     t.eq(cfg.adaptStartLevel, 2, 'adattivo: sale dopo 8 prove giuste');
+  });
+};
+
+module.exports.serie = async function (t) {
+  const S = await importCore('../exercises/serie.js');
+  t.group('Serie alternate — le 32 regole e i 10 livelli', () => {
+    t.eq(S.SERIE_RULES_N.length, 32, '32 regole come nel generatore');
+    t.ok(S.SERIE_RULES_N.every(r => r.text && typeof r.fn === 'function'), 'ogni regola ha testo e funzione');
+    for (let l = 1; l <= 10; l++) t.ok(S.SERIE_LEVELS[l].rule >= 1 && S.SERIE_LEVELS[l].rule <= 32, 'livello ' + l + ': regola valida');
+    t.ok(S.SERIE_LEVELS[1].rule < S.SERIE_LEVELS[10].rule && S.SERIE_LEVELS[1].isi > S.SERIE_LEVELS[10].isi, 'più difficile e più veloce salendo');
+    t.eq(S.serieRuleFor({ adaptStartLevel: 5, serieRegola: 0 }).index, 7, 'regola secondo il livello');
+    t.eq(S.serieRuleFor({ adaptStartLevel: 5, serieRegola: 20 }).index, 20, 'regola fissata a mano');
+  });
+  t.group('Serie alternate — risposte attese', () => {
+    const seq = [{char:'A',color:'black'},{char:'B',color:'red'},{char:'1',color:'red'},{char:'2',color:'black'}];
+    const R = n => S.SERIE_RULES_N[n - 1];
+    t.eq([0,1,2,3].map(i => S.serieExpected(R(1), seq, i)), ['dx','sx','sx','dx'], 'regola 1: nero→dx, rosso→sx');
+    t.eq([0,1,2,3].map(i => S.serieExpected(R(2), seq, i)), ['dx','dx','sx','sx'], 'regola 2: lettera→dx, numero→sx');
+    t.eq([0,1,2,3].map(i => S.serieExpected(R(7), seq, i)), ['dx','sx','si','no'], 'regola 7: A dx, B sx, 1 sì, 2 no');
+    t.eq([0,1,2,3].map(i => S.serieExpected(R(17), seq, i)), ['dx','sx','dx','sx'], 'regola 17: incrocio colore×categoria');
+    t.eq([0,1,2,3].map(i => S.serieExpected(R(21), seq, i)), ['dx',null,'sx',null], 'regola 21: No-Go sulle combinazioni');
+    t.eq([0,1,2,3].map(i => S.serieExpected(R(23), seq, i)), [undefined,'dx','sx','sx'], 'regola 23: si risponde in base allo stimolo precedente');
+    t.eq([0,1,2,3].map(i => S.serieExpected(R(29), seq, i)), [undefined,undefined,'dx','sx'], 'regola 29: due posti prima');
+    const m = [{char:'A',color:'black',nogo:true}];
+    t.eq(S.serieExpected(R(4), m, 0), null, 'regola con ✕: stimolo segnalato = non rispondere');
+  });
+  t.group('Serie alternate — serie, punteggio e adattamento', () => {
+    const q = S.genSerieStimuli(60, 0.1);
+    t.eq(q.slice(0,4).map(s => s.char + s.color[0]), ['Ab','Br','1r','2b'], 'prime 4 fisse come nel generatore');
+    let ok = true; for (let i = 3; i < q.length; i++) if (q[i].char === q[i-1].char && q[i].char === q[i-2].char && q[i].char === q[i-3].char) ok = false;
+    t.ok(ok, 'mai più di 3 simboli uguali di fila');
+    t.ok(q.every((s, i) => !(s.nogo && (i < 4 || q[i-1].nogo))), 'le ✕ non sono nelle prime 4 né due di fila');
+    t.ok(S.genSerieStimuli(60, 0).every(s => !s.nogo), 'senza ✕ nelle regole che non le usano');
+    t.eq(S.scoreSerieTrial('dx','dx',700).correct, true, 'tocco giusto');
+    t.eq(S.scoreSerieTrial('dx','sx',700).correct, false, 'tocco sbagliato');
+    t.eq(S.scoreSerieTrial('dx',null).omitted, true, 'nessun tocco dove serviva = omissione');
+    t.eq(S.scoreSerieTrial(null,null).correct, true, 'No-Go senza tocco = corretto');
+    t.eq(S.scoreSerieTrial(null,'dx',500).commission, true, 'tocco su No-Go = errore di commissione');
+    const cfg = { adaptive: true, adaptStartLevel: 3, serieRegola: 0 }, s = { serieAdaptBlock: [1,1,1,1,1,1,1,1] };
+    S.maybeAdaptSerie(cfg, s);
+    t.eq(cfg.adaptStartLevel, 4, 'adattivo: sale');
+    const c2 = { adaptive: true, adaptStartLevel: 3, serieRegola: 12 }, s2 = { serieAdaptBlock: [1,1,1,1,1,1,1,1] };
+    S.maybeAdaptSerie(c2, s2);
+    t.eq(c2.adaptStartLevel, 3, 'con regola fissata a mano il livello non si muove');
   });
 };

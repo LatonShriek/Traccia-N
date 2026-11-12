@@ -60,6 +60,12 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
   **6 schermate**, stessa regola 70-85%. 10 livelli: da 12 a 27 elementi, simboli di 1-3
   caratteri, tipi sempre più simili fra loro, da 30 a 15 secondi per schermata. Tabelle
   in `js/exercises/intrusopercettivo.js` (ipotesi di partenza, da tarare sull'uso clinico).
+- **Serie alternate** (ruolo «allenamento»): adatta ogni **8 risposte**. Quattro pulsanti a schermo
+  (destra, sinistra, «Sì», «No»); i 10 livelli usano le regole 1, 2, 3, 4, 7, 10, 17, 21, 23, 29 delle 32 del
+  generatore (colore, categoria, mappature a 4 vie con No-Go segnalato da ✕, incroci colore×categoria,
+  n-1 e n-2 back), con un ritmo da 3,5 a 2,4 s. L'operatore può fissare a mano una delle 32 regole: in quel caso
+  il livello non si muove da solo. Interpretazioni da confermare: negli n-back «nero/lettera» è letto come il
+  **colore** dello stimolo precedente; il No-Go delle regole 4, 6, 10, 12, 14, 16 è una ✕ su ~1 stimolo su 10.
 - **PASAT / PVSAT con operazione** (ruolo «allenamento»): adatta ogni **8 risposte**.
   Tre materiali (somme di cifre, giorni della settimana, mesi); risposta a tocco entro il
   ritmo, altrimenti omissione. Dal livello 4 il ritmo si stringe, dal 7 la regola

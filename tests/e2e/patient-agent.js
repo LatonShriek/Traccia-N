@@ -73,6 +73,7 @@ const EXERCISE_BUTTON_TEXT = {
   runningspan: { exercise: 'Running Span', family: 'runningspan' },
   intrusopercettivo: { exercise: 'Intruso percettivo', family: 'timedchoice' },
   pasat: { exercise: 'PASAT / PVSAT con operazione', family: 'timedchoice' },
+  serie: { exercise: 'Serie alternate', family: 'timedchoice' },
   neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' },
   goaltask: { exercise: 'Scenari ecologici', family: 'goaltask' },
   neglect_intruso: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: "Trova l'intruso" },

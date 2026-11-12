@@ -20,7 +20,7 @@ module.exports = async function run(t) {
   // elementi, ciascuno con il proprio ISI) seguita dal richiamo a
   // tastierino — anche un solo ciclo al minimo può avvicinarsi al
   // limite standard.
-  const MAX_MS_OVERRIDE = { mantenimento: 70000, runningspan: 70000, pasat: 70000 };
+  const MAX_MS_OVERRIDE = { mantenimento: 70000, runningspan: 70000, pasat: 70000, serie: 70000 };
   for (const exerciseKey of Object.keys(EXERCISE_BUTTON_TEXT)) {
     const entry = EXERCISE_BUTTON_TEXT[exerciseKey];
     const label = typeof entry === 'string' ? entry : entry.exercise + (entry.subMode ? ' → ' + entry.subMode : '');

@@ -50,8 +50,8 @@ function runtimeISI(taskMode, titrationMode, level, rawIsi) {
 module.exports = async function run(t) {
   await setup();
   t.group('TITRATION_EXERCISES — perimetro dichiarato', () => {
-    t.eq(TITRATION_EXERCISES.slice().sort(), ['ant', 'gonogo', 'griglie', 'intrusopercettivo', 'mantenimento', 'nback', 'pasat', 'runningspan', 'sequenza', 'serie', 'simon', 'stopsignal', 'switching'].sort(),
-      'i 13 esercizi con stepper Livello condiviso sono esattamente quelli attesi — nessuno aggiunto o tolto senza che questo test lo segnali (runningspan aggiunto quando gli è stata data una titolazione adattiva propria, su media di due proporzioni invece che su un booleano per prova)');
+    t.eq(TITRATION_EXERCISES.slice().sort(), ['ant', 'gonogo', 'griglie', 'intrusopercettivo', 'inversione', 'mantenimento', 'nback', 'pasat', 'runningspan', 'sequenza', 'serie', 'simon', 'stopsignal', 'switching'].sort(),
+      'i 14 esercizi con stepper Livello condiviso sono esattamente quelli attesi — nessuno aggiunto o tolto senza che questo test lo segnali (runningspan aggiunto quando gli è stata data una titolazione adattiva propria, su media di due proporzioni invece che su un booleano per prova)');
   });
 
   t.group('Manuale non legge MAI una tabella (nessun parametro "orfano")', () => {

@@ -6,6 +6,7 @@ module.exports = async function run(t) {
   const IP = await importCore('../exercises/intrusopercettivo.js');
   const PS = await importCore('../exercises/pasat.js');
   const GR = await importCore('../exercises/griglie.js');
+  const INV = await importCore('../exercises/inversione.js');
 
   t.group('Intruso percettivo — un solo elemento unico, tutti gli altri almeno 2 volte, a ogni livello', () => {
     for (let lvl = 1; lvl <= 10; lvl++) {
@@ -107,6 +108,37 @@ module.exports = async function run(t) {
     const cfg = { adaptive: true, adaptStartLevel: 1 }, s = { pasatAdaptBlock: [1, 1, 1, 1, 1, 1, 1, 1] };
     PS.maybeAdaptPasat(cfg, s);
     t.eq(cfg.adaptStartLevel, 2, 'adattivo: sale dopo 8 prove giuste');
+  });
+  t.group('Inversione e riordino — materiale, consegne e correzione', () => {
+    for (let lvl = 1; lvl <= 10; lvl++) {
+      const pl = INV.inversionePlanAt(lvl);
+      let okLen = true, okExp = true, okDup = true, okTriv = true, okRule = true, okUniq = true;
+      const used = new Set();
+      for (let i = 0; i < 80; i++) {
+        const it = INV.genInversioneItem(lvl, 'auto', used);
+        if (!pl.lens.includes(it.len) || it.text.length !== it.len) okLen = false;
+        const rule = INV.INVERSIONE_RULES[it.rule];
+        if (rule.apply(it.text).toUpperCase() !== it.expected) okExp = false;
+        if (new Set(it.text.toUpperCase().split('')).size !== it.text.length) okDup = false;
+        const u = it.text.toUpperCase(), a = u.split('').sort().join('');
+        if (u === a || u === a.split('').reverse().join('')) okTriv = false;
+        if (!['inverti','ordina'].includes(it.rule) || !rule.kinds.includes(it.kind)) okRule = false;
+      }
+      t.ok(okLen && okExp && okDup && okTriv && okRule, 'livello ' + lvl + ': lunghezze del piano, risposta ricalcolata, nessuna lettera ripetuta, mai già in ordine, solo inverti/riordina');
+    }
+    t.ok(INV.inversionePlanAt(1).lexical && !INV.inversionePlanAt(1).alnum, 'livello 1: parole vere, niente alfanumerico');
+    t.ok(INV.inversionePlanAt(4).alnum && INV.inversionePlanAt(10).mixedCase, 'alfanumerico dal livello 4 (gen. 11), maiuscole miste ai livelli alti');
+    INV.INVERSIONE_RULE_KEYS.forEach(k => {
+      const it = INV.genInversioneItem(10, k, new Set());
+      t.ok(it.rule === k && it.expected.length > 0 && it.expected !== '—' && it.instruction.length > 10, 'regola ' + k + ': stimolo applicabile, risposta non vuota, consegna scritta');
+    });
+    t.eq(INV.scoreInversioneAnswer({expected:'ARBO'}, 'arbo', 900).correct, true, 'risposta esatta (maiuscole/minuscole indifferenti)');
+    const sp = INV.scoreInversioneAnswer({expected:'ARBO'}, 'ABRO', 900);
+    t.ok(!sp.correct && Math.abs(sp.partial - 0.5) < 1e-9, 'parziale = quota di posizioni giuste');
+    t.eq(INV.scoreInversioneAnswer({expected:'ARBO'}, '', 900).omitted, true, 'vuoto = omissione');
+    const cfg = { adaptive: true, adaptStartLevel: 3 }, ss = { invAdaptBlock: [1,1,1,1] };
+    INV.maybeAdaptInversione(cfg, ss);
+    t.eq(cfg.adaptStartLevel, 4, 'adattivo: sale dopo 4 sequenze tutte esatte');
   });
 };
 

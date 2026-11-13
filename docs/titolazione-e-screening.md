@@ -74,6 +74,18 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
   (doppio conteggio); «quale è più numeroso e di quanti» (si tocca l'elemento, poi la differenza);
   numero di righe/colonne. Adatta a fine griglia
   (almeno 4 risposte), stessa regola 70-85%. «Prove» = numero di consegne.
+- **Inversione e riordino** (ruolo «allenamento», 14 nov 2026): porting del generatore (stessi generatori di
+  materiale: parole vere fino al gen. 8, non-parole pronunciabili che diventano casuali, numeri, misti
+  lettere+cifre dal gen. 11, maiuscole/minuscole miste dal gen. 15; lunghezze 3→6; file `js/exercises/inversione.js`
+  e `inversione-data.js`). Livelli 1-10 = 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore. Il paziente guarda la
+  sequenza, tocca «Nascondi», poi la riscrive trasformata con la **tastiera a schermo** (niente voce). La consegna
+  è scritta sullo schermo: con «Consegna = auto» ogni sequenza è da invertire o da riordinare (a caso); l'operatore
+  può fissare una qualsiasi delle 9 regole del generatore (ripeti, inverti, riordina, somma cifre, pari/dispari,
+  vocali, consonanti, posizioni dispari/pari). Correzione automatica: sequenza esatta (maiuscole indifferenti) +
+  punteggio parziale per posizione; il tempo parte quando compare la tastiera. Adatta ogni **4 sequenze** (70-85%
+  di esatte). «Prove» = numero di sequenze. Scelte non confermate dal clinico: (1) i caratteri rossi/verdi del
+  generatore non si mostrano (la loro consegna non è documentata); (2) la sequenza resta visibile finché il paziente
+  non tocca «Nascondi» (nessun tempo di esposizione fisso); (3) in auto solo inverti/riordina.
 - **Serie alternate** (ruolo «allenamento»): adatta ogni **8 risposte**. Quattro pulsanti a schermo
   (destra, sinistra, «Sì», «No»); i 10 livelli usano le regole 1, 2, 3, 4, 7, 10, 17, 21, 23, 29 delle 32 del
   generatore (colore, categoria, mappature a 4 vie con No-Go segnalato da ✕, incroci colore×categoria,

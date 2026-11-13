@@ -54,6 +54,7 @@ import { STIM_LABELS, isSpokenStim, isAudioOnlyStim, MISTA_LABELS_SHORT, CHUNKIN
 import { DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoFeedbackText as demoFeedbackTextOf } from './js/exercises/demo.js';
 import { buildSessionRecord } from './js/exercises/record.js';
 import { renderSessionGroups } from './js/ui/history-view.js';
+import { sectionMarker, sectionEnd, groupSections, collapseLongHints, joinSummary } from './js/ui/setup-sections.js';
 import { buildBackup, validateBackup, restoreBackup } from './js/services/backup.js';
 import { buildCSV, buildRCIReportHtml } from './js/exercises/export.js';
 import { genNbackTrial as genNbackTrialOf } from './js/exercises/nback.js';
@@ -1694,14 +1695,24 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     card.appendChild(el('h2',{},['Imposta la sessione']));
     card.appendChild(el('p',{class:'hint'},['Scegli il tipo di stimolo, il livello n-back e i parametri temporali. I valori restano impostati per la prossima sessione.']));
 
-    if(!buildingProgramFor) card.appendChild(presetSection());
-    else { const ncs = namedConfigSection(); if(ncs) card.appendChild(ncs); }
+    // Setup a sezioni espandibili (js/ui/setup-sections.js): i segnaposto dicono dove comincia ogni sezione,
+    // groupSections() li trasforma in tendine in fondo alla funzione.
+    if(!buildingProgramFor){
+      const nPreset = listPresets().length;
+      card.appendChild(sectionMarker('preset','Preset salvati',{summary: nPreset ? nPreset+(nPreset===1?' salvato':' salvati') : 'nessuno'}));
+      card.appendChild(presetSection());
+    } else {
+      const ncs = namedConfigSection();
+      if(ncs){ card.appendChild(sectionMarker('preset','Configurazioni salvate per questo paziente')); card.appendChild(ncs); }
+    }
 
     const grid = el('div',{class:'grid'});
+    const gridEx = el('div',{class:'grid'}); // scelta dell'esercizio e relative note: sezione "Esercizio"
     const ex = EXERCISES[cfg.taskMode];
+    card.appendChild(sectionMarker('esercizio','Esercizio',{open:true, summary: ex.label}));
 
     // exercise selector (comes first: it determines which other fields apply)
-    grid.appendChild(field('Esercizio', groupedSegButtons(EXERCISE_GROUPS, cfg.taskMode, v=>{
+    gridEx.appendChild(field('Esercizio', groupedSegButtons(EXERCISE_GROUPS, cfg.taskMode, v=>{
       cfg.taskMode=v;
       resetLevelField(v); // livello sempre a 1 quando si cambia esercizio dentro Setup — il caricamento di un eventuale suggerimento da screening avviene solo all'apertura iniziale (vedi applyLevelBaselineOrSuggestion), non a ogni cambio manuale, per non sovrascrivere a sorpresa scelte già fatte dall'operatore
       if(v==='stopsignal' && !['frecce','lettere','numeri','forma','suoni'].includes(cfg.stimType)) cfg.stimType='frecce';
@@ -1733,7 +1744,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       if(v!=='neglect' && v!=='ant' && cfg.trials<10) cfg.trials = 24;
       render();
     }, Object.fromEntries(Object.entries(EXERCISES).map(([k,v])=>[k, v.label+(v.ruolo==='misura'?' ⏱ ('+v.dominio+')':'')])), v=> EXERCISES[v] && EXERCISES[v].ruolo==='misura' ? 'screening-only' : '')));
-    grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:2px 0 8px;'},[
+    gridEx.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:2px 0 8px;'},[
       '⏱ tratteggiato = pensato per la rivalutazione periodica, non per l\'allenamento quotidiano (dettaglio sotto una volta selezionato).'
     ]));
 
@@ -1744,13 +1755,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     // (Sequenza bersaglio: la letteratura di training che esiste è per
     // insegnamento esplicito di strategia, non pratica adattiva ripetuta).
     if(ex.ruolo==='misura'){
-      grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:-6px 0 4px; color:var(--alert);'},[
+      gridEx.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:-6px 0 4px; color:var(--alert);'},[
         '⏱ Pensato per la rivalutazione periodica (es. ogni 4-6 settimane), non come esercizio di allenamento quotidiano — nessuna letteratura di training dedicato trovata per questo compito così com\'è costruito qui (misura solida, allenamento non dimostrato).'
       ]));
     }
 
     if(ex.ruolo && RUOLO_LABEL[ex.ruolo]){
-      grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:-6px 0 4px;'},[
+      gridEx.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:-6px 0 4px;'},[
         el('b',{},['Ruolo: ']), RUOLO_LABEL[ex.ruolo]
       ]));
     }
@@ -1759,10 +1770,18 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     // collegato a NeuroScore (nessuna integrazione dati fra le due batterie
     // oggi) — utile solo per orientarsi su cosa allena l'esercizio scelto.
     if(ex.domini && ex.domini.length){
-      grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:-6px 0 4px;'},[
+      gridEx.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:-6px 0 4px;'},[
         el('b',{},['Domini: ']), ex.domini.join(' · ')
       ]));
     }
+
+    card.appendChild(gridEx);
+    const paramSummary = joinSummary([
+      hasTitrationMode(cfg.taskMode) ? ({manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'})[cfg.titrationMode||'manuale'] : '',
+      levelOfCfg(cfg)!=null && levelOfCfg(cfg)!=='' ? 'livello '+levelOfCfg(cfg) : '',
+      cfg.taskMode==='neglect' ? cfg.trials+(cfg.trials===1?' tavola':' tavole') : (cfg.taskMode==='goaltask' || cfg.taskMode==='memoria') ? '' : cfg.trials+' prove'
+    ]);
+    card.appendChild(sectionMarker('param','Livello e parametri',{open:true, summary: paramSummary}));
 
     // stimulus type — solo per gli esercizi che ne hanno uno configurabile
     // (l'ANT classico usa sempre frecce fisse, il TAPAT invece sceglie il materiale)
@@ -2120,7 +2139,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     }
 
     if(ex.usesTargetSeq && !(cfg.taskMode==='neglect' && cfg.neglectMode!=='classico' && cfg.neglectMode!=='progressiva')){
+      const seqN = (cfg.targetSeq||[]).length;
+      const seqMissing = seqN < (cfg.taskMode==='sequenza' ? 2 : 1); // stesso minimo dei controlli di "Avvia sessione"
+      card.appendChild(sectionMarker('sequenza', cfg.taskMode==='gonogo' ? 'Elementi no-go' : cfg.taskMode==='neglect' ? 'Elementi bersaglio' : 'Sequenza bersaglio', {
+        summary: seqMissing ? 'da costruire' : seqN+(seqN===1?' elemento':' elementi'), force: seqMissing, warn: seqMissing
+      }));
       card.appendChild(sequenceEditor());
+      card.appendChild(sectionMarker('param','Livello e parametri')); // il resto delle note torna nei parametri
     }
     if(isNeglect){
       if(cfg.neglectMode==='classico'){
@@ -2282,6 +2307,14 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       card.appendChild(el('p',{class:'hint'},['Il livello sale di 1 se l\'accuratezza supera l\'85% negli ultimi 8 trial validi, scende sotto il 70% (fascia 70–85% invariata) — livello minimo 1, massimo 10. n cresce solo a un cambio di banda (1 ai livelli 1-4, 2 ai livelli 5-9, 3 al solo livello 10); dentro ogni banda la difficoltà sale con la frequenza bersaglio e con i trial lure. Durante la sessione puoi comunque forzare il livello manualmente con i pulsanti +/– nella barra in alto: l\'automatismo riprende dal valore che imposti.']));
     }
 
+    const showsVoice = ex.usesStimType && !isClassicAnt && ['lettere','numeri','parole'].includes(cfg.stimType);
+    card.appendChild(sectionMarker('risposta','Risposta e presentazione',{
+      summary: isGoalTask || isMemoria ? 'valutata dall\'operatore' : joinSummary([
+        cfg.respMode==='manuale' ? 'inserimento manuale' : (isNeglect ? 'tocco' : cfg.inputDevice==='tastiera' ? 'tastiera' : 'touch'),
+        cfg.respMode!=='manuale' && !isNeglect && cfg.zoneGrandi ? 'zone grandi' : '',
+        showsVoice && cfg.voice ? 'con voce' : ''
+      ])
+    }));
     // response mode
     if(!isGoalTask && !isMemoria){
       const respWrap = el('div',{class:'field'});
@@ -2324,12 +2357,18 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     }
 
     // patient code
+    card.appendChild(sectionMarker('paziente','Codice paziente',{summary: cfg.patientCode ? cfg.patientCode : 'nessuno'}));
     const pc = el('div',{class:'field'});
     pc.appendChild(el('label',{},['Codice paziente (facoltativo, non usare il nominativo)']));
     const inp = el('input',{type:'text', placeholder:'es. PT-014', value:cfg.patientCode});
     inp.addEventListener('input', e=>{ cfg.patientCode = e.target.value; });
     pc.appendChild(inp);
     card.appendChild(pc);
+    card.appendChild(sectionEnd());
+
+    // Barra fissa in basso: "Avvia sessione" resta sempre a portata di dito, senza scorrere fino in fondo.
+    const actions = el('div',{class:'setup-actions'});
+    const extras = el('div',{class:'setup-extras'}); // azioni secondarie (prova dimostrativa, torna al programma): nel flusso normale, subito sopra la barra
 
     const durEstP = el('p',{class:'hint'},[isGoalTask
       ? (()=>{ const sc = goalTaskInstanceFor(cfg.goaltaskScenario, cfg.goaltaskLivello); return (sc.budgetSecondi ? 'Tempo a disposizione: '+fmtTime(sc.budgetSecondi*1000)+'. ' : 'Nessun limite di tempo. ')+sc.items.length+' elementi'+(sc.regole.length?', con regola attiva':'')+'.'; })()
@@ -2337,11 +2376,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       ? (()=>{ const m = memoriaMaterialFor(cfg); return memoriaEffectiveMateriale(cfg)==='lista' ? m.parole.length+' parole da ricordare.' : Math.round(m.testo.split(/\s+/).length)+' parole nel brano, '+m.unita.length+' idee-chiave da riconoscere al richiamo.'; })()
       : 'Durata stimata della sessione: '+fmtTime(cfg.isi*cfg.trials)+'.']);
     function updateDurEst(){ if(isGoalTask || isMemoria) return; durEstP.textContent = 'Durata stimata della sessione: '+fmtTime(cfg.isi*cfg.trials)+'.'; }
-    card.appendChild(durEstP);
+    actions.appendChild(durEstP);
 
     if(buildingProgramFor){
       const isEditing = editingProgramEntryIndex!=null;
-      card.appendChild(el('button',{class:'primary', onclick: async ()=>{
+      actions.appendChild(el('button',{class:'primary', onclick: async ()=>{
         if(cfg.taskMode==='sequenza' && cfg.targetSeq.length<2){ alert('Costruisci prima la sequenza bersaglio (almeno 2 elementi).'); return; }
         if(cfg.taskMode==='gonogo' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima l\'elemento no-go.'); return; }
         if(cfg.taskMode==='neglect' && (cfg.neglectMode==='classico'||cfg.neglectMode==='progressiva') && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima almeno un elemento bersaglio da cancellare.'); return; }
@@ -2362,15 +2401,15 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
           if(saved){ programAddConfirmation = '✓ "'+saved.nome+'" aggiunto — configura il prossimo, o "Fatto" per tornare al programma.'; render(); }
         }
       }},[isEditing ? 'Salva modifica' : '+ Aggiungi al programma di '+buildingProgramFor.nome]));
-      if(programAddConfirmation) card.appendChild(el('p',{class:'hint', style:'color:var(--signal); font-weight:600;'},[programAddConfirmation]));
-      if(!isEditing) card.appendChild(el('button',{class:'ghost', style:'margin-top:8px;', onclick:()=>{
+      if(programAddConfirmation) actions.appendChild(el('p',{class:'hint', style:'color:var(--signal); font-weight:600;'},[programAddConfirmation]));
+      if(!isEditing) extras.appendChild(el('button',{class:'ghost', onclick:()=>{
         const kind = buildingProgramFor.kind;
         buildingProgramFor=null; programAddConfirmation=null;
         view = kind==='local' ? 'localPatientPicker' : 'patients';
         render();
       }},['Fatto — torna al programma']));
     } else {
-      card.appendChild(el('button',{class:'primary', onclick:()=>{
+      actions.appendChild(el('button',{class:'primary', onclick:()=>{
         if(cfg.taskMode==='sequenza' && cfg.targetSeq.length<2){ alert('Costruisci prima la sequenza bersaglio (almeno 2 elementi).'); return; }
         if(cfg.taskMode==='gonogo' && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima l\'elemento no-go.'); return; }
         if(cfg.taskMode==='neglect' && (cfg.neglectMode==='classico'||cfg.neglectMode==='progressiva') && (!cfg.targetSeq || cfg.targetSeq.length<1)){ alert('Seleziona prima almeno un elemento bersaglio da cancellare.'); return; }
@@ -2378,9 +2417,12 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       }},['Avvia sessione']));
       const demoKey = demoKeyForCurrentCfg();
       if(demoKey){
-        card.appendChild(el('button',{class:'ghost', style:'margin-top:8px;', onclick:()=>startDemo(demoKey)},['▶ Prova dimostrativa — '+demoLabelFor(demoKey)+' (6 prove, non salvate)']));
+        extras.appendChild(el('button',{class:'ghost', onclick:()=>startDemo(demoKey)},['▶ Prova dimostrativa — '+demoLabelFor(demoKey)+' (6 prove, non salvate)']));
       }
     }
+
+    if(extras.childNodes.length) card.appendChild(extras);
+    card.appendChild(actions);
 
     const nav = el('div',{class:'navlinks'});
     nav.appendChild(el('button',{class:'link', onclick:()=>{ view='history'; render(); }},['Storico sessioni →']));
@@ -2388,6 +2430,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     nav.appendChild(el('button',{class:'link', onclick:()=>{ view='cloud'; render(); }},['Sincronizzazione cloud ('+cloudStatusLabel()+') →']));
     card.appendChild(nav);
 
+    groupSections(card);      // i segnaposto diventano sezioni a tendina
+    collapseLongHints(card);  // le spiegazioni lunghe stanno dietro un "ⓘ"
     s.appendChild(card);
     root.appendChild(s);
   }

@@ -45,7 +45,8 @@ const FILES = [
   'import-clash.test.js',
   'cloud.test.js',
   'nback.test.js',
-  'gonogo-dual.test.js'
+  'gonogo-dual.test.js',
+  'setup-sections.test.js'
 ];
 
 // Suite end-to-end (browser vero via Playwright — più lenta, richiede

@@ -9,8 +9,8 @@ module.exports = async function run(t) {
   const S = await importCore('screening.js');
   const keys = Object.keys(R.EXERCISES);
 
-  t.group('registro: 19 esercizi, campi obbligatori', () => {
-    t.eq(keys.length, 19, '19 esercizi');
+  t.group('registro: 20 esercizi, campi obbligatori', () => {
+    t.eq(keys.length, 20, '20 esercizi');
     keys.forEach(k => {
       const e = R.EXERCISES[k];
       t.ok(typeof e.label === 'string' && e.label.length > 0, k + ': etichetta');

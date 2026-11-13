@@ -74,6 +74,7 @@ const EXERCISE_BUTTON_TEXT = {
   intrusopercettivo: { exercise: 'Intruso percettivo', family: 'timedchoice' },
   pasat: { exercise: 'PASAT / PVSAT con operazione', family: 'timedchoice' },
   serie: { exercise: 'Serie alternate', family: 'timedchoice' },
+  griglie: { exercise: 'Griglie attentive', family: 'griglie' },
   neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' },
   goaltask: { exercise: 'Scenari ecologici', family: 'goaltask' },
   neglect_intruso: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: "Trova l'intruso" },
@@ -247,6 +248,20 @@ async function simulateTimedChoiceResponses(page, { maxMs = 60000, tapEveryMs = 
   }
   return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
 }
+// Griglie attentive: digita una cifra e conferma, finché la sessione non finisce.
+async function simulateGriglieResponses(page, { maxMs = 90000, tapEveryMs = 120 } = {}) {
+  const start = Date.now();
+  let taps = 0;
+  while (Date.now() - start < maxMs) {
+    if (!(await page.locator('button:has-text("Interrompi")').count())) break;
+    const digit = String(Math.floor(Math.random() * 10));
+    await page.locator('div[style*="max-width"] button:text-is("' + digit + '")').first().click({ timeout: 800 }).catch(() => {});
+    await page.locator('button:has-text("Conferma")').first().click({ timeout: 800 }).catch(() => {});
+    taps++;
+    await page.waitForTimeout(tapEveryMs);
+  }
+  return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
+}
 // Esegue un'intera sessione finta su un esercizio e restituisce cosa è
 // successo: se è arrivato alla schermata dei risultati, se ci sono stati
 // errori JS non gestiti in pagina, e il testo dei risultati mostrati.
@@ -296,6 +311,8 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
       ? await simulateNeglectResponses(page, opts)
       : family === 'goaltask'
       ? await simulateGoalTaskResponses(page, opts)
+      : family === 'griglie'
+      ? await simulateGriglieResponses(page, opts)
       : family === 'timedchoice'
       ? await simulateTimedChoiceResponses(page, opts)
       : family === 'runningspan'

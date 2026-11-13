@@ -5,6 +5,7 @@ module.exports = async function run(t) {
   await module.exports.serie(t);
   const IP = await importCore('../exercises/intrusopercettivo.js');
   const PS = await importCore('../exercises/pasat.js');
+  const GR = await importCore('../exercises/griglie.js');
 
   t.group('Intruso percettivo — un solo elemento unico, tutti gli altri almeno 2 volte, a ogni livello', () => {
     for (let lvl = 1; lvl <= 10; lvl++) {
@@ -34,6 +35,26 @@ module.exports = async function run(t) {
     t.ok(!IP.intrusoFamiliesAt(1).some(f => ['cjk', 'geez', 'mahjong'].includes(f.id)), 'ideogrammi, ge\'ez e mahjong non compaiono al livello 1');
     t.ok(IP.intrusoFamiliesAt(10).length === IP.INTRUSO_FAMILIES.length, 'al livello 10 tutte le famiglie');
     t.ok([1, 4, 8, 11, 15, 18, 22, 25, 29, 32].every((g, i) => IP.intrusoGenLevel(i + 1) === g), 'livelli 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore');
+  });
+  t.group('Griglie attentive — porting del generatore: consegne esatte e numeriche', () => {
+    let ok = true, total = 0, minRules = 99;
+    for (let lvl = 1; lvl <= 10; lvl++) for (let k = 0; k < 6; k++) {
+      const s = GR.genGrigliaScreen(lvl);
+      minRules = Math.min(minRules, s.rules.length);
+      if (s.cells.length !== s.rows * s.cols) ok = false;
+      for (const r of s.rules) { total++; if (r.matches && s.cells.filter(c => r.matches(c)).length !== r.count) ok = false; if (!(r.count >= 0 && Number.isInteger(r.count))) ok = false; }
+    }
+    t.ok(ok, 'ogni risposta = ricalcolo indipendente sulle celle (' + total + ' consegne in 60 griglie)');
+    t.ok(minRules >= 4, 'ogni griglia ha almeno 4 consegne numeriche (minimo ' + minRules + ')');
+    t.eq([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(l => GR.grigliaGenLevel(l)), [1, 4, 8, 11, 15, 18, 22, 25, 29, 32], 'livelli 1-10 = livelli del generatore');
+    t.eq(GR.grigliaPlanAt(1).category, 'shapes', 'livello 1: forme geometriche');
+    t.eq(GR.grigliaPlanAt(10).category, 'geez', 'livello 10: ge\'ez');
+    t.eq(GR.scoreGrigliaAnswer({ count: 7 }, '7', 900).correct, true, 'risposta giusta');
+    t.eq(GR.scoreGrigliaAnswer({ count: 7 }, '8', 900).correct, false, 'risposta sbagliata');
+    t.eq(GR.scoreGrigliaAnswer({ count: 7 }, '', 900).omitted, true, 'nessuna risposta = omissione');
+    const cfg = { adaptive: true, adaptStartLevel: 4 }, ss = { grAdaptBlock: [1, 1, 1, 1] };
+    GR.maybeAdaptGriglie(cfg, ss);
+    t.ok(cfg.adaptStartLevel === 5 && ss.grAdaptBlock.length === 0, 'sopra l\'85% sale di un livello');
   });
   t.group('Intruso percettivo — punteggio e adattamento', () => {
     const tr = { oddIndex: 3 };

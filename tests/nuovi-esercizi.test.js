@@ -109,33 +109,68 @@ module.exports = async function run(t) {
     PS.maybeAdaptPasat(cfg, s);
     t.eq(cfg.adaptStartLevel, 2, 'adattivo: sale dopo 8 prove giuste');
   });
-  t.group('Inversione e riordino — materiale, consegne e correzione', () => {
+  t.group('Inversione e riordino — materiale, consegne, tempi e correzione', () => {
+    // Oracolo indipendente: ricalcola la risposta dai token e dalla chiave della consegna.
+    const U = x => x.toUpperCase();
+    const dg = t => /^\d+$/.test(t.ch), lt = t => /^[A-Za-z]$/.test(t.ch), vw = t => lt(t) && 'AEIOU'.includes(U(t.ch));
+    const num = (a, b) => dg(a) && dg(b) ? Number(a.ch) - Number(b.ch) : (U(a.ch) < U(b.ch) ? -1 : U(a.ch) > U(b.ch) ? 1 : 0);
+    const oracle = {
+      inverti: tk => [...tk].reverse(), ordina: tk => [...tk].sort(num), decrescente: tk => [...tk].sort(num).reverse(),
+      vocali: tk => tk.filter(vw), consonanti: tk => tk.filter(x => lt(x) && !vw(x)),
+      posdispari: tk => tk.filter((x, i) => i % 2 === 0), pospari: tk => tk.filter((x, i) => i % 2 === 1),
+      pari: tk => tk.filter(x => Number(x.ch) % 2 === 0), dispari: tk => tk.filter(x => Number(x.ch) % 2 !== 0),
+      rossi: tk => tk.filter(x => x.color === 'red'), verdi: tk => tk.filter(x => x.color === 'green'),
+      maiuscole: tk => tk.filter(x => lt(x) && x.ch === U(x.ch)), minuscole: tk => tk.filter(x => lt(x) && x.ch !== U(x.ch)),
+      grandi: tk => tk.filter(x => x.size === 'big'), piccoli: tk => tk.filter(x => x.size === 'small')
+    };
     for (let lvl = 1; lvl <= 10; lvl++) {
       const pl = INV.inversionePlanAt(lvl);
-      let okLen = true, okExp = true, okDup = true, okTriv = true, okRule = true, okUniq = true;
+      let okExp = true, okAttr = true, okDup = true, okLen = true, okLevel = true, okTime = true, okIstr = true, nDouble = 0, N = 150;
       const used = new Set();
-      for (let i = 0; i < 80; i++) {
+      for (let i = 0; i < N; i++) {
         const it = INV.genInversioneItem(lvl, 'auto', used);
-        if (!pl.lens.includes(it.len) || it.text.length !== it.len) okLen = false;
-        const rule = INV.INVERSIONE_RULES[it.rule];
-        if (rule.apply(it.text).toUpperCase() !== it.expected) okExp = false;
-        if (new Set(it.text.toUpperCase().split('')).size !== it.text.length) okDup = false;
-        const u = it.text.toUpperCase(), a = u.split('').sort().join('');
-        if (u === a || u === a.split('').reverse().join('')) okTriv = false;
-        if (!['inverti','ordina'].includes(it.rule) || !rule.kinds.includes(it.kind)) okRule = false;
+        if (it.expectedTokens.length < 1 || !it.instruction || it.instruction.length < 15) okIstr = false;
+        if (it.double) {
+          nDouble++;
+          if (lvl < 6) okLevel = false;
+          const C = it.rule.split(':')[1], mode = it.rule.split(':')[0];
+          if (!['color', 'size', 'case', 'type'].includes(C) || !['dbl-filtro', 'dbl-gruppi'].includes(mode)) okLevel = false;
+          if (['color', 'size'].includes(C) && !it.tokens.every(x => x[C])) okAttr = false;
+        } else {
+          const o = oracle[it.rule];
+          if (!o) { okExp = false; continue; }
+          if (INV.INVERSIONE_SINGLE[it.rule].minLevel > lvl) okLevel = false;
+          const exp = o(it.tokens).map(x => U(x.ch));
+          if (JSON.stringify(exp) !== JSON.stringify(it.expectedTokens)) okExp = false;
+          if (['pari','dispari','vocali','consonanti','rossi','verdi','grandi','piccoli','maiuscole','minuscole'].includes(it.rule) && it.expectedTokens.length >= it.tokens.length) okAttr = false;
+        }
+        if (it.kind !== 'numbers' && new Set(it.tokens.map(x => U(x.ch))).size !== it.tokens.length) okDup = false;
+        if (it.kind === 'numbers' && (lvl < 4 || it.tokens.some(x => x.ch.length < 2))) okLen = false;
+        if (it.kind !== 'numbers' && !pl.lens.includes(it.len)) okLen = false;
+        const nChars = it.tokens.reduce((a, x) => a + x.ch.length, 0);
+        if (it.exposureMs !== INV.inversioneExposureMs(lvl, nChars) || it.exposureMs < 1500) okTime = false;
       }
-      t.ok(okLen && okExp && okDup && okTriv && okRule, 'livello ' + lvl + ': lunghezze del piano, risposta ricalcolata, nessuna lettera ripetuta, mai già in ordine, solo inverti/riordina');
+      t.ok(okExp, 'livello ' + lvl + ': risposta singola = ricalcolo indipendente');
+      t.ok(okAttr && okDup && okLen && okLevel && okTime && okIstr, 'livello ' + lvl + ': attributi presenti, niente ripetizioni, lunghezze, consegne ai livelli giusti, tempo fisso, istruzione scritta');
+      if (lvl < 6) t.eq(nDouble, 0, 'livello ' + lvl + ': niente consegne doppie');
+      if (lvl === 10) t.ok(nDouble > N * 0.5, 'livello 10: consegne doppie prevalenti');
     }
+    for (let lvl = 2; lvl <= 10; lvl++) t.ok(INV.inversioneExposureMs(lvl, 5) <= INV.inversioneExposureMs(lvl - 1, 5), 'tempo di visione decrescente col livello ' + lvl);
     t.ok(INV.inversionePlanAt(1).lexical && !INV.inversionePlanAt(1).alnum, 'livello 1: parole vere, niente alfanumerico');
-    t.ok(INV.inversionePlanAt(4).alnum && INV.inversionePlanAt(10).mixedCase, 'alfanumerico dal livello 4 (gen. 11), maiuscole miste ai livelli alti');
-    INV.INVERSIONE_RULE_KEYS.forEach(k => {
-      const it = INV.genInversioneItem(10, k, new Set());
-      t.ok(it.rule === k && it.expected.length > 0 && it.expected !== '—' && it.instruction.length > 10, 'regola ' + k + ': stimolo applicabile, risposta non vuota, consegna scritta');
+    INV.INVERSIONE_SINGLE_KEYS.forEach(k => {
+      const lvl = Math.max(INV.INVERSIONE_SINGLE[k].minLevel, 5);
+      const it = INV.genInversioneItem(lvl, k, new Set());
+      t.ok(it.rule === k && it.expectedTokens.length > 0, 'consegna manuale ' + k + ': stimolo applicabile e risposta non vuota');
     });
-    t.eq(INV.scoreInversioneAnswer({expected:'ARBO'}, 'arbo', 900).correct, true, 'risposta esatta (maiuscole/minuscole indifferenti)');
-    const sp = INV.scoreInversioneAnswer({expected:'ARBO'}, 'ABRO', 900);
+    const dbl = INV.genInversioneItem(9, 'doppie', new Set());
+    t.ok(dbl.double, 'consegna «doppie» forzata');
+    const it2 = { multi: true, expectedTokens: ['17', '96', '62'] };
+    t.eq(INV.scoreInversioneAnswer(it2, '17 96 62', 1).correct, true, 'numeri a più cifre: risposta esatta con spazi');
+    t.eq(INV.scoreInversioneAnswer(it2, '1796 62', 1).correct, false, 'numeri a più cifre: senza spazio giusto è errata');
+    t.eq(INV.scoreInversioneAnswer({ multi: false, expectedTokens: ['A','R','B','O'] }, 'arbo', 900).correct, true, 'risposta esatta (maiuscole indifferenti)');
+    const sp = INV.scoreInversioneAnswer({ multi: false, expectedTokens: ['A','R','B','O'] }, 'ABRO', 900);
     t.ok(!sp.correct && Math.abs(sp.partial - 0.5) < 1e-9, 'parziale = quota di posizioni giuste');
-    t.eq(INV.scoreInversioneAnswer({expected:'ARBO'}, '', 900).omitted, true, 'vuoto = omissione');
+    t.eq(INV.scoreInversioneAnswer({ multi: false, expectedTokens: ['A'] }, '', 900).omitted, true, 'vuoto = omissione');
     const cfg = { adaptive: true, adaptStartLevel: 3 }, ss = { invAdaptBlock: [1,1,1,1] };
     INV.maybeAdaptInversione(cfg, ss);
     t.eq(cfg.adaptStartLevel, 4, 'adattivo: sale dopo 4 sequenze tutte esatte');

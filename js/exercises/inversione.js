@@ -5,10 +5,11 @@
 //  - il paziente vede la sequenza, quando è pronto la nasconde e la riscrive trasformata
 //    (al contrario, in ordine…) con la TASTIERA A SCHERMO (niente voce: troppi errori di riconoscimento
 //    e contesto rumoroso);
-//  - la consegna è scritta a schermo (nel generatore la sceglie il clinico: SEQUENCE_RULES);
+//  - la sequenza resta a schermo per un TEMPO FISSO, decrescente col livello, poi sparisce da sola;
+//  - la consegna è scritta a schermo e ROTA fra molti criteri (inverti, ordina, vocali/consonanti, posizione,
+//    pari/dispari, colore, grandezza, maiuscole/minuscole) e, dai livelli alti, DOPPI (due criteri insieme).
+//    Colore, grandezza del carattere e numeri a più cifre sono NUOVI rispetto al generatore;
 //  - la risposta è corretta in automatico: esatta, più il punteggio parziale per posizione.
-// I caratteri colorati (rosso/verde) del generatore NON si mostrano: la loro consegna clinica non è
-// confermata nel materiale originale e senza spiegazione confonderebbero il paziente.
 // Il generatore ha 32 livelli, Traccia-N 10: livello 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
 import { adaptStep } from '../core/adapt.js';
 import { mean } from '../core/stats.js';
@@ -108,100 +109,241 @@ function invPronounceProb(level){ return level<=9 ? 1 : Math.max(0.2, 1 - 0.8*(l
 function invMixedCaseProb(level){ return level<=14 ? 0 : Math.min(1, (level-14)/12); }
 // ====== fine del codice del generatore ======
 
-// Le regole di trasformazione (stesse di SEQUENCE_RULES del generatore) con il testo della consegna.
-// L'ordinamento ignora maiuscole/minuscole; le cifre vengono prima delle lettere.
+// ---- Consegne ----------------------------------------------------------------------------------
+// Un «token» è un carattere (lettera o cifra) oppure, nei numeri a più cifre, un gruppo di cifre.
+// Attributi: color null|'red'|'green', size null|'big'|'small'. Il caso (maiuscolo/minuscolo) è nel carattere.
 const up = s => s.toUpperCase();
-export const INVERSIONE_RULES = {
-  ripeti:     { label:'Ripeti in avanti', kinds:['letters','digits','alnum'], apply:s=>s,
-                text:'Riscrivi la sequenza nello stesso ordine.' },
-  inverti:    { label:'Inverti', kinds:['letters','digits','alnum'], apply:s=>s.split('').reverse().join(''),
-                text:'Riscrivi la sequenza AL CONTRARIO, dall\'ultimo carattere al primo.' },
-  ordina:     { label:'Riordina', kinds:['letters','digits','alnum'], apply:s=>s.split('').sort((a,b)=>up(a)<up(b)?-1:up(a)>up(b)?1:0).join(''),
-                text:{ letters:'Riscrivi le lettere IN ORDINE ALFABETICO.', digits:'Riscrivi le cifre dalla più piccola alla più grande.', alnum:'Riscrivi i caratteri in ordine: prima le cifre dalla più piccola alla più grande, poi le lettere in ordine alfabetico.' } },
-  somma:      { label:'Somma le cifre', kinds:['digits'], apply:s=>String(s.split('').reduce((a,c)=>a+Number(c),0)),
-                text:'Somma tutte le cifre e scrivi il risultato.' },
-  parita:     { label:'Pari/dispari alternati', kinds:['digits'], apply:s=>{
-                  const ev=s.split('').filter(c=>Number(c)%2===0), od=s.split('').filter(c=>Number(c)%2!==0);
-                  const out=[]; let i=0;
-                  while(ev.length||od.length){ if(i%2===0 && ev.length) out.push(ev.shift()); else if(od.length) out.push(od.shift()); i++; }
-                  return out.join('')||'—'; },
-                text:'Scrivi le cifre alternando una PARI e una DISPARI, cominciando da una pari e mantenendo l\'ordine in cui compaiono. Se un tipo finisce, scrivi di seguito quelle rimaste.' },
-  vocali:     { label:'Solo vocali', kinds:['letters','alnum'], apply:s=>s.split('').filter(c=>'AEIOU'.includes(up(c))).join('')||'—',
-                text:'Scrivi SOLO LE VOCALI, nell\'ordine in cui compaiono.' },
-  consonanti: { label:'Solo consonanti', kinds:['letters','alnum'], apply:s=>s.split('').filter(c=>/[A-Z]/i.test(c) && !'AEIOU'.includes(up(c))).join('')||'—',
-                text:'Scrivi SOLO LE CONSONANTI, nell\'ordine in cui compaiono.' },
-  posdispari: { label:'Posizioni dispari', kinds:['letters','digits','alnum'], apply:s=>s.split('').filter((c,i)=>i%2===0).join('')||'—',
-                text:'Scrivi SOLO i caratteri in 1ª, 3ª, 5ª posizione, nell\'ordine in cui compaiono.' },
-  pospari:    { label:'Posizioni pari', kinds:['letters','digits','alnum'], apply:s=>s.split('').filter((c,i)=>i%2===1).join('')||'—',
-                text:'Scrivi SOLO i caratteri in 2ª, 4ª, 6ª posizione, nell\'ordine in cui compaiono.' }
+const isDigitTok = t => /^\d+$/.test(t.ch);
+const isLetterTok = t => /^[A-Za-z]$/.test(t.ch);
+const isVowelTok = t => isLetterTok(t) && 'AEIOU'.includes(up(t.ch));
+const isConsTok = t => isLetterTok(t) && !isVowelTok(t);
+function cmpTok(a, b){
+  if(isDigitTok(a) && isDigitTok(b)) return Number(a.ch) - Number(b.ch);
+  const x = up(a.ch), y = up(b.ch);
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+const NOUN = { letters:'le lettere', digits:'le cifre', numbers:'i numeri', alnum:'i caratteri' };
+const FEM = { letters:true, digits:true, numbers:false, alnum:false };
+const VALUE_LABEL = {
+  color:{ red:['ROSSI','ROSSE'], green:['VERDI','VERDI'] }, size:{ big:['GRANDI','GRANDI'], small:['PICCOLI','PICCOLE'] },
+  case:{ upper:['MAIUSCOLE','MAIUSCOLE'], lower:['MINUSCOLE','MINUSCOLE'] }, type:{ digit:'le CIFRE', letter:'le LETTERE' }
 };
-export const INVERSIONE_RULE_KEYS = Object.keys(INVERSIONE_RULES);
-// Con «auto» la regola di ogni stimolo è una di queste due (il nome dell'esercizio): inversione o riordino.
-export const INVERSIONE_AUTO_RULES = ['inverti', 'ordina'];
-export function inversioneRuleText(ruleKey, kind){
-  const t = INVERSIONE_RULES[ruleKey].text;
-  return typeof t === 'string' ? t : t[kind];
+const valueOf = {
+  color: t => t.color, size: t => t.size,
+  case: t => isLetterTok(t) ? (t.ch === t.ch.toUpperCase() ? 'upper' : 'lower') : null,
+  type: t => isDigitTok(t) ? 'digit' : 'letter'
+};
+// Ordinamenti (T): come si scrivono i token di un gruppo.
+function applyT(tokens, T){
+  const a = [...tokens];
+  if(T==='asc') return a.sort(cmpTok);
+  if(T==='desc') return a.sort(cmpTok).reverse();
+  if(T==='rev') return a.reverse();
+  return a; // 'asis': nell'ordine in cui compaiono
+}
+function tText(T, kind){
+  if(T==='rev') return 'al contrario';
+  if(T==='asis') return 'nell\'ordine in cui compaiono';
+  if(T==='asc') return kind==='letters' ? 'in ordine alfabetico' : kind==='alnum' ? 'in ordine (prima le cifre dalla più piccola alla più grande, poi le lettere in ordine alfabetico)' : 'dal più piccolo al più grande';
+  return kind==='letters' ? 'in ordine alfabetico inverso (da Z ad A)' : kind==='alnum' ? 'in ordine inverso (prima le lettere da Z ad A, poi le cifre dalla più grande alla più piccola)' : 'dal più grande al più piccolo';
 }
 
+// Consegne SINGOLE (un criterio). minLevel = primo livello Traccia-N in cui compaiono.
+export const INVERSIONE_SINGLE = {
+  inverti:    { label:'Inverti (al contrario)', minLevel:1, kinds:['letters','digits','alnum','numbers'], attr:null,
+                run:(tk)=>applyT(tk,'rev'), text:()=>'Riscrivi TUTTO AL CONTRARIO, dall\'ultimo al primo.' },
+  ordina:     { label:'Riordina (alfabetico / crescente)', minLevel:1, kinds:['letters','digits','alnum','numbers'], attr:null,
+                run:(tk)=>applyT(tk,'asc'), text:(k)=>'Riscrivi '+NOUN[k]+' '+tText('asc',k)+'.' },
+  decrescente:{ label:'Dal più grande (Z–A)', minLevel:3, kinds:['letters','digits','alnum','numbers'], attr:null,
+                run:(tk)=>applyT(tk,'desc'), text:(k)=>'Riscrivi '+NOUN[k]+' '+tText('desc',k)+'.' },
+  vocali:     { label:'Solo vocali', minLevel:2, kinds:['letters','alnum'], attr:null,
+                run:(tk)=>tk.filter(isVowelTok), text:()=>'Scrivi SOLO LE VOCALI, nell\'ordine in cui compaiono.' },
+  consonanti: { label:'Solo consonanti', minLevel:2, kinds:['letters','alnum'], attr:null,
+                run:(tk)=>tk.filter(isConsTok), text:()=>'Scrivi SOLO LE CONSONANTI, nell\'ordine in cui compaiono.' },
+  posdispari: { label:'Posizioni dispari (1ª, 3ª…)', minLevel:3, kinds:['letters','digits','alnum','numbers'], attr:null,
+                run:(tk)=>tk.filter((t,i)=>i%2===0), text:()=>'Scrivi SOLO quelli in 1ª, 3ª, 5ª posizione, nell\'ordine in cui compaiono.' },
+  pospari:    { label:'Posizioni pari (2ª, 4ª…)', minLevel:3, kinds:['letters','digits','alnum','numbers'], attr:null,
+                run:(tk)=>tk.filter((t,i)=>i%2===1), text:()=>'Scrivi SOLO quelli in 2ª, 4ª, 6ª posizione, nell\'ordine in cui compaiono.' },
+  pari:       { label:'Solo pari', minLevel:3, kinds:['digits','numbers'], attr:null,
+                run:(tk)=>tk.filter(t=>Number(t.ch)%2===0), text:(k)=>'Scrivi SOLO '+NOUN[k]+' PARI, nell\'ordine in cui compaiono.' },
+  dispari:    { label:'Solo dispari', minLevel:3, kinds:['digits','numbers'], attr:null,
+                run:(tk)=>tk.filter(t=>Number(t.ch)%2!==0), text:(k)=>'Scrivi SOLO '+NOUN[k]+' DISPARI, nell\'ordine in cui compaiono.' },
+  rossi:      { label:'Solo rossi', minLevel:4, kinds:['letters','digits','alnum','numbers'], attr:'color',
+                run:(tk)=>tk.filter(t=>t.color==='red'), text:()=>'Scrivi SOLO quelli ROSSI, nell\'ordine in cui compaiono.' },
+  verdi:      { label:'Solo verdi', minLevel:4, kinds:['letters','digits','alnum','numbers'], attr:'color',
+                run:(tk)=>tk.filter(t=>t.color==='green'), text:()=>'Scrivi SOLO quelli VERDI, nell\'ordine in cui compaiono.' },
+  maiuscole:  { label:'Solo MAIUSCOLE', minLevel:5, kinds:['letters','alnum'], attr:'case',
+                run:(tk)=>tk.filter(t=>valueOf.case(t)==='upper'), text:()=>'Scrivi SOLO le lettere MAIUSCOLE, nell\'ordine in cui compaiono.' },
+  minuscole:  { label:'Solo minuscole', minLevel:5, kinds:['letters','alnum'], attr:'case',
+                run:(tk)=>tk.filter(t=>valueOf.case(t)==='lower'), text:()=>'Scrivi SOLO le lettere minuscole, nell\'ordine in cui compaiono.' },
+  grandi:     { label:'Solo grandi', minLevel:5, kinds:['letters','digits','alnum','numbers'], attr:'size',
+                run:(tk)=>tk.filter(t=>t.size==='big'), text:()=>'Scrivi SOLO quelli scritti in GRANDE, nell\'ordine in cui compaiono.' },
+  piccoli:    { label:'Solo piccoli', minLevel:5, kinds:['letters','digits','alnum','numbers'], attr:'size',
+                run:(tk)=>tk.filter(t=>t.size==='small'), text:()=>'Scrivi SOLO quelli scritti in PICCOLO, nell\'ordine in cui compaiono.' }
+};
+export const INVERSIONE_SINGLE_KEYS = Object.keys(INVERSIONE_SINGLE);
+// Consegne DOPPIE (due criteri insieme): da un criterio di riconoscimento (colore, grandezza, maiuscolo/minuscolo,
+// cifra/lettera) più un ordine. Dal livello 6, con probabilità crescente.
+const DOUBLE_CRITERIA = [
+  { C:'color', minLevel:6, kinds:['letters','digits','alnum','numbers'], values:['red','green'] },
+  { C:'size',  minLevel:6, kinds:['letters','digits','alnum','numbers'], values:['big','small'] },
+  { C:'case',  minLevel:7, kinds:['letters'], values:['upper','lower'] },
+  { C:'type',  minLevel:7, kinds:['alnum'], values:['digit','letter'] }
+];
+export const INVERSIONE_DOUBLE_P = [0,0,0,0,0,0.2,0.35,0.5,0.65,0.8];
+const DOUBLE_ORDERS_FILTER = ['asc','desc','rev'];
+const DOUBLE_ORDERS_GROUP = ['asis','asc'];
+function valueText(C, v, kind){
+  if(C==='type') return VALUE_LABEL.type[v];
+  const noun = NOUN[C==='case' ? 'letters' : kind], fem = (C==='case' || FEM[kind]);
+  if(C==='size') return noun+' scritt'+(fem?'e':'i')+' in '+(v==='big'?'GRANDE':'PICCOLO');
+  return noun+' '+VALUE_LABEL[C][v][fem ? 1 : 0];
+}
+// Costruisce una consegna doppia e restituisce {key, text, run, attr} oppure null.
+function makeDouble(level, kind){
+  const crit = DOUBLE_CRITERIA.filter(d=>level>=d.minLevel && d.kinds.includes(kind));
+  if(!crit.length) return null;
+  const d = pick(crit);
+  const v = pick(d.values), other = d.values.find(x=>x!==v);
+  if(Math.random()<0.5){
+    const T = pick(DOUBLE_ORDERS_FILTER);
+    const kT = d.C==='type' ? (v==='digit' ? 'digits' : 'letters') : kind;
+    return { key:'dbl-filtro:'+d.C, attr:d.C, C:d.C, mode:'filtro',
+      run:(tk)=>applyT(tk.filter(t=>valueOf[d.C](t)===v), T),
+      text:'Scrivi SOLO '+valueText(d.C, v, kind)+', '+tText(T, kT)+'.' };
+  }
+  const T = pick(DOUBLE_ORDERS_GROUP);
+  return { key:'dbl-gruppi:'+d.C, attr:d.C, C:d.C, mode:'gruppi',
+    run:(tk)=>[...applyT(tk.filter(t=>valueOf[d.C](t)===v), T), ...applyT(tk.filter(t=>valueOf[d.C](t)===other), T)],
+    text:'Scrivi PRIMA '+valueText(d.C, v, kind)+' e POI '+valueText(d.C, other, kind)+', ciascun gruppo '+(d.C==='type' && T==='asc' ? 'in ordine (cifre dalla più piccola alla più grande, lettere in ordine alfabetico)' : tText(T, kind))+'.' };
+}
+
+// ---- Livelli e tempi -----------------------------------------------------------------------------
 export const INVERSIONE_ADAPT_BLOCK = 4;
 const LEVEL_MAP = [1,4,8,11,15,18,22,25,29,32];
 export function inversioneGenLevel(level){ return LEVEL_MAP[Math.max(1, Math.min(10, level|0)) - 1]; }
+// Tempo di visione FISSO per carattere (ms), decrescente col livello; minimo 1,5 s in tutto.
+// PROPOSTA da validare (non ricavata dal generatore).
+export const INVERSIONE_MS_PER_CHAR = [1800,1650,1500,1350,1200,1050,950,850,750,650];
+export function inversioneExposureMs(level, nChars){
+  return Math.max(1500, Math.round(nChars * INVERSIONE_MS_PER_CHAR[Math.max(1, Math.min(10, level|0)) - 1]));
+}
 export function inversionePlanAt(level){
   const gen = inversioneGenLevel(level);
-  const lens = inversioneLens(gen);
-  return { gen, lens, lexical: gen<=INV_LEXICAL_UNTIL, alnum: gen>=INV_ALNUM_FROM, mixedCase: invMixedCaseProb(gen)>0,
-           pronounce: Math.round(invPronounceProb(gen)*100) };
+  const lv = Math.max(1, Math.min(10, level|0));
+  return { gen, lens: inversioneLens(gen), lexical: gen<=INV_LEXICAL_UNTIL, alnum: gen>=INV_ALNUM_FROM, mixedCase: invMixedCaseProb(gen)>0,
+           pronounce: Math.round(invPronounceProb(gen)*100), numbers: lv>=4, singles: INVERSIONE_SINGLE_KEYS.filter(k=>INVERSIONE_SINGLE[k].minLevel<=lv),
+           pDouble: INVERSIONE_DOUBLE_P[lv-1], msPerChar: INVERSIONE_MS_PER_CHAR[lv-1] };
 }
 
-// Un solo stimolo (nel generatore ne nasce un blocco per volta): stessa scelta di materiale, lunghezze e anti-ripetizione.
-// `used` = insieme di chiavi già proposte in sessione. `ruleKey` = 'auto' oppure una chiave di INVERSIONE_RULES.
+// ---- Un solo stimolo -----------------------------------------------------------------------------
+function makeNumbers(lv){
+  const nTok = lv>=8 ? 4 + rnd(2) : 3 + rnd(2);
+  const digits = lv>=8 ? 2 + rnd(2) : 2; // cifre per numero
+  const set = new Set();
+  while(set.size < nTok){
+    const lo = digits===2 ? 10 : 100, hi = digits===2 ? 99 : 999;
+    set.add(String(lo + rnd(hi-lo+1)));
+  }
+  return [...set].map(ch=>({ch, color:null, size:null}));
+}
+function makeTokens(kind, len, gen, lv, pCase){
+  if(kind==='numbers') return makeNumbers(lv);
+  let text;
+  if(kind==='letters'){
+    if(gen <= INV_LEXICAL_UNTIL && REAL_WORDS[len]){
+      const words = REAL_WORDS[len].filter(w=>!hasDuplicateChars(w) && !isTrivialOrder(w));
+      text = pick(words.length>=20 ? words : REAL_WORDS[len].filter(w=>!hasDuplicateChars(w)));
+    } else { const t = nonwordFor(len, gen); text = Math.random()<pCase ? randCase(t) : t; }
+  } else if(kind==='digits') text = randDigits(len);
+  else text = randAlnum(len);
+  return text.split('').map(ch=>({ch, color:null, size:null}));
+}
+// Assegna l'attributo che la consegna richiede in modo che il filtro non sia mai vuoto né totale.
+// Con consegne «a gruppi» e «doppie» tutti i token hanno un valore.
+function assignAttr(tokens, attr, full){
+  const n = tokens.length;
+  if(attr==='color' || attr==='size'){
+    const vals = attr==='color' ? ['red','green'] : ['big','small'];
+    for(let tries=0; tries<50; tries++){
+      tokens.forEach(t=>{ t[attr] = (full || Math.random()<0.6) ? pick(vals) : null; });
+      const c0 = tokens.filter(t=>t[attr]===vals[0]).length, c1 = tokens.filter(t=>t[attr]===vals[1]).length;
+      if(c0>=1 && (full ? c1>=1 : c0<n)) return true;
+    }
+    return false;
+  }
+  return true; // 'case' e 'type' sono già nel materiale: si controlla dopo
+}
 export function genInversioneItem(level, ruleKey, used){
-  const gen = inversioneGenLevel(level);
-  const lexical = gen <= INV_LEXICAL_UNTIL;
+  const lv = Math.max(1, Math.min(10, level|0));
+  const gen = inversioneGenLevel(lv);
   const pCase = invMixedCaseProb(gen);
   const lens = inversioneLens(gen);
-  const alnum = gen >= INV_ALNUM_FROM;
-  const specs = [];
-  lens.forEach(len=>{ specs.push({kind:'letters', len}); specs.push({kind:'digits', len}); });
-  if(alnum) lens.filter(l=>l>=4).forEach(len=> specs.push({kind:'alnum', len}));
-  for(let attempt=0; attempt<200; attempt++){
+  const pools = INVERSIONE_SINGLE_KEYS.filter(k=>INVERSIONE_SINGLE[k].minLevel<=lv);
+  for(let attempt=0; attempt<300; attempt++){
+    // 1) tipo di materiale
+    const specs = [];
+    lens.forEach(len=>{ specs.push({kind:'letters', len}); specs.push({kind:'digits', len}); });
+    if(gen>=INV_ALNUM_FROM) lens.filter(l=>l>=4).forEach(len=> specs.push({kind:'alnum', len}));
+    if(lv>=4) specs.push({kind:'numbers', len:0}, {kind:'numbers', len:0});
     const spec = pick(specs);
-    const rk = ruleKey==='auto' ? pick(INVERSIONE_AUTO_RULES) : ruleKey;
-    const rule = INVERSIONE_RULES[rk];
-    if(!rule.kinds.includes(spec.kind)) continue;
-    let text;
-    if(spec.kind==='letters'){
-      if(lexical && REAL_WORDS[spec.len]){
-        const words = REAL_WORDS[spec.len].filter(w=>!hasDuplicateChars(w) && !isTrivialOrder(w));
-        text = pick(words.length>=20 ? words : REAL_WORDS[spec.len].filter(w=>!hasDuplicateChars(w)));
-      } else {
-        const t = nonwordFor(spec.len, gen);
-        text = Math.random()<pCase ? randCase(t) : t;
-      }
-    } else if(spec.kind==='digits') text = randDigits(spec.len);
-    else text = randAlnum(spec.len);
-    if(isTrivialOrder(text)) continue;
+    // 2) consegna: manuale, doppia o singola
+    let rule = null, rk;
+    const manual = ruleKey && ruleKey!=='auto' && ruleKey!=='doppie';
+    if(ruleKey==='doppie' || (!manual && Math.random() < INVERSIONE_DOUBLE_P[lv-1])){
+      rule = makeDouble(Math.max(lv, 6), spec.kind);
+      if(!rule){ if(ruleKey==='doppie') continue; }
+      else rk = rule.key;
+    }
+    if(!rule){
+      rk = manual ? ruleKey : pick(pools.length>1 && used && used.lastRule ? pools.filter(k=>k!==used.lastRule) : pools);
+      const sr = INVERSIONE_SINGLE[rk];
+      if(!sr || !sr.kinds.includes(spec.kind)) continue;
+      rule = { key:rk, attr:sr.attr, run:sr.run, text:sr.text(spec.kind), mode:'singola' };
+    }
+    // 3) stimolo + attributi
+    const tokens = makeTokens(spec.kind, spec.len, gen, lv, pCase);
+    if(spec.kind!=='numbers' && isTrivialOrder(tokens.map(t=>t.ch).join(''))) continue;
+    if(rule.attr==='color' || rule.attr==='size'){
+      if(!assignAttr(tokens, rule.attr, rule.mode!=='singola')) continue;
+    } else if(lv>=8 && Math.random()<0.5){ // colori irrilevanti: distrattori ai livelli alti
+      tokens.forEach(t=>{ t.color = Math.random()<0.3 ? 'red' : null; });
+    }
+    if(rule.attr==='case' && !(tokens.some(t=>valueOf.case(t)==='upper') && tokens.some(t=>valueOf.case(t)==='lower'))) continue;
+    if(rule.attr==='type' && !(tokens.some(isDigitTok) && tokens.some(isLetterTok))) continue;
+    // 4) risposta attesa: non vuota e mai identica allo stimolo (salvo inverti/ordina)
+    const out = rule.run(tokens);
+    if(!out.length) continue;
+    // i filtri devono davvero scegliere (mai tutti i token)
+    if(!['inverti','ordina','decrescente'].includes(rule.key) && rule.mode!=='gruppi' && out.length>=tokens.length) continue;
+    const text = tokens.map(t=>t.ch).join(spec.kind==='numbers' ? ' ' : '');
     const key = spec.kind+':'+up(text);
-    if(used && used.has(key) && attempt<150) continue;
-    const expected = rule.apply(text);
-    if(expected==='—' || expected.length===0) continue;
-    if(used) used.add(key);
-    return { text, kind:spec.kind, len:spec.len, rule:rk, instruction:inversioneRuleText(rk, spec.kind), expected: up(expected) };
+    if(used && used.has(key) && attempt<200) continue;
+    if(used){ used.add(key); used.lastRule = rule.key; }
+    const multi = tokens.some(t=>t.ch.length>1);
+    const expectedTokens = out.map(t=>up(t.ch));
+    const nChars = tokens.reduce((a,t)=>a+t.ch.length, 0);
+    return { tokens, text, kind:spec.kind, len:tokens.length, rule:rule.key, double: rule.mode!=='singola', instruction:rule.text,
+             multi, expectedTokens, expected: expectedTokens.join(multi ? ' ' : ''),
+             exposureMs: inversioneExposureMs(lv, nChars) };
   }
   // rete di sicurezza (non dovrebbe mai servire)
-  const text = randLetters(4);
-  return { text, kind:'letters', len:4, rule:'inverti', instruction:inversioneRuleText('inverti','letters'), expected: up(text).split('').reverse().join('') };
+  const tokens = randLetters(4).split('').map(ch=>({ch, color:null, size:null}));
+  const expectedTokens = tokens.map(t=>t.ch).reverse();
+  return { tokens, text:tokens.map(t=>t.ch).join(''), kind:'letters', len:4, rule:'inverti', double:false, instruction:INVERSIONE_SINGLE.inverti.text('letters'),
+           multi:false, expectedTokens, expected:expectedTokens.join(''), exposureMs: inversioneExposureMs(lv, 4) };
 }
 
-// Correzione: esatta (tutta la sequenza giusta) più punteggio parziale = quota di posizioni giuste.
+// Correzione: esatta (tutti i token giusti, nell'ordine) più punteggio parziale = quota di posizioni giuste.
 export function scoreInversioneAnswer(item, typed, rtMs){
-  const given = up((typed||'').trim());
-  const exp = item.expected;
-  if(!given) return { correct:false, omitted:true, partial:0, rt:rtMs };
+  const raw = up((typed||'').trim());
+  if(!raw) return { correct:false, omitted:true, partial:0, rt:rtMs };
+  const given = item.multi ? raw.split(/\s+/).filter(Boolean) : raw.replace(/\s+/g,'').split('');
+  const exp = item.expectedTokens;
   let hit = 0;
   for(let i=0;i<exp.length;i++) if(given[i]===exp[i]) hit++;
   const partial = hit / Math.max(exp.length, given.length);
-  return { correct: given===exp, omitted:false, partial, rt:rtMs };
+  return { correct: given.length===exp.length && hit===exp.length, omitted:false, partial, rt:rtMs };
 }
 export function maybeAdaptInversione(cfg, session){
   if(!cfg.adaptive || session.invAdaptBlock.length < INVERSIONE_ADAPT_BLOCK) return;

@@ -264,15 +264,19 @@ async function simulateGriglieResponses(page, { maxMs = 90000, tapEveryMs = 120 
   }
   return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
 }
-async function simulateInversioneResponses(page, { maxMs = 90000, tapEveryMs = 120 } = {}) {
+async function simulateInversioneResponses(page, { maxMs = 240000, tapEveryMs = 120 } = {}) {
   const start = Date.now();
   let taps = 0;
   while (Date.now() - start < maxMs) {
     if (!(await page.locator('button:has-text("Interrompi")').count())) break;
-    await page.locator('button:text-is("Nascondi")').first().click({ timeout: 800 }).catch(() => {});
-    for (const ch of ['A', 'E', '7']) await page.locator('div[style*="max-width"] button:text-is("' + ch + '")').first().click({ timeout: 800 }).catch(() => {});
-    await page.locator('button:has-text("Conferma")').first().click({ timeout: 800 }).catch(() => {});
-    taps++;
+    // la sequenza sparisce da sola: si risponde solo quando compare la tastiera
+    if (await page.locator('button:text-is("Cancella")').count()) {
+      for (const ch of ['A', 'E', '7']) await page.locator('div[style*="max-width"] button:text-is("' + ch + '")').first().click({ timeout: 800 }).catch(() => {});
+      await page.locator('button:text-is("Spazio")').first().click({ timeout: 300 }).catch(() => {});
+      await page.locator('div[style*="max-width"] button:text-is("4")').first().click({ timeout: 300 }).catch(() => {});
+      await page.locator('button:has-text("Conferma")').first().click({ timeout: 800 }).catch(() => {});
+      taps++;
+    }
     await page.waitForTimeout(tapEveryMs);
   }
   return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };

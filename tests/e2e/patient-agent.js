@@ -233,14 +233,14 @@ async function simulateRunningSpanResponses(page, { maxMs = 90000, tapEveryMs = 
   return { taps, elapsedMs: Date.now() - start, timedOut: Date.now() - start >= maxMs };
 }
 // Intruso percettivo e PASAT: griglia/tastierino di pulsanti dentro il contenitore centrale della
-// schermata (max-width 760px); tocca a caso uno di quelli finché la sessione non finisce.
+// schermata (max-width 760-1100px); tocca a caso uno di quelli finché la sessione non finisce.
 async function simulateTimedChoiceResponses(page, { maxMs = 60000, tapEveryMs = 250 } = {}) {
   const start = Date.now();
   let taps = 0;
   while (Date.now() - start < maxMs) {
     const stillRunning = await page.locator('button:has-text("Interrompi")').count();
     if (!stillRunning) break;
-    const btns = page.locator('div[style*="max-width:760px"] button');
+    const btns = page.locator('div[style*="max-width"] button');
     const n = await btns.count();
     if (n > 0) { await btns.nth(Math.floor(Math.random() * n)).click({ timeout: 800 }).catch(() => {}); taps++; }
     await page.waitForTimeout(tapEveryMs);

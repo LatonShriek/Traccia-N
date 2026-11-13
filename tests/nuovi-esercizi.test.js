@@ -15,19 +15,25 @@ module.exports = async function run(t) {
         tr.items.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
         const singles = Object.keys(counts).filter(v => counts[v] === 1);
         if (singles.length !== 1 || tr.items[tr.oddIndex] !== singles[0]) ok = false;
-        if (tr.items.length !== IP.INTRUSO_LEVELS[lvl].n) sizeOk = false;
+        const pl = IP.intrusoPlanAt(lvl);
+        if (tr.items.length !== tr.n || tr.n < pl.nMin || tr.n > pl.nMax || ![15,16,18,20,21,24,25,27,28,30].includes(tr.n) && tr.n < 15) sizeOk = false;
+        if (tr.items.some(v => [...v].length !== tr.len)) sizeOk = false;
       }
       t.ok(ok, 'livello ' + lvl + ': un unico elemento unico, e oddIndex lo indica');
-      t.ok(sizeOk, 'livello ' + lvl + ': numero di elementi = tabella');
+      t.ok(sizeOk, 'livello ' + lvl + ': numero di elementi nel range del livello, elementi tutti della stessa lunghezza');
     }
   });
-  t.group('Intruso percettivo — la difficoltà cresce: più elementi, simboli più lunghi, meno tempo', () => {
+  t.group('Intruso percettivo — porting del generatore: stesse famiglie, lunghezza crescente, meno tempo', () => {
     const L = IP.INTRUSO_LEVELS;
     for (let l = 2; l <= 10; l++) {
-      t.ok(L[l].n >= L[l - 1].n && L[l].len >= L[l - 1].len && L[l].limitMs <= L[l - 1].limitMs, 'livello ' + l + ' non è più facile del precedente');
+      t.ok(L[l].len >= L[l - 1].len && L[l].limitMs <= L[l - 1].limitMs, 'livello ' + l + ': simboli non più corti, tempo non più lungo');
     }
-    t.ok(IP.intrusoFamiliesAt(1).every(f => ['digit', 'letter'].includes(f.id)), 'al livello 1 solo cifre e lettere');
+    t.ok(L[1].len === 1 && L[10].len === 3, 'da 1 simbolo (livelli bassi) a terne di simboli (alti)');
+    t.ok(IP.INTRUSO_FAMILIES.length === 31, 'le famiglie del generatore sono tutte presenti (' + IP.INTRUSO_FAMILIES.length + ')');
+    t.ok(IP.intrusoFamiliesAt(1).every(f => f.unlockLevel <= 1), 'al livello 1 solo famiglie familiari');
+    t.ok(!IP.intrusoFamiliesAt(1).some(f => ['cjk', 'geez', 'mahjong'].includes(f.id)), 'ideogrammi, ge\'ez e mahjong non compaiono al livello 1');
     t.ok(IP.intrusoFamiliesAt(10).length === IP.INTRUSO_FAMILIES.length, 'al livello 10 tutte le famiglie');
+    t.ok([1, 4, 8, 11, 15, 18, 22, 25, 29, 32].every((g, i) => IP.intrusoGenLevel(i + 1) === g), 'livelli 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore');
   });
   t.group('Intruso percettivo — punteggio e adattamento', () => {
     const tr = { oddIndex: 3 };

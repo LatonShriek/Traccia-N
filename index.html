@@ -60,7 +60,7 @@ import { genNbackTrial as genNbackTrialOf } from './js/exercises/nback.js';
 import { genGoNoGoTrial as genGoNoGoTrialOf } from './js/exercises/gonogo.js';
 import { genTapatTrial as genTapatTrialOf, buildTAPAT as buildTAPATOf } from './js/exercises/tapat.js';
 import { buildDualTask as buildDualTaskOf, genDualTaskTrial as genDualTaskTrialOf } from './js/exercises/dualtask.js';
-import { INTRUSO_LEVELS, genIntrusoTrial as genIntrusoTrialOf, scoreIntrusoTrial, maybeAdaptIntruso as maybeAdaptIntrusoOf } from './js/exercises/intrusopercettivo.js';
+import { INTRUSO_LEVELS, intrusoPlanAt, bestGridCols as intrusoGridCols, intrusoFramed, INTRUSO_CHAR_WIDTH, INTRUSO_GROUP_CHAR_WIDTH, genIntrusoTrial as genIntrusoTrialOf, scoreIntrusoTrial, maybeAdaptIntruso as maybeAdaptIntrusoOf } from './js/exercises/intrusopercettivo.js';
 import { SERIE_LEVELS, SERIE_RESPONSE_LABELS, serieRuleFor, genSerieStimuli, serieExpected, scoreSerieTrial, maybeAdaptSerie as maybeAdaptSerieOf } from './js/exercises/serie.js';
 import { PASAT_LEVELS, PASAT_MATERIALS, pasatAnswers, genPasatSeries, pasatExpected, scorePasatTrial, maybeAdaptPasat as maybeAdaptPasatOf } from './js/exercises/pasat.js';
 import { RUNNINGSPAN_LEVELS, RUNNINGSPAN_ADAPT_BLOCK, genRunningSpanTrial as genRunningSpanTrialOf, runningSpanItemsEqual, scoreRunningSpanTrial, maybeAdaptRunningSpan as maybeAdaptRunningSpanOf } from './js/exercises/runningspan.js';
@@ -1856,8 +1856,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         card.appendChild(el('p',{class:'hint'},['A questo livello: un nuovo stimolo ogni '+(lv.isi/1000).toFixed(1)+' s, regola sullo stimolo di '+lv.lag+(lv.lag===1?' posto':' posti')+' prima'+((cfg.pasatMateriale||'somme')!=='somme' ? ', avanzando di '+lv.shift : '')+'. Il paziente risponde toccando; se non tocca in tempo la risposta conta come omissione. Con l\'adattivo il livello sale/scende da solo ogni 8 risposte (70-85%).']));
       }
       if(cfg.taskMode==='intrusopercettivo'){
-        const lv = INTRUSO_LEVELS[cfg.adaptStartLevel]||INTRUSO_LEVELS[1];
-        card.appendChild(el('p',{class:'hint'},['A questo livello: '+lv.n+' elementi per schermata, simboli di '+lv.len+(lv.len===1?' carattere':' caratteri')+', '+Math.round(lv.limitMs/1000)+' s per schermata. Con l\'adattivo il livello cambia da solo ogni 6 schermate (70-85%).']));
+        const lv = intrusoPlanAt(cfg.adaptStartLevel);
+        card.appendChild(el('p',{class:'hint'},['A questo livello (= livello '+lv.gen+' del generatore di schede, stesse famiglie di simboli): '+(lv.nMin===lv.nMax?lv.nMax:lv.nMin+'-'+lv.nMax)+' elementi per schermata, simboli di '+lv.len+(lv.len===1?' carattere':' caratteri')+', '+Math.round(lv.limitMs/1000)+' s per schermata. Con l\'adattivo il livello cambia da solo ogni 6 schermate (70-85%).']));
       }
       if(cfg.taskMode==='runningspan'){
         const lvl = RUNNINGSPAN_LEVELS[cfg.adaptStartLevel]||RUNNINGSPAN_LEVELS[1];
@@ -4980,13 +4980,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   // --- Intruso percettivo ---
   function startIntrusoSession(){
-    session = { trialIdx:0, currentTrial:null, trialShownAt:0, choiceLog:[], ipAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
+    session = { trialIdx:0, currentTrial:null, recentFams:[], trialShownAt:0, choiceLog:[], ipAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
     view='task'; render();
     beginIntrusoTrial();
   }
   function beginIntrusoTrial(){
     if(session.paused) return;
-    if(!session.currentTrial) session.currentTrial = genIntrusoTrialOf(cfg.adaptStartLevel);
+    if(!session.currentTrial) session.currentTrial = genIntrusoTrialOf(cfg.adaptStartLevel, null, {avoidFamilies:session.recentFams});
     session.trialShownAt = performance.now();
     render();
     session.timer = setTimeout(()=>resolveIntrusoTrial(null), session.currentTrial.limitMs);
@@ -5001,7 +5001,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     maybeAdaptIntrusoOf(cfg, session);
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
-    session.currentTrial = genIntrusoTrialOf(cfg.adaptStartLevel); // livello letto ORA, dopo l'eventuale adattamento
+    session.recentFams = [trial.familyId].concat(session.recentFams).slice(0,2);
+    session.currentTrial = genIntrusoTrialOf(cfg.adaptStartLevel, null, {avoidFamilies:session.recentFams}); // livello letto ORA, dopo l'eventuale adattamento
     beginIntrusoTrial();
   }
   function updateIntrusoScreen(){
@@ -5011,11 +5012,20 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     if(!trial) return;
-    const cols = Math.ceil(Math.sqrt(trial.n*1.6));
-    const size = trial.len===1 ? 40 : trial.len===2 ? 30 : 24;
-    const grid = el('div',{style:'display:grid; grid-template-columns:repeat('+cols+',1fr); gap:8px; margin-top:8px;'});
+    // Stessa impaginazione del generatore: griglia piena (righe tutte complete), un riquadro per elemento,
+    // coppie/terne di simboli grafici racchiuse in una cornice sottile. Si risponde toccando / cliccando l'elemento.
+    content.style.maxWidth = '1100px';
+    const W = Math.min(1100, window.innerWidth) - 32, H = Math.max(260, window.innerHeight - 190);
+    const cols = intrusoGridCols(trial.n, W, H), rows = trial.n/cols;
+    const cellW = W/cols, cellH = H/rows;
+    const cw = (trial.len>=2 && INTRUSO_GROUP_CHAR_WIDTH[trial.familyId]) || INTRUSO_CHAR_WIDTH[trial.familyId] || 1;
+    const frac = trial.len>=3 ? 0.74 : trial.len===2 ? 0.62 : 0.85;
+    const px = Math.floor(Math.max(14, Math.min(cellW*frac/trial.len/cw, cellH*0.7, 90)));
+    const grid = el('div',{style:'display:grid; grid-template-columns:repeat('+cols+',1fr); gap:6px; margin-top:8px;'});
     trial.items.forEach((v,i)=>{
-      grid.appendChild(el('button',{style:'font-size:'+size+'px; min-height:56px; padding:6px 2px; font-family:inherit;', onclick:()=>{ if(!session.paused) resolveIntrusoTrial(i); }},[v]));
+      const framed = intrusoFramed(trial.familyId, [...String(v)].length);
+      const inner = framed ? el('span',{style:'display:inline-block; border:1.5px solid #8A948E; border-radius:.3em; padding:.04em .28em; line-height:1.25;'},[v]) : v;
+      grid.appendChild(el('button',{style:'font-size:'+px+'px; min-height:'+Math.max(48,Math.floor(cellH-6))+'px; padding:0; font-family:inherit; line-height:1.1; background:#fff; border:1px solid #D9DFD9; border-radius:6px; touch-action:manipulation;', onclick:()=>{ if(!session.paused) resolveIntrusoTrial(i); }},[inner]));
     });
     content.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Tocca l\'unico elemento che compare UNA SOLA volta.']));
     content.appendChild(grid);

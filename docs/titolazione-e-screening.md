@@ -57,9 +57,13 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
   (l'imprevedibilità è parte del costrutto). Il gradiente spaziale sinistra/destra
   si sposta di 5 punti (limiti 25–75) quando i due lati differiscono di oltre 15 punti.
 - **Intruso percettivo** (ruolo «allenamento»: lo screening non lo misura): adatta ogni
-  **6 schermate**, stessa regola 70-85%. 10 livelli: da 12 a 27 elementi, simboli di 1-3
-  caratteri, tipi sempre più simili fra loro, da 30 a 15 secondi per schermata. Tabelle
-  in `js/exercises/intrusopercettivo.js` (ipotesi di partenza, da tarare sull'uso clinico).
+  **6 schermate**, stessa regola 70-85%. 10 livelli. **Porting diretto** dell'Intruso del generatore di schede: stesse 31 famiglie
+  di simboli, stessa regola (un solo elemento unico, gli altri ≥2 volte), stessa lunghezza
+  (1 simbolo, coppie dal livello 9 del generatore, terne dal 21), stessa somiglianza dei tipi,
+  stessa numerosità a punteggio unico, stessa impaginazione a griglia piena con cornice sui
+  gruppi di simboli. Livelli 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore.
+  Si risponde toccando/cliccando l'elemento. Tempo per schermata da 40 a 22 s (ipotesi di
+  partenza, da tarare sull'uso clinico). Codice in `js/exercises/intrusopercettivo.js`.
 - **Serie alternate** (ruolo «allenamento»): adatta ogni **8 risposte**. Quattro pulsanti a schermo
   (destra, sinistra, «Sì», «No»); i 10 livelli usano le regole 1, 2, 3, 4, 7, 10, 17, 21, 23, 29 delle 32 del
   generatore (colore, categoria, mappature a 4 vie con No-Go segnalato da ✕, incroci colore×categoria,

@@ -74,18 +74,23 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
   (doppio conteggio); «quale è più numeroso e di quanti» (si tocca l'elemento, poi la differenza);
   numero di righe/colonne. Adatta a fine griglia
   (almeno 4 risposte), stessa regola 70-85%. «Prove» = numero di consegne.
-- **Inversione e riordino** (ruolo «allenamento», 14 nov 2026): porting del generatore (stessi generatori di
-  materiale: parole vere fino al gen. 8, non-parole pronunciabili che diventano casuali, numeri, misti
-  lettere+cifre dal gen. 11, maiuscole/minuscole miste dal gen. 15; lunghezze 3→6; file `js/exercises/inversione.js`
-  e `inversione-data.js`). Livelli 1-10 = 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore. Il paziente guarda la
-  sequenza, tocca «Nascondi», poi la riscrive trasformata con la **tastiera a schermo** (niente voce). La consegna
-  è scritta sullo schermo: con «Consegna = auto» ogni sequenza è da invertire o da riordinare (a caso); l'operatore
-  può fissare una qualsiasi delle 9 regole del generatore (ripeti, inverti, riordina, somma cifre, pari/dispari,
-  vocali, consonanti, posizioni dispari/pari). Correzione automatica: sequenza esatta (maiuscole indifferenti) +
-  punteggio parziale per posizione; il tempo parte quando compare la tastiera. Adatta ogni **4 sequenze** (70-85%
-  di esatte). «Prove» = numero di sequenze. Scelte non confermate dal clinico: (1) i caratteri rossi/verdi del
-  generatore non si mostrano (la loro consegna non è documentata); (2) la sequenza resta visibile finché il paziente
-  non tocca «Nascondi» (nessun tempo di esposizione fisso); (3) in auto solo inverti/riordina.
+- **Inversione e riordino** (ruolo «allenamento», 13 nov 2026): porting del generatore (stessi generatori di
+  materiale: parole vere fino al gen. 8, non-parole pronunciabili, cifre, misti lettere+cifre dal gen. 11,
+  maiuscole/minuscole miste dal gen. 15; lunghezze 3→6) più elementi **nuovi** (non nel generatore): colore
+  (rosso/verde), grandezza del carattere (grande/piccolo) e numeri a più cifre. File `js/exercises/inversione.js`
+  e `inversione-data.js`. Livelli 1-10 = 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore.
+  **Tempo FISSO decrescente**: la sequenza resta a schermo ms_per_carattere × n. caratteri (min 1,5 s) e sparisce
+  da sola; ms/carattere: 1800, 1650, 1500, 1350, 1200, 1050, 950, 850, 750, 650 (livelli 1-10) — **proposta da
+  validare**. Poi tastiera a schermo (niente voce; «Spazio» per i numeri a più cifre); la risposta non ha limite
+  di tempo, si misura il tempo di risposta. **Consegne a rotazione** (mai la stessa due volte di fila),
+  scritte a schermo: dal L1 inverti, riordina; L2 vocali, consonanti; L3 posizioni dispari/pari, pari/dispari,
+  ordine inverso; L4 solo rossi/verdi e numeri a più cifre; L5 solo MAIUSCOLE/minuscole, scritti in grande/piccolo.
+  **Consegne DOPPIE** (criterio di riconoscimento colore/grandezza/maiuscolo-minuscolo/cifra-lettera + ordine,
+  «solo i rossi al contrario», «prima i grandi poi i piccoli, ciascun gruppo in ordine alfabetico»): dal L6 con
+  probabilità 20-35-50-65-80% (L6-L10). Ai livelli alti compaiono anche colori irrilevanti (distrattori). Correzione
+  automatica: sequenza esatta + punteggio parziale per posizione. Adatta ogni **4 sequenze** (70-85% di esatte).
+  Il menu permette di fissare una consegna singola, o «solo doppie». Il colore rosso/verde è quello del generatore
+  (attenzione al daltonismo se serve: cambiare in rosso/blu).
 - **Serie alternate** (ruolo «allenamento»): adatta ogni **8 risposte**. Quattro pulsanti a schermo
   (destra, sinistra, «Sì», «No»); i 10 livelli usano le regole 1, 2, 3, 4, 7, 10, 17, 21, 23, 29 delle 32 del
   generatore (colore, categoria, mappature a 4 vie con No-Go segnalato da ✕, incroci colore×categoria,

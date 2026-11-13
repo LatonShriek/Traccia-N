@@ -17,7 +17,6 @@ import { PASAT_LEVELS, PASAT_MATERIALS } from './pasat.js';
 import { INTRUSO_LEVELS } from './intrusopercettivo.js';
 import { grigliaPlanAt } from './griglie.js';
 import { serieRuleFor } from './serie.js';
-import { INVERSIONE_RULES, INVERSIONE_AUTO_RULES } from './inversione.js';
 
   // POOLS (dati degli stimoli): vedi js/core/pools.js (passo 3b).
   export const STIM_LABELS = {lettere:'Lettere', numeri:'Numeri', simboli:'Simboli', parole:'Parole', suoni:'Suoni', colori:'Colori', lettereVoce:'Lettere pronunciate', numeriVoce:'Numeri pronunciati', paroleVoce:'Parole pronunciate', frecce:'Frecce', forma:'Forma'};
@@ -90,12 +89,8 @@ import { INVERSIONE_RULES, INVERSIONE_AUTO_RULES } from './inversione.js';
       domini:['Memoria di lavoro','Manipolazione di sequenze'],
       // Versione individuale di «Inversione e riordino» del generatore di schede PdM CDCD (stesso materiale):
       // la sequenza si guarda, si nasconde e si riscrive trasformata con la tastiera a schermo.
-      instructions:c=>{
-        const auto = (c.inversioneRegola||'auto')==='auto';
-        return 'Vedrai una sequenza di lettere o numeri. Guardala, memorizzala e tocca "Nascondi". Poi scrivila con la tastiera a schermo dopo averla trasformata come dice la consegna'
-          +(auto ? ' (al contrario, oppure in ordine: la consegna cambia e sta sempre scritta sullo schermo)' : ' ('+INVERSIONE_RULES[c.inversioneRegola].label.toLowerCase()+')')
-          +'. Tocca "Conferma" quando hai finito. Se sbagli un carattere puoi cancellarlo.';
-      }},
+      instructions:c=>'Vedrai per pochi secondi una sequenza di lettere o numeri: memorizzala. Sopra c\'è scritto cosa fare, per esempio scriverla al contrario, in ordine, solo le vocali, solo i caratteri rossi o scritti in grande, oppure due cose insieme. Quando la sequenza sparisce, scrivi la risposta con la tastiera a schermo (con «Spazio» per separare i numeri a più cifre) e tocca "Conferma". Se sbagli puoi cancellare.'
+      },
     pasat: {ruolo:'allenamento', label:'PASAT / PVSAT con operazione', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Memoria di lavoro','Velocità di elaborazione','Attenzione sostenuta'],
       // Gronwall (1977): somme seriali a ritmo imposto; qui estese a giorni e mesi.
@@ -420,7 +415,7 @@ import { INVERSIONE_RULES, INVERSIONE_AUTO_RULES } from './inversione.js';
     memoriaModo:'pqrst', memoriaLivello:1, memoriaMateriale:'lista', // solo per Strategie di memoria — memoriaMateriale usato solo da loci/errorless/vanishing (pqrst è sempre brano, chunking è sempre lista)
     serieRegola:0, // solo per Serie alternate: 0 = la regola segue il livello, 1-32 = regola fissata a mano
     pasatMateriale:'somme', // solo per PASAT: 'somme'|'giorni'|'mesi'
-    inversioneRegola:'auto', // solo per Inversione e riordino: 'auto' (inverti o riordina, la consegna cambia) oppure una chiave di INVERSIONE_RULES
+    inversioneRegola:'auto', // solo per Inversione e riordino: 'auto' (rotazione di consegne singole e doppie), 'doppie' oppure una chiave di INVERSIONE_SINGLE
     memoriaFormaIdx:0, // solo per pqrst/chunking, solo sui livelli con forme parallele (1-2 al momento) — quale forma (A/B/C...) usare in questa sessione; scelta sempre manuale dall'operatore, mai casuale, per poter pilotare baseline/intermedia/finale nel confronto RCI
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato

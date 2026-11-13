@@ -61,7 +61,7 @@ import { genNbackTrial as genNbackTrialOf } from './js/exercises/nback.js';
 import { genGoNoGoTrial as genGoNoGoTrialOf } from './js/exercises/gonogo.js';
 import { genTapatTrial as genTapatTrialOf, buildTAPAT as buildTAPATOf } from './js/exercises/tapat.js';
 import { buildDualTask as buildDualTaskOf, genDualTaskTrial as genDualTaskTrialOf } from './js/exercises/dualtask.js';
-import { INVERSIONE_RULES, INVERSIONE_RULE_KEYS, inversionePlanAt, genInversioneItem, scoreInversioneAnswer, maybeAdaptInversione as maybeAdaptInversioneOf } from './js/exercises/inversione.js';
+import { INVERSIONE_SINGLE, INVERSIONE_SINGLE_KEYS, inversionePlanAt, genInversioneItem, scoreInversioneAnswer, maybeAdaptInversione as maybeAdaptInversioneOf } from './js/exercises/inversione.js';
 import { grigliaPlanAt, genGrigliaScreen, scoreGrigliaAnswer, maybeAdaptGriglie as maybeAdaptGrigliaOf, colorHexOf as grigliaColorHex, gridShapeSvgOf } from './js/exercises/griglie.js';
 import { INTRUSO_LEVELS, intrusoPlanAt, bestGridCols as intrusoGridCols, intrusoFramed, INTRUSO_CHAR_WIDTH, INTRUSO_GROUP_CHAR_WIDTH, genIntrusoTrial as genIntrusoTrialOf, scoreIntrusoTrial, maybeAdaptIntruso as maybeAdaptIntrusoOf } from './js/exercises/intrusopercettivo.js';
 import { SERIE_LEVELS, SERIE_RESPONSE_LABELS, serieRuleFor, genSerieStimuli, serieExpected, scoreSerieTrial, maybeAdaptSerie as maybeAdaptSerieOf } from './js/exercises/serie.js';
@@ -1879,10 +1879,10 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         card.appendChild(el('p',{class:'hint'},['A questo livello: un nuovo stimolo ogni '+(lv.isi/1000).toFixed(1)+' s, regola sullo stimolo di '+lv.lag+(lv.lag===1?' posto':' posti')+' prima'+((cfg.pasatMateriale||'somme')!=='somme' ? ', avanzando di '+lv.shift : '')+'. Il paziente risponde toccando; se non tocca in tempo la risposta conta come omissione. Con l\'adattivo il livello sale/scende da solo ogni 8 risposte (70-85%).']));
       }
       if(cfg.taskMode==='inversione'){
-        const rl = {auto:'Inverti o riordina (a caso)'}; INVERSIONE_RULE_KEYS.forEach(k=>rl[k]=INVERSIONE_RULES[k].label);
-        grid.appendChild(field('Consegna', el('select',{onchange:e=>{ cfg.inversioneRegola=e.target.value; render(); }}, ['auto',...INVERSIONE_RULE_KEYS].map(k=>el('option',((cfg.inversioneRegola||'auto')===k ? {value:k, selected:'selected'} : {value:k}),[rl[k]])))));
+        const rl = {auto:'A rotazione (singole e, dai livelli alti, doppie)', doppie:'Solo doppie (due criteri)'}; INVERSIONE_SINGLE_KEYS.forEach(k=>rl[k]=INVERSIONE_SINGLE[k].label);
+        grid.appendChild(field('Consegna', el('select',{onchange:e=>{ cfg.inversioneRegola=e.target.value; render(); }}, ['auto','doppie',...INVERSIONE_SINGLE_KEYS].map(k=>el('option',((cfg.inversioneRegola||'auto')===k ? {value:k, selected:'selected'} : {value:k}),[rl[k]])))));
         const lv = inversionePlanAt(cfg.adaptStartLevel);
-        card.appendChild(el('p',{class:'hint'},['A questo livello (= livello '+lv.gen+' del generatore di schede, stesso materiale): sequenze di '+lv.lens.join('-')+' caratteri, '+(lv.lexical?'parole vere e numeri':lv.alnum?'non-parole ('+lv.pronounce+'% pronunciabili), numeri e misti lettere+cifre':'non-parole ('+lv.pronounce+'% pronunciabili) e numeri')+(lv.mixedCase?', maiuscole/minuscole miste':'')+'. Il paziente guarda la sequenza, la nasconde e la riscrive trasformata con la tastiera a schermo (niente voce). «Prove» = numero di sequenze. Con l\'adattivo il livello cambia ogni '+4+' sequenze (70-85% di sequenze esatte).']));
+        card.appendChild(el('p',{class:'hint'},['A questo livello: sequenze di '+lv.lens.join('-')+' caratteri'+(lv.numbers?' (anche numeri a più cifre)':'')+', '+(lv.lexical?'parole vere e cifre':lv.alnum?'non-parole ('+lv.pronounce+'% pronunciabili), cifre e misti lettere+cifre':'non-parole ('+lv.pronounce+'% pronunciabili) e cifre')+(lv.mixedCase?', maiuscole/minuscole miste':'')+'. Consegne a rotazione: '+lv.singles.map(k=>INVERSIONE_SINGLE[k].label.toLowerCase()).join(', ')+(lv.pDouble>0?'; consegne DOPPIE (due criteri insieme) nel '+Math.round(lv.pDouble*100)+'% delle sequenze':'')+'. La sequenza resta a schermo un tempo FISSO (circa '+(lv.msPerChar/1000).toFixed(2)+' s per carattere, decrescente col livello), poi sparisce da sola e il paziente la riscrive trasformata con la tastiera a schermo. «Prove» = numero di sequenze. Con l\'adattivo il livello cambia ogni 4 sequenze (70-85% di sequenze esatte).']));
       }
       if(cfg.taskMode==='griglie'){
         const lv = grigliaPlanAt(cfg.adaptStartLevel);
@@ -5196,23 +5196,25 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     content.appendChild(row);
   }
   // --- Inversione e riordino ---
-  // Una sequenza alla volta: fase 'show' (si guarda; «Nascondi» quando è memorizzata) e fase 'type'
-  // (consegna a schermo + tastiera a schermo, «Conferma»). Il tempo si misura dalla comparsa della tastiera.
+  // Una sequenza alla volta. Fasi: 'gap' (0,7 s, solo consegna) → 'show' (sequenza a schermo per un tempo FISSO,
+  // decrescente col livello) → 'type' (sequenza nascosta, tastiera a schermo, «Conferma»). Il tempo di risposta
+  // parte dalla comparsa della tastiera.
   const INV_KEYROWS = ['1234567890','QWERTYUIOP','ASDFGHJKL','ZXCVBNM'];
+  const INV_COLORS = { red:'#C62828', green:'#2E7D32' };
   function startInversioneSession(){
-    session = { trialIdx:0, item:null, phase:'show', typed:'', typeStartAt:0, used:new Set(), choiceLog:[], invAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
+    session = { trialIdx:0, item:null, phase:'gap', typed:'', typeStartAt:0, used:new Set(), choiceLog:[], invAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
     nextInversioneItem();
     view='task'; render();
   }
   function nextInversioneItem(){
     session.item = genInversioneItem(cfg.adaptStartLevel, cfg.inversioneRegola||'auto', session.used);
-    session.phase = 'show'; session.typed = '';
+    session.phase = 'gap'; session.typed = '';
   }
   function resolveInversioneTrial(){
     const it = session.item;
     const rt = Math.round(performance.now()-session.typeStartAt);
     const sc = scoreInversioneAnswer(it, session.typed, rt);
-    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:it.expected, given:session.typed.toUpperCase(), partial:Math.round(sc.partial*100)/100, rule:it.rule, kind:it.kind, len:it.len});
+    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:it.expected, given:session.typed.toUpperCase().trim(), partial:Math.round(sc.partial*100)/100, rule:it.rule, double:it.double, kind:it.kind, len:it.len, exposureMs:it.exposureMs});
     session.invAdaptBlock.push(sc.correct);
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
@@ -5228,25 +5230,37 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const it = session.item;
     content.style.maxWidth = '720px';
     content.appendChild(el('p',{style:'text-align:center; font-size:20px; font-weight:700; margin:10px 0 4px;'},[it.instruction]));
-    if(session.phase==='show'){
-      content.appendChild(el('div',{style:'text-align:center; font-size:'+Math.min(120, Math.floor(Math.min(window.innerWidth-40,700)/(it.text.length*0.8)))+'px; font-weight:800; letter-spacing:.08em; margin:34px 0; font-family:ui-monospace,Menlo,Consolas,monospace;'},[it.text]));
-      content.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Memorizzala. Quando sei pronto, tocca «Nascondi»: poi la scriverai trasformata.']));
-      content.appendChild(el('div',{class:'rowbtns', style:'justify-content:center; margin-top:12px;'},[
-        el('button',{class:'primary', style:'min-width:200px; min-height:56px; font-size:20px;', onclick:()=>{ session.phase='type'; session.typeStartAt=performance.now(); render(); }},['Nascondi'])
-      ]));
+    if(session.phase==='gap'){
+      content.appendChild(el('div',{style:'min-height:200px;'},['']));
+      if(!session.timer) session.timer = setTimeout(()=>{ session.timer=null; session.phase='show'; render(); }, 700);
       return;
     }
-    const shown = el('div',{style:'text-align:center; font-size:44px; font-weight:800; letter-spacing:.12em; min-height:62px; margin:16px 0 10px; font-family:ui-monospace,Menlo,Consolas,monospace; border-bottom:3px solid var(--accent,#1F6F63);'},[session.typed || '\u00A0']);
+    if(session.phase==='show'){
+      const nChars = it.tokens.reduce((a,t)=>a+t.ch.length,0) + (it.multi ? it.tokens.length-1 : 0);
+      const base = Math.max(34, Math.min(110, Math.floor(Math.min(window.innerWidth-40,700)/(nChars*0.85))));
+      const box = el('div',{style:'text-align:center; margin:34px 0; font-weight:800; letter-spacing:.06em; font-family:ui-monospace,Menlo,Consolas,monospace; min-height:'+Math.round(base*1.3)+'px; display:flex; justify-content:center; align-items:baseline; gap:'+(it.multi?Math.round(base*0.35):0)+'px;'});
+      it.tokens.forEach(t=>{
+        const f = t.size==='big' ? 1.0 : t.size==='small' ? 0.45 : 0.8;
+        box.appendChild(el('span',{style:'font-size:'+Math.round(base*f)+'px;'+(t.color?' color:'+INV_COLORS[t.color]+';':'')},[t.ch]));
+      });
+      content.appendChild(box);
+      content.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Memorizzala: tra poco sparisce.']));
+      if(!session.timer) session.timer = setTimeout(()=>{ session.timer=null; session.phase='type'; session.typeStartAt=performance.now(); render(); }, it.exposureMs);
+      return;
+    }
+    const shown = el('div',{style:'text-align:center; font-size:40px; font-weight:800; letter-spacing:.12em; min-height:60px; margin:16px 0 10px; font-family:ui-monospace,Menlo,Consolas,monospace; border-bottom:3px solid var(--accent,#1F6F63); white-space:pre;'},[session.typed || '\u00A0']);
     content.appendChild(shown);
+    const maxLen = it.multi ? 24 : 8;
     INV_KEYROWS.forEach(row=>{
       const r = el('div',{style:'display:flex; justify-content:center; gap:6px; margin:6px 0;'});
-      row.split('').forEach(ch=> r.appendChild(el('button',{style:'min-width:46px; min-height:56px; font-size:22px; font-weight:700; padding:0 6px;', onclick:()=>{ if(session.typed.length<8){ session.typed += ch; render(); } }},[ch])));
+      row.split('').forEach(ch=> r.appendChild(el('button',{style:'min-width:46px; min-height:56px; font-size:22px; font-weight:700; padding:0 6px;', onclick:()=>{ if(session.typed.length<maxLen){ session.typed += ch; render(); } }},[ch])));
       content.appendChild(r);
     });
     const row = el('div',{class:'rowbtns', style:'justify-content:center; margin-top:12px; gap:12px;'});
-    row.appendChild(el('button',{class:'ghost', style:'min-height:56px; min-width:120px; font-size:18px;', onclick:()=>{ session.typed = session.typed.slice(0,-1); render(); }},['Cancella']));
+    row.appendChild(el('button',{class:'ghost', style:'min-height:56px; min-width:100px; font-size:18px;', onclick:()=>{ session.typed = session.typed.slice(0,-1); render(); }},['Cancella']));
+    if(it.multi) row.appendChild(el('button',{style:'min-height:56px; min-width:140px; font-size:18px;', onclick:()=>{ if(session.typed && !session.typed.endsWith(' ') && session.typed.length<maxLen){ session.typed += ' '; render(); } }},['Spazio']));
     const ok = el('button',{class:'primary', style:'min-height:56px; min-width:160px; font-size:20px;', onclick:()=>resolveInversioneTrial()},['Conferma']);
-    if(!session.typed) ok.disabled = true;
+    if(!session.typed.trim()) ok.disabled = true;
     row.appendChild(ok);
     content.appendChild(row);
   }

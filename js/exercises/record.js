@@ -88,7 +88,7 @@ import { EXERCISES } from './registry.js';
         if(cfg.taskMode==='dualtask') return session.dualLevel1+'/'+session.dualLevel2;
         if(cfg.taskMode==='goaltask') return cfg.goaltaskLivello;
         if(cfg.taskMode==='memoria') return session.material ? session.material.livello : null;
-        if(cfg.taskMode==='runningspan' || cfg.taskMode==='intrusopercettivo' || cfg.taskMode==='pasat' || cfg.taskMode==='serie') return cfg.adaptStartLevel;
+        if(cfg.taskMode==='runningspan' || cfg.taskMode==='intrusopercettivo' || cfg.taskMode==='griglie' || cfg.taskMode==='pasat' || cfg.taskMode==='serie') return cfg.adaptStartLevel;
         if(adaptLevelKey(cfg)==='adaptLevel') return session.adaptLevel;
         return null;
       })(),

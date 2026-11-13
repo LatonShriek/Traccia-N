@@ -15,6 +15,7 @@ import { neglectRuleFor } from './neglect.js';
 import { RUNNINGSPAN_LEVELS } from './runningspan.js';
 import { PASAT_LEVELS, PASAT_MATERIALS } from './pasat.js';
 import { INTRUSO_LEVELS } from './intrusopercettivo.js';
+import { grigliaPlanAt } from './griglie.js';
 import { serieRuleFor } from './serie.js';
 
   // POOLS (dati degli stimoli): vedi js/core/pools.js (passo 3b).
@@ -75,6 +76,14 @@ import { serieRuleFor } from './serie.js';
       instructions:c=>{
         const lvl = INTRUSO_LEVELS[c.adaptStartLevel]||INTRUSO_LEVELS[1];
         return 'Vedrai molti simboli: tutti compaiono almeno due volte, tranne uno che compare UNA SOLA volta. Toccalo il più in fretta possibile, senza sbagliare. Hai '+Math.round(lvl.limitMs/1000)+' secondi per ogni schermata.';
+      }},
+    griglie: {ruolo:'allenamento', label:'Griglie attentive', usesStimType:false, usesTargetSeq:false, family:'choice',
+      domini:['Attenzione selettiva','Ricerca visiva','Memoria di lavoro'],
+      // Versione individuale delle "Griglie-Conteggio" del generatore di schede PdM CDCD (stesso materiale e
+      // stesse consegne): una griglia di simboli, una consegna alla volta, il paziente digita il numero.
+      instructions:c=>{
+        const p = grigliaPlanAt(c.adaptStartLevel);
+        return 'Vedrai una griglia di simboli e, sopra, una consegna che dice che cosa contare (per esempio gli elementi con un certo colore o in certe righe). Conta guardando la griglia, poi digita il numero e tocca "Conferma". Le consegne diventano via via più difficili; la griglia resta sempre visibile.';
       }},
     pasat: {ruolo:'allenamento', label:'PASAT / PVSAT con operazione', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Memoria di lavoro','Velocità di elaborazione','Attenzione sostenuta'],
@@ -341,7 +350,7 @@ import { serieRuleFor } from './serie.js';
     // relazionale sotto una regola fissa, non aggiornamento continuo né
     // mantenimento passivo).
     {label:'Memoria di lavoro e mantenimento', keys:['nback','categorizzazione','runningspan','pasat']},
-    {label:'Attenzione selettiva e ricerca visiva', keys:['intrusopercettivo']},
+    {label:'Attenzione selettiva e ricerca visiva', keys:['intrusopercettivo','griglie']},
     {label:'Flessibilità cognitiva', keys:['switching','serie']},
     {label:'Esplorazione visuospaziale', keys:['neglect']},
     {label:'Attenzione divisa e multitasking', keys:['dualtask','goaltask']},

@@ -35,6 +35,7 @@
   .grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
   @media (max-width:400px){
     .card{padding:14px;}
+    .setup-actions{margin:16px -14px -14px; padding-left:14px; padding-right:14px;}
     .tapbtn{padding:16px 10px; font-size:15px;}
     .stage{min-height:50vh;}
     .respond{padding:12px;}
@@ -218,3 +219,26 @@
   .ex-det{padding:2px 4px 10px 56px;}
   .ex-row{display:flex; justify-content:space-between; gap:12px; font-size:12.5px; padding:3px 0; border-bottom:1px dashed var(--line);}
   .ex-k{color:var(--ink-soft);} .ex-v{font-family:'JetBrains Mono',monospace; text-align:right;}
+
+  /* Setup a sezioni espandibili (js/ui/setup-sections.js) */
+  .setup-sec{border:1px solid var(--line); border-radius:12px; margin:0 0 10px; background:var(--white);}
+  .setup-sec-sum{list-style:none; cursor:pointer; display:flex; align-items:baseline; gap:6px 12px; padding:12px 38px 12px 14px; min-height:44px; flex-wrap:wrap; position:relative;}
+  .setup-sec-sum::-webkit-details-marker{display:none;}
+  .setup-sec-sum::after{content:'▸'; position:absolute; right:14px; top:50%; transform:translateY(-50%); color:var(--ink-soft); transition:transform .15s;}
+  .setup-sec[open] > .setup-sec-sum::after{transform:translateY(-50%) rotate(90deg);}
+  .setup-sec-t{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:15px;}
+  .setup-sec-s{font-size:12.5px; color:var(--ink-soft); flex:1 1 140px; min-width:0; overflow-wrap:anywhere;}
+  .setup-sec-s.warn{color:var(--alert); font-weight:600;}
+  .setup-sec[open] > .setup-sec-sum .setup-sec-s:not(.warn){display:none;} /* il riepilogo serve solo da chiusa */
+  .setup-sec-body{padding:6px 14px 4px; border-top:1px solid var(--line);}
+  .setup-info{margin:0 0 14px;}
+  .setup-info > summary{list-style:none; cursor:pointer; font-size:12.5px; color:var(--ink-soft); padding:2px 0; line-height:1.5;}
+  .setup-info > summary::-webkit-details-marker{display:none;}
+  .setup-info[open] > summary{color:var(--ink); font-weight:600;}
+  .setup-info > p.hint{margin:6px 0 0;}
+  .setup-actions{position:sticky; bottom:0; z-index:5; display:flex; flex-direction:column; gap:8px; background:var(--white);
+    border-top:1px solid var(--line); margin:16px -22px -22px; padding:12px 22px calc(12px + env(safe-area-inset-bottom));
+    border-radius:0 0 var(--radius) var(--radius);}
+  .setup-actions .hint{margin:0;}
+  .setup-actions .primary{padding:14px 22px;}
+  .setup-extras{display:flex; flex-direction:column; gap:8px; margin-top:12px;}

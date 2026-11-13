@@ -5082,28 +5082,43 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     content.appendChild(grid);
   }
   // --- Griglie attentive ---
-  // Porting del generatore (js/exercises/griglie.js). Una griglia con fino a 10 consegne di difficoltà crescente,
-  // una alla volta; la griglia resta visibile e il paziente digita il numero. A fine griglia ne nasce una nuova
-  // (con il livello eventualmente adattato). Registra session.choiceLog come gli altri esercizi a scelta.
+  // Porting del generatore (js/exercises/griglie.js). Una griglia con 10 consegne di difficoltà crescente,
+  // una alla volta; la griglia resta visibile e il paziente digita il numero (uno, due, o «quale + di quanti»
+  // a seconda della consegna). A fine griglia ne nasce una nuova (con il livello eventualmente adattato).
+  // Registra session.choiceLog come gli altri esercizi a scelta.
+  function grigliaResetAnswer(){ session.digits = ['','']; session.slot = 0; session.which = null; }
   function startGriglieSession(){
-    session = { trialIdx:0, grid:null, ruleIdx:0, answer:'', trialShownAt:0, choiceLog:[], grAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
+    session = { trialIdx:0, grid:null, ruleIdx:0, trialShownAt:0, choiceLog:[], grAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
     newGriglieGrid();
     view='task'; render();
   }
   function newGriglieGrid(){
     session.grid = genGrigliaScreen(cfg.adaptStartLevel);
-    session.ruleIdx = 0; session.answer = '';
+    session.ruleIdx = 0; grigliaResetAnswer();
     session.trialShownAt = performance.now();
+  }
+  function grigliaGiven(rule){
+    const inp = rule.input;
+    if(inp.type==='double') return session.digits.map(d=>d===''?null:Number(d));
+    if(inp.type==='compare') return { which:session.which, diff:session.digits[0]===''?null:Number(session.digits[0]) };
+    return session.digits[0]==='' ? null : Number(session.digits[0]);
+  }
+  function grigliaComplete(rule){
+    const inp = rule.input;
+    if(inp.type==='double') return session.digits[0]!=='' && session.digits[1]!=='';
+    if(inp.type==='compare') return session.which!=null && session.digits[0]!=='';
+    return session.digits[0]!=='';
   }
   function resolveGriglieTrial(){
     const rule = session.grid.rules[session.ruleIdx];
     const rt = Math.round(performance.now()-session.trialShownAt);
-    const sc = scoreGrigliaAnswer(rule, session.answer, rt);
-    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:rule.count, given:session.answer===''?null:Number(session.answer), tier:rule.tier, kind:rule.kind, category:session.grid.category});
+    const given = grigliaGiven(rule);
+    const sc = scoreGrigliaAnswer(rule, given, rt);
+    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:rule.input.expected, given, tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
     session.grAdaptBlock.push(sc.correct);
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
-    session.ruleIdx++; session.answer = '';
+    session.ruleIdx++; grigliaResetAnswer();
     if(session.ruleIdx >= session.grid.rules.length){ maybeAdaptGrigliaOf(cfg, session); newGriglieGrid(); }
     session.trialShownAt = performance.now();
     render();
@@ -5122,27 +5137,52 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     });
     return wrap;
   }
+  function grigliaSlot(label, value, active, onclick){
+    return el('button',{style:'min-width:90px; padding:6px 14px; font-size:30px; font-weight:800; background:#fff; border:3px solid '+(active?'var(--accent,#1F6F63)':'#C9D1CB')+'; border-radius:8px;', onclick},[
+      el('div',{style:'font-size:12px; font-weight:600; opacity:.75;'},[label]), (value===''?'…':value)
+    ]);
+  }
   function updateGriglieScreen(){
     const {infoSpan, content} = taskDom;
     infoSpan.textContent = 'Consegna '+(session.trialIdx+1)+' / '+cfg.trials+' · livello '+cfg.adaptStartLevel;
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
-    const g = session.grid, rule = g.rules[session.ruleIdx];
+    const g = session.grid, rule = g.rules[session.ruleIdx], inp = rule.input;
     content.style.maxWidth = '1100px';
-    const availW = Math.min(1100, window.innerWidth) - 32, availH = Math.max(220, window.innerHeight*0.46);
+    const availW = Math.min(1100, window.innerWidth) - 32, availH = Math.max(220, window.innerHeight*0.42);
     const cellPx = Math.floor(Math.max(26, Math.min(availW/g.cols - 4, availH/g.rows - 4, 84)));
-    content.appendChild(el('p',{style:'text-align:center; font-size:20px; font-weight:700; margin:6px 0;'},[rule.text]));
+    content.appendChild(el('p',{style:'text-align:center; font-size:20px; font-weight:700; margin:6px 0 2px;'},[rule.text]));
+    // come rispondere: una riga chiara per i tipi di consegna con risposta diversa da un solo numero
+    const how = inp.type==='double' ? 'Scrivi DUE numeri: il primo per «'+inp.labels[0]+'», il secondo per «'+inp.labels[1]+'».'
+      : inp.type==='compare' ? 'Tocca quali sono più numerosi, poi scrivi DI QUANTI sono più numerosi dell\'altro gruppo (la differenza).'
+      : inp.unit==='righe' || inp.unit==='colonne' ? 'Scrivi un numero: quante '+inp.unit+'.'
+      : inp.unit ? 'Scrivi il NUMERO della '+inp.unit+' (si contano '+(inp.unit==='riga'?'dall\'alto: la prima è 1':'da sinistra: la prima è 1')+').'
+      : null;
+    if(how) content.appendChild(el('p',{class:'hint', style:'text-align:center; margin:0 0 4px;'},[how]));
     content.appendChild(renderGriglieGrid(g, cellPx));
-    content.appendChild(el('div',{style:'text-align:center; font-size:34px; font-weight:800; min-height:46px; margin:6px 0;'},[session.answer===''?'…':session.answer]));
+    const slots = el('div',{style:'display:flex; justify-content:center; gap:12px; margin:6px 0; flex-wrap:wrap;'});
+    if(inp.type==='double'){
+      [0,1].forEach(i=>slots.appendChild(grigliaSlot(i===0?'primo':'secondo', session.digits[i], session.slot===i, ()=>{ session.slot=i; render(); })));
+    } else if(inp.type==='compare'){
+      [0,1].forEach(i=>slots.appendChild(el('button',{style:'padding:8px 14px; font-size:15px; font-weight:700; max-width:300px; border:3px solid '+(session.which===i?'var(--accent,#1F6F63)':'#C9D1CB')+'; background:'+(session.which===i?'#E3F1EC':'#fff')+'; border-radius:8px;', onclick:()=>{ session.which=i; render(); }},[inp.labels[i]])));
+      slots.appendChild(grigliaSlot('di quanti', session.digits[0], true, ()=>{}));
+    } else {
+      slots.appendChild(grigliaSlot(inp.unit?('n. '+inp.unit):'numero', session.digits[0], true, ()=>{}));
+    }
+    content.appendChild(slots);
+    const slotIdx = inp.type==='double' ? session.slot : 0;
     const pad = el('div',{style:'display:grid; grid-template-columns:repeat(5,minmax(0,64px)); gap:8px; justify-content:center;'});
     for(let d=0; d<=9; d++){
-      pad.appendChild(el('button',{style:'min-height:52px; font-size:22px; font-weight:700;', onclick:()=>{ if(session.answer.length<2){ session.answer = (session.answer==='0'?'':session.answer)+d; render(); } }},[String(d)]));
+      pad.appendChild(el('button',{style:'min-height:48px; font-size:22px; font-weight:700;', onclick:()=>{
+        const cur = session.digits[slotIdx];
+        if(cur.length<2){ session.digits[slotIdx] = (cur==='0'?'':cur)+d; if(inp.type==='double' && session.digits[slotIdx].length===2 && slotIdx===0) session.slot = 1; render(); }
+      }},[String(d)]));
     }
     content.appendChild(pad);
-    const row = el('div',{class:'rowbtns', style:'justify-content:center; margin-top:10px;'});
-    row.appendChild(el('button',{class:'ghost', onclick:()=>{ session.answer = session.answer.slice(0,-1); render(); }},['Cancella']));
+    const row = el('div',{class:'rowbtns', style:'justify-content:center; margin-top:8px;'});
+    row.appendChild(el('button',{class:'ghost', onclick:()=>{ session.digits[slotIdx] = session.digits[slotIdx].slice(0,-1); render(); }},['Cancella']));
     const ok = el('button',{class:'primary', onclick:()=>resolveGriglieTrial()},['Conferma']);
-    if(session.answer==='') ok.disabled = true;
+    if(!grigliaComplete(rule)) ok.disabled = true;
     row.appendChild(ok);
     content.appendChild(row);
   }

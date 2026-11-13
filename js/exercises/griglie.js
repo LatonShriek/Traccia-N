@@ -4,8 +4,8 @@
 // intorno ci sono solo gli aiuti che nel generatore sono globali e le funzioni d'uso di Traccia-N.
 // Il paziente vede la griglia, legge una consegna alla volta e digita il numero.
 // Il generatore ha 32 livelli, Traccia-N 10: livello 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
-// Sono escluse le (poche) consegne la cui risposta non è un solo numero (doppio conteggio, confronto,
-// «quante righe»): si usano di persona con il generatore.
+// Ogni griglia ha sempre 10 consegne. Se la risposta non è un solo numero (doppio conteggio, confronto,
+// «quale riga»), la schermata chiede più campi e dice chiaramente quali.
 import { adaptStep } from '../core/adapt.js';
 import { mean } from '../core/stats.js';
 
@@ -858,19 +858,57 @@ export function grigliaPlanAt(level){
   return { gen:g, category:cat, categoryLabel:GRID_CATEGORY_LABELS[cat], rows:gridRowsForLevel(g), cols:gridColsForLevel(g) };
 }
 export function colorHexOf(name){ if(!name) return null; const c = COLORS.find(x=>x.name===name); return c ? c.css : null; }
-// Una griglia con le sue consegne (solo quelle a risposta numerica), nell'ordine della rampa di difficoltà.
+// Come si risponde a una consegna (la risposta del generatore è un testo, qui la si ricava in forma strutturata):
+//  count    → un numero
+//  double   → due numeri (quanti A, quanti B)
+//  compare  → quale dei due (A o B) e di quanti
+//  rows     → un numero (quante righe/colonne) ; whichrow → un numero (quale riga/colonna)
+function parseInput(r){
+  const ans = r.answer;
+  if(!ans) return { type:'count', expected:r.count };
+  if(r.vk==='double'){
+    const m = /^(\d+) e (\d+)$/.exec(ans), t = /quanti sono (.+) e quanti (.+)\.$/.exec(r.text);
+    if(m && t) return { type:'double', expected:[Number(m[1]), Number(m[2])], labels:[t[1], t[2]] };
+  } else if(r.vk==='compare'){
+    const t = /^Quali sono più numerosi: (.+?) o (.+)\? Di quanti\?$/.exec(r.text), m = /^(.+) \((\d+) contro (\d+), differenza (\d+)\)$/.exec(ans);
+    if(t && m){
+      const A = t[1], B = t[2].replace(/^quelli /,'');
+      const which = (m[1]===A || ('gli elementi '+m[1])===A) ? 0 : 1;
+      return { type:'compare', expected:{ which, diff:Number(m[4]) }, labels:[A, t[2]] };
+    }
+  } else if(r.vk==='rows'){
+    const m = /^(\d+) (righe|colonne)/.exec(ans); if(m) return { type:'count', expected:Number(m[1]), unit:m[2] };
+  } else if(r.vk==='whichrow'){
+    const m = /^(riga|colonna) (\d+)/.exec(ans); if(m) return { type:'count', expected:Number(m[2]), unit:m[1] };
+  }
+  return null;
+}
+// Una griglia con le sue consegne: sempre 10 (si rigenera finché il generatore ne dà 10), nell'ordine della rampa di difficoltà.
 export function genGrigliaScreen(level){
   const g = grigliaGenLevel(level);
-  const fam = familyForLevel(g, null);
-  const symbols = fam.kind==='unicode' ? Array.from({length:fam.count},(_,i)=>String.fromCodePoint(fam.base+i)) : fam.pool;
   const rows = gridRowsForLevel(g), cols = gridColsForLevel(g);
-  const { cells, rules } = genOneGrid(symbols, g, fam.category, rows, cols);
-  const numeric = rules.filter(r=>!r.answer && Number.isFinite(r.count));
-  return { cells, rows, cols, rules:numeric.map(r=>({text:r.text, count:r.count, tier:r.tier, kind:r.kind, matches:r.matches})), category:fam.category, gen:g };
+  let best = null;
+  for(let i=0; i<60; i++){
+    const fam = familyForLevel(g, null);
+    const symbols = fam.kind==='unicode' ? Array.from({length:fam.count},(_,k)=>String.fromCodePoint(fam.base+k)) : fam.pool;
+    const { cells, rules } = genOneGrid(symbols, g, fam.category, rows, cols);
+    const parsed = rules.map(r=>({ r, inp:parseInput(r) })).filter(x=>x.inp);
+    if(!best || parsed.length>best.parsed.length) best = { cells, parsed, category:fam.category };
+    if(parsed.length>=10) break;
+  }
+  return { cells:best.cells, rows, cols, category:best.category, gen:g,
+    rules:best.parsed.map(({r,inp})=>({ text:r.text, count:r.count, tier:r.tier, kind:r.kind, vk:r.vk||null, input:inp, matches:r.matches })) };
 }
+// `given`: numero (count) | [n1,n2] (double) | {which, diff} (compare); null/'' = nessuna risposta.
 export function scoreGrigliaAnswer(rule, given, rtMs){
-  if(given==null || given==='') return {correct:false, omitted:true, rt:null};
-  return {correct: Number(given)===rule.count, omitted:false, rt:rtMs};
+  const inp = rule.input || { type:'count', expected:rule.count };
+  const empty = given==null || given==='' || (Array.isArray(given) && given.some(x=>x==null||x==='')) || (inp.type==='compare' && (given==null || given.which==null || given.diff==null || given.diff===''));
+  if(empty) return {correct:false, omitted:true, rt:null};
+  let ok;
+  if(inp.type==='double') ok = Number(given[0])===inp.expected[0] && Number(given[1])===inp.expected[1];
+  else if(inp.type==='compare') ok = given.which===inp.expected.which && Number(given.diff)===inp.expected.diff;
+  else ok = Number(given)===inp.expected;
+  return {correct:ok, omitted:false, rt:rtMs};
 }
 export function maybeAdaptGriglie(cfg, session){
   if(!cfg.adaptive || session.grAdaptBlock.length < GRIGLIE_ADAPT_BLOCK) return;

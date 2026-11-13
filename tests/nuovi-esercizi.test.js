@@ -42,10 +42,18 @@ module.exports = async function run(t) {
       const s = GR.genGrigliaScreen(lvl);
       minRules = Math.min(minRules, s.rules.length);
       if (s.cells.length !== s.rows * s.cols) ok = false;
-      for (const r of s.rules) { total++; if (r.matches && s.cells.filter(c => r.matches(c)).length !== r.count) ok = false; if (!(r.count >= 0 && Number.isInteger(r.count))) ok = false; }
+      for (const r of s.rules) { total++; if (r.input.type === 'count' && !r.input.unit && s.cells.filter(c => r.matches(c)).length !== r.input.expected) ok = false; if (!(r.count >= 0 && Number.isInteger(r.count))) ok = false; }
     }
     t.ok(ok, 'ogni risposta = ricalcolo indipendente sulle celle (' + total + ' consegne in 60 griglie)');
-    t.ok(minRules >= 4, 'ogni griglia ha almeno 4 consegne numeriche (minimo ' + minRules + ')');
+    t.ok(minRules >= 10, 'ogni griglia ha sempre almeno 10 consegne (minimo ' + minRules + ')');
+    let allInput = true; const types = new Set();
+    for (const lvl of [8, 9, 10]) for (let k = 0; k < 30; k++) for (const r of GR.genGrigliaScreen(lvl).rules) { if (!r.input) allInput = false; else types.add(r.input.type); }
+    t.ok(allInput, 'ogni consegna ha una risposta strutturata');
+    t.ok(types.has('double') && types.has('compare'), 'ai livelli alti compaiono anche «due numeri» e «quale e di quanti»');
+    t.eq(GR.scoreGrigliaAnswer({ input: { type: 'double', expected: [5, 9] } }, [5, 9], 1).correct, true, 'doppio conteggio giusto');
+    t.eq(GR.scoreGrigliaAnswer({ input: { type: 'double', expected: [5, 9] } }, [9, 5], 1).correct, false, 'doppio conteggio con i numeri scambiati = sbagliato');
+    t.eq(GR.scoreGrigliaAnswer({ input: { type: 'compare', expected: { which: 1, diff: 3 } } }, { which: 1, diff: 3 }, 1).correct, true, 'confronto giusto');
+    t.eq(GR.scoreGrigliaAnswer({ input: { type: 'compare', expected: { which: 1, diff: 3 } } }, { which: 0, diff: 3 }, 1).correct, false, 'confronto: gruppo sbagliato');
     t.eq([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(l => GR.grigliaGenLevel(l)), [1, 4, 8, 11, 15, 18, 22, 25, 29, 32], 'livelli 1-10 = livelli del generatore');
     t.eq(GR.grigliaPlanAt(1).category, 'shapes', 'livello 1: forme geometriche');
     t.eq(GR.grigliaPlanAt(10).category, 'geez', 'livello 10: ge\'ez');

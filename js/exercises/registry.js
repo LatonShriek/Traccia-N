@@ -83,7 +83,7 @@ import { serieRuleFor } from './serie.js';
       // stesse consegne): una griglia di simboli, una consegna alla volta, il paziente digita il numero.
       instructions:c=>{
         const p = grigliaPlanAt(c.adaptStartLevel);
-        return 'Vedrai una griglia di simboli e, sopra, una consegna che dice che cosa contare (per esempio gli elementi con un certo colore o in certe righe). Conta guardando la griglia, poi digita il numero e tocca "Conferma". Le consegne diventano via via più difficili; la griglia resta sempre visibile.';
+        return 'Vedrai una griglia di simboli e, sopra, una consegna che dice che cosa contare (per esempio gli elementi con un certo colore o in certe righe). Conta guardando la griglia, poi digita il numero (in alcune consegne due numeri, o quali elementi sono più numerosi e di quanti: la schermata lo dice) e tocca "Conferma". Le consegne diventano via via più difficili; la griglia resta sempre visibile.';
       }},
     pasat: {ruolo:'allenamento', label:'PASAT / PVSAT con operazione', usesStimType:false, usesTargetSeq:false, family:'choice',
       domini:['Memoria di lavoro','Velocità di elaborazione','Attenzione sostenuta'],

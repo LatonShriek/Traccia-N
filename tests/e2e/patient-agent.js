@@ -255,7 +255,8 @@ async function simulateGriglieResponses(page, { maxMs = 90000, tapEveryMs = 120 
   while (Date.now() - start < maxMs) {
     if (!(await page.locator('button:has-text("Interrompi")').count())) break;
     const digit = String(Math.floor(Math.random() * 10));
-    await page.locator('div[style*="max-width"] button:text-is("' + digit + '")').first().click({ timeout: 800 }).catch(() => {});
+    for (let k = 0; k < 4; k++) await page.locator('div[style*="max-width"] button:text-is("' + digit + '")').first().click({ timeout: 800 }).catch(() => {});
+    await page.locator('div[style*="max-width"] button:has-text("grande"), div[style*="max-width"] button:has-text("elementi")').first().click({ timeout: 300 }).catch(() => {});
     await page.locator('button:has-text("Conferma")').first().click({ timeout: 800 }).catch(() => {});
     taps++;
     await page.waitForTimeout(tapEveryMs);

@@ -67,10 +67,12 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
 - **Griglie attentive** (ruolo «allenamento»): **porting diretto** delle Griglie-Conteggio del generatore
   (il codice del generatore è copiato invariato in `js/exercises/griglie.js`): stessi simboli (forme,
   frecce, cifre, lettere, misto, cirillico, ideogrammi, ge'ez), colori, rampa di difficoltà e consegne
-  (colore, sfondo, bordo, posizione, adiacenza, negazione, «saltando i primi k»…). Una griglia con fino a
-  10 consegne in ordine crescente, una alla volta, griglia sempre visibile; il paziente digita il numero.
-  Livelli 1-10 = 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore. Restano fuori le consegne la cui
-  risposta non è un solo numero (doppio conteggio, confronto, «quante righe»). Adatta a fine griglia
+  (colore, sfondo, bordo, posizione, adiacenza, negazione, «saltando i primi k»…). Ogni griglia ha sempre
+  almeno 10 consegne in ordine crescente, una alla volta, griglia sempre visibile; il paziente digita la risposta.
+  Livelli 1-10 = 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore. Tutti i tipi di consegna sono
+  supportati, con istruzione «come rispondere» a schermo: un numero; due numeri nell'ordine richiesto
+  (doppio conteggio); «quale è più numeroso e di quanti» (si tocca l'elemento, poi la differenza);
+  numero di righe/colonne. Adatta a fine griglia
   (almeno 4 risposte), stessa regola 70-85%. «Prove» = numero di consegne.
 - **Serie alternate** (ruolo «allenamento»): adatta ogni **8 risposte**. Quattro pulsanti a schermo
   (destra, sinistra, «Sì», «No»); i 10 livelli usano le regole 1, 2, 3, 4, 7, 10, 17, 21, 23, 29 delle 32 del

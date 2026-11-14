@@ -153,3 +153,17 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
 ## 3. Cosa NON è coperto dai test automatici
 Il flusso di screening e lo storico paziente non sono simulati dall'e2e: dopo
 modifiche a quelle parti, controllare a mano su tablet.
+
+## Aggiornamenti del 14 novembre 2026 (sera)
+
+- **Durata a minuti** (tutti gli esercizi a prove, non Cancellazione/Compito a obiettivi/Memoria): `cfg.durataMin > 0`;
+  il numero di prove interno diventa 999 e un timer lo chiude alla prova in corso. Il numero di prove svolte è quello salvato.
+- **Riscontro per prova** (✓ verde / ✗ rosso, `cfg.feedbackProva`, predefinito sì): Intruso, Griglie, Running span, Inversione,
+  PASAT, Categorizzazione/Serie. Non attivo nelle sonde di screening.
+- **Inversione e riordino**: predefinito 24 sequenze; la consegna compare DOPO la scomparsa dello stimolo; 1-3 consegne diverse
+  sulla stessa sequenza (`INVERSIONE_NCONS_P`, **ipotesi da validare**: 1 sola ai livelli 1-2, spesso 3 ai livelli 9-10);
+  pool delle consegne spuntabile a mano (`cfg.inversionePool`, vale a tutti i livelli; vuoto = automatico per livello).
+- **Intruso percettivo**: predefinito 10 schermate; tempo massimo per schermata modificabile (`cfg.intrusoLimitS`, 0 = tabella
+  `INTRUSO_LIMIT_MS`, 40→22 s, **proposta non validata**). **Griglie attentive**: predefinito 1 griglia = 10 consegne.
+- **Cancellazione**: il layout «Organizzato» ora è una griglia regolare (prima celle vuote a caso e scarto ampio → sembrava sparso).
+- **Schermo**: Intruso, Griglie, Inversione e Running span usano tutta la larghezza e tasti/caratteri più grandi.

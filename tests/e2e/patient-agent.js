@@ -255,6 +255,13 @@ async function simulateGriglieResponses(page, { maxMs = 90000, tapEveryMs = 120 
   let taps = 0;
   while (Date.now() - start < maxMs) {
     if (!(await page.locator('button:has-text("Interrompi")').count())) break;
+    // risposta a tocco (predefinita): tocca qualche cella, OK, poi Avanti
+    if (await page.locator('button:text-is("OK")').count() || await page.locator('button:text-is("Avanti")').count()) {
+      if (await page.locator('button:text-is("Avanti")').count()) { await page.locator('button:text-is("Avanti")').first().click({ timeout: 800 }).catch(() => {}); taps++; await page.waitForTimeout(tapEveryMs); continue; }
+      await page.locator('div[style*="border-radius: 50%"]').nth(Math.floor(Math.random() * 10)).click({ timeout: 800 }).catch(() => {});
+      await page.locator('button:text-is("OK")').first().click({ timeout: 800 }).catch(() => {});
+      taps++; await page.waitForTimeout(tapEveryMs); continue;
+    }
     const digit = String(Math.floor(Math.random() * 10));
     for (let k = 0; k < 4; k++) await page.locator('div[style*="max-width"] button:text-is("' + digit + '")').first().click({ timeout: 800 }).catch(() => {});
     await page.locator('div[style*="max-width"] button:has-text("grande"), div[style*="max-width"] button:has-text("elementi")').first().click({ timeout: 300 }).catch(() => {});

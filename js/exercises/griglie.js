@@ -592,13 +592,13 @@ function gridVarRules(cells, rows, cols, symbols, F, B, I, feat, effLevel){
     const a = cnt(A.f), b = cnt(Bt.f);
     if(!inRange(a) || !inRange(b)) return null;
     return mk({ vk, text:`Conta separatamente, tenendo due totali: quanti sono ${noun(A)} e quanti ${those(Bt)}.`,
-      matches:c=>A.f(c)||Bt.f(c), count:Math.max(a,b), answer:`${a} e ${b}` });
+      matches:c=>A.f(c)||Bt.f(c), fa:A.f, fb:Bt.f, count:Math.max(a,b), answer:`${a} e ${b}` });
   }
   if(vk==="compare"){
     const a = cnt(A.f), b = cnt(Bt.f);
     if(!inRange(a) || !inRange(b) || Math.abs(a-b)<2) return null;
     return mk({ vk, text:`Quali sono più numerosi: ${noun(A)} o ${those(Bt)}? Di quanti?`,
-      matches:c=>A.f(c)||Bt.f(c), count:Math.max(a,b),
+      matches:c=>A.f(c)||Bt.f(c), fa:A.f, fb:Bt.f, count:Math.max(a,b),
       answer:`${a>b ? A.np : Bt.np} (${Math.max(a,b)} contro ${Math.min(a,b)}, differenza ${Math.abs(a-b)})` });
   }
   if(vk==="skip"){
@@ -883,6 +883,26 @@ function parseInput(r){
   }
   return null;
 }
+// Versione «a tocco» di una consegna: il paziente indica gli elementi che la rispettano (nessun numero da scrivere).
+// Restituisce { text, target:[indici di cella] } oppure null se la consegna chiede una cosa che non è un insieme di
+// elementi (quante righe / quale riga): in quel caso si risponde con il numero.
+function touchSpec(r, cells){
+  const idx = f => cells.map((c,i)=>f(c)?i:-1).filter(i=>i>=0);
+  if(r.vk==='rows' || r.vk==='whichrow') return null;
+  if(r.vk==='double' && r.fa && r.fb){
+    const t = /quanti sono (.+) e quanti (.+)\.$/.exec(r.text); if(!t) return null;
+    return { text:'Tocca tutti gli elementi: '+t[1]+' e '+t[2]+'.', target:idx(c=>r.fa(c)||r.fb(c)) };
+  }
+  if(r.vk==='compare' && r.fa && r.fb){
+    const t = /^Quali sono più numerosi: (.+?) o (.+)\? Di quanti\?$/.exec(r.text); if(!t) return null;
+    const na = cells.filter(r.fa).length, nb = cells.filter(r.fb).length;
+    return { text:'Tocca TUTTI gli elementi del gruppo più numeroso: '+t[1]+' oppure '+t[2]+'?', target:idx(na>nb ? r.fa : r.fb) };
+  }
+  if(!/^Conta /.test(r.text)) return null;
+  const target = idx(r.matches);
+  if(target.length!==r.count) return null;
+  return { text:r.text.replace(/^Conta /,'Tocca ').replace('si conta una volta sola','si tocca una volta sola'), target };
+}
 // Una griglia con le sue consegne: sempre 10 (si rigenera finché il generatore ne dà 10), nell'ordine della rampa di difficoltà.
 export function genGrigliaScreen(level){
   const g = grigliaGenLevel(level);
@@ -897,7 +917,7 @@ export function genGrigliaScreen(level){
     if(parsed.length>=10) break;
   }
   return { cells:best.cells, rows, cols, category:best.category, gen:g,
-    rules:best.parsed.map(({r,inp})=>({ text:r.text, count:r.count, tier:r.tier, kind:r.kind, vk:r.vk||null, input:inp, matches:r.matches })) };
+    rules:best.parsed.map(({r,inp})=>({ text:r.text, count:r.count, tier:r.tier, kind:r.kind, vk:r.vk||null, input:inp, matches:r.matches, touch:touchSpec(r, best.cells) })) };
 }
 // `given`: numero (count) | [n1,n2] (double) | {which, diff} (compare); null/'' = nessuna risposta.
 export function scoreGrigliaAnswer(rule, given, rtMs){
@@ -909,6 +929,14 @@ export function scoreGrigliaAnswer(rule, given, rtMs){
   else if(inp.type==='compare') ok = given.which===inp.expected.which && Number(given.diff)===inp.expected.diff;
   else ok = Number(given)===inp.expected;
   return {correct:ok, omitted:false, rt:rtMs};
+}
+// Correzione a tocco: giusta solo se l'insieme toccato coincide ESATTAMENTE con quello atteso.
+// `selected`: array di indici di cella. Restituisce anche giusti / sbagliati / mancanti per mostrarli al paziente.
+export function scoreGrigliaSelection(rule, selected, rtMs){
+  const target = new Set(rule.touch.target), sel = new Set(selected);
+  const hit = [...sel].filter(i=>target.has(i)), wrong = [...sel].filter(i=>!target.has(i)), missed = [...target].filter(i=>!sel.has(i));
+  if(!sel.size) return { correct:false, omitted:true, rt:null, hit:[], wrong:[], missed:[...target] };
+  return { correct: !wrong.length && !missed.length, omitted:false, rt:rtMs, hit, wrong, missed };
 }
 export function maybeAdaptGriglie(cfg, session){
   if(!cfg.adaptive || session.grAdaptBlock.length < GRIGLIE_ADAPT_BLOCK) return;

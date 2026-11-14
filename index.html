@@ -62,7 +62,7 @@ import { genGoNoGoTrial as genGoNoGoTrialOf } from './js/exercises/gonogo.js';
 import { genTapatTrial as genTapatTrialOf, buildTAPAT as buildTAPATOf } from './js/exercises/tapat.js';
 import { buildDualTask as buildDualTaskOf, genDualTaskTrial as genDualTaskTrialOf } from './js/exercises/dualtask.js';
 import { INVERSIONE_SINGLE, INVERSIONE_SINGLE_KEYS, inversionePlanAt, genInversioneItem, scoreInversioneAnswer, maybeAdaptInversione as maybeAdaptInversioneOf } from './js/exercises/inversione.js';
-import { grigliaPlanAt, genGrigliaScreen, scoreGrigliaAnswer, maybeAdaptGriglie as maybeAdaptGrigliaOf, colorHexOf as grigliaColorHex, gridShapeSvgOf } from './js/exercises/griglie.js';
+import { grigliaPlanAt, genGrigliaScreen, scoreGrigliaAnswer, scoreGrigliaSelection, maybeAdaptGriglie as maybeAdaptGrigliaOf, colorHexOf as grigliaColorHex, gridShapeSvgOf } from './js/exercises/griglie.js';
 import { INTRUSO_LEVELS, intrusoPlanAt, bestGridCols as intrusoGridCols, intrusoFramed, INTRUSO_CHAR_WIDTH, INTRUSO_GROUP_CHAR_WIDTH, genIntrusoTrial as genIntrusoTrialOf, scoreIntrusoTrial, maybeAdaptIntruso as maybeAdaptIntrusoOf } from './js/exercises/intrusopercettivo.js';
 import { SERIE_LEVELS, SERIE_MAX_LEVEL, SERIE_BAND_POOLS, SERIE_BAND_OF_LEVEL, serieResetRules, serieRuleForLevel, SERIE_RESPONSE_LABELS, serieRuleFor, genSerieStimuli, serieExpected, scoreSerieTrial, maybeAdaptSerie as maybeAdaptSerieOf } from './js/exercises/serie.js';
 import { PASAT_LEVELS, PASAT_MATERIALS, pasatAnswers, genPasatSeries, pasatExpected, scorePasatTrial, maybeAdaptPasat as maybeAdaptPasatOf } from './js/exercises/pasat.js';
@@ -224,7 +224,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     cfg.adaptStartLevel = pc.adaptStartLevel || 1; cfg.tapatStartLevel = pc.tapatStartLevel || 1;
     cfg.dualStartLevel1 = pc.dualStartLevel1 || 1; cfg.dualStartLevel2 = pc.dualStartLevel2 || 1;
     cfg.neglectStartLevel = pc.neglectStartLevel || 1;
-    cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
+    cfg.grigliaRisposta = pc.grigliaRisposta||'tocco'; cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
     cfg.targetRate = pc.targetRate; cfg.respMode = pc.respMode; cfg.voice = pc.voice;
     cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.stopsignalInterferenza = pc.stopsignalInterferenza || 'no'; cfg.adaptive = !!pc.adaptive;
     cfg.switchMaterial = pc.switchMaterial || 'numeri'; cfg.dualVisual = pc.dualVisual || 'lettere'; cfg.dualVisual2 = pc.dualVisual2 || 'numeri'; cfg.dualPairing = pc.dualPairing || 'vis-aud'; cfg.antMode = pc.antMode || 'classico';
@@ -695,6 +695,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   let sessionGuardTimer = null;
 
   const root = document.getElementById('app');
+  // Numero di prove predefinito quando si sceglie l'esercizio (modificabile a mano nel Setup).
+  const EX_DEFAULT_TRIALS = { inversione:24, intrusopercettivo:10, griglie:10 };
   let taskDom = null; // persistent DOM refs while view==='task', so buttons never get torn down mid-tap
   let suppressHistoryPush = false;
   // Specchio della cronologia del browser: ogni voce che l'app spinge porta un
@@ -1897,6 +1899,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         card.appendChild(el('p',{class:'hint'},['A questo livello: sequenze di '+lv.lens.join('-')+' caratteri'+(lv.numbers?' (anche numeri a più cifre)':'')+', '+(lv.lexical?'parole vere e cifre':lv.alnum?'non-parole ('+lv.pronounce+'% pronunciabili), cifre e misti lettere+cifre':'non-parole ('+lv.pronounce+'% pronunciabili) e cifre')+(lv.mixedCase?', maiuscole/minuscole miste':'')+'. Consegne a rotazione: '+lv.singles.map(k=>INVERSIONE_SINGLE[k].label.toLowerCase()).join(', ')+(lv.pDouble>0?'; consegne DOPPIE (due criteri insieme) nel '+Math.round(lv.pDouble*100)+'% delle sequenze':'')+'. La sequenza resta a schermo un tempo FISSO (circa '+(lv.msPerChar/1000).toFixed(2)+' s per carattere, decrescente col livello), poi sparisce da sola e il paziente la riscrive trasformata con la tastiera a schermo. «Prove» = numero di sequenze. Con l\'adattivo il livello cambia ogni 4 sequenze (70-85% di sequenze esatte).']));
       }
       if(cfg.taskMode==='griglie'){
+        grid.appendChild(field('Come risponde il paziente', segButtons(['tocco','numero'], cfg.grigliaRisposta||'tocco', v=>{ cfg.grigliaRisposta=v; render(); }, {tocco:'Tocca gli elementi (con correzione)', numero:'Scrive il numero'})));
         const lv = grigliaPlanAt(cfg.adaptStartLevel);
         card.appendChild(el('p',{class:'hint'},['A questo livello (= livello '+lv.gen+' del generatore di schede, stesso materiale): simboli «'+lv.categoryLabel+'», griglia '+lv.rows+'×'+lv.cols+'. Ogni griglia ha sempre 10 consegne di difficoltà crescente (colore, sfondo, bordo, posizione, adiacenza, negazione…); il paziente digita il numero (o due, o «quale e di quanti»: la schermata lo dice). Il numero di consegne della seduta è «Prove».']));
       }
@@ -2063,7 +2066,12 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       // stim duration
       grid.appendChild(field('Durata di presentazione', stepper(cfg.stimDuration,200,Math.min(2000,cfg.isi),v=>{cfg.stimDuration=Math.min(v,cfg.isi-100);},100,ms=>ms+' ms')));
     } else {
-      grid.appendChild(field('Modalità', segButtons(['classico','intruso','regola','progressiva'], cfg.neglectMode, v=>{
+      // Accorpamento (14 nov 2026): «Trova l'intruso» → esercizio Intruso percettivo; «Conteggio a regola» → Griglie attentive.
+      // Qui resta il Classico (misura del neglect, gradiente sinistra/destra). Le altre modalità compaiono solo se la
+      // configurazione caricata (programma, storico) le usa già, così nulla di salvato si rompe.
+      const neglectModi = ['classico'].concat(['intruso','regola','progressiva'].includes(cfg.neglectMode) ? ['intruso','regola','progressiva'] : []);
+      if(neglectModi.length===1) card.appendChild(el('p',{class:'hint'},['Questa scheda misura la ricerca visiva spaziale (Classico, con gradiente sinistra/destra). Per «trovare l\'unico elemento» usa Intruso percettivo; per «contare con una regola» usa Griglie attentive.']));
+      grid.appendChild(field('Modalità', segButtons(neglectModi, cfg.neglectMode, v=>{
         cfg.neglectMode=v;
         if(v==='regola' && cfg.stimType!=='numeri' && cfg.stimType!=='lettere'){ cfg.stimType='lettere'; regenerateParolePool(); }
         if(v==='intruso' || v==='regola') cfg.targetSeq = [];
@@ -2721,18 +2729,20 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // Esercizi in cui il riscontro «giusto/sbagliato» dopo ogni prova è previsto di default (allenamento).
   const FEEDBACK_ESERCIZI = ['intrusopercettivo','griglie','runningspan','inversione','pasat','serie','categorizzazione'];
   function feedbackAttivo(){ return cfg.feedbackProva!==false && FEEDBACK_ESERCIZI.includes(cfg.taskMode) && !screeningState; }
+  // Riscontro per prova = stessa fila di quadratini (verde giusto / rosso sbagliato) delle altre prove.
   function trialFeedback(ok){
     if(!feedbackAttivo()) return;
-    const old = document.getElementById('trialfb'); if(old) old.remove();
-    const col = ok ? '#2E9E5B' : '#D64545';
-    const d = document.createElement('div'); d.id='trialfb';
-    d.style.cssText = 'position:fixed; inset:0; z-index:9999; pointer-events:none; box-sizing:border-box; border:14px solid '+col+'; display:flex; align-items:center; justify-content:center; font-size:min(30vw,30vh); font-weight:800; color:'+col+'; background:'+col+'22;';
-    d.textContent = ok ? '✓' : '✗';
-    document.body.appendChild(d);
-    setTimeout(()=>{ if(d.parentNode) d.remove(); }, 450);
+    if(!session.trail) session.trail = [];
+    if(cfg.taskMode==='categorizzazione') return; // la schermata standard ha già la sua fila, alimentata da resolveTrial
+    session.trail.push({outcome: ok ? 'hit' : 'err'});
+    drawTrialTrail();
   }
-  // Numero di prove predefinito quando si sceglie l'esercizio (modificabile a mano nel Setup).
-  const EX_DEFAULT_TRIALS = { inversione:24, intrusopercettivo:10, griglie:10 };
+  function drawTrialTrail(){
+    const tr = document.getElementById('trialtrail'); if(!tr || !session || !session.trail) return;
+    tr.innerHTML = '';
+    session.trail.slice(-16).forEach(t=> tr.appendChild(el('div',{class:'chip '+t.outcome})));
+  }
+  function trialTrailEl(){ return el('div',{id:'trialtrail', class:'trail', style:'position:fixed; bottom:10px; left:0; right:0; pointer-events:none; z-index:50;'}); }
   function startSession(){
     // Rete di sicurezza per configurazioni salvate PRIMA di questo vincolo
     // (preset nominali, "ultimo livello raggiunto", suggerimento da
@@ -3244,7 +3254,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       default: outcome = resolveSignal(trial); // nback / sequenza
     }
     if(outcome) session.trail.push({outcome, target: !!trial.isTarget});
-    if((cfg.taskMode==='categorizzazione') && (outcome==='hit'||outcome==='err')) trialFeedback(outcome==='hit');
     if(session.isDemo && outcome && outcome!=='pend'){
       session.lastDemoFeedback = demoFeedbackText(trial, outcome);
       session.phase='demoFeedback';
@@ -4726,8 +4735,9 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       infoSpan,
       el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ clearErrorlessTimer(); screeningState=null; goBack(); } }},['Interrompi'])
     ]));
-    const content = el('div',{style:'padding:10px 12px; max-width:none; margin:0 auto; width:100%; box-sizing:border-box;'},[]);
+    const content = el('div',{style:'padding:10px 12px 52px; max-width:none; margin:0 auto; width:100%; box-sizing:border-box;'},[]);
     root.appendChild(content);
+    root.appendChild(trialTrailEl());
     return {infoSpan, content};
   }
   // Un box di suggerimento per metodo attivo — generico per i metodi
@@ -5109,8 +5119,9 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       infoSpan,
       el('div',{class:'topbar-actions'},[pauseBtn, el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ timedClearTimer(); screeningState=null; goBack(); } }},['Interrompi'])])
     ]));
-    const content = el('div',{style:'padding:10px 12px; max-width:none; margin:0 auto; width:100%; box-sizing:border-box;'},[]);
+    const content = el('div',{style:'padding:10px 12px 52px; max-width:none; margin:0 auto; width:100%; box-sizing:border-box;'},[]);
     root.appendChild(content);
+    root.appendChild(trialTrailEl());
     return {infoSpan, content};
   }
   // --- Intruso percettivo ---
@@ -5170,7 +5181,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // una alla volta; la griglia resta visibile e il paziente digita il numero (uno, due, o «quale + di quanti»
   // a seconda della consegna). A fine griglia ne nasce una nuova (con il livello eventualmente adattato).
   // Registra session.choiceLog come gli altri esercizi a scelta.
-  function grigliaResetAnswer(){ session.digits = ['','']; session.slot = 0; session.which = null; }
+  function grigliaResetAnswer(){ session.sel = new Set(); session.reveal = null; session.digits = ['','']; session.slot = 0; session.which = null; }
   function startGriglieSession(){
     session = { trialIdx:0, grid:null, ruleIdx:0, trialShownAt:0, choiceLog:[], grAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
     newGriglieGrid();
@@ -5181,6 +5192,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     session.ruleIdx = 0; grigliaResetAnswer();
     session.trialShownAt = performance.now();
   }
+  function grigliaTouch(rule){ return cfg.grigliaRisposta!=='numero' && !!rule.touch; }
   function grigliaGiven(rule){
     const inp = rule.input;
     if(inp.type==='double') return session.digits.map(d=>d===''?null:Number(d));
@@ -5195,11 +5207,26 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function resolveGriglieTrial(){
     const rule = session.grid.rules[session.ruleIdx];
+    if(grigliaTouch(rule)){
+      if(!session.reveal){ // 1° passaggio: l'OK generale chiude la selezione e mostra giusti / sbagliati / mancanti
+        const rt = Math.round(performance.now()-session.trialShownAt);
+        const sc = scoreGrigliaSelection(rule, [...session.sel], rt);
+        session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:rule.touch.target.length, given:session.sel.size, hit:sc.hit.length, wrong:sc.wrong.length, missed:sc.missed.length, mode:'tocco', tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
+        session.grAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
+        session.reveal = sc; render();
+        return;
+      }
+      grigliaAdvance(); // 2° passaggio: «Avanti» dopo aver guardato la correzione
+      return;
+    }
     const rt = Math.round(performance.now()-session.trialShownAt);
     const given = grigliaGiven(rule);
     const sc = scoreGrigliaAnswer(rule, given, rt);
     session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:rule.input.expected, given, tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
     session.grAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
+    grigliaAdvance();
+  }
+  function grigliaAdvance(){
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
     session.ruleIdx++; grigliaResetAnswer();
@@ -5207,9 +5234,10 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     session.trialShownAt = performance.now();
     render();
   }
-  function renderGriglieGrid(g, cellPx){
+  function renderGriglieGrid(g, cellPx, opts){
+    opts = opts || {};
     const wrap = el('div',{style:'display:grid; grid-template-columns:repeat('+g.cols+','+cellPx+'px); gap:4px; justify-content:center; margin:6px auto;'});
-    g.cells.forEach(c=>{
+    g.cells.forEach((c,ci)=>{
       const symHex = grigliaColorHex(c.symColor) || '#101010';
       const d = el('div',{style:'width:'+cellPx+'px; height:'+cellPx+'px; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:50%; font-weight:800; font-size:'+Math.round(cellPx*0.5)+'px; background:'+(grigliaColorHex(c.fill)||'#FFFFFF')+'; color:'+symHex+'; border:3px '+(({continuo:'solid',tratteggiato:'dashed',puntinato:'dotted'})[c.bStyle]||'solid')+' '+(grigliaColorHex(c.border)||'#000000')+';'});
       const svg = gridShapeSvgOf(c.sym, symHex);
@@ -5217,6 +5245,18 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       const inner = el('span',{style:'font-size:'+scale+'em; display:flex; align-items:center; justify-content:center; line-height:1;'},[]);
       if(svg) inner.innerHTML = svg; else inner.textContent = c.sym;
       d.appendChild(inner);
+      if(opts.onTap){ // risposta a tocco: tocca per selezionare, ritocca per togliere
+        d.style.cursor = 'pointer'; d.style.position = 'relative';
+        const rv = opts.reveal;
+        if(rv){
+          if(rv.hit.includes(ci)){ d.style.outline = '6px solid #2E9E5B'; d.style.outlineOffset = '2px'; d.appendChild(el('span',{style:'position:absolute; top:-6px; right:-6px; background:#2E9E5B; color:#fff; border-radius:50%; width:22px; height:22px; font-size:15px; line-height:22px; text-align:center;'},['✓'])); }
+          else if(rv.wrong.includes(ci)){ d.style.outline = '6px solid #D64545'; d.style.outlineOffset = '2px'; d.appendChild(el('span',{style:'position:absolute; top:-6px; right:-6px; background:#D64545; color:#fff; border-radius:50%; width:22px; height:22px; font-size:15px; line-height:22px; text-align:center;'},['✗'])); }
+          else if(rv.missed.includes(ci)){ d.style.outline = '6px dashed #E08A1E'; d.style.outlineOffset = '2px'; }
+        } else {
+          if(opts.selected.has(ci)){ d.style.outline = '6px solid #1F5FBF'; d.style.outlineOffset = '2px'; }
+          d.onclick = ()=>opts.onTap(ci);
+        }
+      }
       wrap.appendChild(d);
     });
     return wrap;
@@ -5233,8 +5273,30 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     const g = session.grid, rule = g.rules[session.ruleIdx], inp = rule.input;
     content.style.maxWidth = 'none';
-    const availW = window.innerWidth - 28, availH = Math.max(220, window.innerHeight - 380);
+    const availW = window.innerWidth - 28, availH = Math.max(220, window.innerHeight - (grigliaTouch(rule) ? 260 : 380));
     const cellPx = Math.floor(Math.max(26, Math.min(availW/g.cols - 4, availH/g.rows - 4, 150)));
+    if(grigliaTouch(rule)){ // risposta a tocco
+      content.appendChild(el('p',{style:'text-align:center; font-size:22px; font-weight:700; margin:6px 0 2px;'},[rule.touch.text]));
+      const rv = session.reveal;
+      content.appendChild(el('p',{class:'hint', style:'text-align:center; margin:0 0 4px;'},[rv
+        ? (rv.omitted ? 'Non hai toccato nulla. Gli elementi giusti erano quelli con il contorno arancione tratteggiato.' : rv.correct ? 'Giusto: tutti e soli gli elementi richiesti.' : 'Verde ✓ = giusti · Rosso ✗ = toccati per errore · Arancione tratteggiato = dimenticati.')
+        : 'Tocca gli elementi che rispettano la consegna; ritocca per togliere la selezione. Alla fine premi OK.']));
+      content.appendChild(renderGriglieGrid(g, cellPx, { onTap:ci=>{ if(session.sel.has(ci)) session.sel.delete(ci); else session.sel.add(ci); render(); }, selected:session.sel, reveal:rv }));
+      const rowT = el('div',{class:'rowbtns', style:'justify-content:center; margin-top:8px; gap:12px;'});
+      if(!rv){
+        rowT.appendChild(el('span',{style:'align-self:center; font-weight:700;'},['Selezionati: '+session.sel.size]));
+        const clr = el('button',{class:'ghost', style:'min-height:56px; min-width:120px; font-size:18px;', onclick:()=>{ session.sel = new Set(); render(); }},['Azzera']);
+        if(!session.sel.size) clr.disabled = true;
+        rowT.appendChild(clr);
+        const okT = el('button',{class:'primary', style:'min-height:56px; min-width:160px; font-size:20px;', onclick:()=>resolveGriglieTrial()},['OK']);
+        if(!session.sel.size) okT.disabled = true;
+        rowT.appendChild(okT);
+      } else {
+        rowT.appendChild(el('button',{class:'primary', style:'min-height:56px; min-width:180px; font-size:20px;', onclick:()=>resolveGriglieTrial()},['Avanti']));
+      }
+      content.appendChild(rowT);
+      return;
+    }
     content.appendChild(el('p',{style:'text-align:center; font-size:20px; font-weight:700; margin:6px 0 2px;'},[rule.text]));
     // come rispondere: una riga chiara per i tipi di consegna con risposta diversa da un solo numero
     const how = inp.type==='double' ? 'Scrivi DUE numeri: il primo per «'+inp.labels[0]+'», il secondo per «'+inp.labels[1]+'».'

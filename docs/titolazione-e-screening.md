@@ -167,3 +167,11 @@ modifiche a quelle parti, controllare a mano su tablet.
   `INTRUSO_LIMIT_MS`, 40→22 s, **proposta non validata**). **Griglie attentive**: predefinito 1 griglia = 10 consegne.
 - **Cancellazione**: il layout «Organizzato» ora è una griglia regolare (prima celle vuote a caso e scarto ampio → sembrava sparso).
 - **Schermo**: Intruso, Griglie, Inversione e Running span usano tutta la larghezza e tasti/caratteri più grandi.
+- **Riscontro per prova (correzione)**: non più un lampo a schermo, ma la stessa fila di quadratini verde/rosso delle altre prove,
+  anche in Intruso, Griglie, Inversione, Running span, PASAT e Serie.
+- **Griglie attentive a tocco** (`cfg.grigliaRisposta`, predefinito `tocco`): il paziente tocca gli elementi che rispettano la
+  consegna (ritocca per togliere), preme OK, poi vede ✓ verde (giusti), ✗ rosso (sbagliati), arancione tratteggiato (dimenticati) e
+  preme Avanti. Corretta solo con l'insieme esatto. «In quante righe / quale riga» restano a numero. `scoreGrigliaSelection` in `griglie.js`.
+- **Cancellazione accorpata**: nelle nuove configurazioni resta solo il Classico (misura, gradiente sinistra/destra). «Trova l'intruso» si
+  allena con Intruso percettivo, «Conteggio a regola» con Griglie attentive. Le modalità vecchie compaiono solo nelle configurazioni già salvate.
+- Tabella test → esercizio → livello: [tabella-test-esercizi.md](tabella-test-esercizi.md) (bozza).

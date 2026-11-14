@@ -7,6 +7,7 @@ import { CATEG_ISI, CATEG_LURE } from '../core/levels.js';
 import { POOLS } from '../core/pools.js';
 import { DUAL_DIM_ROTATION, SWITCH_RULESETS, dualDim1IsA, dualDim2IsA, genDualDimItem, pickDualDimRegime } from '../core/rules.js';
 import { categEffectiveStructure } from '../core/titration.js';
+import { SERIE_LEVELS, genSerieNext, serieExpected, serieRuleForLevel } from './serie.js';
 
   // Alias storici — Categorizzazione condizionale usava questi nomi prima
   // che il motore diventasse condiviso con Task-switching; mantenuti per
@@ -44,6 +45,21 @@ import { categEffectiveStructure } from '../core/titration.js';
     const manuale = cfg.titrationMode==='manuale';
     const liveLevel = (!manuale && cfg.adaptive) ? (session.categLevel||startLevel) : startLevel;
     const isiOverride = manuale ? null : CATEG_ISI[liveLevel];
+    if(structure===6){
+      // Regole di Serie: la regola è quella della banda del livello di PARTENZA (stessa per tutta la seduta);
+      // solo il ritmo segue il livello live. Prove non valide = quelle senza stimolo precedente (regole «precedente»).
+      const startL = Math.max(1, Math.min(11, cfg.categLivello|0));
+      const cache = cfg.serieRegoleSeduta || (cfg.serieRegoleSeduta = {}); // stessa regola mostrata nelle istruzioni, azzerata a ogni seduta
+      const sr = serieRuleForLevel(startL, cfg.serieRegola, cache);
+      const seq = session.categSerieSeq || (session.categSerieSeq = []);
+      const s = genSerieNext(seq, sr.rule.marker||0);
+      const expected = serieExpected(sr.rule, seq, seq.length-1);
+      const live = Math.max(1, Math.min(11, liveLevel|0));
+      const trial = {val:s, correctAnswer: expected===null ? 'nogo' : expected, valid: expected!==undefined, categSerie:true, regola:sr.index,
+                     isiOverride: manuale ? null : (SERIE_LEVELS[live]||SERIE_LEVELS[1]).isi};
+      session.seq.push(trial);
+      return trial;
+    }
     if(structure===1){
       const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
       const pool = POOLS[cfg.categMateriale];

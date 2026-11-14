@@ -8,6 +8,7 @@
 import { ADAPT_GONOGO_COUNT, nbackParamsForLevel } from '../core/levels.js';
 import { POOLS, seqLabel } from '../core/pools.js';
 import { ANT_MATERIAL_TOKENS, STOPSIGNAL_RULES, SWITCH_RULESETS, dualDim1KeyOf, dualDim2KeyOf, pickDualDimRegime, switchRulesetFor } from '../core/rules.js';
+import { serieRuleForLevel } from './serie.js';
 import { categEffectiveStructure, hasTitrationMode, neglectProgressivaPhase } from '../core/titration.js';
 import { pickCategRegime } from './categorizzazione.js';
 import { goalTaskInstanceFor } from './goaltask.js';
@@ -211,6 +212,10 @@ import { serieRuleFor } from './serie.js';
         const matFem = c.categMateriale==='lettereVoce';
         const matLabel = c.categMateriale==='colori' ? 'un cerchio colorato' : c.categMateriale==='simboli' ? 'un simbolo' : c.categMateriale==='lettereVoce' ? 'una lettera pronunciata' : 'un numero pronunciato';
         const verboVis = matSpoken ? 'Sentirai' : 'Vedrai';
+        if(liv===6){
+          const sr = serieRuleForLevel(c.categLivello, c.serieRegola, c.serieRegoleSeduta || (c.serieRegoleSeduta = {}));
+          return 'Vedrai una lettera (A o B) o un numero (1 o 2), in nero o in rosso, uno alla volta e a ritmo imposto. Regola: '+sr.rule.text+' Tocca il pulsante giusto (Destra, Sinistra, Sì, No) più in fretta che puoi. Quando la regola dice di non toccare, non toccare nulla.';
+        }
         if(liv===1){
           const rs = SWITCH_RULESETS[c.categMateriale].ruleA;
           return verboVis+' '+matLabel+': classifica'+(matFem?'la':'lo')+' come "'+rs.labelA+'" o "'+rs.labelB+'", toccando il pulsante corrispondente. La regola resta sempre la stessa, non cambia da una prova all\'altra.';
@@ -421,6 +426,7 @@ import { serieRuleFor } from './serie.js';
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
     categLivello:1, categMateriale:'simboli', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('simboli'|'lettereVoce'|'numeriVoce' — 'colori' rimosso dalla selezione, la sua unica regola era Caldo/Freddo, troppo arbitraria; resta leggibile nello storico di sedute già registrate)
     categRegime:'random', switchRegime:'random', // 'random'|'tipo_colore'|'forma_colore'|'parita_colore'|'consvoc_posizione'|'freccia_colore'|'tipo_tono' — Categorizzazione strutture 2/3/5 e Task-switching bivalente condividono lo stesso motore a doppia dimensione (DUAL_DIM_ROTATION); 'tipo_tono' è escluso dalla rotazione casuale, resta selezionabile a mano
+    categTipo:'categorie', // 'categorie' (strutture 1-5) | 'serie' (regole di Serie A/B/1/2, stessa scala, livello 11 = 2-back)
     categStructManual:1, // solo in modalità Manuale: struttura (1-5) scelta liberamente dal clinico, indipendente da categLivello — vedi categEffectiveStructure()
     zoneGrandi:false, // accessibilità: zone di risposta molto più grandi (metà schermo per 2 risposte) invece di pulsanti piccoli — utile su tablet/smartphone per bassa vista
     inputDevice:'touch', // 'touch' | 'tastiera' — dichiarato dall'operatore prima di iniziare, usato solo per decidere COSA evidenziare (badge dei tasti sui pulsanti, promemoria nelle istruzioni), la tastiera funziona comunque sempre in background indipendentemente da questa scelta
@@ -457,7 +463,7 @@ import { serieRuleFor } from './serie.js';
       goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx, pasatMateriale:c.pasatMateriale, serieRegola:c.serieRegola,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
-      categLivello:c.categLivello, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
+      categLivello:c.categLivello, categTipo:c.categTipo, serieRegola:c.serieRegola, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
       categRegime:c.categRegime, switchRegime:c.switchRegime,
       simonCongruenza:c.simonCongruenza, simonMateriale:c.simonMateriale,
       inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'

@@ -3,6 +3,7 @@
 // descrivono i parametri in uso. SPOSTATO da index.html senza modifiche al testo
 // (passo 3b), con la sola aggiunta di "export". Le funzioni ricevono la
 // configurazione come parametro (c): nessun accesso a cfg/session globali.
+import { SERIE_LEVELS } from '../exercises/serie.js';
 import { nbackParamsForLevel, ADAPT_GONOGO_FREQ, ADAPT_ISI, CATEG_ISI, CATEG_LURE, categStructureOfLevel,
   ADAPT_NEGLECT_SIZE, ADAPT_NEGLECT_TIME, ADAPT_DUAL_FREQ, TAPAT_LEVELS } from './levels.js';
 
@@ -74,18 +75,21 @@ import { nbackParamsForLevel, ADAPT_GONOGO_FREQ, ADAPT_ISI, CATEG_ISI, CATEG_LUR
   // livello↔struttura in questa sola modalità. In Livello/Adattivo,
   // invariato: la struttura resta quella derivata dal livello.
   export function categEffectiveStructure(c){
+    if(c.categTipo==='serie') return 6; // regole di Serie (A/B/1/2): stessa scheda e stessa scala, tipo di prova diverso
     return c.titrationMode==='manuale' ? (c.categStructManual||1) : categStructureOfLevel(c.categLivello);
   }
   export const CATEG_STRUCTURE_LABELS = {
     1:'1 — Dimensione singola', 2:'2 — Doppia dimensione + no-go',
-    3:'3 — Regola disgiuntiva', 4:'4 — Confronto 1-back', 5:'5 — Doppia dimensione, 4 risposte'
+    3:'3 — Regola disgiuntiva', 4:'4 — Confronto 1-back', 5:'5 — Doppia dimensione, 4 risposte',
+    6:'Regole di Serie (A/B/1/2 → Dx/Sx/Sì/No)'
   };
   export const CATEG_STRUCTURE_HINTS = {
     1:'Singola dimensione, regola fissa per tutta la sessione (nessun costo di switch, a differenza del Task-switching).',
     2:'Doppia dimensione con no-go: 3 risposte attive più un caso in cui non si deve rispondere.',
     3:'Stessa doppia dimensione, ricombinata in una regola disgiuntiva a 2 risposte ("A se... oppure...").',
     4:'Confronto con lo stimolo precedente (1-back sulla categoria).',
-    5:'Doppia dimensione mappata direttamente su 4 risposte — nessun no-go, nessuna disgiunzione.'
+    5:'Doppia dimensione mappata direttamente su 4 risposte — nessun no-go, nessuna disgiunzione.',
+    6:'Stimoli A, B, 1, 2 in nero o rosso a ritmo imposto, quattro pulsanti (Destra, Sinistra, Sì, No), regola delle 32 di Serie scelta dalla banda del livello (livello 11 = 2-back).'
   };
   export function categTitrationModeHint(c, mode){
     const struct = categEffectiveStructure(c);
@@ -94,7 +98,7 @@ import { nbackParamsForLevel, ADAPT_GONOGO_FREQ, ADAPT_ISI, CATEG_ISI, CATEG_LUR
       return 'Modalità Manuale: struttura "'+CATEG_STRUCTURE_LABELS[struct]+'" scelta liberamente qui sotto, indipendente dal numero di livello — '+isiPart+', non collegati a nessuna tabella.';
     }
     const lvl = c.categLivello;
-    const isi = CATEG_ISI[lvl];
+    const isi = struct===6 ? (SERIE_LEVELS[lvl]||SERIE_LEVELS[1]).isi : CATEG_ISI[lvl];
     const lure = CATEG_LURE[lvl];
     const paramTxt = isi!=null ? 'ISI '+(isi/1000).toFixed(1)+'s' : (lure!=null ? 'frequenza lure '+Math.round(lure*100)+'%' : '');
     if(mode==='livello'){

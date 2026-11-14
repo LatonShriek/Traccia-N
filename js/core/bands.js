@@ -33,7 +33,7 @@ import { ADAPT_ISI } from './levels.js';
     if(key==='liveNLevel') return 10;
     if(key==='tapatLevel') return 10;
     if(key==='liveBoardLevel') return cfg.neglectMode==='progressiva' ? 30 : 10;
-    if(key==='categLevel') return 10;
+    if(key==='categLevel') return cfg.categTipo==='serie' ? 11 : 10; // 11 = 2-back, solo per le regole di Serie
     if(key==='adaptLevel') return 10; // gonogo, sequenza, stopsignal, ant, switching
     return 5;
   }
@@ -53,6 +53,7 @@ import { ADAPT_ISI } from './levels.js';
     nback: [[1,4],[5,9],[10,10]], // n=1,2,3
     gonogo: [[1,4],[5,7],[8,9],[10,10]], // ADAPT_GONOGO_COUNT: 1,2,3,4 elementi noti
     categorizzazione: [[1,2],[3,4],[5,6],[7,8],[9,10]], // CATEG_STRUCTURE_OF_LEVEL
+    categorizzazioneSerie: [[1,2],[3,4],[5,6],[7,10],[11,11]], // SERIE_BAND_OF_LEVEL
     neglectProgressiva: [[1,10],[11,20],[21,30]], // classico / intruso / regola
     neglectRegola: [[1,2],[3,4],[5,6],[7,10]], // condizioni cumulative della regola composta
     mantenimento: [[1,5],[6,10]] // ADAPT_MANTENIMENTO: 1-5 Riconoscimento, 6-10 Riconoscimento seriale — il salto 5→6 è un cambio di MODALITÀ (non solo di lunghezza lista), stesso principio di n nell'N-back
@@ -105,7 +106,7 @@ import { ADAPT_ISI } from './levels.js';
       return {min:STOPSIGNAL_INTERFERENZA_MIN_LEVEL, max:currentLevelMax(cfg)};
     }
     if(key==='categLevel'){
-      return structuralBandBounds('categorizzazione', cfg.categLivello) || {min:1, max:currentLevelMax(cfg)};
+      return structuralBandBounds(cfg.categTipo==='serie' ? 'categorizzazioneSerie' : 'categorizzazione', cfg.categLivello) || {min:1, max:currentLevelMax(cfg)};
     }
     return {min:1, max:currentLevelMax(cfg)};
   }

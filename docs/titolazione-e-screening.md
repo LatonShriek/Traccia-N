@@ -91,7 +91,9 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
   automatica: sequenza esatta + punteggio parziale per posizione. Adatta ogni **4 sequenze** (70-85% di esatte).
   Il menu permette di fissare una consegna singola, o «solo doppie». Il colore rosso/verde è quello del generatore
   (attenzione al daltonismo se serve: cambiare in rosso/blu).
-- **Serie alternate = secondo tipo di prova di Categorizzazione condizionale** (14 nov 2026, scala unica). Nel menu
+- **Serie alternate = «struttura 6» di Categorizzazione condizionale** (14 nov 2026, fusione vera: un solo motore,
+  un solo storico sotto «Categorizzazione condizionale»; `cfg.categTipo='serie'`, generazione in `genCategTrial`).
+  Le vecchie sedute «Serie alternate» restano leggibili nello storico; la vecchia scheda si converte con un pulsante. Nel menu
   c'è una sola scheda; «Tipo di prova» sceglie fra «Categorie (strutture 1-5)» e «Regole di Serie (A/B/1/2)».
   Stessa scala: livelli 1-10 a bande doppie (1-2, 3-4, 5-6, 7-10) + livello 11 (2-back, «extrema ratio», solo
   con l'adattivo dopo il 10; in Categorizzazione la scala resta a 10). Le regole di Serie (32 del generatore) entrano
@@ -101,9 +103,8 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
   seduta; l'adattivo (ogni 8 risposte, 70-85%) si muove dentro la banda. Ritmo (ms per stimolo): livelli 1-8 della
   scala originale di Serie (3500, 3200, 3000, 2800, 2800, 2600, 2600, 2400); 9, 10, 11 (2400, 2200, 2600) sono una
   **proposta da validare**. Quattro pulsanti a schermo (destra, sinistra, «Sì», «No»); la regola si può fissare a
-  mano (1-32). Lo storico resta sotto «Serie alternate» (nessuna chiave cambia); dopo una seduta di un tipo, l'altro
-  riparte dallo stesso livello nello stesso profilo (max 10 per Categorizzazione). Per le sedute in presenza e a
-  distanza vale il livello salvato per paziente.
+  mano (1-32). Livello e storico sono unici (chiave `categorizzazione`); il livello 11 esiste solo con il tipo «Regole di Serie».
+  Per le sedute in presenza e a distanza vale il livello salvato per paziente.
 - **PASAT / PVSAT con operazione** (ruolo «allenamento»): adatta ogni **8 risposte**.
   Tre materiali (somme di cifre, giorni della settimana, mesi); risposta a tocco entro il
   ritmo, altrimenti omissione. Dal livello 4 il ritmo si stringe, dal 7 la regola

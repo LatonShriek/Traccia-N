@@ -73,7 +73,7 @@ const EXERCISE_BUTTON_TEXT = {
   runningspan: { exercise: 'Running Span', family: 'runningspan' },
   intrusopercettivo: { exercise: 'Intruso percettivo', family: 'timedchoice' },
   pasat: { exercise: 'PASAT / PVSAT con operazione', family: 'timedchoice' },
-  serie: { exercise: 'Serie alternate', family: 'timedchoice' },
+  serie: { exercise: 'Categorizzazione condizionale', subMode: 'Regole di Serie', family: 'timedchoice' },
   griglie: { exercise: 'Griglie attentive', family: 'griglie' },
   inversione: { exercise: 'Inversione e riordino', family: 'inversione' },
   neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' },

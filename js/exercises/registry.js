@@ -355,9 +355,9 @@ import { serieRuleFor } from './serie.js';
     // vista, pur misurando qualcosa di diverso da entrambi (integrazione
     // relazionale sotto una regola fissa, non aggiornamento continuo né
     // mantenimento passivo).
-    {label:'Memoria di lavoro e mantenimento', keys:['nback','categorizzazione','runningspan','pasat','inversione']},
+    {label:'Memoria di lavoro e mantenimento', keys:['nback','categorizzazione','serie','runningspan','pasat','inversione']},
     {label:'Attenzione selettiva e ricerca visiva', keys:['intrusopercettivo','griglie']},
-    {label:'Flessibilità cognitiva', keys:['switching','serie']},
+    {label:'Flessibilità cognitiva', keys:['switching']},
     {label:'Esplorazione visuospaziale', keys:['neglect']},
     {label:'Attenzione divisa e multitasking', keys:['dualtask','goaltask']},
     {label:'Memoria strategica', keys:['memoria']},

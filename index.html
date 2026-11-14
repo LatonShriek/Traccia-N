@@ -64,7 +64,7 @@ import { buildDualTask as buildDualTaskOf, genDualTaskTrial as genDualTaskTrialO
 import { INVERSIONE_SINGLE, INVERSIONE_SINGLE_KEYS, inversionePlanAt, genInversioneItem, scoreInversioneAnswer, maybeAdaptInversione as maybeAdaptInversioneOf } from './js/exercises/inversione.js';
 import { grigliaPlanAt, genGrigliaScreen, scoreGrigliaAnswer, maybeAdaptGriglie as maybeAdaptGrigliaOf, colorHexOf as grigliaColorHex, gridShapeSvgOf } from './js/exercises/griglie.js';
 import { INTRUSO_LEVELS, intrusoPlanAt, bestGridCols as intrusoGridCols, intrusoFramed, INTRUSO_CHAR_WIDTH, INTRUSO_GROUP_CHAR_WIDTH, genIntrusoTrial as genIntrusoTrialOf, scoreIntrusoTrial, maybeAdaptIntruso as maybeAdaptIntrusoOf } from './js/exercises/intrusopercettivo.js';
-import { SERIE_LEVELS, SERIE_RESPONSE_LABELS, serieRuleFor, genSerieStimuli, serieExpected, scoreSerieTrial, maybeAdaptSerie as maybeAdaptSerieOf } from './js/exercises/serie.js';
+import { SERIE_LEVELS, SERIE_MAX_LEVEL, SERIE_BAND_POOLS, SERIE_BAND_OF_LEVEL, serieResetRules, SERIE_RESPONSE_LABELS, serieRuleFor, genSerieStimuli, serieExpected, scoreSerieTrial, maybeAdaptSerie as maybeAdaptSerieOf } from './js/exercises/serie.js';
 import { PASAT_LEVELS, PASAT_MATERIALS, pasatAnswers, genPasatSeries, pasatExpected, scorePasatTrial, maybeAdaptPasat as maybeAdaptPasatOf } from './js/exercises/pasat.js';
 import { RUNNINGSPAN_LEVELS, RUNNINGSPAN_ADAPT_BLOCK, genRunningSpanTrial as genRunningSpanTrialOf, runningSpanItemsEqual, scoreRunningSpanTrial, maybeAdaptRunningSpan as maybeAdaptRunningSpanOf } from './js/exercises/runningspan.js';
 import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_PROBES, probeFailed, suggestionFor, ATTENZIONE_ORDER, attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER } from './js/core/screening.js';
@@ -1862,16 +1862,18 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       grid.appendChild(el('p',{class:'hint'},['n='+nbackParamsForLevel(cfg.nLevel).n+' a questo livello. Il livello combina n (1-3, cresce solo ai passaggi di banda) con frequenza bersaglio e frequenza di trial lure (foil che corrispondono a uno scarto vicino a n, non a n stesso).']));
     }
     if(cfg.taskMode==='sequenza' || cfg.taskMode==='switching' || cfg.taskMode==='gonogo' || cfg.taskMode==='stopsignal' || cfg.taskMode==='ant' || cfg.taskMode==='simon' || cfg.taskMode==='runningspan' || cfg.taskMode==='intrusopercettivo' || cfg.taskMode==='griglie' || cfg.taskMode==='inversione' || cfg.taskMode==='pasat' || cfg.taskMode==='serie'){
-      grid.appendChild(field('Livello', stepper(cfg.adaptStartLevel,1,10,v=>{
+      grid.appendChild(field('Livello'+(cfg.taskMode==='serie'?' (1-11)':''), stepper(cfg.adaptStartLevel,1,cfg.taskMode==='serie'?SERIE_MAX_LEVEL:10,v=>{
         cfg.adaptStartLevel=v;
         if(cfg.taskMode==='sequenza' && cfg.titrationMode!=='manuale') adjustTargetSeqToLength(ADAPT_SEQ_LEN[v]);
         if(cfg.taskMode==='gonogo') suggestGoNoGoTargets(v);
         render();
       })));
       if(cfg.taskMode==='serie'){
+        grid.appendChild(field('Tipo di prova', unifSwitch()));
         grid.appendChild(field('Regola (0 = secondo il livello)', stepper(cfg.serieRegola|0,0,32,v=>{ cfg.serieRegola=v; if(v>0){ cfg.adaptive=false; if(cfg.titrationMode==='adattivo') cfg.titrationMode='livello'; } render(); })));
         const sr = serieRuleFor(cfg), lv = SERIE_LEVELS[cfg.adaptStartLevel]||SERIE_LEVELS[1];
-        card.appendChild(el('p',{class:'hint'},['Regola '+sr.index+' di 32: '+sr.rule.text+' Un nuovo stimolo ogni '+(lv.isi/1000).toFixed(1)+' s. Con una regola fissata a mano il livello non sale né scende da solo; con "0" il livello sceglie la regola (1, 2, 3, 4, 7, 10, 17, 21, 23, 29 dal livello 1 al 10) e con l\'adattivo si muove ogni 8 risposte (70-85%).']));
+        const pool = SERIE_BAND_POOLS[SERIE_BAND_OF_LEVEL[Math.max(1,Math.min(SERIE_MAX_LEVEL,cfg.adaptStartLevel))]];
+        card.appendChild(el('p',{class:'hint'},['Regola '+sr.index+' di 32: '+sr.rule.text+' Un nuovo stimolo ogni '+(lv.isi/1000).toFixed(1)+' s. Stessa scala di Categorizzazione condizionale: i livelli sono a bande doppie (1-2, 3-4, 5-6, 7-10) e a ogni seduta la regola è una a caso fra quelle della banda ('+pool.join(', ')+'); il livello 11 (2-back) si raggiunge solo con l\'adattivo dopo il 10. Con una regola fissata a mano il livello non sale né scende da solo; con "0" e l\'adattivo il livello si muove dentro la banda ogni 8 risposte (70-85%).']));
       }
       if(cfg.taskMode==='pasat'){
         grid.appendChild(field('Materiale', segButtons(['somme','giorni','mesi'], cfg.pasatMateriale||'somme', v=>{ cfg.pasatMateriale=v; render(); }, PASAT_MATERIALS)));
@@ -2243,6 +2245,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       card.appendChild(el('p',{class:'hint'},['Regola fissa per tutta la sessione — la posizione (a schermo, o nel panning stereo per i suoni) non conta mai per la risposta, ma può coincidere (congruente) o no (incongruente) con il pulsante corretto. La proporzione qui sopra è un parametro clinico fisso, non una leva di difficoltà: un blocco a prevalenza congruente o incongruente permette di misurare quanto il paziente riesce a sfruttare l\'aspettativa generale del blocco per prepararsi in anticipo all\'interferenza (controllo proattivo); un blocco bilanciato non lo permette. Consigliate almeno 60 prove per un indice di conflitto stabile.']));
     }
     if(cfg.taskMode==='categorizzazione'){
+      grid.appendChild(field('Tipo di prova', unifSwitch()));
       grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
         cfg.titrationMode = v;
         cfg.adaptive = v==='adattivo';
@@ -2473,7 +2476,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const outer = el('div',{});
     groups.forEach((g,i)=>{
       outer.appendChild(el('div',{class:'group-label', style:'font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); margin:'+(i===0?'0':'14px')+' 0 6px; font-weight:600;'},[g.label]));
-      outer.appendChild(segButtons(g.keys, current, onPick, labels, extraClass));
+      // Serie alternate è un tipo di prova di Categorizzazione condizionale (scala unica): nel menu c'è una sola scheda
+      outer.appendChild(segButtons(g.keys.filter(k=>k!=='serie'), current==='serie' ? 'categorizzazione' : current, onPick, labels, extraClass));
     });
     return outer;
   }
@@ -5313,10 +5317,34 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
 
   // --- Serie alternate ---
+  // Categorizzazione condizionale e Serie alternate sono UN esercizio con due tipi di prova e una scala sola
+  // (livelli 1-10 a bande doppie, più il 2-back come livello 11 solo per Serie): il livello passa dall'uno all'altro.
+  function unifSwitch(){
+    const isSerie = cfg.taskMode==='serie';
+    return segButtons(['categorizzazione','serie'], cfg.taskMode, v=>{
+      if(v===cfg.taskMode) return;
+      if(v==='serie'){ cfg.adaptStartLevel = Math.max(1, Math.min(SERIE_MAX_LEVEL, cfg.categLivello||1)); serieResetRules(cfg); }
+      else { cfg.categLivello = Math.max(1, Math.min(10, cfg.adaptStartLevel||1)); }
+      cfg.taskMode = v; render();
+    }, {categorizzazione:'Categorie (strutture 1-5)', serie:'Regole di Serie (A/B/1/2)'});
+  }
+  // Dopo una seduta di uno dei due tipi, l'altro riparte dallo stesso livello (nello stesso profilo).
+  function mirrorUnifiedLevel(){
+    if(cfg.taskMode!=='serie' && cfg.taskMode!=='categorizzazione') return;
+    const other = cfg.taskMode==='serie' ? 'categorizzazione' : 'serie';
+    const c2 = Object.assign({}, cfg, {taskMode:other});
+    if(other==='serie') c2.adaptStartLevel = Math.max(1, Math.min(SERIE_MAX_LEVEL, cfg.categLivello||1));
+    else c2.categLivello = Math.max(1, Math.min(10, cfg.adaptStartLevel||1));
+    const snap2 = presetCfgOf(c2);
+    if(!patientProfile && activeLocalPatientId) saveExerciseLevel('local', activeLocalPatientId, other, snap2);
+    else if(patientProfile) saveExerciseLevel('remote', patientProfile.id, other, snap2);
+    else if(activeRemotePatientId) saveExerciseLevel('remote', activeRemotePatientId, other, snap2);
+  }
   function startSerieSession(){
+    serieResetRules(cfg);
     const lvl = SERIE_LEVELS[cfg.adaptStartLevel]||SERIE_LEVELS[1];
     const rule = serieRuleFor(cfg).rule;
-    session = { idx:0, seq:genSerieStimuli(cfg.trials+6, rule.marker||0), shownAt:0, answered:null, choiceLog:[], serieAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
+    session = { serieStartLevel:cfg.adaptStartLevel, idx:0, seq:genSerieStimuli(cfg.trials+6, rule.marker||0), shownAt:0, answered:null, choiceLog:[], serieAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
     view='task'; render();
     scheduleNextSerie();
   }
@@ -5465,6 +5493,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(lastAcc!=null) snap.lastAccuracy = lastAcc;
     if(!patientProfile && activeLocalPatientId){ updateLocalPatientConfig(activeLocalPatientId, snap); saveExerciseLevel('local', activeLocalPatientId, cfg.taskMode, snap); }
     else if(patientProfile){ saveRemotePatientConfig(patientProfile.id, snap); saveExerciseLevel('remote', patientProfile.id, cfg.taskMode, snap); }
+    mirrorUnifiedLevel();
     if(patientProfile) cachedTodayUsage = null; // forza il ricalcolo del limite giornaliero
     else if(!patientProfile && activeRemotePatientId){ saveRemotePatientConfig(activeRemotePatientId, snap); saveExerciseLevel('remote', activeRemotePatientId, cfg.taskMode, snap); }
     view='results'; render();

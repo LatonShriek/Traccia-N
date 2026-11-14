@@ -182,9 +182,18 @@ module.exports.serie = async function (t) {
   t.group('Serie alternate — le 32 regole e i 10 livelli', () => {
     t.eq(S.SERIE_RULES_N.length, 32, '32 regole come nel generatore');
     t.ok(S.SERIE_RULES_N.every(r => r.text && typeof r.fn === 'function'), 'ogni regola ha testo e funzione');
-    for (let l = 1; l <= 10; l++) t.ok(S.SERIE_LEVELS[l].rule >= 1 && S.SERIE_LEVELS[l].rule <= 32, 'livello ' + l + ': regola valida');
-    t.ok(S.SERIE_LEVELS[1].rule < S.SERIE_LEVELS[10].rule && S.SERIE_LEVELS[1].isi > S.SERIE_LEVELS[10].isi, 'più difficile e più veloce salendo');
-    t.eq(S.serieRuleFor({ adaptStartLevel: 5, serieRegola: 0 }).index, 7, 'regola secondo il livello');
+    for (let l = 1; l <= 11; l++) t.ok(S.SERIE_LEVELS[l] && S.SERIE_LEVELS[l].isi >= 2000 && S.SERIE_BAND_OF_LEVEL[l] >= 1, 'livello ' + l + ': ritmo e banda definiti (scala unica 1-11)');
+    t.eq(S.SERIE_MAX_LEVEL, 11, 'scala fino a 11 (2-back come extrema ratio)');
+    const all = Object.values(S.SERIE_BAND_POOLS).flat();
+    t.ok(all.every(r => r >= 1 && r <= 32) && !all.includes(16), 'regole delle bande valide e senza la 16 (doppione del livello 3 di Categorizzazione)');
+    t.eq(JSON.stringify(S.SERIE_BAND_POOLS[5]), JSON.stringify([29,30,31,32]), 'livello 11 = solo 2-back');
+    t.ok(S.SERIE_BAND_OF_LEVEL[2] === S.SERIE_BAND_OF_LEVEL[1] && S.SERIE_BAND_OF_LEVEL[3] !== S.SERIE_BAND_OF_LEVEL[2] && S.SERIE_BAND_OF_LEVEL[7] === S.SERIE_BAND_OF_LEVEL[10], 'bande doppie 1-2, 3-4, 5-6, 7-10 come Categorizzazione');
+    const cs = { adaptStartLevel: 11, serieRegola: 0 };
+    t.ok(S.SERIE_BAND_POOLS[5].includes(S.serieRuleFor(cs).index), 'livello 11: regola 2-back');
+    const c3 = { adaptStartLevel: 5, serieRegola: 0 }; const r1 = S.serieRuleFor(c3).index;
+    t.eq(S.serieRuleFor(c3).index, r1, 'stessa regola per tutta la seduta'); S.serieResetRules(c3);
+    t.ok(S.SERIE_BAND_POOLS[3].includes(S.serieRuleFor(c3).index), 'livello 5: regola della banda 5-6');
+    
     t.eq(S.serieRuleFor({ adaptStartLevel: 5, serieRegola: 20 }).index, 20, 'regola fissata a mano');
   });
   t.group('Serie alternate — risposte attese', () => {

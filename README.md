@@ -35,6 +35,7 @@ multi-operatore e accesso paziente — è opzionale.
 | Tabelle dei livelli 1–10 (generata dal codice) | [docs/livelli.md](docs/livelli.md) |
 | Titolazione e screening: come funzionano e perché | [docs/titolazione-e-screening.md](docs/titolazione-e-screening.md) |
 | Tabella test → esercizi → livelli (bozza da validare) | [docs/tabella-test-esercizi.md](docs/tabella-test-esercizi.md) |
+| Carico di ogni livello e ipotesi di taratura (bozza) | [docs/carichi-e-scala-livelli.md](docs/carichi-e-scala-livelli.md) |
 | Simon, Categorizzazione, Scenari ecologici, Strategie di memoria | [docs/esercizi.md](docs/esercizi.md) |
 | Batteria di screening iniziale e controllo motorio di base | [docs/screening-e-controllo-motorio.md](docs/screening-e-controllo-motorio.md) |
 | Test di regressione e prova dimostrativa | [docs/test-e-demo.md](docs/test-e-demo.md) |

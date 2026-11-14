@@ -311,6 +311,7 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
     await page.waitForTimeout(400);
     await page.click('text=usa questo dispositivo in locale');
     await page.waitForTimeout(250);
+    await page.evaluate(() => document.querySelectorAll('details.ex-group').forEach(d => { d.open = true; })); // i domini sono menù esplodibili chiusi
     await page.click('button:has-text("' + label + '")');
     await page.waitForTimeout(250);
     if (subMode) {

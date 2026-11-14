@@ -74,3 +74,34 @@ export function fineStartOf(cfg){
 export function fineLabel(f){
   return Number.isInteger(f) ? String(f) : f.toFixed(1).replace('.', ',');
 }
+
+// ─── Efficienza accuratezza × velocità (15 nov 2026) ──────────────────────────
+// Sostituisce, per Intruso/Griglie/Inversione, il filtro sì/no «più lenta di 1,6 × mediana».
+// credito = punteggio (0–1) × fattore velocità. Fattore 1 fino a 1,3 × la propria mediana (per tipo di prova),
+// poi scende in linea retta fino a 0 a 2,1 × (a 1,6 × vale ≈ 0,63). Servono 4 RT già osservati dello stesso tipo.
+// Con prove tutte esatte e tempi nella norma la media del blocco resta ≈ 0,95, quindi la soglia di salita (0,85) è raggiungibile.
+export const EFF_FREE = 1.3;
+export const EFF_ZERO = 2.1;
+export const EFF_FULL_SCORE = 0.7; // sotto questo punteggio la risposta non entra nella storia dei tempi di riferimento
+export function speedFactor(rtMs, history){
+  if(rtMs==null || history.length < ADAPT_RT_MIN_HISTORY) return 1;
+  const sorted = history.slice().sort((a,b)=>a-b);
+  const median = sorted[Math.floor(sorted.length/2)];
+  const ratio = rtMs / median;
+  if(ratio <= EFF_FREE) return 1;
+  if(ratio >= EFF_ZERO) return 0;
+  return (EFF_ZERO - ratio) / (EFF_ZERO - EFF_FREE);
+}
+export function creditByBucket(store, bucket, score, rtMs){
+  const h = store[bucket] || (store[bucket] = []);
+  const credit = score * speedFactor(rtMs, h);
+  if(score >= EFF_FULL_SCORE && rtMs!=null) h.push(rtMs);
+  return credit;
+}
+
+// Punteggio graduato di una risposta numerica (conteggi): esatto 1, ±1 quasi giusto 0,7, ±2 0,3, oltre 0.
+export function numericCloseness(given, expected){
+  const d = Math.abs(Number(given) - Number(expected));
+  if(!isFinite(d)) return 0;
+  return d === 0 ? 1 : d === 1 ? 0.7 : d === 2 ? 0.3 : 0;
+}

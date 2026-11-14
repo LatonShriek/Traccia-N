@@ -6,7 +6,7 @@
 // Il generatore ha 32 livelli, Traccia-N 10: livello 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
 // Ogni griglia ha sempre 10 consegne. Se la risposta non è un solo numero (doppio conteggio, confronto,
 // «quale riga»), la schermata chiede più campi e dice chiaramente quali.
-import { adaptStep, adaptStepFine, fineStartOf } from '../core/adapt.js';
+import { adaptStep, adaptStepFine, fineStartOf, numericCloseness } from '../core/adapt.js';
 import { mean } from '../core/stats.js';
 
 // --- aiuti globali del generatore (stessi di js/util.js) ---
@@ -129,18 +129,18 @@ const FILL_POOL = [
 ];
 // Inchiostri più vivaci di prima (richiesta di Rodrigo: il verde scuro si confondeva col nero e i colori dei
 // simboli "vuoti" si vedevano male): ognuno è lontano dal nero (ΔE ≥ 70) e mantiene un contrasto di almeno ~2,7:1
-// sugli sfondi, che per simboli grandi e in grassetto resta ben leggibile.
+// sugli sfondi (rosso ora #C40018: contrasto ≥3,6:1 anche su rosa e arancio chiaro, prima 3,1), che per simboli grandi e in grassetto resta ben leggibile.
 const INK_POOL = [
-  { name:"rosso", css:"#D8001C", hue:"rosso" },
+  { name:"rosso", css:"#C40018", hue:"rosso" },
   { name:"blu", css:"#0A47E8", hue:"blu" },
-  { name:"verde", css:"#00823A", hue:"verde" },
+  { name:"verde", css:"#007432", hue:"verde" },
   { name:"nero", css:"#000000", hue:"nero" },
   { name:"viola", css:"#8222C8", hue:"viola" }
 ];
 const INK_CONFLICTS = [["blu","viola"]];
 // Sfondi troppo simili tra loro anche se di famiglie di tinta diverse (segnalato da Rodrigo:
 // "giallino" e "arancione chiaro" si confondono) — stessa logica di INK_CONFLICTS, ma per gli sfondi.
-const FILL_CONFLICTS = [["giallo","arancio chiaro"]];
+const FILL_CONFLICTS = [["giallo","arancio chiaro"], ["rosa","arancio chiaro"]]; // ΔE 43 e 41: i due più vicini fra gli sfondi
 const COLORS = [...FILL_POOL, ...INK_POOL];
 function colorCombos(arr, k){
   if(k===0) return [[]];
@@ -923,20 +923,29 @@ export function genGrigliaScreen(level){
 export function scoreGrigliaAnswer(rule, given, rtMs){
   const inp = rule.input || { type:'count', expected:rule.count };
   const empty = given==null || given==='' || (Array.isArray(given) && given.some(x=>x==null||x==='')) || (inp.type==='compare' && (given==null || given.which==null || given.diff==null || given.diff===''));
-  if(empty) return {correct:false, omitted:true, rt:null};
-  let ok;
-  if(inp.type==='double') ok = Number(given[0])===inp.expected[0] && Number(given[1])===inp.expected[1];
-  else if(inp.type==='compare') ok = given.which===inp.expected.which && Number(given.diff)===inp.expected.diff;
-  else ok = Number(given)===inp.expected;
-  return {correct:ok, omitted:false, rt:rtMs};
+  if(empty) return {correct:false, omitted:true, rt:null, score:0};
+  let ok, score;
+  if(inp.type==='double'){
+    ok = Number(given[0])===inp.expected[0] && Number(given[1])===inp.expected[1];
+    score = (numericCloseness(given[0], inp.expected[0]) + numericCloseness(given[1], inp.expected[1])) / 2;
+  } else if(inp.type==='compare'){
+    ok = given.which===inp.expected.which && Number(given.diff)===inp.expected.diff;
+    score = given.which===inp.expected.which ? numericCloseness(given.diff, inp.expected.diff) : 0; // quale gruppo sbagliato = 0
+  } else {
+    ok = Number(given)===inp.expected;
+    score = numericCloseness(given, inp.expected);
+  }
+  return {correct:ok, omitted:false, rt:rtMs, score};
 }
 // Correzione a tocco: giusta solo se l'insieme toccato coincide ESATTAMENTE con quello atteso.
 // `selected`: array di indici di cella. Restituisce anche giusti / sbagliati / mancanti per mostrarli al paziente.
 export function scoreGrigliaSelection(rule, selected, rtMs){
   const target = new Set(rule.touch.target), sel = new Set(selected);
   const hit = [...sel].filter(i=>target.has(i)), wrong = [...sel].filter(i=>!target.has(i)), missed = [...target].filter(i=>!sel.has(i));
-  if(!sel.size) return { correct:false, omitted:true, rt:null, hit:[], wrong:[], missed:[...target] };
-  return { correct: !wrong.length && !missed.length, omitted:false, rt:rtMs, hit, wrong, missed };
+  if(!sel.size) return { correct:false, omitted:true, rt:null, score:0, hit:[], wrong:[], missed:[...target] };
+  // punteggio graduato: giusti / (attesi + sbagliati) — 1 solo se insieme identico
+  const score = hit.length / (target.size + wrong.length);
+  return { correct: !wrong.length && !missed.length, omitted:false, rt:rtMs, score, hit, wrong, missed };
 }
 export function maybeAdaptGriglie(cfg, session){
   if(!cfg.adaptive || session.grAdaptBlock.length < GRIGLIE_ADAPT_BLOCK) return;

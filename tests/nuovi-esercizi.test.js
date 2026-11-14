@@ -84,6 +84,22 @@ module.exports = async function run(t) {
     GR.maybeAdaptGriglie(cfg, ss);
     t.ok(ss.fineLevel === 4.5 && ss.grAdaptBlock.length === 0, 'sopra l\'85% sale di mezzo gradino (livello fine 4,5)');
   });
+  t.group('Griglie — punteggio graduato (±1 quasi giusto, tocco = giusti / (attesi + sbagliati))', () => {
+    t.eq(GR.scoreGrigliaAnswer({ count: 7 }, '8', 900).score, 0.7, '±1: 0,7');
+    t.eq(GR.scoreGrigliaAnswer({ count: 7 }, '7', 900).score, 1, 'esatta: 1');
+    t.eq(GR.scoreGrigliaAnswer({ count: 7 }, '2', 900).score, 0, 'lontana: 0');
+    t.eq(GR.scoreGrigliaAnswer({ count: 7 }, '', 900).score, 0, 'omessa: 0');
+    const dbl = { input: { type: 'double', expected: [4, 6] } };
+    t.ok(Math.abs(GR.scoreGrigliaAnswer(dbl, [4, 7], 900).score - 0.85) < 1e-9, 'doppia: media dei due (1 e 0,7)');
+    const cmp = { input: { type: 'compare', expected: { which: 0, diff: 3 } } };
+    t.eq(GR.scoreGrigliaAnswer(cmp, { which: 1, diff: 3 }, 900).score, 0, 'confronto: gruppo sbagliato = 0');
+    t.eq(GR.scoreGrigliaAnswer(cmp, { which: 0, diff: 4 }, 900).score, 0.7, 'confronto: gruppo giusto, differenza ±1 = 0,7');
+    const r = { touch: { target: [1, 2, 3, 4] } };
+    t.eq(GR.scoreGrigliaSelection(r, [1, 2, 3, 4], 1).score, 1, 'tocco identico: 1');
+    t.eq(GR.scoreGrigliaSelection(r, [1, 2, 3], 1).score, 0.75, 'tocco: 3 giusti su 4, nessuno sbagliato');
+    t.eq(GR.scoreGrigliaSelection(r, [1, 2, 3, 4, 9], 1).score, 4 / 5, 'tocco: uno in più sbagliato');
+    t.eq(GR.scoreGrigliaSelection(r, [], 1).score, 0, 'tocco vuoto: 0');
+  });
   t.group('Intruso percettivo — punteggio e adattamento', () => {
     const tr = { oddIndex: 3 };
     t.eq(IP.scoreIntrusoTrial(tr, 3, 900), { correct: true, omitted: false, rt: 900 }, 'tocco giusto');

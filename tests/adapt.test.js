@@ -50,4 +50,17 @@ module.exports = async function run(t) {
     t.eq(A.fineLabel(6.5), '6,5', 'etichetta con virgola');
     t.eq(A.fineLabel(7), '7', 'intero senza decimali');
   });
+  t.group('efficienza accuratezza × velocità (credito continuo)', () => {
+    const h = [1000, 1000, 1000, 1000];
+    t.eq(A.speedFactor(1300, h), 1, 'fino a 1,3 × mediana: nessuna penalità');
+    t.eq(A.speedFactor(2100, h), 0, 'a 2,1 × mediana: zero');
+    t.ok(Math.abs(A.speedFactor(1600, h) - 0.625) < 1e-9, 'a 1,6 × mediana: 0,625');
+    t.eq(A.speedFactor(5000, [1000, 1000]), 1, 'con meno di 4 tempi: nessun filtro');
+    t.eq(A.speedFactor(null, h), 1, 'tempo assente: nessuna penalità');
+    const st = {}; for (let i = 0; i < 4; i++) A.creditByBucket(st, 'x', 1, 1000);
+    t.ok(Math.abs(A.creditByBucket(st, 'x', 0.7, 1600) - 0.4375) < 1e-9, 'punteggio 0,7 e lenta 1,6×: 0,7 × 0,625');
+    t.eq(A.creditByBucket(st, 'x', 0, 500), 0, 'errore resta 0');
+    t.eq(A.creditByBucket(st, 'nuovo', 1, 9000), 1, 'tipo di prova senza storia: pieno');
+    t.eq([A.numericCloseness(7, 7), A.numericCloseness(6, 7), A.numericCloseness(9, 7), A.numericCloseness(3, 7)], [1, 0.7, 0.3, 0], '±1 quasi giusto, ±2 poco, oltre 0');
+  });
 };

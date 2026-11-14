@@ -71,7 +71,8 @@ import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_P
 import { DUAL_LEVEL_MAX, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL, structuralBandBounds, adaptLevelKey as adaptLevelKeyOf, currentLevelMax as currentLevelMaxOf, sessionLevelBounds as sessionLevelBoundsOf } from './js/core/bands.js';
 import { KEY, getRaw, setRaw, readJSON, writeJSON, removeKey, listByPrefix, getLocalPatient, readAllLocalPatients, setLocalPatient, removeLocalPatient, updateLocalPatient, saveSessionLocal, listSessionsLocal, rewriteSessionsLocal } from './js/services/local-store.js';
 import { recToRow, rowToRec, fetchRole, upsertSessionRow, fetchSessionRows, fetchMyPatients, fetchPatientFresh, fetchOperators, countPatientsOfOperator, fetchAccessRows, insertAccessEvent, insertAuditAction, fetchUsageRows, minutesOf } from './js/services/cloud.js';
-import { ADAPT_BLOCK, adaptStep, countedOutcome, countedByBucket, trialLevelFromFine, fineStartOf, fineLabel } from './js/core/adapt.js';
+import { PROFILI, patchOf as patchOfProfilo } from './js/core/profili.js';
+import { ADAPT_BLOCK, adaptStep, countedOutcome, countedByBucket, creditByBucket, trialLevelFromFine, fineStartOf, fineLabel } from './js/core/adapt.js';
 import { computeEZDiffusion, computeLISAS, primaryAccuracyOf, computeExerciseTimeSummary } from './js/core/scores.js';
 import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TARGET_RATE, resolvedFreqForDisplay, resolvedIsiForDisplay, neglectSubLevelForDisplay, categEffectiveStructure, CATEG_STRUCTURE_LABELS, CATEG_STRUCTURE_HINTS, categTitrationModeHint, tapatTitrationModeHint, neglectTitrationModeHint, dualTitrationModeHint, titrationModeHint, neglectProgressivaPhase, LEVEL_FIELD_OF_TASKMODE, levelOfCfg } from './js/core/titration.js';
 (function(){
@@ -499,6 +500,65 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     return wrap;
   }
 
+  // Cambia esercizio in Setup (menù per dominio e profili consigliati). `patch` = valori da applicare DOPO il reset (livello, modalità, durata).
+  function pickExercise(v, patch){
+    cfg.taskMode=v;
+    resetLevelField(v); // livello sempre a 1 quando si cambia esercizio dentro Setup — il caricamento di un eventuale suggerimento da screening avviene solo all'apertura iniziale (vedi applyLevelBaselineOrSuggestion), non a ogni cambio manuale, per non sovrascrivere a sorpresa scelte già fatte dall'operatore
+    if(v==='stopsignal' && !['frecce','lettere','numeri','forma','suoni'].includes(cfg.stimType)) cfg.stimType='frecce';
+    if(TITRATION_EXERCISES.includes(v) || TITRATION_MODE_EXTRA.includes(v)){ cfg.titrationMode='manuale'; cfg.adaptive=false; } // stessa logica di resetLevelField: un cambio esercizio manuale in Setup riparte pulito, non eredita la modalità dell'esercizio precedente
+    // 'targetRate' è un campo condiviso da più esercizi con significati
+    // diversi (frequenza bersaglio N-back, frequenza no-go Go/No-Go,
+    // frequenza trial di stop Stop-Signal, frequenza cambio regola
+    // Task-switching) — senza reset, cambiare esercizio in Setup poteva
+    // lasciare un valore pensato per un esercizio completamente diverso
+    // (es. il 5% di un N-back quasi adattivo al minimo) applicato al
+    // nuovo, con lo stepper che lo mostra correttamente ma un
+    // comportamento osservato molto diverso da quanto ci si aspetta dal
+    // default. Reset a un valore di partenza ragionevole per esercizio.
+    if(DEFAULT_TARGET_RATE[v]!=null) cfg.targetRate = DEFAULT_TARGET_RATE[v];
+    programAddConfirmation=null;
+    const nv = EXERCISES[v];
+    if(nv.usesTargetSeq){
+      if(v==='neglect' || v==='gonogo'){ if(!cfg.targetSeq) cfg.targetSeq=[]; if(cfg.targetSeq.length>(v==='gonogo'?6:4)) cfg.targetSeq=cfg.targetSeq.slice(0,2); }
+      else if(v==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no'){
+        if(!cfg.targetSeq || !cfg.targetSeq.length || !cfg.targetSeq[0] || !cfg.targetSeq[0].stimType) cfg.targetSeq = [];
+      }
+      else {
+        const looksMista = cfg.targetSeq && cfg.targetSeq[0] && cfg.targetSeq[0].stimType;
+        if(!cfg.targetSeq || !cfg.targetSeq.length || cfg.targetSeq.length!==3 || looksMista) cfg.targetSeq = defaultTargetSeq(cfg.stimType, 3);
+      }
+    }
+    if(EX_DEFAULT_TRIALS[v]) cfg.trials = EX_DEFAULT_TRIALS[v];
+    if(v==='ant' && cfg.trials<60) cfg.trials = 72;
+    if(v==='neglect' && cfg.trials>10) cfg.trials = 3;
+    if(v!=='neglect' && v!=='ant' && cfg.trials<10) cfg.trials = 24;
+    if(patch) Object.assign(cfg, patch);
+    render();
+  }
+  // Profili consigliati (js/core/profili.js): scegli un profilo, poi un esercizio dall'elenco per caricarlo in Setup.
+  let profiloScelto = null;
+  function profiliSection(){
+    const wrap = el('div',{class:'field'});
+    wrap.appendChild(el('label',{},['Profili consigliati (ipotesi di lavoro, da rivedere)']));
+    wrap.appendChild(el('p',{class:'hint'},['Sottoinsiemi di esercizi pensati per un tipo di difficoltà, con livello e durata di partenza. Non sono protocolli validati: tocca un esercizio per caricarlo qui sotto, poi modifica a mano quello che serve.']));
+    const seg = el('div',{class:'seg'},[]);
+    PROFILI.forEach(p=>{
+      seg.appendChild(el('button',{class: profiloScelto===p.key ? 'on' : '', onclick:()=>{ profiloScelto = profiloScelto===p.key ? null : p.key; render(); }},[p.label]));
+    });
+    wrap.appendChild(seg);
+    const prof = PROFILI.find(p=>p.key===profiloScelto);
+    if(prof){
+      wrap.appendChild(el('p',{class:'hint', style:'margin:10px 0 6px;'},[prof.ipotesi]));
+      prof.voci.forEach(v=>{
+        const ex = EXERCISES[v.taskMode];
+        const desc = (v.durataMin>0 && !['neglect','goaltask','memoria','tapat'].includes(v.taskMode) ? v.durataMin+' min · ' : '')+(v.taskMode==='memoria'||v.taskMode==='goaltask' ? '' : 'livello '+v.livello+' · ')+v.perche;
+        wrap.appendChild(el('div',{class:'histrow', style:'cursor:pointer;', onclick:()=>pickExercise(v.taskMode, patchOfProfilo(v))},[
+          el('div',{style:'flex:1;'},[ el('div',{},[ex ? ex.label : v.taskMode]), el('div',{class:'l'},[desc]) ])
+        ]));
+      });
+    }
+    return wrap;
+  }
   function presetSection(){
     const wrap = el('div',{class:'field'});
     wrap.appendChild(el('label',{},['Preset di allenamento salvati']));
@@ -1703,6 +1763,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
 
     // Setup a sezioni espandibili (js/ui/setup-sections.js): i segnaposto dicono dove comincia ogni sezione,
     // groupSections() li trasforma in tendine in fondo alla funzione.
+    card.appendChild(sectionMarker('profili','Profili consigliati',{summary: profiloScelto ? (PROFILI.find(p=>p.key===profiloScelto)||{}).label : 'per tipo di difficoltà'}));
+    card.appendChild(profiliSection());
     if(!buildingProgramFor){
       const nPreset = listPresets().length;
       card.appendChild(sectionMarker('preset','Preset salvati',{summary: nPreset ? nPreset+(nPreset===1?' salvato':' salvati') : 'nessuno'}));
@@ -1718,39 +1780,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     card.appendChild(sectionMarker('esercizio','Esercizio',{open:true, summary: ex.label}));
 
     // exercise selector (comes first: it determines which other fields apply)
-    gridEx.appendChild(field('Esercizio', groupedSegButtons(EXERCISE_GROUPS, cfg.taskMode, v=>{
-      cfg.taskMode=v;
-      resetLevelField(v); // livello sempre a 1 quando si cambia esercizio dentro Setup — il caricamento di un eventuale suggerimento da screening avviene solo all'apertura iniziale (vedi applyLevelBaselineOrSuggestion), non a ogni cambio manuale, per non sovrascrivere a sorpresa scelte già fatte dall'operatore
-      if(v==='stopsignal' && !['frecce','lettere','numeri','forma','suoni'].includes(cfg.stimType)) cfg.stimType='frecce';
-      if(TITRATION_EXERCISES.includes(v) || TITRATION_MODE_EXTRA.includes(v)){ cfg.titrationMode='manuale'; cfg.adaptive=false; } // stessa logica di resetLevelField: un cambio esercizio manuale in Setup riparte pulito, non eredita la modalità dell'esercizio precedente
-      // 'targetRate' è un campo condiviso da più esercizi con significati
-      // diversi (frequenza bersaglio N-back, frequenza no-go Go/No-Go,
-      // frequenza trial di stop Stop-Signal, frequenza cambio regola
-      // Task-switching) — senza reset, cambiare esercizio in Setup poteva
-      // lasciare un valore pensato per un esercizio completamente diverso
-      // (es. il 5% di un N-back quasi adattivo al minimo) applicato al
-      // nuovo, con lo stepper che lo mostra correttamente ma un
-      // comportamento osservato molto diverso da quanto ci si aspetta dal
-      // default. Reset a un valore di partenza ragionevole per esercizio.
-      if(DEFAULT_TARGET_RATE[v]!=null) cfg.targetRate = DEFAULT_TARGET_RATE[v];
-      programAddConfirmation=null;
-      const nv = EXERCISES[v];
-      if(nv.usesTargetSeq){
-        if(v==='neglect' || v==='gonogo'){ if(!cfg.targetSeq) cfg.targetSeq=[]; if(cfg.targetSeq.length>(v==='gonogo'?6:4)) cfg.targetSeq=cfg.targetSeq.slice(0,2); }
-        else if(v==='sequenza' && cfg.sequenzaMista && cfg.sequenzaMista!=='no'){
-          if(!cfg.targetSeq || !cfg.targetSeq.length || !cfg.targetSeq[0] || !cfg.targetSeq[0].stimType) cfg.targetSeq = [];
-        }
-        else {
-          const looksMista = cfg.targetSeq && cfg.targetSeq[0] && cfg.targetSeq[0].stimType;
-          if(!cfg.targetSeq || !cfg.targetSeq.length || cfg.targetSeq.length!==3 || looksMista) cfg.targetSeq = defaultTargetSeq(cfg.stimType, 3);
-        }
-      }
-      if(EX_DEFAULT_TRIALS[v]) cfg.trials = EX_DEFAULT_TRIALS[v];
-      if(v==='ant' && cfg.trials<60) cfg.trials = 72;
-      if(v==='neglect' && cfg.trials>10) cfg.trials = 3;
-      if(v!=='neglect' && v!=='ant' && cfg.trials<10) cfg.trials = 24;
-      render();
-    }, Object.fromEntries(Object.entries(EXERCISES).map(([k,v])=>[k, v.label+(v.ruolo==='misura'?' ⏱ ('+v.dominio+')':'')])), v=> EXERCISES[v] && EXERCISES[v].ruolo==='misura' ? 'screening-only' : '')));
+    gridEx.appendChild(field('Esercizio', groupedSegButtons(EXERCISE_GROUPS, cfg.taskMode, v=>pickExercise(v), Object.fromEntries(Object.entries(EXERCISES).map(([k,v])=>[k, v.label+(v.ruolo==='misura'?' ⏱ ('+v.dominio+')':'')])), v=> EXERCISES[v] && EXERCISES[v].ruolo==='misura' ? 'screening-only' : '')));
     gridEx.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:2px 0 8px;'},[
       '⏱ tratteggiato = pensato per la rivalutazione periodica, non per l\'allenamento quotidiano (dettaglio sotto una volta selezionato).'
     ]));
@@ -2502,13 +2532,26 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // sezione sopra ciascuno — stessa classe .seg per ogni riga, quindi
   // stesso comportamento responsive (flex-wrap) già in uso, solo diviso in
   // righe più corte e riconoscibili invece di un'unica fila lunghissima.
+  // Un menù esplodibile per dominio (<details>): si apre quello che contiene l'esercizio scelto, gli altri restano chiusi.
+  // Le aperture fatte a mano restano finché si è in Setup (exGroupsOpen), anche se la schermata viene ridisegnata.
+  const exGroupsOpen = new Set();
   function groupedSegButtons(groups, current, onPick, labels, extraClass){
-    const outer = el('div',{});
+    const outer = el('div',{style:'width:100%; min-width:min(100%, 520px);'});
+    const cur = current==='serie' ? 'categorizzazione' : current; // Serie alternate è un tipo di prova di Categorizzazione condizionale (scala unica): nel menu c'è una sola scheda
     groups.forEach((g,i)=>{
-      outer.appendChild(el('div',{class:'group-label', style:'font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); margin:'+(i===0?'0':'14px')+' 0 6px; font-weight:600;'},[g.label]));
-      // Serie alternate è un tipo di prova di Categorizzazione condizionale (scala unica): nel menu c'è una sola scheda
-      outer.appendChild(segButtons(g.keys.filter(k=>k!=='serie'), current==='serie' ? 'categorizzazione' : current, onPick, labels, extraClass));
+      const keys = g.keys.filter(k=>k!=='serie');
+      const hasCur = keys.includes(cur);
+      const det = el('details',{class:'ex-group', style:'margin:'+(i===0?'0':'8px')+' 0 0; border:1px solid var(--line, #d9d4c7); border-radius:10px; padding:0; width:100%; box-sizing:border-box;'});
+      if(hasCur || exGroupsOpen.has(g.label)) det.open = true;
+      det.addEventListener('toggle', ()=>{ if(det.open) exGroupsOpen.add(g.label); else exGroupsOpen.delete(g.label); });
+      const sumTxt = hasCur ? ((labels&&labels[cur]) || (EXERCISES[cur] && EXERCISES[cur].label) || cur) : '';
+      det.appendChild(el('summary',{style:'cursor:pointer; padding:10px 12px; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); font-weight:600; list-style:revert;'},[g.label+' ('+keys.length+')'+(sumTxt ? ' — '+sumTxt : '')]));
+      const body = el('div',{style:'padding:2px 12px 12px;'});
+      body.appendChild(segButtons(keys, cur, onPick, labels, extraClass));
+      det.appendChild(body);
+      outer.appendChild(det);
     });
+    queueMicrotask(()=>{ if(outer.parentElement) outer.parentElement.style.gridColumn = '1 / -1'; }); // il campo occupa tutta la riga della griglia di Setup
     return outer;
   }
   function stepper(val,min,max,onChange,step,fmt){
@@ -2748,7 +2791,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     cfg.adaptFine = session.fineLevel;
     cfg.adaptStartLevel = Math.max(1, Math.min(10, Math.round(session.fineLevel)));
   }
-  function rtBucketOutcome(bucket, correct, rt){ session.rtB = session.rtB || {}; return countedByBucket(session.rtB, bucket, correct, rt); }
+  function rtBucketOutcome(bucket, score, rt){ session.rtB = session.rtB || {}; return creditByBucket(session.rtB, bucket, +score, rt); } // score 0–1 (true/false valgono 1/0)
   function trialFeedback(ok){
     if(!feedbackAttivo()) return;
     if(!session.trail) session.trail = [];
@@ -5166,8 +5209,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const trial = session.currentTrial;
     const rt = Math.round(performance.now()-session.trialShownAt);
     const sc = scoreIntrusoTrial(trial, tapped, rt);
-    const ipCounted = rtBucketOutcome('intruso', sc.correct, sc.rt);
-    session.choiceLog.push({correct:sc.correct, counted:ipCounted, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, family:trial.familyId, n:trial.n});
+    const ipCounted = Math.round(rtBucketOutcome('intruso', sc.correct, sc.rt)*100)/100;
+    session.choiceLog.push({correct:sc.correct, credit:ipCounted, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, family:trial.familyId, n:trial.n});
     session.ipAdaptBlock.push(ipCounted); trialFeedback(!!sc.correct);
     maybeAdaptIntrusoOf(cfg, session);
     session.trialIdx++;
@@ -5236,8 +5279,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       if(!session.reveal){ // 1° passaggio: l'OK generale chiude la selezione e mostra giusti / sbagliati / mancanti
         const rt = Math.round(performance.now()-session.trialShownAt);
         const sc = scoreGrigliaSelection(rule, [...session.sel], rt);
-        session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:rule.touch.target.length, given:session.sel.size, hit:sc.hit.length, wrong:sc.wrong.length, missed:sc.missed.length, mode:'tocco', tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
-        session.grAdaptBlock.push(rtBucketOutcome('tocco:'+rule.kind, sc.correct, sc.rt!=null ? sc.rt/Math.max(1, rule.touch.target.length) : null)); trialFeedback(!!sc.correct);
+        session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, expected:rule.touch.target.length, given:session.sel.size, hit:sc.hit.length, wrong:sc.wrong.length, missed:sc.missed.length, mode:'tocco', tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
+        session.grAdaptBlock.push(rtBucketOutcome('tocco:'+rule.kind, sc.score, sc.rt!=null ? sc.rt/Math.max(1, rule.touch.target.length) : null)); trialFeedback(!!sc.correct);
         session.reveal = sc; render();
         return;
       }
@@ -5247,8 +5290,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const rt = Math.round(performance.now()-session.trialShownAt);
     const given = grigliaGiven(rule);
     const sc = scoreGrigliaAnswer(rule, given, rt);
-    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:rule.input.expected, given, tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
-    session.grAdaptBlock.push(rtBucketOutcome('num:'+rule.kind, sc.correct, sc.rt)); trialFeedback(!!sc.correct);
+    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, expected:rule.input.expected, given, tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
+    session.grAdaptBlock.push(rtBucketOutcome('num:'+rule.kind, sc.score, sc.rt)); trialFeedback(!!sc.correct);
     grigliaAdvance();
   }
   function grigliaAdvance(){
@@ -5262,9 +5305,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function renderGriglieGrid(g, cellPx, opts){
     opts = opts || {};
     const wrap = el('div',{style:'display:grid; grid-template-columns:repeat('+g.cols+','+cellPx+'px); gap:4px; justify-content:center; margin:6px auto;'});
+    // spessore del bordo proporzionale alla cella (min 4 px; 6 px se tratteggiato/puntinato, altrimenti si confondono)
     g.cells.forEach((c,ci)=>{
+      const bw = Math.max(c.bStyle && c.bStyle!=='continuo' ? 6 : 4, Math.round(cellPx*0.065));
       const symHex = grigliaColorHex(c.symColor) || '#101010';
-      const d = el('div',{style:'width:'+cellPx+'px; height:'+cellPx+'px; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:50%; font-weight:800; font-size:'+Math.round(cellPx*0.5)+'px; background:'+(grigliaColorHex(c.fill)||'#FFFFFF')+'; color:'+symHex+'; border:3px '+(({continuo:'solid',tratteggiato:'dashed',puntinato:'dotted'})[c.bStyle]||'solid')+' '+(grigliaColorHex(c.border)||'#000000')+';'});
+      const d = el('div',{style:'width:'+cellPx+'px; height:'+cellPx+'px; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:50%; font-weight:800; font-size:'+Math.round(cellPx*0.5)+'px; background:'+(grigliaColorHex(c.fill)||'#FFFFFF')+'; color:'+symHex+'; border:'+bw+'px '+(({continuo:'solid',tratteggiato:'dashed',puntinato:'dotted'})[c.bStyle]||'solid')+' '+(grigliaColorHex(c.border)||'#000000')+';'});
       const svg = gridShapeSvgOf(c.sym, symHex);
       const scale = c.size==='piccolo' ? 0.5 : c.size==='grande' ? 1.2 : 1;
       const inner = el('span',{style:'font-size:'+scale+'em; display:flex; align-items:center; justify-content:center; line-height:1;'},[]);

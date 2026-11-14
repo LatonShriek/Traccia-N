@@ -176,3 +176,14 @@ modifiche a quelle parti, controllare a mano su tablet.
   allena con Intruso percettivo, «Conteggio a regola» con Griglie attentive. Le modalità vecchie compaiono solo nelle configurazioni già salvate.
 - Tabella test → esercizio → livello: [tabella-test-esercizi.md](tabella-test-esercizi.md) (bozza).
 - **Cancellazione, modalità Progressiva tolta** (14 nov 2026): le configurazioni salvate che la usavano ripartono dal Classico (livello massimo 10, `migrateLegacyNeglect`); lo storico vecchio resta leggibile.
+
+
+## Livello a mezzi gradini, dispersione delle prove e tempo (14 nov 2026, sera)
+
+Vale per gli esercizi a prove autonome: **Intruso percettivo, Griglie attentive, Inversione e riordino, Running span** (solo in modalità Adattiva; in Manuale e Livello i parametri restano fissi).
+
+- **Livello fine.** Il livello vero della seduta ha la virgola (es. 6,5). Ogni blocco (Intruso 6 prove, Inversione 4, Griglie 4 per schermata, Running span 4 cicli) lo sposta di **mezzo gradino** con la stessa regola 70–85%. È come avere 19 gradini invece di 10, senza toccare le tabelle.
+- **Dispersione.** Ogni prova pesca il proprio livello intero attorno a quello vero: 60% lo stesso, 20% uno sotto, 20% uno sopra, poi la parte decimale decide fra i due interi vicini. Agli estremi (1 e 10) la dispersione resta dentro la scala. Il livello di ogni prova è scritto nel registro delle prove (`level`).
+- **Tempo.** Una risposta corretta ma più lenta di 1,6 volte la propria mediana (confrontata con prove dello stesso tipo: Intruso tutte insieme; Griglie per tipo di regola, a tocco normalizzato sul numero di bersagli; Inversione per lunghezza) non conta come successo nel blocco. Servono almeno 4 risposte corrette dello stesso tipo prima che il filtro parta. Nel registro delle prove compare `counted` (Intruso). Running span usa già un punteggio graduato e non ha filtro sul tempo.
+- **Salvataggio.** `adaptStartLevel` resta intero (arrotondato); il valore con la virgola è in `adaptFine` e nel record della seduta come `finalLevelFine`.
+- **Non ancora applicato:** PASAT e Serie (ritmo imposto: il tempo c'è già come finestra di risposta e cambiare passo a ogni prova disorienta) e gli esercizi classici (N-back, Go/No-Go, Sequenza, Stop-signal, ANT, Simon, Switching, Categorizzazione, Cancellazione, Doppio compito, TAPAT), che leggono tabelle di parametri validate a livello intero.

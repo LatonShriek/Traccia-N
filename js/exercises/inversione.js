@@ -11,7 +11,7 @@
 //    Colore, grandezza del carattere e numeri a più cifre sono NUOVI rispetto al generatore;
 //  - la risposta è corretta in automatico: esatta, più il punteggio parziale per posizione.
 // Il generatore ha 32 livelli, Traccia-N 10: livello 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
-import { adaptStep } from '../core/adapt.js';
+import { adaptStep, adaptStepFine, fineStartOf } from '../core/adapt.js';
 import { mean } from '../core/stats.js';
 import { REAL_WORDS, INV_REAL_BLOCK } from './inversione-data.js';
 
@@ -388,6 +388,6 @@ export function scoreInversioneAnswer(item, typed, rtMs){
 }
 export function maybeAdaptInversione(cfg, session){
   if(!cfg.adaptive || session.invAdaptBlock.length < INVERSIONE_ADAPT_BLOCK) return;
-  cfg.adaptStartLevel += adaptStep(mean(session.invAdaptBlock), cfg.adaptStartLevel, 1, 10);
+  session.fineLevel = (session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg)) + adaptStepFine(mean(session.invAdaptBlock), session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg), 1, 10);
   session.invAdaptBlock = [];
 }

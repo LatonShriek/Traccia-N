@@ -6,7 +6,7 @@
 // Il generatore ha 32 livelli, Traccia-N 10: livello 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
 // Ogni griglia ha sempre 10 consegne. Se la risposta non è un solo numero (doppio conteggio, confronto,
 // «quale riga»), la schermata chiede più campi e dice chiaramente quali.
-import { adaptStep } from '../core/adapt.js';
+import { adaptStep, adaptStepFine, fineStartOf } from '../core/adapt.js';
 import { mean } from '../core/stats.js';
 
 // --- aiuti globali del generatore (stessi di js/util.js) ---
@@ -940,7 +940,7 @@ export function scoreGrigliaSelection(rule, selected, rtMs){
 }
 export function maybeAdaptGriglie(cfg, session){
   if(!cfg.adaptive || session.grAdaptBlock.length < GRIGLIE_ADAPT_BLOCK) return;
-  cfg.adaptStartLevel += adaptStep(mean(session.grAdaptBlock), cfg.adaptStartLevel, 1, 10);
+  session.fineLevel = (session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg)) + adaptStepFine(mean(session.grAdaptBlock), session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg), 1, 10);
   session.grAdaptBlock = [];
 }
 // Disegno vero delle forme (stesso del renderer del generatore): stringa SVG, oppure null se non è una forma.

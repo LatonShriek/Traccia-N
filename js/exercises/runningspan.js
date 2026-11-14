@@ -6,7 +6,7 @@
 // - maybeAdaptRunningSpan applica adaptStep (js/core/adapt.js) con gli stessi limiti 1-10 di prima (modifica del passo 3c).
 import { POOLS } from '../core/pools.js';
 import { mean } from '../core/stats.js';
-import { adaptStep } from '../core/adapt.js';
+import { adaptStep, adaptStepFine, fineStartOf } from '../core/adapt.js';
 
   // Running Span — n da richiamare (il "carico" del livello) e intervallo
   // di lunghezza totale della sequenza (sconosciuta al paziente, sorteggiata
@@ -86,6 +86,7 @@ import { adaptStep } from '../core/adapt.js';
     if(!cfg.adaptive) return;
     if(session.rsAdaptBlock.length < RUNNINGSPAN_ADAPT_BLOCK) return;
     const meanScore = mean(session.rsAdaptBlock);
-    cfg.adaptStartLevel += adaptStep(meanScore, cfg.adaptStartLevel, 1, 10);
+    const f0 = session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg);
+    session.fineLevel = f0 + adaptStepFine(meanScore, f0, 1, 10);
     session.rsAdaptBlock = [];
   }

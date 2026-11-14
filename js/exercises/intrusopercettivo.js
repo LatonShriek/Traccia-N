@@ -5,7 +5,7 @@
 // unico (INTRUSO_SCORE_W). Cambia solo il modo di rispondere: tocco / clic sull'elemento.
 // Il generatore ha 32 livelli, Traccia-N 10: il livello 1-10 corrisponde a 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
 // Funzioni pure: nessun accesso allo schermo; il caso passa da `rng` (per i test).
-import { adaptStep } from '../core/adapt.js';
+import { adaptStep, adaptStepFine, fineStartOf } from '../core/adapt.js';
 import { mean } from '../core/stats.js';
 
 const MAX_LEVEL = 32;
@@ -184,6 +184,6 @@ export function scoreIntrusoTrial(trial, tappedIndex, rtMs){
 // Adattamento: ogni INTRUSO_ADAPT_BLOCK prove, stessa regola 70/85% degli altri esercizi.
 export function maybeAdaptIntruso(cfg, session){
   if(!cfg.adaptive || session.ipAdaptBlock.length < INTRUSO_ADAPT_BLOCK) return;
-  cfg.adaptStartLevel += adaptStep(mean(session.ipAdaptBlock), cfg.adaptStartLevel, 1, 10);
+  session.fineLevel = (session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg)) + adaptStepFine(mean(session.ipAdaptBlock), session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg), 1, 10);
   session.ipAdaptBlock = [];
 }

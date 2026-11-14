@@ -93,6 +93,7 @@ import { EXERCISES } from './registry.js';
         if(adaptLevelKey(cfg)==='adaptLevel') return session.adaptLevel;
         return null;
       })(),
+      finalLevelFine: (cfg.adaptive && ['intrusopercettivo','griglie','inversione','runningspan'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? cfg.adaptFine : null,
       localPatientId: patientProfile ? null : (activeLocalPatientId || null),
       pazienteId: (!patientProfile && activeRemotePatientId) ? activeRemotePatientId : null,
       durationMs, family

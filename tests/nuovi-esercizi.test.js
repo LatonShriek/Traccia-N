@@ -82,7 +82,7 @@ module.exports = async function run(t) {
     t.eq(GR.scoreGrigliaAnswer({ count: 7 }, '', 900).omitted, true, 'nessuna risposta = omissione');
     const cfg = { adaptive: true, adaptStartLevel: 4 }, ss = { grAdaptBlock: [1, 1, 1, 1] };
     GR.maybeAdaptGriglie(cfg, ss);
-    t.ok(cfg.adaptStartLevel === 5 && ss.grAdaptBlock.length === 0, 'sopra l\'85% sale di un livello');
+    t.ok(ss.fineLevel === 4.5 && ss.grAdaptBlock.length === 0, 'sopra l\'85% sale di mezzo gradino (livello fine 4,5)');
   });
   t.group('Intruso percettivo — punteggio e adattamento', () => {
     const tr = { oddIndex: 3 };
@@ -91,10 +91,10 @@ module.exports = async function run(t) {
     t.eq(IP.scoreIntrusoTrial(tr, null).omitted, true, 'tempo scaduto = omissione');
     const cfg = { adaptive: true, adaptStartLevel: 4 }, s = { ipAdaptBlock: [1, 1, 1, 1, 1, 1] };
     IP.maybeAdaptIntruso(cfg, s);
-    t.eq([cfg.adaptStartLevel, s.ipAdaptBlock.length], [5, 0], 'sopra l\'85% sale di un livello');
+    t.eq([s.fineLevel, s.ipAdaptBlock.length], [4.5, 0], 'sopra l\'85% sale di mezzo gradino');
     const c2 = { adaptive: true, adaptStartLevel: 4 }, s2 = { ipAdaptBlock: [0, 0, 0, 1, 0, 0] };
     IP.maybeAdaptIntruso(c2, s2);
-    t.eq(c2.adaptStartLevel, 3, 'sotto il 70% scende');
+    t.eq(s2.fineLevel, 3.5, 'sotto il 70% scende di mezzo gradino');
     const c3 = { adaptive: false, adaptStartLevel: 4 }, s3 = { ipAdaptBlock: [1, 1, 1, 1, 1, 1] };
     IP.maybeAdaptIntruso(c3, s3);
     t.eq(c3.adaptStartLevel, 4, 'senza adattivo il livello non si muove');
@@ -209,7 +209,7 @@ module.exports = async function run(t) {
     t.eq(INV.scoreInversioneAnswer({ multi: false, expectedTokens: ['A'] }, '', 900).omitted, true, 'vuoto = omissione');
     const cfg = { adaptive: true, adaptStartLevel: 3 }, ss = { invAdaptBlock: [1,1,1,1] };
     INV.maybeAdaptInversione(cfg, ss);
-    t.eq(cfg.adaptStartLevel, 4, 'adattivo: sale dopo 4 sequenze tutte esatte');
+    t.eq(ss.fineLevel, 3.5, 'adattivo: sale di mezzo gradino dopo 4 sequenze tutte esatte');
   });
 };
 

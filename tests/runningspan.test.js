@@ -90,21 +90,21 @@ module.exports = async function run(t) {
   });
 
   t.group('maybeAdaptRunningSpan — sale sopra 85%, scende sotto 70%, sulla MEDIA di posAcc e contentAcc (non solo posAcc)', () => {
-    cfg.adaptive = true; cfg.adaptStartLevel = 5;
+    cfg.adaptive = true; cfg.adaptStartLevel = 5; session.fineLevel = null;
     session.rsAdaptBlock = [0.9, 0.95, 0.9, 0.9]; // media > 0.85
     maybeAdaptRunningSpan();
-    t.eq(cfg.adaptStartLevel, 6, 'media sopra 85%: livello sale di uno');
+    t.eq(session.fineLevel, 5.5, 'media sopra 85%: livello sale di mezzo gradino');
     t.eq(session.rsAdaptBlock.length, 0, 'la finestra si svuota dopo la decisione, non si accumula all\'infinito');
 
-    cfg.adaptStartLevel = 5;
+    cfg.adaptStartLevel = 5; session.fineLevel = null;
     session.rsAdaptBlock = [0.5, 0.6, 0.5, 0.6]; // media < 0.70
     maybeAdaptRunningSpan();
-    t.eq(cfg.adaptStartLevel, 4, 'media sotto 70%: livello scende di uno');
+    t.eq(session.fineLevel, 4.5, 'media sotto 70%: livello scende di mezzo gradino');
 
-    cfg.adaptStartLevel = 5;
+    cfg.adaptStartLevel = 5; session.fineLevel = null;
     session.rsAdaptBlock = [0.75, 0.8, 0.75, 0.8]; // media in zona neutra
     maybeAdaptRunningSpan();
-    t.eq(cfg.adaptStartLevel, 5, 'media fra le due soglie: livello invariato');
+    t.eq(session.fineLevel, 5, 'media fra le due soglie: livello invariato');
   });
 
   t.group('maybeAdaptRunningSpan — un ciclo con posAcc alto ma contentAcc basso non fa salire il livello da solo (è la media che conta, non una sola delle due misure)', () => {
@@ -116,14 +116,14 @@ module.exports = async function run(t) {
   });
 
   t.group('maybeAdaptRunningSpan — non supera mai i limiti 1-10', () => {
-    cfg.adaptive = true; cfg.adaptStartLevel = 10;
+    cfg.adaptive = true; cfg.adaptStartLevel = 10; session.fineLevel = 10;
     session.rsAdaptBlock = [1, 1, 1, 1];
     maybeAdaptRunningSpan();
-    t.eq(cfg.adaptStartLevel, 10, 'già al livello massimo: non sale oltre 10');
-    cfg.adaptStartLevel = 1;
+    t.eq(session.fineLevel, 10, 'già al livello massimo: non sale oltre 10');
+    cfg.adaptStartLevel = 1; session.fineLevel = 1;
     session.rsAdaptBlock = [0, 0, 0, 0];
     maybeAdaptRunningSpan();
-    t.eq(cfg.adaptStartLevel, 1, 'già al livello minimo: non scende sotto 1');
+    t.eq(session.fineLevel, 1, 'già al livello minimo: non scende sotto 1');
     cfg.adaptive = false;
   });
 };

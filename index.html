@@ -71,7 +71,7 @@ import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_P
 import { DUAL_LEVEL_MAX, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL, structuralBandBounds, adaptLevelKey as adaptLevelKeyOf, currentLevelMax as currentLevelMaxOf, sessionLevelBounds as sessionLevelBoundsOf } from './js/core/bands.js';
 import { KEY, getRaw, setRaw, readJSON, writeJSON, removeKey, listByPrefix, getLocalPatient, readAllLocalPatients, setLocalPatient, removeLocalPatient, updateLocalPatient, saveSessionLocal, listSessionsLocal, rewriteSessionsLocal } from './js/services/local-store.js';
 import { recToRow, rowToRec, fetchRole, upsertSessionRow, fetchSessionRows, fetchMyPatients, fetchPatientFresh, fetchOperators, countPatientsOfOperator, fetchAccessRows, insertAccessEvent, insertAuditAction, fetchUsageRows, minutesOf } from './js/services/cloud.js';
-import { ADAPT_BLOCK, adaptStep, countedOutcome } from './js/core/adapt.js';
+import { ADAPT_BLOCK, adaptStep, countedOutcome, countedByBucket, trialLevelFromFine, fineStartOf, fineLabel } from './js/core/adapt.js';
 import { computeEZDiffusion, computeLISAS, primaryAccuracyOf, computeExerciseTimeSummary } from './js/core/scores.js';
 import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TARGET_RATE, resolvedFreqForDisplay, resolvedIsiForDisplay, neglectSubLevelForDisplay, categEffectiveStructure, CATEG_STRUCTURE_LABELS, CATEG_STRUCTURE_HINTS, categTitrationModeHint, tapatTitrationModeHint, neglectTitrationModeHint, dualTitrationModeHint, titrationModeHint, neglectProgressivaPhase, LEVEL_FIELD_OF_TASKMODE, levelOfCfg } from './js/core/titration.js';
 (function(){
@@ -2731,6 +2731,24 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   const FEEDBACK_ESERCIZI = ['intrusopercettivo','griglie','runningspan','inversione','pasat','serie','categorizzazione'];
   function feedbackAttivo(){ return cfg.feedbackProva!==false && FEEDBACK_ESERCIZI.includes(cfg.taskMode) && !screeningState; }
   // Riscontro per prova = stessa fila di quadratini (verde giusto / rosso sbagliato) delle altre prove.
+  // Livello fine (mezzi gradini) + dispersione delle prove — vedi js/core/adapt.js.
+  // Solo in modalità adattiva: la prova pesca il proprio livello intero attorno al livello vero della seduta
+  // (session.fineLevel) e lo mette in cfg.adaptStartLevel, che è quello che le tabelle e i generatori leggono.
+  function fineLv(){
+    if(cfg.adaptive){
+      if(session.fineLevel==null) session.fineLevel = fineStartOf(cfg);
+      cfg.adaptStartLevel = trialLevelFromFine(session.fineLevel, 1, 10);
+    }
+    return cfg.adaptStartLevel;
+  }
+  function fineText(){ return cfg.adaptive && session.fineLevel!=null ? fineLabel(session.fineLevel) : String(cfg.adaptStartLevel); }
+  function fineFinish(){ // a fine seduta: il livello salvato è quello vero (arrotondato), con i mezzi gradini a parte
+    if(!cfg.adaptive || session.fineLevel==null) return;
+    if(!['intrusopercettivo','griglie','inversione','runningspan'].includes(cfg.taskMode)) return;
+    cfg.adaptFine = session.fineLevel;
+    cfg.adaptStartLevel = Math.max(1, Math.min(10, Math.round(session.fineLevel)));
+  }
+  function rtBucketOutcome(bucket, correct, rt){ session.rtB = session.rtB || {}; return countedByBucket(session.rtB, bucket, correct, rt); }
   function trialFeedback(ok){
     if(!feedbackAttivo()) return;
     if(!session.trail) session.trail = [];
@@ -4993,7 +5011,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     completeAndSave(Date.now()-session.startedAtWall);
   }
   // genRunningSpanTrial / maybeAdaptRunningSpan: logica in js/exercises/runningspan.js (passo 5b).
-  function genRunningSpanTrial(){ return genRunningSpanTrialOf(cfg); }
+  function genRunningSpanTrial(){ fineLv(); return genRunningSpanTrialOf(cfg); }
   function startRunningSpanSession(){
     session = {
       trialIdx:0, showIdx:0, phase:'showing', currentTrial: genRunningSpanTrial(),
@@ -5092,7 +5110,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function updateRunningSpanScreen(){
     const {infoSpan, content} = taskDom;
     const trial = session.currentTrial;
-    infoSpan.textContent = 'Prova '+(session.trialIdx+1)+totTxt()+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Prova '+(session.trialIdx+1)+totTxt()+' · livello '+fineText();
     content.innerHTML = '';
     if(session.paused){
       content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.']));
@@ -5138,7 +5156,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function beginIntrusoTrial(){
     if(session.paused) return;
-    if(!session.currentTrial) session.currentTrial = genIntrusoTrialOf(cfg.adaptStartLevel, null, {avoidFamilies:session.recentFams});
+    if(!session.currentTrial) session.currentTrial = genIntrusoTrialOf(fineLv(), null, {avoidFamilies:session.recentFams});
     session.trialShownAt = performance.now();
     render();
     session.timer = setTimeout(()=>resolveIntrusoTrial(null), cfg.intrusoLimitS>0 ? cfg.intrusoLimitS*1000 : session.currentTrial.limitMs);
@@ -5148,19 +5166,20 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const trial = session.currentTrial;
     const rt = Math.round(performance.now()-session.trialShownAt);
     const sc = scoreIntrusoTrial(trial, tapped, rt);
-    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, family:trial.familyId, n:trial.n});
-    session.ipAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
+    const ipCounted = rtBucketOutcome('intruso', sc.correct, sc.rt);
+    session.choiceLog.push({correct:sc.correct, counted:ipCounted, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, family:trial.familyId, n:trial.n});
+    session.ipAdaptBlock.push(ipCounted); trialFeedback(!!sc.correct);
     maybeAdaptIntrusoOf(cfg, session);
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
     session.recentFams = [trial.familyId].concat(session.recentFams).slice(0,2);
-    session.currentTrial = genIntrusoTrialOf(cfg.adaptStartLevel, null, {avoidFamilies:session.recentFams}); // livello letto ORA, dopo l'eventuale adattamento
+    session.currentTrial = genIntrusoTrialOf(fineLv(), null, {avoidFamilies:session.recentFams}); // livello letto ORA, dopo l'eventuale adattamento
     beginIntrusoTrial();
   }
   function updateIntrusoScreen(){
     const {infoSpan, content} = taskDom;
     const trial = session.currentTrial;
-    infoSpan.textContent = 'Schermata '+(session.trialIdx+1)+totTxt()+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Schermata '+(session.trialIdx+1)+totTxt()+' · livello '+fineText();
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     if(!trial) return;
@@ -5194,7 +5213,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     view='task'; render();
   }
   function newGriglieGrid(){
-    session.grid = genGrigliaScreen(cfg.adaptStartLevel);
+    session.grid = genGrigliaScreen(fineLv());
     session.ruleIdx = 0; grigliaResetAnswer();
     session.trialShownAt = performance.now();
   }
@@ -5218,7 +5237,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         const rt = Math.round(performance.now()-session.trialShownAt);
         const sc = scoreGrigliaSelection(rule, [...session.sel], rt);
         session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:rule.touch.target.length, given:session.sel.size, hit:sc.hit.length, wrong:sc.wrong.length, missed:sc.missed.length, mode:'tocco', tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
-        session.grAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
+        session.grAdaptBlock.push(rtBucketOutcome('tocco:'+rule.kind, sc.correct, sc.rt!=null ? sc.rt/Math.max(1, rule.touch.target.length) : null)); trialFeedback(!!sc.correct);
         session.reveal = sc; render();
         return;
       }
@@ -5229,7 +5248,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const given = grigliaGiven(rule);
     const sc = scoreGrigliaAnswer(rule, given, rt);
     session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:rule.input.expected, given, tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
-    session.grAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
+    session.grAdaptBlock.push(rtBucketOutcome('num:'+rule.kind, sc.correct, sc.rt)); trialFeedback(!!sc.correct);
     grigliaAdvance();
   }
   function grigliaAdvance(){
@@ -5274,7 +5293,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function updateGriglieScreen(){
     const {infoSpan, content} = taskDom;
-    infoSpan.textContent = 'Consegna '+(session.trialIdx+1)+totTxt()+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Consegna '+(session.trialIdx+1)+totTxt()+' · livello '+fineText();
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     const g = session.grid, rule = g.rules[session.ruleIdx], inp = rule.input;
@@ -5350,7 +5369,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     view='task'; render();
   }
   function nextInversioneItem(){
-    session.item = genInversioneItem(cfg.adaptStartLevel, cfg.inversioneRegola||'auto', session.used, {pool:cfg.inversionePool, nCons:cfg.inversioneNCons});
+    session.item = genInversioneItem(fineLv(), cfg.inversioneRegola||'auto', session.used, {pool:cfg.inversionePool, nCons:cfg.inversioneNCons});
     session.phase = 'gap'; session.typed = ''; session.consIdx = 0;
   }
   function resolveInversioneTrial(){
@@ -5358,7 +5377,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const rt = Math.round(performance.now()-session.typeStartAt);
     const sc = scoreInversioneAnswer({multi:it.multi, expectedTokens:c.expectedTokens}, session.typed, rt);
     session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:c.expected, given:session.typed.toUpperCase().trim(), partial:Math.round(sc.partial*100)/100, rule:c.rule, double:c.double, kind:it.kind, len:it.len, nCons:it.consegne.length, consIdx:session.consIdx});
-    session.invAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
+    session.invAdaptBlock.push(rtBucketOutcome('inv:'+it.len, sc.correct, sc.rt)); trialFeedback(!!sc.correct);
     if(session.consIdx+1 < it.consegne.length){ // stessa sequenza (nascosta), consegna successiva
       session.consIdx++; session.typed=''; session.typeStartAt = performance.now();
       render();
@@ -5372,7 +5391,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function updateInversioneScreen(){
     const {infoSpan, content} = taskDom;
-    infoSpan.textContent = 'Sequenza '+(session.trialIdx+1)+totTxt()+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Sequenza '+(session.trialIdx+1)+totTxt()+' · livello '+fineText();
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     const it = session.item;
@@ -5530,6 +5549,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   async function completeAndSaveInner(durationMs){
     sessionTimeFinish();
+    fineFinish();
     const rec = buildSessionRecord(cfg, session, durationMs, {patientProfile, activeLocalPatientId, activeRemotePatientId, dateLabel: todayStr()});
     sessionTimeRestore();
     lastResult = rec;

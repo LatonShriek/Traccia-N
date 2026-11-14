@@ -28,3 +28,49 @@ export function countedOutcome(correct, rtMs, rtHistory){
   }
   return correct;
 }
+
+// ─── Livello fine + dispersione + tempo (14 nov 2026) ─────────────────────────
+// Per gli esercizi a prove autonome (Intruso, Griglie, Inversione, Running span).
+// - Il livello "vero" della seduta è un numero con la virgola (es. 6,5): ogni blocco
+//   lo sposta di mezzo gradino invece di uno intero (scala di fatto doppia).
+// - Ogni prova pesca il proprio livello intero attorno a quello vero: 60% uguale,
+//   20% uno sotto, 20% uno sopra, poi la parte decimale decide fra i due interi
+//   vicini. Così una seduta non sta tutta sullo stesso gradino e il pavimento/soffitto
+//   si raggiunge solo se la persona è davvero oltre.
+// - Il tempo entra nel conteggio del blocco: corretta ma più lenta di 1,6 volte la
+//   propria mediana (per tipo di prova) vale come non riuscita (countedOutcome).
+export const FINE_STEP = 0.5;
+export const FINE_SPREAD = [0.2, 0.2]; // probabilità di -1 e di +1 (il resto: 0)
+
+export function adaptStepFine(acc, fine, min, max){
+  if(acc > ADAPT_UP && fine < max) return Math.min(FINE_STEP, max - fine);
+  if(acc < ADAPT_DOWN && fine > min) return -Math.min(FINE_STEP, fine - min);
+  return 0;
+}
+
+export function trialLevelFromFine(fine, min, max, rng){
+  const r = rng || Math.random;
+  const u = r();
+  const off = u < FINE_SPREAD[0] ? -1 : (u > 1 - FINE_SPREAD[1] ? 1 : 0);
+  const x = fine + off;
+  const lo = Math.floor(x);
+  const lv = lo + (r() < (x - lo) ? 1 : 0);
+  return Math.max(min, Math.min(max, lv));
+}
+
+// store: oggetto di sessione { bucket: [rt…] }; bucket = tipo di prova confrontabile.
+export function countedByBucket(store, bucket, correct, rtMs){
+  const h = store[bucket] || (store[bucket] = []);
+  const counted = countedOutcome(correct, rtMs, h);
+  if(correct && rtMs!=null) h.push(rtMs);
+  return counted;
+}
+
+// Livello fine di partenza: quello salvato se coerente col livello intero, altrimenti l'intero.
+export function fineStartOf(cfg){
+  const f = cfg.adaptFine;
+  return (typeof f==='number' && isFinite(f) && Math.round(f) === cfg.adaptStartLevel) ? f : cfg.adaptStartLevel;
+}
+export function fineLabel(f){
+  return Number.isInteger(f) ? String(f) : f.toFixed(1).replace('.', ',');
+}

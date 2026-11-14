@@ -91,12 +91,19 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
   automatica: sequenza esatta + punteggio parziale per posizione. Adatta ogni **4 sequenze** (70-85% di esatte).
   Il menu permette di fissare una consegna singola, o «solo doppie». Il colore rosso/verde è quello del generatore
   (attenzione al daltonismo se serve: cambiare in rosso/blu).
-- **Serie alternate** (ruolo «allenamento»): adatta ogni **8 risposte**. Quattro pulsanti a schermo
-  (destra, sinistra, «Sì», «No»); i 10 livelli usano le regole 1, 2, 3, 4, 7, 10, 17, 21, 23, 29 delle 32 del
-  generatore (colore, categoria, mappature a 4 vie con No-Go segnalato da ✕, incroci colore×categoria,
-  n-1 e n-2 back), con un ritmo da 3,5 a 2,4 s. L'operatore può fissare a mano una delle 32 regole: in quel caso
-  il livello non si muove da solo. Interpretazioni da confermare: negli n-back «nero/lettera» è letto come il
-  **colore** dello stimolo precedente; il No-Go delle regole 4, 6, 10, 12, 14, 16 è una ✕ su ~1 stimolo su 10.
+- **Serie alternate = secondo tipo di prova di Categorizzazione condizionale** (14 nov 2026, scala unica). Nel menu
+  c'è una sola scheda; «Tipo di prova» sceglie fra «Categorie (strutture 1-5)» e «Regole di Serie (A/B/1/2)».
+  Stessa scala: livelli 1-10 a bande doppie (1-2, 3-4, 5-6, 7-10) + livello 11 (2-back, «extrema ratio», solo
+  con l'adattivo dopo il 10; in Categorizzazione la scala resta a 10). Le regole di Serie (32 del generatore) entrano
+  per banda — 1-2: 1, 2, 3, 5 · 3-4: 4, 6 (✕ = No-Go) · 5-6: 7-15 (identità → 4 risposte) e 17-20 (incroci con «o») ·
+  7-10: 21-22 e 23-28 (stimolo precedente) · 11: 29-32 (due posti prima); la 16 coincide con il livello 3 di
+  Categorizzazione e si sceglie solo a mano. A ogni seduta la regola è una a caso della banda, la stessa per tutta la
+  seduta; l'adattivo (ogni 8 risposte, 70-85%) si muove dentro la banda. Ritmo (ms per stimolo): livelli 1-8 della
+  scala originale di Serie (3500, 3200, 3000, 2800, 2800, 2600, 2600, 2400); 9, 10, 11 (2400, 2200, 2600) sono una
+  **proposta da validare**. Quattro pulsanti a schermo (destra, sinistra, «Sì», «No»); la regola si può fissare a
+  mano (1-32). Lo storico resta sotto «Serie alternate» (nessuna chiave cambia); dopo una seduta di un tipo, l'altro
+  riparte dallo stesso livello nello stesso profilo (max 10 per Categorizzazione). Per le sedute in presenza e a
+  distanza vale il livello salvato per paziente.
 - **PASAT / PVSAT con operazione** (ruolo «allenamento»): adatta ogni **8 risposte**.
   Tre materiali (somme di cifre, giorni della settimana, mesi); risposta a tocco entro il
   ritmo, altrimenti omissione. Dal livello 4 il ritmo si stringe, dal 7 la regola

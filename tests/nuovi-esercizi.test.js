@@ -37,6 +37,25 @@ module.exports = async function run(t) {
     t.ok(IP.intrusoFamiliesAt(10).length === IP.INTRUSO_FAMILIES.length, 'al livello 10 tutte le famiglie');
     t.ok([1, 4, 8, 11, 15, 18, 22, 25, 29, 32].every((g, i) => IP.intrusoGenLevel(i + 1) === g), 'livelli 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore');
   });
+  t.group('Griglie attentive — risposta a tocco', () => {
+    let nTouch = 0, nAll = 0, okCnt = true, okScore = true;
+    for (let lvl = 1; lvl <= 10; lvl++) for (let rep = 0; rep < 6; rep++) {
+      const g = GR.genGrigliaScreen(lvl);
+      g.rules.forEach(r => {
+        nAll++;
+        if (!r.touch) { if (!['rows', 'whichrow'].includes(r.vk) && /^Conta /.test(r.text)) okCnt = false; return; }
+        nTouch++;
+        if (!r.touch.target.length || r.touch.target.some(i => i < 0 || i >= g.cells.length) || /^Conta /.test(r.touch.text)) okCnt = false;
+        const exact = GR.scoreGrigliaSelection(r, r.touch.target, 500);
+        const none = GR.scoreGrigliaSelection(r, [], 500);
+        const extra = GR.scoreGrigliaSelection(r, r.touch.target.concat([g.cells.findIndex((c, i) => !r.touch.target.includes(i))]), 500);
+        if (!exact.correct || !none.omitted || none.correct || extra.correct || extra.wrong.length !== 1) okScore = false;
+      });
+    }
+    t.ok(nTouch > nAll * 0.7, 'a tocco: la gran parte delle consegne è selezionabile (' + nTouch + '/' + nAll + ')');
+    t.ok(okCnt, 'a tocco: bersagli validi e testo riformulato («Tocca…»); solo «quante righe/quale riga» restano a numero');
+    t.ok(okScore, 'a tocco: corretta solo con l\'insieme esatto; nessuna selezione = omissione; un elemento in più = errore');
+  });
   t.group('Griglie attentive — porting del generatore: consegne esatte e numeriche', () => {
     let ok = true, total = 0, minRules = 99;
     for (let lvl = 1; lvl <= 10; lvl++) for (let k = 0; k < 6; k++) {

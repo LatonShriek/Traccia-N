@@ -165,6 +165,23 @@ module.exports = async function run(t) {
     const dbl = INV.genInversioneItem(9, 'doppie', new Set());
     t.ok(dbl.double, 'consegna «doppie» forzata');
     const it2 = { multi: true, expectedTokens: ['17', '96', '62'] };
+    // 1-3 consegne sullo stesso stimolo, tutte diverse, ciascuna con risposta non vuota; pool scelto a mano rispettato
+    let okCons = true, seen = new Set(), okPool = true;
+    for (let i = 0; i < 200; i++) {
+      const lv = 1 + (i % 10), u = new Set();
+      const it = INV.genInversioneItem(lv, 'auto', u);
+      const c = it.consegne;
+      if (!c || c.length < 1 || c.length > 3 || (lv <= 2 && c.length !== 1)) okCons = false;
+      if (c && new Set(c.map(x => x.expected)).size !== c.length) okCons = false;
+      if (c && c.some(x => !x.expectedTokens.length || !x.instruction)) okCons = false;
+      if (c) seen.add(c.length);
+      const it3 = INV.genInversioneItem(lv, 'auto', new Set(), { pool: ['inverti', 'ordina'], nCons: 2 });
+      if (!it3.consegne.every(x => ['inverti', 'ordina'].includes(x.rule))) okPool = false;
+    }
+    t.ok(okCons, 'Inversione: da 1 a 3 consegne diverse sullo stesso stimolo (1 sola ai livelli 1-2)');
+    t.ok(seen.has(1) && seen.has(2) && seen.has(3), 'Inversione: si vedono sequenze con 1, 2 e 3 consegne');
+    t.ok(okPool, 'Inversione: con un pool scelto a mano compaiono solo quelle consegne');
+    t.eq(INV.genInversioneItem(10, 'auto', new Set(), { nCons: 3 }).consegne.length <= 3, true, 'Inversione: massimo 3 consegne');
     t.eq(INV.scoreInversioneAnswer(it2, '17 96 62', 1).correct, true, 'numeri a più cifre: risposta esatta con spazi');
     t.eq(INV.scoreInversioneAnswer(it2, '1796 62', 1).correct, false, 'numeri a più cifre: senza spazio giusto è errata');
     t.eq(INV.scoreInversioneAnswer({ multi: false, expectedTokens: ['A','R','B','O'] }, 'arbo', 900).correct, true, 'risposta esatta (maiuscole indifferenti)');

@@ -274,64 +274,105 @@ function assignAttr(tokens, attr, full){
   }
   return true; // 'case' e 'type' sono già nel materiale: si controlla dopo
 }
-export function genInversioneItem(level, ruleKey, used){
+// Quante consegne (1-3) si chiedono sullo STESSO stimolo, per livello Traccia-N (1-10).
+// IPOTESI da validare: carico di manipolazione crescente (più operazioni in memoria di lavoro sullo stesso
+// materiale); ai livelli bassi una sola consegna, ai più alti spesso tre.
+export const INVERSIONE_NCONS_P = [
+  [1,0,0],[1,0,0],[.7,.3,0],[.6,.4,0],[.4,.5,.1],[.3,.5,.2],[.2,.5,.3],[.2,.4,.4],[.1,.4,.5],[.1,.3,.6]
+];
+function pickNCons(lv, fixed){
+  if(fixed===1 || fixed===2 || fixed===3) return fixed;
+  const p = INVERSIONE_NCONS_P[Math.max(1, Math.min(10, lv|0)) - 1]; const r = Math.random();
+  return r < p[0] ? 1 : r < p[0]+p[1] ? 2 : 3;
+}
+// Normalizza la richiesta di consegne: ruleKey legacy ('auto' | 'doppie' | chiave) oppure elenco scelto a mano
+// (opts.pool: chiavi di INVERSIONE_SINGLE e/o 'doppie'; vuoto/assente = automatico secondo il livello).
+function poolFromArgs(ruleKey, opts){
+  if(opts && Array.isArray(opts.pool) && opts.pool.length) return opts.pool.filter(k=>k==='doppie' || INVERSIONE_SINGLE[k]);
+  if(ruleKey==='doppie') return ['doppie'];
+  if(ruleKey && ruleKey!=='auto' && INVERSIONE_SINGLE[ruleKey]) return [ruleKey];
+  return null;
+}
+function chooseRule(lv, kind, pool, takenKeys, lastRule){
+  const manual = !!pool;
+  const singles = (manual ? pool.filter(k=>k!=='doppie') : INVERSIONE_SINGLE_KEYS.filter(k=>INVERSIONE_SINGLE[k].minLevel<=lv))
+    .filter(k=>INVERSIONE_SINGLE[k].kinds.includes(kind) && !takenKeys.has(k));
+  const canDouble = manual ? pool.includes('doppie') : Math.random() < INVERSIONE_DOUBLE_P[lv-1];
+  if(canDouble && (!manual || !singles.length || Math.random()<0.4)){
+    const d = makeDouble(manual ? 10 : Math.max(lv, 6), kind);
+    if(d && !takenKeys.has(d.key)) return d;
+  }
+  if(!singles.length) return null;
+  const free = singles.length>1 && lastRule ? singles.filter(k=>k!==lastRule) : singles;
+  const rk = pick(free.length ? free : singles), sr = INVERSIONE_SINGLE[rk];
+  return { key:rk, attr:sr.attr, run:sr.run, text:sr.text(kind), mode:'singola' };
+}
+export function genInversioneItem(level, ruleKey, used, opts){
+  opts = opts || {};
   const lv = Math.max(1, Math.min(10, level|0));
   const gen = inversioneGenLevel(lv);
   const pCase = invMixedCaseProb(gen);
   const lens = inversioneLens(gen);
-  const pools = INVERSIONE_SINGLE_KEYS.filter(k=>INVERSIONE_SINGLE[k].minLevel<=lv);
-  for(let attempt=0; attempt<300; attempt++){
-    // 1) tipo di materiale
+  const pool = poolFromArgs(ruleKey, opts);
+  for(let attempt=0; attempt<400; attempt++){
+    // 1) tipo di materiale: lettere/parole, cifre, alfanumerico (dal 11 del generatore) e numeri a più cifre (livello 4+)
     const specs = [];
     lens.forEach(len=>{ specs.push({kind:'letters', len}); specs.push({kind:'digits', len}); });
     if(gen>=INV_ALNUM_FROM) lens.filter(l=>l>=4).forEach(len=> specs.push({kind:'alnum', len}));
-    if(lv>=4) specs.push({kind:'numbers', len:0}, {kind:'numbers', len:0});
+    if(lv>=4 || pool) specs.push({kind:'numbers', len:0}, {kind:'numbers', len:0});
     const spec = pick(specs);
-    // 2) consegna: manuale, doppia o singola
-    let rule = null, rk;
-    const manual = ruleKey && ruleKey!=='auto' && ruleKey!=='doppie';
-    if(ruleKey==='doppie' || (!manual && Math.random() < INVERSIONE_DOUBLE_P[lv-1])){
-      rule = makeDouble(Math.max(lv, 6), spec.kind);
-      if(!rule){ if(ruleKey==='doppie') continue; }
-      else rk = rule.key;
+    // 2) da 1 a 3 consegne DIVERSE sullo stesso stimolo
+    const want = pickNCons(lv, opts.nCons);
+    const rules = [], taken = new Set();
+    for(let i=0;i<want;i++){
+      const r = chooseRule(lv, spec.kind, pool, taken, i===0 && used ? used.lastRule : null);
+      if(!r) break;
+      rules.push(r); taken.add(r.key);
     }
-    if(!rule){
-      rk = manual ? ruleKey : pick(pools.length>1 && used && used.lastRule ? pools.filter(k=>k!==used.lastRule) : pools);
-      const sr = INVERSIONE_SINGLE[rk];
-      if(!sr || !sr.kinds.includes(spec.kind)) continue;
-      rule = { key:rk, attr:sr.attr, run:sr.run, text:sr.text(spec.kind), mode:'singola' };
-    }
-    // 3) stimolo + attributi
+    if(!rules.length) continue;
+    // 3) stimolo + attributi (colore/grandezza servono solo se una consegna li usa)
     const tokens = makeTokens(spec.kind, spec.len, gen, lv, pCase);
     if(spec.kind!=='numbers' && isTrivialOrder(tokens.map(t=>t.ch).join(''))) continue;
-    if(rule.attr==='color' || rule.attr==='size'){
-      if(!assignAttr(tokens, rule.attr, rule.mode!=='singola')) continue;
-    } else if(lv>=8 && Math.random()<0.5){ // colori irrilevanti: distrattori ai livelli alti
+    let okAttr = true;
+    ['color','size'].forEach(at=>{
+      const need = rules.filter(r=>r.attr===at);
+      if(need.length){ if(!assignAttr(tokens, at, need.some(r=>r.mode!=='singola'))) okAttr = false; }
+    });
+    if(!okAttr) continue;
+    if(!rules.some(r=>r.attr==='color') && lv>=8 && Math.random()<0.5){ // colori irrilevanti: distrattori ai livelli alti
       tokens.forEach(t=>{ t.color = Math.random()<0.3 ? 'red' : null; });
     }
-    if(rule.attr==='case' && !(tokens.some(t=>valueOf.case(t)==='upper') && tokens.some(t=>valueOf.case(t)==='lower'))) continue;
-    if(rule.attr==='type' && !(tokens.some(isDigitTok) && tokens.some(isLetterTok))) continue;
-    // 4) risposta attesa: non vuota e mai identica allo stimolo (salvo inverti/ordina)
-    const out = rule.run(tokens);
-    if(!out.length) continue;
-    // i filtri devono davvero scegliere (mai tutti i token)
-    if(!['inverti','ordina','decrescente'].includes(rule.key) && rule.mode!=='gruppi' && out.length>=tokens.length) continue;
+    if(rules.some(r=>r.attr==='case') && !(tokens.some(t=>valueOf.case(t)==='upper') && tokens.some(t=>valueOf.case(t)==='lower'))) continue;
+    if(rules.some(r=>r.attr==='type') && !(tokens.some(isDigitTok) && tokens.some(isLetterTok))) continue;
+    // 4) risposte attese: mai vuote, mai tutte identiche fra loro, i filtri devono davvero scegliere
+    const multi = tokens.some(t=>t.ch.length>1);
+    let ok = true; const consegne = [];
+    for(const rule of rules){
+      const out = rule.run(tokens);
+      if(!out.length){ ok = false; break; }
+      if(!['inverti','ordina','decrescente'].includes(rule.key) && rule.mode!=='gruppi' && out.length>=tokens.length){ ok = false; break; }
+      const expectedTokens = out.map(t=>up(t.ch));
+      const expected = expectedTokens.join(multi ? ' ' : '');
+      if(consegne.some(c=>c.expected===expected)){ ok = false; break; }
+      consegne.push({ rule:rule.key, double: rule.mode!=='singola', instruction:rule.text, expectedTokens, expected });
+    }
+    if(!ok) continue;
     const text = tokens.map(t=>t.ch).join(spec.kind==='numbers' ? ' ' : '');
     const key = spec.kind+':'+up(text);
     if(used && used.has(key) && attempt<200) continue;
-    if(used){ used.add(key); used.lastRule = rule.key; }
-    const multi = tokens.some(t=>t.ch.length>1);
-    const expectedTokens = out.map(t=>up(t.ch));
+    if(used){ used.add(key); used.lastRule = consegne[consegne.length-1].rule; }
     const nChars = tokens.reduce((a,t)=>a+t.ch.length, 0);
-    return { tokens, text, kind:spec.kind, len:tokens.length, rule:rule.key, double: rule.mode!=='singola', instruction:rule.text,
-             multi, expectedTokens, expected: expectedTokens.join(multi ? ' ' : ''),
+    const c0 = consegne[0];
+    return { tokens, text, kind:spec.kind, len:tokens.length, rule:c0.rule, double:c0.double, instruction:c0.instruction,
+             multi, expectedTokens:c0.expectedTokens, expected:c0.expected, consegne,
              exposureMs: inversioneExposureMs(lv, nChars) };
   }
   // rete di sicurezza (non dovrebbe mai servire)
   const tokens = randLetters(4).split('').map(ch=>({ch, color:null, size:null}));
   const expectedTokens = tokens.map(t=>t.ch).reverse();
-  return { tokens, text:tokens.map(t=>t.ch).join(''), kind:'letters', len:4, rule:'inverti', double:false, instruction:INVERSIONE_SINGLE.inverti.text('letters'),
-           multi:false, expectedTokens, expected:expectedTokens.join(''), exposureMs: inversioneExposureMs(lv, 4) };
+  const c = { rule:'inverti', double:false, instruction:INVERSIONE_SINGLE.inverti.text('letters'), expectedTokens, expected:expectedTokens.join('') };
+  return { tokens, text:tokens.map(t=>t.ch).join(''), kind:'letters', len:4, rule:c.rule, double:false, instruction:c.instruction,
+           multi:false, expectedTokens, expected:c.expected, consegne:[c], exposureMs: inversioneExposureMs(lv, 4) };
 }
 
 // Correzione: esatta (tutti i token giusti, nell'ordine) più punteggio parziale = quota di posizioni giuste.

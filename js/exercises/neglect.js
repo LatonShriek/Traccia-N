@@ -142,13 +142,25 @@ import { neglectProgressivaPhase } from '../core/titration.js';
   // è caduto l'elemento raro (modalità intruso/regola, dove il lato non è
   // controllato in generazione ma resta comunque utile da registrare).
   export function neglectLayoutPositions(cfg, n){
-    const cols=8, rows=Math.ceil(n/cols);
+    const scattered = cfg.neglectLayout==='sparsa';
+    // «Organizzato»: griglia davvero regolare (righe piene, ultima riga centrata, scarto minimo dal centro cella),
+    // così si distingue a colpo d'occhio dal «Sparso». Prima le celle vuote erano scelte a caso e la presentazione
+    // sembrava sparsa anche con «Organizzato».
+    const cols = scattered ? 8 : Math.min(10, Math.max(5, Math.round(Math.sqrt(n*1.6))));
+    const rows=Math.ceil(n/cols);
     const cellW=100/cols, cellH=100/rows;
     let positions=[];
-    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) positions.push({r,c});
-    positions = shuffleArr(positions).slice(0,n);
-    const scattered = cfg.neglectLayout==='sparsa';
-    const MIN_DIST = 10, MAX_TRIES = 40;
+    if(scattered){
+      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) positions.push({r,c});
+      positions = shuffleArr(positions).slice(0,n);
+    } else {
+      for(let i=0;i<n;i++){
+        const r = Math.floor(i/cols), inRow = Math.min(cols, n - r*cols);
+        positions.push({r, c:(i%cols) + (cols-inRow)/2});
+      }
+      positions = shuffleArr(positions);
+    }
+    const MIN_DIST = scattered ? 10 : 0, MAX_TRIES = 40;
     // Margine dai bordi dello stage: gli elementi sono posizionati per il
     // CENTRO (transform:translate(-50%,-50%) in CSS) con larghezza fino al
     // 9% del container — un centro troppo vicino al bordo (visto in
@@ -168,7 +180,7 @@ import { neglectProgressivaPhase } from '../core/titration.js';
       // sparse quanto la modalità libera, che è esattamente il problema
       // segnalato: le due modalità devono essere DISTINGUIBILI a vista,
       // non solo nei numeri.
-      return { x: clamp(p.c*cellW + cellW*(0.35+Math.random()*0.3)), y: clamp(p.r*cellH + cellH*(0.35+Math.random()*0.3)) };
+      return { x: clamp(p.c*cellW + cellW*(0.42+Math.random()*0.16)), y: clamp(p.r*cellH + cellH*(0.42+Math.random()*0.16)) };
     }
     return positions.map(p=>{
       const side = p.c < cols/2 ? 'left':'right';

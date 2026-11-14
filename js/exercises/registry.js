@@ -420,12 +420,17 @@ import { serieRuleFor } from './serie.js';
     memoriaModo:'pqrst', memoriaLivello:1, memoriaMateriale:'lista', // solo per Strategie di memoria — memoriaMateriale usato solo da loci/errorless/vanishing (pqrst è sempre brano, chunking è sempre lista)
     serieRegola:0, // solo per Serie alternate: 0 = la regola segue il livello, 1-32 = regola fissata a mano
     pasatMateriale:'somme', // solo per PASAT: 'somme'|'giorni'|'mesi'
+    intrusoLimitS:0, // Intruso: tempo massimo per schermata in secondi (0 = tabella del livello)
+    inversionePool:[], // consegne ammesse scelte a mano (vuoto = automatico per livello; include 'doppie')
+    inversioneNCons:'auto', // consegne per sequenza: 'auto' (1-3 secondo il livello) oppure 1/2/3
     inversioneRegola:'auto', // solo per Inversione e riordino: 'auto' (rotazione di consegne singole e doppie), 'doppie' oppure una chiave di INVERSIONE_SINGLE
     memoriaFormaIdx:0, // solo per pqrst/chunking, solo sui livelli con forme parallele (1-2 al momento) — quale forma (A/B/C...) usare in questa sessione; scelta sempre manuale dall'operatore, mai casuale, per poter pilotare baseline/intermedia/finale nel confronto RCI
     memoriaLociTipo:'casa', memoriaLociCustom:'', // solo per loci — 'casa'|'corpo'|'personalizzato' (tappe reali digitate dall'operatore, una per riga)
     chunkingMetodi:['categoria'], chunkingNota:'', // solo per chunking — array di chiavi fra 'categoria','acronimo','narrazione','immagine','personale' (max 1 sotto liv.11, max 2 da liv.11); chunkingNota usata solo se 'personale' è selezionato
     categLivello:1, categMateriale:'simboli', // solo per Categorizzazione condizionale — livello 1-10 (banda doppia delle 5 strutture, struttura fissa dentro ogni banda, non adattivo); categMateriale usato solo alle strutture 1 e 4 ('simboli'|'lettereVoce'|'numeriVoce' — 'colori' rimosso dalla selezione, la sua unica regola era Caldo/Freddo, troppo arbitraria; resta leggibile nello storico di sedute già registrate)
     categRegime:'random', switchRegime:'random', // 'random'|'tipo_colore'|'forma_colore'|'parita_colore'|'consvoc_posizione'|'freccia_colore'|'tipo_tono' — Categorizzazione strutture 2/3/5 e Task-switching bivalente condividono lo stesso motore a doppia dimensione (DUAL_DIM_ROTATION); 'tipo_tono' è escluso dalla rotazione casuale, resta selezionabile a mano
+    durataMin:0, // 0 = a numero di prove; >0 = la seduta dura quei minuti (si chiude a fine prova)
+    feedbackProva:true, // ✓/✗ dopo ogni prova negli esercizi di allenamento
     categTipo:'categorie', // 'categorie' (strutture 1-5) | 'serie' (regole di Serie A/B/1/2, stessa scala, livello 11 = 2-back)
     categStructManual:1, // solo in modalità Manuale: struttura (1-5) scelta liberamente dal clinico, indipendente da categLivello — vedi categEffectiveStructure()
     zoneGrandi:false, // accessibilità: zone di risposta molto più grandi (metà schermo per 2 risposte) invece di pulsanti piccoli — utile su tablet/smartphone per bassa vista
@@ -463,7 +468,7 @@ import { serieRuleFor } from './serie.js';
       goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx, pasatMateriale:c.pasatMateriale, serieRegola:c.serieRegola,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
-      categLivello:c.categLivello, categTipo:c.categTipo, serieRegola:c.serieRegola, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
+      intrusoLimitS:c.intrusoLimitS, inversionePool:c.inversionePool, inversioneNCons:c.inversioneNCons, durataMin:c.durataMin, feedbackProva:c.feedbackProva, categLivello:c.categLivello, categTipo:c.categTipo, serieRegola:c.serieRegola, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
       categRegime:c.categRegime, switchRegime:c.switchRegime,
       simonCongruenza:c.simonCongruenza, simonMateriale:c.simonMateriale,
       inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'

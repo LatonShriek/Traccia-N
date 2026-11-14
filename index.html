@@ -224,7 +224,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     cfg.adaptStartLevel = pc.adaptStartLevel || 1; cfg.tapatStartLevel = pc.tapatStartLevel || 1;
     cfg.dualStartLevel1 = pc.dualStartLevel1 || 1; cfg.dualStartLevel2 = pc.dualStartLevel2 || 1;
     cfg.neglectStartLevel = pc.neglectStartLevel || 1;
-    cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
+    cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
     cfg.targetRate = pc.targetRate; cfg.respMode = pc.respMode; cfg.voice = pc.voice;
     cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.stopsignalInterferenza = pc.stopsignalInterferenza || 'no'; cfg.adaptive = !!pc.adaptive;
     cfg.switchMaterial = pc.switchMaterial || 'numeri'; cfg.dualVisual = pc.dualVisual || 'lettere'; cfg.dualVisual2 = pc.dualVisual2 || 'numeri'; cfg.dualPairing = pc.dualPairing || 'vis-aud'; cfg.antMode = pc.antMode || 'classico';
@@ -1743,6 +1743,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
           if(!cfg.targetSeq || !cfg.targetSeq.length || cfg.targetSeq.length!==3 || looksMista) cfg.targetSeq = defaultTargetSeq(cfg.stimType, 3);
         }
       }
+      if(EX_DEFAULT_TRIALS[v]) cfg.trials = EX_DEFAULT_TRIALS[v];
       if(v==='ant' && cfg.trials<60) cfg.trials = 72;
       if(v==='neglect' && cfg.trials>10) cfg.trials = 3;
       if(v!=='neglect' && v!=='ant' && cfg.trials<10) cfg.trials = 24;
@@ -1881,8 +1882,17 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         card.appendChild(el('p',{class:'hint'},['A questo livello: un nuovo stimolo ogni '+(lv.isi/1000).toFixed(1)+' s, regola sullo stimolo di '+lv.lag+(lv.lag===1?' posto':' posti')+' prima'+((cfg.pasatMateriale||'somme')!=='somme' ? ', avanzando di '+lv.shift : '')+'. Il paziente risponde toccando; se non tocca in tempo la risposta conta come omissione. Con l\'adattivo il livello sale/scende da solo ogni 8 risposte (70-85%).']));
       }
       if(cfg.taskMode==='inversione'){
-        const rl = {auto:'A rotazione (singole e, dai livelli alti, doppie)', doppie:'Solo doppie (due criteri)'}; INVERSIONE_SINGLE_KEYS.forEach(k=>rl[k]=INVERSIONE_SINGLE[k].label);
-        grid.appendChild(field('Consegna', el('select',{onchange:e=>{ cfg.inversioneRegola=e.target.value; render(); }}, ['auto','doppie',...INVERSIONE_SINGLE_KEYS].map(k=>el('option',((cfg.inversioneRegola||'auto')===k ? {value:k, selected:'selected'} : {value:k}),[rl[k]])))));
+        // Pool delle consegne: vuoto = automatico per livello; altrimenti SOLO quelle spuntate (anche oltre il livello).
+        const poolSel = new Set(cfg.inversionePool||[]);
+        const chips = el('div',{style:'display:flex; flex-wrap:wrap; gap:6px;'});
+        const togglePool = k=>{ if(poolSel.has(k)) poolSel.delete(k); else poolSel.add(k); cfg.inversionePool=[...poolSel]; cfg.inversioneRegola='auto'; render(); };
+        [...INVERSIONE_SINGLE_KEYS,'doppie'].forEach(k=>{
+          chips.appendChild(el('button',{class:poolSel.has(k)?'primary':'ghost', style:'width:auto; padding:6px 10px; font-size:14px;', onclick:()=>togglePool(k)},[k==='doppie' ? 'Doppie (due criteri)' : INVERSIONE_SINGLE[k].label]));
+        });
+        grid.appendChild(field('Consegne ammesse (tocca per includere/escludere)', chips));
+        grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1;'},[poolSel.size ? 'Pool scelto a mano: '+poolSel.size+' consegne (vale a tutti i livelli).' : 'Nessuna selezione = automatico: le consegne si sbloccano col livello.']));
+        if(poolSel.size) grid.appendChild(field('Azzera selezione', el('button',{class:'ghost', onclick:()=>{ cfg.inversionePool=[]; render(); }},['Torna all\'automatico'])));
+        grid.appendChild(field('Consegne per sequenza', segButtons(['auto','1','2','3'], String(cfg.inversioneNCons||'auto'), v=>{ cfg.inversioneNCons = v==='auto' ? 'auto' : parseInt(v,10); render(); }, {auto:'Crescono col livello (1-3)', '1':'Sempre 1', '2':'Sempre 2', '3':'Sempre 3'})));
         const lv = inversionePlanAt(cfg.adaptStartLevel);
         card.appendChild(el('p',{class:'hint'},['A questo livello: sequenze di '+lv.lens.join('-')+' caratteri'+(lv.numbers?' (anche numeri a più cifre)':'')+', '+(lv.lexical?'parole vere e cifre':lv.alnum?'non-parole ('+lv.pronounce+'% pronunciabili), cifre e misti lettere+cifre':'non-parole ('+lv.pronounce+'% pronunciabili) e cifre')+(lv.mixedCase?', maiuscole/minuscole miste':'')+'. Consegne a rotazione: '+lv.singles.map(k=>INVERSIONE_SINGLE[k].label.toLowerCase()).join(', ')+(lv.pDouble>0?'; consegne DOPPIE (due criteri insieme) nel '+Math.round(lv.pDouble*100)+'% delle sequenze':'')+'. La sequenza resta a schermo un tempo FISSO (circa '+(lv.msPerChar/1000).toFixed(2)+' s per carattere, decrescente col livello), poi sparisce da sola e il paziente la riscrive trasformata con la tastiera a schermo. «Prove» = numero di sequenze. Con l\'adattivo il livello cambia ogni 4 sequenze (70-85% di sequenze esatte).']));
       }
@@ -1891,6 +1901,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         card.appendChild(el('p',{class:'hint'},['A questo livello (= livello '+lv.gen+' del generatore di schede, stesso materiale): simboli «'+lv.categoryLabel+'», griglia '+lv.rows+'×'+lv.cols+'. Ogni griglia ha sempre 10 consegne di difficoltà crescente (colore, sfondo, bordo, posizione, adiacenza, negazione…); il paziente digita il numero (o due, o «quale e di quanti»: la schermata lo dice). Il numero di consegne della seduta è «Prove».']));
       }
       if(cfg.taskMode==='intrusopercettivo'){
+        const lvT = intrusoPlanAt(cfg.adaptStartLevel);
+        grid.appendChild(field('Tempo massimo per schermata (0 = secondo il livello: '+Math.round(lvT.limitMs/1000)+' s)', stepper(cfg.intrusoLimitS|0,0,120,v=>{ cfg.intrusoLimitS=v; render(); },5)));
         const lv = intrusoPlanAt(cfg.adaptStartLevel);
         card.appendChild(el('p',{class:'hint'},['A questo livello (= livello '+lv.gen+' del generatore di schede, stesse famiglie di simboli): '+(lv.nMin===lv.nMax?lv.nMax:lv.nMin+'-'+lv.nMax)+' elementi per schermata, simboli di '+lv.len+(lv.len===1?' carattere':' caratteri')+', '+Math.round(lv.limitMs/1000)+' s per schermata. Con l\'adattivo il livello cambia da solo ogni 6 schermate (70-85%).']));
       }
@@ -2021,7 +2033,10 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       grid.appendChild(field('Scenario', segButtons(scKeys, cfg.goaltaskScenario, v=>{cfg.goaltaskScenario=v; render();}, Object.fromEntries(scKeys.map(k=>[k, GOALTASK_SCENARIOS[k].label])))));
       grid.appendChild(field('Livello di complessità', segButtons(['1','2','3','4','5'], String(cfg.goaltaskLivello), v=>{cfg.goaltaskLivello=parseInt(v,10); render();}, {'1':'1 — molto facile', '2':'2 — facile', '3':'3 — medio', '4':'4 — difficile', '5':'5 — molto difficile'})));
     } else if(!isNeglect){
-      grid.appendChild(field('Numero di prove', stepper(cfg.trials,10,100,v=>{cfg.trials=v; updateDurEst();},4)));
+      grid.appendChild(field('Durata', segButtons(['prove','minuti'], cfg.durataMin>0?'minuti':'prove', v=>{ cfg.durataMin = v==='minuti' ? (cfg.durataMin>0?cfg.durataMin:10) : 0; render(); }, {prove:'A numero di prove', minuti:'A tempo (minuti)'})));
+      if(cfg.durataMin>0) grid.appendChild(field('Minuti', stepper(cfg.durataMin,1,60,v=>{cfg.durataMin=v; updateDurEst();},1)));
+      else grid.appendChild(field('Numero di prove', stepper(cfg.trials,10,100,v=>{cfg.trials=v; updateDurEst();},4)));
+      if(FEEDBACK_ESERCIZI.includes(cfg.taskMode)) grid.appendChild(field('Riscontro dopo ogni prova (✓ verde / ✗ rosso)', segButtons(['si','no'], cfg.feedbackProva!==false?'si':'no', v=>{ cfg.feedbackProva = v==='si'; render(); }, {si:'Sì (predefinito)', no:'No'})));
       // ISI — di sola lettura (valore di tabella) per i esercizi dove il
       // livello lo pilota davvero in modalità Livello/Adattiva; altrove
       // resta sempre un campo libero, in ogni modalità. Categorizzazione
@@ -2397,8 +2412,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       ? (()=>{ const sc = goalTaskInstanceFor(cfg.goaltaskScenario, cfg.goaltaskLivello); return (sc.budgetSecondi ? 'Tempo a disposizione: '+fmtTime(sc.budgetSecondi*1000)+'. ' : 'Nessun limite di tempo. ')+sc.items.length+' elementi'+(sc.regole.length?', con regola attiva':'')+'.'; })()
       : isMemoria
       ? (()=>{ const m = memoriaMaterialFor(cfg); return memoriaEffectiveMateriale(cfg)==='lista' ? m.parole.length+' parole da ricordare.' : Math.round(m.testo.split(/\s+/).length)+' parole nel brano, '+m.unita.length+' idee-chiave da riconoscere al richiamo.'; })()
-      : 'Durata stimata della sessione: '+fmtTime(cfg.isi*cfg.trials)+'.']);
-    function updateDurEst(){ if(isGoalTask || isMemoria) return; durEstP.textContent = 'Durata stimata della sessione: '+fmtTime(cfg.isi*cfg.trials)+'.'; }
+      : (cfg.durataMin>0 ? 'Durata: '+cfg.durataMin+' min (la seduta si chiude alla fine della prova in corso).' : 'Durata stimata della sessione: '+fmtTime(cfg.isi*cfg.trials)+'.')]);
+    function updateDurEst(){ if(isGoalTask || isMemoria) return; durEstP.textContent = cfg.durataMin>0 ? 'Durata: '+cfg.durataMin+' min (la seduta si chiude alla fine della prova in corso).' : 'Durata stimata della sessione: '+fmtTime(cfg.isi*cfg.trials)+'.'; }
     actions.appendChild(durEstP);
 
     if(buildingProgramFor){
@@ -2676,6 +2691,48 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
 
   /* ---------- TASK ENGINE ---------- */
+  // --- Durata a tempo (minuti) e feedback per prova — comuni a tutti gli esercizi a prove ---
+  // Con «Durata in minuti» il numero di prove interno diventa grande (999) e un timer, scaduto il tempo,
+  // lo abbassa alla prova in corso: la seduta si chiude a fine prova, mai a metà. Il numero effettivo di
+  // prove svolte è quello salvato nel record; il valore nominale si ripristina subito dopo.
+  let durataTimer = null;
+  const DURATA_ESCLUSI = ['neglect','goaltask','memoria'];
+  function sessionProgress(){
+    if(!session) return 0;
+    if(typeof session.trialIdx==='number') return session.trialIdx;
+    if((cfg.taskMode==='pasat'||cfg.taskMode==='serie') && session.choiceLog) return session.choiceLog.length;
+    return session.idx|0;
+  }
+  function totTxt(){ return cfg._trialsNominal!=null ? '' : ' / '+cfg.trials; }
+  function sessionTimeSetup(){
+    if(durataTimer){ clearTimeout(durataTimer); durataTimer=null; }
+    if(cfg._trialsNominal!=null){ cfg.trials = cfg._trialsNominal; delete cfg._trialsNominal; }
+    if(!(cfg.durataMin>0) || DURATA_ESCLUSI.includes(cfg.taskMode) || screeningState || (typeof demoState!=='undefined' && demoState)) return;
+    cfg._trialsNominal = cfg.trials; cfg.trials = 999;
+    durataTimer = setTimeout(()=>{ durataTimer=null; if(cfg._trialsNominal!=null) cfg.trials = Math.max(1, sessionProgress()+1); }, cfg.durataMin*60000);
+  }
+  function sessionTimeFinish(){
+    if(durataTimer){ clearTimeout(durataTimer); durataTimer=null; }
+    if(cfg._trialsNominal!=null) cfg.trials = Math.max(1, Math.min(cfg.trials, sessionProgress() || 1));
+  }
+  function sessionTimeRestore(){
+    if(cfg._trialsNominal!=null){ cfg.trials = cfg._trialsNominal; delete cfg._trialsNominal; }
+  }
+  // Esercizi in cui il riscontro «giusto/sbagliato» dopo ogni prova è previsto di default (allenamento).
+  const FEEDBACK_ESERCIZI = ['intrusopercettivo','griglie','runningspan','inversione','pasat','serie','categorizzazione'];
+  function feedbackAttivo(){ return cfg.feedbackProva!==false && FEEDBACK_ESERCIZI.includes(cfg.taskMode) && !screeningState; }
+  function trialFeedback(ok){
+    if(!feedbackAttivo()) return;
+    const old = document.getElementById('trialfb'); if(old) old.remove();
+    const col = ok ? '#2E9E5B' : '#D64545';
+    const d = document.createElement('div'); d.id='trialfb';
+    d.style.cssText = 'position:fixed; inset:0; z-index:9999; pointer-events:none; box-sizing:border-box; border:14px solid '+col+'; display:flex; align-items:center; justify-content:center; font-size:min(30vw,30vh); font-weight:800; color:'+col+'; background:'+col+'22;';
+    d.textContent = ok ? '✓' : '✗';
+    document.body.appendChild(d);
+    setTimeout(()=>{ if(d.parentNode) d.remove(); }, 450);
+  }
+  // Numero di prove predefinito quando si sceglie l'esercizio (modificabile a mano nel Setup).
+  const EX_DEFAULT_TRIALS = { inversione:24, intrusopercettivo:10, griglie:10 };
   function startSession(){
     // Rete di sicurezza per configurazioni salvate PRIMA di questo vincolo
     // (preset nominali, "ultimo livello raggiunto", suggerimento da
@@ -2697,6 +2754,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     // passati da lì (mai ripescato di nuovo, altrimenti potrebbe non
     // corrispondere più a quanto appena letto nelle istruzioni).
     if(cfg.taskMode==='categorizzazione' && !cfg.categRegimeSessione) cfg.categRegimeSessione = pickCategRegime(cfg);
+    sessionTimeSetup();
     regenerateNumeriPool();
     regenerateParolePool();
     if(cfg.taskMode==='neglect'){ startNeglectSession(); return; }
@@ -3186,6 +3244,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       default: outcome = resolveSignal(trial); // nback / sequenza
     }
     if(outcome) session.trail.push({outcome, target: !!trial.isTarget});
+    if((cfg.taskMode==='categorizzazione') && (outcome==='hit'||outcome==='err')) trialFeedback(outcome==='hit');
     if(session.isDemo && outcome && outcome!=='pend'){
       session.lastDemoFeedback = demoFeedbackText(trial, outcome);
       session.phase='demoFeedback';
@@ -3481,7 +3540,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       : EXERCISES[cfg.taskMode].label;
     const curMista = cfg.taskMode==='sequenza' ? cfg.sequenzaMista : cfg.taskMode==='nback' ? cfg.nbackMista : cfg.taskMode==='gonogo' ? cfg.gonogoMista : 'no';
     const isTapatSession = cfg.taskMode==='tapat';
-    d.infoSpan.textContent = 'prova '+(Math.min(session.idx+1,cfg.trials))+' / '+cfg.trials+' · '+modeLabel+
+    d.infoSpan.textContent = 'prova '+(Math.min(session.idx+1,cfg.trials))+totTxt()+' · '+modeLabel+
       (isTapatSession ? (cfg.tapatModalita==='uditivo' ? ' · Uditivo' : '')
         : (EXERCISES[cfg.taskMode].usesStimType && cfg.taskMode!=='ant') ? ' · '+((curMista && curMista!=='no') ? MISTA_LABELS_SHORT[curMista] : STIM_LABELS[cfg.stimType]) : '');
     d.pauseBtn.textContent = session.paused ? '▶ Riprendi' : '❚❚ Pausa';
@@ -4667,7 +4726,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       infoSpan,
       el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ clearErrorlessTimer(); screeningState=null; goBack(); } }},['Interrompi'])
     ]));
-    const content = el('div',{style:'padding:16px; max-width:640px; margin:0 auto; width:100%;'},[]);
+    const content = el('div',{style:'padding:10px 12px; max-width:none; margin:0 auto; width:100%; box-sizing:border-box;'},[]);
     root.appendChild(content);
     return {infoSpan, content};
   }
@@ -4952,6 +5011,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     // come richiesto — un ciclo dove la posizione è imperfetta ma il
     // contenuto è tutto giusto non pesa come un fallimento completo.
     session.rsAdaptBlock.push((score.posAcc+score.contentAcc)/2);
+    trialFeedback(score.posAcc===1 && score.contentAcc===1);
     maybeAdaptRunningSpan();
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
@@ -4977,7 +5037,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // rendering "grande" dello stimolo mostrato durante la sequenza
   // (renderTypedStimulus), qui serve un pulsante piccolo in una griglia.
   function runningSpanKeypadButton(item){
-    if(cfg.stimType==='colori') return el('div',{class:'colorcircle', style:'width:32px; height:32px; background:'+item.hex+';'},[]);
+    if(cfg.stimType==='colori') return el('div',{class:'colorcircle', style:'width:48px; height:48px; background:'+item.hex+';'},[]);
     if(isAudioOnlyStim(cfg.stimType)) return el('div',{},[item.icon||'?']);
     return el('div',{},[String(item)]);
   }
@@ -4987,16 +5047,16 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     for(let i=0;i<trial.n;i++){
       const filled = session.rsAnswer[i]!=null;
       const active = i===session.rsAnswer.length;
-      const slot = el('div',{style:'width:56px; height:56px; border:2px solid '+(active?'var(--focus)':'var(--line)')+'; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px;'},[]);
+      const slot = el('div',{style:'width:76px; height:76px; font-size:34px; border:2px solid '+(active?'var(--focus)':'var(--line)')+'; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px;'},[]);
       if(filled) slot.appendChild(runningSpanKeypadButton(session.rsAnswer[i]));
       slotsRow.appendChild(slot);
     }
     wrap.appendChild(slotsRow);
     wrap.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Tocca, nell\'ordine in cui li ricordi, gli ultimi '+trial.n+' — puoi ascoltarli di nuovo prima di confermare, se sono suoni.']));
     const pool = POOLS[cfg.stimType];
-    const grid = el('div',{class:'seg', style:'justify-content:center; margin:16px 0;'});
+    const grid = el('div',{class:'seg', style:'justify-content:center; margin:16px 0; gap:10px; flex-wrap:wrap;'});
     pool.forEach(item=>{
-      grid.appendChild(el('button',{onclick:()=>{
+      grid.appendChild(el('button',{style:'min-width:84px; min-height:76px; font-size:34px;', onclick:()=>{
         if(session.rsAnswer.length>=trial.n) return;
         if(isAudioOnlyStim(cfg.stimType)) playTone(item, 300);
         session.rsAnswer.push(item); render();
@@ -5016,7 +5076,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function updateRunningSpanScreen(){
     const {infoSpan, content} = taskDom;
     const trial = session.currentTrial;
-    infoSpan.textContent = 'Prova '+(session.trialIdx+1)+' / '+cfg.trials+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Prova '+(session.trialIdx+1)+totTxt()+' · livello '+cfg.adaptStartLevel;
     content.innerHTML = '';
     if(session.paused){
       content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.']));
@@ -5049,7 +5109,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       infoSpan,
       el('div',{class:'topbar-actions'},[pauseBtn, el('button',{onclick:()=>{ if(confirm('Interrompere la sessione in corso?')){ timedClearTimer(); screeningState=null; goBack(); } }},['Interrompi'])])
     ]));
-    const content = el('div',{style:'padding:16px; max-width:760px; margin:0 auto; width:100%;'},[]);
+    const content = el('div',{style:'padding:10px 12px; max-width:none; margin:0 auto; width:100%; box-sizing:border-box;'},[]);
     root.appendChild(content);
     return {infoSpan, content};
   }
@@ -5064,7 +5124,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(!session.currentTrial) session.currentTrial = genIntrusoTrialOf(cfg.adaptStartLevel, null, {avoidFamilies:session.recentFams});
     session.trialShownAt = performance.now();
     render();
-    session.timer = setTimeout(()=>resolveIntrusoTrial(null), session.currentTrial.limitMs);
+    session.timer = setTimeout(()=>resolveIntrusoTrial(null), cfg.intrusoLimitS>0 ? cfg.intrusoLimitS*1000 : session.currentTrial.limitMs);
   }
   function resolveIntrusoTrial(tapped){
     timedClearTimer();
@@ -5072,7 +5132,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const rt = Math.round(performance.now()-session.trialShownAt);
     const sc = scoreIntrusoTrial(trial, tapped, rt);
     session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, family:trial.familyId, n:trial.n});
-    session.ipAdaptBlock.push(sc.correct);
+    session.ipAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
     maybeAdaptIntrusoOf(cfg, session);
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
@@ -5083,19 +5143,19 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function updateIntrusoScreen(){
     const {infoSpan, content} = taskDom;
     const trial = session.currentTrial;
-    infoSpan.textContent = 'Schermata '+(session.trialIdx+1)+' / '+cfg.trials+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Schermata '+(session.trialIdx+1)+totTxt()+' · livello '+cfg.adaptStartLevel;
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     if(!trial) return;
     // Stessa impaginazione del generatore: griglia piena (righe tutte complete), un riquadro per elemento,
     // coppie/terne di simboli grafici racchiuse in una cornice sottile. Si risponde toccando / cliccando l'elemento.
-    content.style.maxWidth = '1100px';
-    const W = Math.min(1100, window.innerWidth) - 32, H = Math.max(260, window.innerHeight - 190);
+    content.style.maxWidth = 'none';
+    const W = window.innerWidth - 28, H = Math.max(260, window.innerHeight - 130);
     const cols = intrusoGridCols(trial.n, W, H), rows = trial.n/cols;
     const cellW = W/cols, cellH = H/rows;
     const cw = (trial.len>=2 && INTRUSO_GROUP_CHAR_WIDTH[trial.familyId]) || INTRUSO_CHAR_WIDTH[trial.familyId] || 1;
     const frac = trial.len>=3 ? 0.74 : trial.len===2 ? 0.62 : 0.85;
-    const px = Math.floor(Math.max(14, Math.min(cellW*frac/trial.len/cw, cellH*0.7, 90)));
+    const px = Math.floor(Math.max(14, Math.min(cellW*frac/trial.len/cw, cellH*0.7, 170)));
     const grid = el('div',{style:'display:grid; grid-template-columns:repeat('+cols+',1fr); gap:6px; margin-top:8px;'});
     trial.items.forEach((v,i)=>{
       const framed = intrusoFramed(trial.familyId, [...String(v)].length);
@@ -5139,7 +5199,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const given = grigliaGiven(rule);
     const sc = scoreGrigliaAnswer(rule, given, rt);
     session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:rule.input.expected, given, tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
-    session.grAdaptBlock.push(sc.correct);
+    session.grAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
     session.ruleIdx++; grigliaResetAnswer();
@@ -5168,13 +5228,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function updateGriglieScreen(){
     const {infoSpan, content} = taskDom;
-    infoSpan.textContent = 'Consegna '+(session.trialIdx+1)+' / '+cfg.trials+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Consegna '+(session.trialIdx+1)+totTxt()+' · livello '+cfg.adaptStartLevel;
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     const g = session.grid, rule = g.rules[session.ruleIdx], inp = rule.input;
-    content.style.maxWidth = '1100px';
-    const availW = Math.min(1100, window.innerWidth) - 32, availH = Math.max(220, window.innerHeight*0.42);
-    const cellPx = Math.floor(Math.max(26, Math.min(availW/g.cols - 4, availH/g.rows - 4, 84)));
+    content.style.maxWidth = 'none';
+    const availW = window.innerWidth - 28, availH = Math.max(220, window.innerHeight - 380);
+    const cellPx = Math.floor(Math.max(26, Math.min(availW/g.cols - 4, availH/g.rows - 4, 150)));
     content.appendChild(el('p',{style:'text-align:center; font-size:20px; font-weight:700; margin:6px 0 2px;'},[rule.text]));
     // come rispondere: una riga chiara per i tipi di consegna con risposta diversa da un solo numero
     const how = inp.type==='double' ? 'Scrivi DUE numeri: il primo per «'+inp.labels[0]+'», il secondo per «'+inp.labels[1]+'».'
@@ -5195,9 +5255,9 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     }
     content.appendChild(slots);
     const slotIdx = inp.type==='double' ? session.slot : 0;
-    const pad = el('div',{style:'display:grid; grid-template-columns:repeat(5,minmax(0,64px)); gap:8px; justify-content:center;'});
+    const pad = el('div',{style:'display:grid; grid-template-columns:repeat(5,minmax(0,88px)); gap:10px; justify-content:center;'});
     for(let d=0; d<=9; d++){
-      pad.appendChild(el('button',{style:'min-height:48px; font-size:22px; font-weight:700;', onclick:()=>{
+      pad.appendChild(el('button',{style:'min-height:60px; font-size:28px; font-weight:700;', onclick:()=>{
         const cur = session.digits[slotIdx];
         if(cur.length<2){ session.digits[slotIdx] = (cur==='0'?'':cur)+d; if(inp.type==='double' && session.digits[slotIdx].length===2 && slotIdx===0) session.slot = 1; render(); }
       }},[String(d)]));
@@ -5217,20 +5277,25 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   const INV_KEYROWS = ['1234567890','QWERTYUIOP','ASDFGHJKL','ZXCVBNM'];
   const INV_COLORS = { red:'#C62828', green:'#2E7D32' };
   function startInversioneSession(){
-    session = { trialIdx:0, item:null, phase:'gap', typed:'', typeStartAt:0, used:new Set(), choiceLog:[], invAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
+    session = { trialIdx:0, item:null, consIdx:0, phase:'gap', typed:'', typeStartAt:0, used:new Set(), choiceLog:[], invAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
     nextInversioneItem();
     view='task'; render();
   }
   function nextInversioneItem(){
-    session.item = genInversioneItem(cfg.adaptStartLevel, cfg.inversioneRegola||'auto', session.used);
-    session.phase = 'gap'; session.typed = '';
+    session.item = genInversioneItem(cfg.adaptStartLevel, cfg.inversioneRegola||'auto', session.used, {pool:cfg.inversionePool, nCons:cfg.inversioneNCons});
+    session.phase = 'gap'; session.typed = ''; session.consIdx = 0;
   }
   function resolveInversioneTrial(){
-    const it = session.item;
+    const it = session.item, c = it.consegne[session.consIdx];
     const rt = Math.round(performance.now()-session.typeStartAt);
-    const sc = scoreInversioneAnswer(it, session.typed, rt);
-    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:it.expected, given:session.typed.toUpperCase().trim(), partial:Math.round(sc.partial*100)/100, rule:it.rule, double:it.double, kind:it.kind, len:it.len, exposureMs:it.exposureMs});
-    session.invAdaptBlock.push(sc.correct);
+    const sc = scoreInversioneAnswer({multi:it.multi, expectedTokens:c.expectedTokens}, session.typed, rt);
+    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:c.expected, given:session.typed.toUpperCase().trim(), partial:Math.round(sc.partial*100)/100, rule:c.rule, double:c.double, kind:it.kind, len:it.len, nCons:it.consegne.length, consIdx:session.consIdx});
+    session.invAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
+    if(session.consIdx+1 < it.consegne.length){ // stessa sequenza (nascosta), consegna successiva
+      session.consIdx++; session.typed=''; session.typeStartAt = performance.now();
+      render();
+      return;
+    }
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
     maybeAdaptInversioneOf(cfg, session);
@@ -5239,12 +5304,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function updateInversioneScreen(){
     const {infoSpan, content} = taskDom;
-    infoSpan.textContent = 'Sequenza '+(session.trialIdx+1)+' / '+cfg.trials+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Sequenza '+(session.trialIdx+1)+totTxt()+' · livello '+cfg.adaptStartLevel;
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     const it = session.item;
-    content.style.maxWidth = '720px';
-    content.appendChild(el('p',{style:'text-align:center; font-size:20px; font-weight:700; margin:10px 0 4px;'},[it.instruction]));
+    content.style.maxWidth = '1100px';
     if(session.phase==='gap'){
       content.appendChild(el('div',{style:'min-height:200px;'},['']));
       if(!session.timer) session.timer = setTimeout(()=>{ session.timer=null; session.phase='show'; render(); }, 700);
@@ -5252,23 +5316,26 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     }
     if(session.phase==='show'){
       const nChars = it.tokens.reduce((a,t)=>a+t.ch.length,0) + (it.multi ? it.tokens.length-1 : 0);
-      const base = Math.max(34, Math.min(110, Math.floor(Math.min(window.innerWidth-40,700)/(nChars*0.85))));
+      const base = Math.max(40, Math.min(200, Math.floor(Math.min(window.innerWidth-40,1000)/(nChars*0.85)), Math.floor(window.innerHeight*0.35)));
       const box = el('div',{style:'text-align:center; margin:34px 0; font-weight:800; letter-spacing:.06em; font-family:ui-monospace,Menlo,Consolas,monospace; min-height:'+Math.round(base*1.3)+'px; display:flex; justify-content:center; align-items:baseline; gap:'+(it.multi?Math.round(base*0.35):0)+'px;'});
       it.tokens.forEach(t=>{
         const f = t.size==='big' ? 1.0 : t.size==='small' ? 0.45 : 0.8;
         box.appendChild(el('span',{style:'font-size:'+Math.round(base*f)+'px;'+(t.color?' color:'+INV_COLORS[t.color]+';':'')},[t.ch]));
       });
       content.appendChild(box);
-      content.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Memorizzala: tra poco sparisce.']));
+      content.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Memorizza: tra poco sparisce. La consegna comparirà dopo.']));
       if(!session.timer) session.timer = setTimeout(()=>{ session.timer=null; session.phase='type'; session.typeStartAt=performance.now(); render(); }, it.exposureMs);
       return;
     }
+    const cons = it.consegne[session.consIdx];
+    content.appendChild(el('p',{style:'text-align:center; font-size:22px; font-weight:700; margin:10px 0 4px;'},[(it.consegne.length>1 ? 'Consegna '+(session.consIdx+1)+' di '+it.consegne.length+' — ' : '')+cons.instruction]));
     const shown = el('div',{style:'text-align:center; font-size:40px; font-weight:800; letter-spacing:.12em; min-height:60px; margin:16px 0 10px; font-family:ui-monospace,Menlo,Consolas,monospace; border-bottom:3px solid var(--accent,#1F6F63); white-space:pre;'},[session.typed || '\u00A0']);
     content.appendChild(shown);
     const maxLen = it.multi ? 24 : 8;
+    const invKeyW = Math.max(40, Math.min(92, Math.floor((Math.min(window.innerWidth-24,1100)-9*6)/10)));
     INV_KEYROWS.forEach(row=>{
       const r = el('div',{style:'display:flex; justify-content:center; gap:6px; margin:6px 0;'});
-      row.split('').forEach(ch=> r.appendChild(el('button',{style:'min-width:46px; min-height:56px; font-size:22px; font-weight:700; padding:0 6px;', onclick:()=>{ if(session.typed.length<maxLen){ session.typed += ch; render(); } }},[ch])));
+      row.split('').forEach(ch=> r.appendChild(el('button',{style:'min-width:'+invKeyW+'px; min-height:64px; font-size:26px; font-weight:700; padding:0 6px;', onclick:()=>{ if(session.typed.length<maxLen){ session.typed += ch; render(); } }},[ch])));
       content.appendChild(r);
     });
     const row = el('div',{class:'rowbtns', style:'justify-content:center; margin-top:12px; gap:12px;'});
@@ -5298,7 +5365,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(expected!=null){
       const sc = scorePasatTrial(expected, session.answered ? session.answered.value : null, session.answered ? session.answered.rt : null);
       session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, materiale:mat});
-      session.pasatAdaptBlock.push(sc.correct);
+      session.pasatAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
       maybeAdaptPasatOf(cfg, session);
     }
     session.idx++;
@@ -5308,7 +5375,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function updatePasatScreen(){
     const {infoSpan, content} = taskDom;
     const mat = cfg.pasatMateriale||'somme';
-    infoSpan.textContent = 'Risposta '+Math.min(session.choiceLog.length+1,cfg.trials)+' / '+cfg.trials+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Risposta '+Math.min(session.choiceLog.length+1,cfg.trials)+totTxt()+' · livello '+cfg.adaptStartLevel;
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     const stim = session.series[session.idx];
@@ -5351,7 +5418,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(expected!==undefined){
       const sc = scoreSerieTrial(expected, session.answered ? session.answered.value : null, session.answered ? session.answered.rt : null);
       session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, nogo:sc.nogo, commission:sc.commission, level:cfg.adaptStartLevel, regola:sr.index});
-      session.serieAdaptBlock.push(sc.correct);
+      session.serieAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
       maybeAdaptSerieOf(cfg, session);
     }
     session.idx++;
@@ -5361,7 +5428,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function updateSerieScreen(){
     const {infoSpan, content} = taskDom;
     const sr = serieRuleFor(cfg);
-    infoSpan.textContent = 'Risposta '+Math.min(session.choiceLog.length+1,cfg.trials)+' / '+cfg.trials+' · regola '+sr.index+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Risposta '+Math.min(session.choiceLog.length+1,cfg.trials)+totTxt()+' · regola '+sr.index+' · livello '+cfg.adaptStartLevel;
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     const s = session.seq[session.idx];
@@ -5394,7 +5461,9 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     }
   }
   async function completeAndSaveInner(durationMs){
+    sessionTimeFinish();
     const rec = buildSessionRecord(cfg, session, durationMs, {patientProfile, activeLocalPatientId, activeRemotePatientId, dateLabel: todayStr()});
+    sessionTimeRestore();
     lastResult = rec;
     if(screeningState){
       if(screeningState.queueIdx < screeningState.queue.length){

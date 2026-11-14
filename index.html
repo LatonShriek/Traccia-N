@@ -2069,7 +2069,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       // Accorpamento (14 nov 2026): «Trova l'intruso» → esercizio Intruso percettivo; «Conteggio a regola» → Griglie attentive.
       // Qui resta il Classico (misura del neglect, gradiente sinistra/destra). Le altre modalità compaiono solo se la
       // configurazione caricata (programma, storico) le usa già, così nulla di salvato si rompe.
-      const neglectModi = ['classico'].concat(['intruso','regola','progressiva'].includes(cfg.neglectMode) ? ['intruso','regola','progressiva'] : []);
+      migrateLegacyNeglect();
+      const neglectModi = ['classico'].concat(['intruso','regola'].includes(cfg.neglectMode) ? ['intruso','regola'] : []);
       if(neglectModi.length===1) card.appendChild(el('p',{class:'hint'},['Questa scheda misura la ricerca visiva spaziale (Classico, con gradiente sinistra/destra). Per «trovare l\'unico elemento» usa Intruso percettivo; per «contare con una regola» usa Griglie attentive.']));
       grid.appendChild(field('Modalità', segButtons(neglectModi, cfg.neglectMode, v=>{
         cfg.neglectMode=v;
@@ -2743,7 +2744,12 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     session.trail.slice(-16).forEach(t=> tr.appendChild(el('div',{class:'chip '+t.outcome})));
   }
   function trialTrailEl(){ return el('div',{id:'trialtrail', class:'trail', style:'position:fixed; bottom:10px; left:0; right:0; pointer-events:none; z-index:50;'}); }
+  // La modalità Progressiva (1-30) è stata tolta (14 nov 2026): le configurazioni salvate che la usano ripartono dal Classico.
+  function migrateLegacyNeglect(){
+    if(cfg.taskMode==='neglect' && cfg.neglectMode==='progressiva'){ cfg.neglectMode='classico'; cfg.neglectStartLevel=Math.min(10, cfg.neglectStartLevel||1); }
+  }
   function startSession(){
+    migrateLegacyNeglect();
     // Rete di sicurezza per configurazioni salvate PRIMA di questo vincolo
     // (preset nominali, "ultimo livello raggiunto", suggerimento da
     // screening): se il materiale bivalente risulta comunque associato a

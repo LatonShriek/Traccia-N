@@ -175,3 +175,4 @@ modifiche a quelle parti, controllare a mano su tablet.
 - **Cancellazione accorpata**: nelle nuove configurazioni resta solo il Classico (misura, gradiente sinistra/destra). «Trova l'intruso» si
   allena con Intruso percettivo, «Conteggio a regola» con Griglie attentive. Le modalità vecchie compaiono solo nelle configurazioni già salvate.
 - Tabella test → esercizio → livello: [tabella-test-esercizi.md](tabella-test-esercizi.md) (bozza).
+- **Cancellazione, modalità Progressiva tolta** (14 nov 2026): le configurazioni salvate che la usavano ripartono dal Classico (livello massimo 10, `migrateLegacyNeglect`); lo storico vecchio resta leggibile.

@@ -64,7 +64,7 @@ import { buildDualTask as buildDualTaskOf, genDualTaskTrial as genDualTaskTrialO
 import { INVERSIONE_SINGLE, INVERSIONE_SINGLE_KEYS, inversionePlanAt, genInversioneItem, scoreInversioneAnswer, maybeAdaptInversione as maybeAdaptInversioneOf } from './js/exercises/inversione.js';
 import { grigliaPlanAt, genGrigliaScreen, scoreGrigliaAnswer, maybeAdaptGriglie as maybeAdaptGrigliaOf, colorHexOf as grigliaColorHex, gridShapeSvgOf } from './js/exercises/griglie.js';
 import { INTRUSO_LEVELS, intrusoPlanAt, bestGridCols as intrusoGridCols, intrusoFramed, INTRUSO_CHAR_WIDTH, INTRUSO_GROUP_CHAR_WIDTH, genIntrusoTrial as genIntrusoTrialOf, scoreIntrusoTrial, maybeAdaptIntruso as maybeAdaptIntrusoOf } from './js/exercises/intrusopercettivo.js';
-import { SERIE_LEVELS, SERIE_MAX_LEVEL, SERIE_BAND_POOLS, SERIE_BAND_OF_LEVEL, serieResetRules, SERIE_RESPONSE_LABELS, serieRuleFor, genSerieStimuli, serieExpected, scoreSerieTrial, maybeAdaptSerie as maybeAdaptSerieOf } from './js/exercises/serie.js';
+import { SERIE_LEVELS, SERIE_MAX_LEVEL, SERIE_BAND_POOLS, SERIE_BAND_OF_LEVEL, serieResetRules, serieRuleForLevel, SERIE_RESPONSE_LABELS, serieRuleFor, genSerieStimuli, serieExpected, scoreSerieTrial, maybeAdaptSerie as maybeAdaptSerieOf } from './js/exercises/serie.js';
 import { PASAT_LEVELS, PASAT_MATERIALS, pasatAnswers, genPasatSeries, pasatExpected, scorePasatTrial, maybeAdaptPasat as maybeAdaptPasatOf } from './js/exercises/pasat.js';
 import { RUNNINGSPAN_LEVELS, RUNNINGSPAN_ADAPT_BLOCK, genRunningSpanTrial as genRunningSpanTrialOf, runningSpanItemsEqual, scoreRunningSpanTrial, maybeAdaptRunningSpan as maybeAdaptRunningSpanOf } from './js/exercises/runningspan.js';
 import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_PROBES, probeFailed, suggestionFor, ATTENZIONE_ORDER, attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER } from './js/core/screening.js';
@@ -239,7 +239,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     cfg.memoriaFormaIdx = pc.memoriaFormaIdx || 0;
     cfg.memoriaLociTipo = pc.memoriaLociTipo || 'casa'; cfg.memoriaLociCustom = pc.memoriaLociCustom || '';
     cfg.chunkingMetodi = (pc.chunkingMetodi && pc.chunkingMetodi.length) ? pc.chunkingMetodi : ['categoria']; cfg.chunkingNota = pc.chunkingNota || '';
-    cfg.categLivello = pc.categLivello || 1; cfg.categMateriale = pc.categMateriale || 'simboli'; cfg.categStructManual = pc.categStructManual || 1; cfg.zoneGrandi = !!pc.zoneGrandi;
+    cfg.categLivello = pc.categLivello || 1; cfg.categTipo = pc.categTipo || 'categorie'; cfg.serieRegola = pc.serieRegola|0; cfg.categMateriale = pc.categMateriale || 'simboli'; cfg.categStructManual = pc.categStructManual || 1; cfg.zoneGrandi = !!pc.zoneGrandi;
     cfg.categRegime = pc.categRegime || 'random'; cfg.switchRegime = pc.switchRegime || 'random';
     cfg.simonCongruenza = pc.simonCongruenza || 'bilanciato'; cfg.simonMateriale = pc.simonMateriale || 'colori';
     cfg.inputDevice = pc.inputDevice || 'touch'; cfg.keyLayout = pc.keyLayout || 'standard';
@@ -1869,7 +1869,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         render();
       })));
       if(cfg.taskMode==='serie'){
-        grid.appendChild(field('Tipo di prova', unifSwitch()));
+        grid.appendChild(field('Esercizio unificato', el('button',{class:'primary', onclick:()=>{ cfg.categLivello=Math.max(1,Math.min(SERIE_MAX_LEVEL,cfg.adaptStartLevel||1)); cfg.categTipo='serie'; cfg.taskMode='categorizzazione'; render(); }},['Passa a Categorizzazione condizionale · Regole di Serie'])));
         grid.appendChild(field('Regola (0 = secondo il livello)', stepper(cfg.serieRegola|0,0,32,v=>{ cfg.serieRegola=v; if(v>0){ cfg.adaptive=false; if(cfg.titrationMode==='adattivo') cfg.titrationMode='livello'; } render(); })));
         const sr = serieRuleFor(cfg), lv = SERIE_LEVELS[cfg.adaptStartLevel]||SERIE_LEVELS[1];
         const pool = SERIE_BAND_POOLS[SERIE_BAND_OF_LEVEL[Math.max(1,Math.min(SERIE_MAX_LEVEL,cfg.adaptStartLevel))]];
@@ -2033,7 +2033,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       const isCategManualHandled = cfg.taskMode==='categorizzazione' && (cfg.titrationMode||'manuale')==='manuale';
       const categStruct4NonManual = cfg.taskMode==='categorizzazione' && !isCategManualHandled && categEffectiveStructure(cfg)===4;
       const resolvedIsi = (TITRATION_EXERCISES.includes(cfg.taskMode) && cfg.titrationMode && cfg.titrationMode!=='manuale') ? resolvedIsiForDisplay(cfg.taskMode, cfg)
-        : (cfg.taskMode==='categorizzazione' && !isCategManualHandled && !categStruct4NonManual) ? CATEG_ISI[cfg.categLivello]
+        : (cfg.taskMode==='categorizzazione' && !isCategManualHandled && !categStruct4NonManual) ? (cfg.categTipo==='serie' ? (SERIE_LEVELS[cfg.categLivello]||SERIE_LEVELS[1]).isi : CATEG_ISI[cfg.categLivello])
         : null;
       if(isCategManualHandled){
         // niente: il campo pertinente (ISI o frequenza lure) è già stato
@@ -2245,14 +2245,14 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       card.appendChild(el('p',{class:'hint'},['Regola fissa per tutta la sessione — la posizione (a schermo, o nel panning stereo per i suoni) non conta mai per la risposta, ma può coincidere (congruente) o no (incongruente) con il pulsante corretto. La proporzione qui sopra è un parametro clinico fisso, non una leva di difficoltà: un blocco a prevalenza congruente o incongruente permette di misurare quanto il paziente riesce a sfruttare l\'aspettativa generale del blocco per prepararsi in anticipo all\'interferenza (controllo proattivo); un blocco bilanciato non lo permette. Consigliate almeno 60 prove per un indice di conflitto stabile.']));
     }
     if(cfg.taskMode==='categorizzazione'){
-      grid.appendChild(field('Tipo di prova', unifSwitch()));
+      grid.appendChild(field('Tipo di prova', segButtons(['categorie','serie'], cfg.categTipo||'categorie', v=>{ cfg.categTipo=v; if(v==='categorie' && cfg.categLivello>10) cfg.categLivello=10; render(); }, {categorie:'Categorie (strutture 1-5)', serie:'Regole di Serie (A/B/1/2)'})));
       grid.appendChild(field('Modalità', segButtons(['manuale','livello','adattivo'], cfg.titrationMode||'manuale', v=>{
         cfg.titrationMode = v;
         cfg.adaptive = v==='adattivo';
         render();
       }, {manuale:'Manuale', livello:'Livello', adattivo:'Adattivo'})));
       const manuale = (cfg.titrationMode||'manuale')==='manuale';
-      if(manuale){
+      if(manuale && cfg.categTipo!=='serie'){
         // In Manuale la struttura è una scelta indipendente dal numero di
         // livello (decisione di Rodrigo: più libertà per il clinico, al
         // prezzo dichiarato che il numero "Livello" smette di significare
@@ -2260,7 +2260,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         // sostituito dalla scelta diretta di struttura).
         grid.appendChild(field('Struttura (1-5)', stepper(cfg.categStructManual||1,1,5,v=>{cfg.categStructManual=v; render();},1,v=>CATEG_STRUCTURE_LABELS[v])));
       } else {
-        grid.appendChild(field('Livello (1-10)', stepper(cfg.categLivello,1,10,v=>{cfg.categLivello=v; render();},1)));
+        grid.appendChild(field(cfg.categTipo==='serie' ? 'Livello (1-11)' : 'Livello (1-10)', stepper(cfg.categLivello,1,cfg.categTipo==='serie'?11:10,v=>{cfg.categLivello=v; render();},1)));
       }
       const cStruct = categEffectiveStructure(cfg);
       if(cStruct===1 || cStruct===4){
@@ -2284,6 +2284,12 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         }
       }
       card.appendChild(el('p',{class:'hint'},[CATEG_STRUCTURE_HINTS[cStruct]]));
+      if(cStruct===6){
+        grid.appendChild(field('Regola (0 = secondo il livello)', stepper(cfg.serieRegola|0,0,32,v=>{ cfg.serieRegola=v; serieResetRules(cfg); render(); })));
+        const lvS = SERIE_LEVELS[Math.max(1,Math.min(SERIE_MAX_LEVEL,cfg.categLivello))]||SERIE_LEVELS[1];
+        const srS = serieRuleForLevel(cfg.categLivello, cfg.serieRegola, cfg.serieRegoleSeduta || (cfg.serieRegoleSeduta = {}));
+        card.appendChild(el('p',{class:'hint'},['Regola '+srS.index+' di 32: '+srS.rule.text+' Un nuovo stimolo ogni '+(lvS.isi/1000).toFixed(1)+' s. La regola è una a caso fra quelle della banda del livello (1-2, 3-4, 5-6, 7-10; il livello 11, 2-back, si raggiunge solo con l\'adattivo dopo il 10) ed è la stessa per tutta la seduta; con una regola fissata a mano vale sempre quella.']));
+      }
       if(manuale){
         if(cStruct===4){
           grid.appendChild(field('Frequenza lure', stepper(Math.round((cfg.targetRate||0)*100),0,50,v=>{cfg.targetRate=v/100; render();},5,v=>v+'%')));
@@ -2587,7 +2593,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     // solo DOPO; se il sorteggio avvenisse lì, il testo delle istruzioni
     // mostrato ora descriverebbe una coppia di dimensioni diversa da
     // quella che poi compare davvero nella seduta.
-    if(cfg.taskMode==='categorizzazione') cfg.categRegimeSessione = pickCategRegime(cfg);
+    if(cfg.taskMode==='categorizzazione'){ cfg.categRegimeSessione = pickCategRegime(cfg); if(categEffectiveStructure(cfg)===6) serieResetRules(cfg); }
     if(cfg.taskMode==='switching' && cfg.switchMaterial==='bivalente') cfg.switchRegimeSessione = pickDualDimRegime(cfg.switchRegime);
     const s = el('div',{class:'screen'});
     const card = el('div',{class:'card'});
@@ -3348,6 +3354,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
           const rs = SWITCH_RULESETS[cfg.categMateriale].ruleA;
           return [{action:'a', label:rs.labelA, cls:'match'}, {action:'b', label:rs.labelB, cls:'nomatch'}];
         }
+        if(liv===6) return [{action:'sx', label:SERIE_RESPONSE_LABELS.sx, cls:'match'}, {action:'dx', label:SERIE_RESPONSE_LABELS.dx, cls:'nomatch'}, {action:'si', label:SERIE_RESPONSE_LABELS.si, cls:'match'}, {action:'no', label:SERIE_RESPONSE_LABELS.no, cls:'nomatch'}];
         if(liv===2) return [{action:'a', label:'A', cls:'match'}, {action:'b', label:'B', cls:'nomatch'}, {action:'c', label:'C', cls:'nomatch'}];
         if(liv===3) return [{action:'a', label:'A', cls:'match'}, {action:'b', label:'B', cls:'nomatch'}];
         if(liv===4) return [{action:'match', label: cfg.respMode==='operatore' ? 'Il paziente indica corrispondenza' : 'Corrispondenza (stessa categoria di prima)', cls:'match', full:true}];
@@ -3640,6 +3647,10 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       return wrap;
     }
     if(cfg.taskMode==='categorizzazione'){
+      if(trial.categSerie){ // regole di Serie: A/B/1/2 in bianco (nero) o rosso, con ✕ sui No-Go segnalati
+        const sr = serieRuleForLevel(cfg.categLivello, cfg.serieRegola, cfg.serieRegoleSeduta || {});
+        return el('div',{class:'stimulus', style:'color:'+(trial.val.color==='red'?'#e33b3b':'var(--white)')+' !important;'},[trial.val.char+((sr.rule.marker && trial.val.nogo)?' ✕':'')]);
+      }
       if(trial.categMateriale){ // livelli 1 e 4: singola dimensione
         if(cfg.categMateriale==='colori') return el('div',{class:'colorcircle', style:'width:140px; height:140px; background:'+trial.val.hex+';'},[]);
         if(isSpokenStim(cfg.categMateriale)) return el('div',{class:'audio-pulse active'},['♪']);
@@ -4164,7 +4175,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(c.taskMode==='switching') return SWITCH_MATERIAL_LABELS_SHORT[c.switchMaterial]||c.switchMaterial;
     if(c.taskMode==='categorizzazione'){
       const struct = categEffectiveStructure(c);
-      return (struct===1||struct===4) ? (CATEG_MATERIAL_LABELS_SHORT[c.categMateriale]||c.categMateriale) : 'Lettere/numeri';
+      return struct===6 ? 'A/B/1/2 nero-rosso' : (struct===1||struct===4) ? (CATEG_MATERIAL_LABELS_SHORT[c.categMateriale]||c.categMateriale) : 'Lettere/numeri';
     }
     if(c.taskMode==='dualtask'){
       const pairing = c.dualPairing||'vis-aud';
@@ -5317,29 +5328,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
 
   // --- Serie alternate ---
-  // Categorizzazione condizionale e Serie alternate sono UN esercizio con due tipi di prova e una scala sola
-  // (livelli 1-10 a bande doppie, più il 2-back come livello 11 solo per Serie): il livello passa dall'uno all'altro.
-  function unifSwitch(){
-    const isSerie = cfg.taskMode==='serie';
-    return segButtons(['categorizzazione','serie'], cfg.taskMode, v=>{
-      if(v===cfg.taskMode) return;
-      if(v==='serie'){ cfg.adaptStartLevel = Math.max(1, Math.min(SERIE_MAX_LEVEL, cfg.categLivello||1)); serieResetRules(cfg); }
-      else { cfg.categLivello = Math.max(1, Math.min(10, cfg.adaptStartLevel||1)); }
-      cfg.taskMode = v; render();
-    }, {categorizzazione:'Categorie (strutture 1-5)', serie:'Regole di Serie (A/B/1/2)'});
-  }
-  // Dopo una seduta di uno dei due tipi, l'altro riparte dallo stesso livello (nello stesso profilo).
-  function mirrorUnifiedLevel(){
-    if(cfg.taskMode!=='serie' && cfg.taskMode!=='categorizzazione') return;
-    const other = cfg.taskMode==='serie' ? 'categorizzazione' : 'serie';
-    const c2 = Object.assign({}, cfg, {taskMode:other});
-    if(other==='serie') c2.adaptStartLevel = Math.max(1, Math.min(SERIE_MAX_LEVEL, cfg.categLivello||1));
-    else c2.categLivello = Math.max(1, Math.min(10, cfg.adaptStartLevel||1));
-    const snap2 = presetCfgOf(c2);
-    if(!patientProfile && activeLocalPatientId) saveExerciseLevel('local', activeLocalPatientId, other, snap2);
-    else if(patientProfile) saveExerciseLevel('remote', patientProfile.id, other, snap2);
-    else if(activeRemotePatientId) saveExerciseLevel('remote', activeRemotePatientId, other, snap2);
-  }
   function startSerieSession(){
     serieResetRules(cfg);
     const lvl = SERIE_LEVELS[cfg.adaptStartLevel]||SERIE_LEVELS[1];
@@ -5493,7 +5481,6 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(lastAcc!=null) snap.lastAccuracy = lastAcc;
     if(!patientProfile && activeLocalPatientId){ updateLocalPatientConfig(activeLocalPatientId, snap); saveExerciseLevel('local', activeLocalPatientId, cfg.taskMode, snap); }
     else if(patientProfile){ saveRemotePatientConfig(patientProfile.id, snap); saveExerciseLevel('remote', patientProfile.id, cfg.taskMode, snap); }
-    mirrorUnifiedLevel();
     if(patientProfile) cachedTodayUsage = null; // forza il ricalcolo del limite giornaliero
     else if(!patientProfile && activeRemotePatientId){ saveRemotePatientConfig(activeRemotePatientId, snap); saveExerciseLevel('remote', activeRemotePatientId, cfg.taskMode, snap); }
     view='results'; render();

@@ -119,6 +119,24 @@ import { mean } from '../core/stats.js';
     if(markerRate>0) for(let i=4;i<seq.length;i++){ if(!seq[i-1].nogo && rng()<markerRate) seq[i].nogo = true; }
     return seq;
   }
+  // Un solo stimolo in più, in coda a `seq` (stesse regole di genSerieStimuli: prime 4 fisse, mai più di 3 uguali
+  // di fila, ✕ mai sulle prime 4 né due di fila). Serve a Categorizzazione condizionale, che genera una prova per volta.
+  export function genSerieNext(seq, markerRate, rng){
+    rng = rng || Math.random;
+    const fixed = [{char:'A',color:'black'},{char:'B',color:'red'},{char:'1',color:'red'},{char:'2',color:'black'}];
+    if(seq.length<4){ const s0 = Object.assign({nogo:false}, fixed[seq.length]); seq.push(s0); return s0; }
+    const pool = ['A','B','1','2'], colors = ['black','red'];
+    const run = (key,val)=> seq.slice(-3).every(s=>s[key]===val);
+    let ch, co, t=0;
+    do{ ch = pool[Math.floor(rng()*4)]; t++; }while(t<30 && run('char',ch));
+    t=0; do{ co = colors[Math.floor(rng()*2)]; t++; }while(t<30 && run('color',co));
+    const s1 = {char:ch, color:co, nogo: markerRate>0 && !seq[seq.length-1].nogo && rng()<markerRate};
+    seq.push(s1); return s1;
+  }
+  // Regola della seduta per un dato livello unificato (1-11), con eventuale regola fissata a mano (0 = secondo il livello).
+  export function serieRuleForLevel(level, manual, cache){
+    return serieRuleFor({ adaptStartLevel:level, serieRegola:manual|0, serieRegoleSeduta:cache });
+  }
   // Risposta attesa allo stimolo i: 'dx'|'sx'|'si'|'no', null = non toccare, undefined = non valutare.
   export function serieExpected(rule, seq, i){
     const s = seq[i];

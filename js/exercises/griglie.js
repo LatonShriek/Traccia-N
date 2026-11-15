@@ -904,8 +904,8 @@ function touchSpec(r, cells){
   return { text:r.text.replace(/^Conta /,'Tocca ').replace('si conta una volta sola','si tocca una volta sola'), target };
 }
 // Una griglia con le sue consegne: sempre 10 (si rigenera finché il generatore ne dà 10), nell'ordine della rampa di difficoltà.
-export function genGrigliaScreen(level){
-  const g = grigliaGenLevel(level);
+export function genGrigliaScreen(level, gen){
+  const g = gen!=null ? gen : grigliaGenLevel(level);
   const rows = gridRowsForLevel(g), cols = gridColsForLevel(g);
   let best = null;
   for(let i=0; i<60; i++){

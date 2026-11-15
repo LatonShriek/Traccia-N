@@ -449,7 +449,7 @@ import { serieRuleFor } from './serie.js';
   export function presetCfgOf(c){
     return {
       stimType:c.stimType, taskMode:c.taskMode, nLevel:c.nLevel,
-      adaptStartLevel:c.adaptStartLevel, adaptFine:c.adaptFine, tapatStartLevel:c.tapatStartLevel,
+      adaptStartLevel:c.adaptStartLevel, adaptFine:c.adaptFine, adaptTimeF:c.adaptTimeF, tapatStartLevel:c.tapatStartLevel,
       dualStartLevel1:c.dualStartLevel1, dualStartLevel2:c.dualStartLevel2, neglectStartLevel:c.neglectStartLevel,
       targetSeq: (EXERCISES[c.taskMode].usesTargetSeq)
         ? (c.taskMode==='sequenza' && c.sequenzaMista

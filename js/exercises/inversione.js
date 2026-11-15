@@ -12,6 +12,7 @@
 //  - la risposta è corretta in automatico: esatta, più il punteggio parziale per posizione.
 // Il generatore ha 32 livelli, Traccia-N 10: livello 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
 import { adaptStep, adaptStepFine, fineStartOf } from '../core/adapt.js';
+import { decideStep, timeFStartOf, clampTimeF, interpByGen } from '../core/assi.js';
 import { mean } from '../core/stats.js';
 import { REAL_WORDS, INV_REAL_BLOCK } from './inversione-data.js';
 
@@ -225,8 +226,9 @@ export function inversioneGenLevel(level){ return LEVEL_MAP[Math.max(1, Math.min
 // Tempo di visione FISSO per carattere (ms), decrescente col livello; minimo 1,5 s in tutto.
 // PROPOSTA da validare (non ricavata dal generatore).
 export const INVERSIONE_MS_PER_CHAR = [1800,1650,1500,1350,1200,1050,950,850,750,650];
-export function inversioneExposureMs(level, nChars){
-  return Math.max(1500, Math.round(nChars * INVERSIONE_MS_PER_CHAR[Math.max(1, Math.min(10, level|0)) - 1]));
+export function inversioneExposureMs(level, nChars, gen, timeF){
+  const mpc = gen!=null ? interpByGen(INVERSIONE_MS_PER_CHAR, gen) : INVERSIONE_MS_PER_CHAR[Math.max(1, Math.min(10, level|0)) - 1];
+  return Math.max(1500, Math.round(nChars * mpc * (timeF||1)));
 }
 export function inversionePlanAt(level){
   const gen = inversioneGenLevel(level);
@@ -310,7 +312,7 @@ function chooseRule(lv, kind, pool, takenKeys, lastRule){
 export function genInversioneItem(level, ruleKey, used, opts){
   opts = opts || {};
   const lv = Math.max(1, Math.min(10, level|0));
-  const gen = inversioneGenLevel(lv);
+  const gen = opts.gen!=null ? opts.gen : inversioneGenLevel(lv);
   const pCase = invMixedCaseProb(gen);
   const lens = inversioneLens(gen);
   const pool = poolFromArgs(ruleKey, opts);
@@ -365,7 +367,7 @@ export function genInversioneItem(level, ruleKey, used, opts){
     const c0 = consegne[0];
     return { tokens, text, kind:spec.kind, len:tokens.length, rule:c0.rule, double:c0.double, instruction:c0.instruction,
              multi, expectedTokens:c0.expectedTokens, expected:c0.expected, consegne,
-             exposureMs: inversioneExposureMs(lv, nChars) };
+             exposureMs: inversioneExposureMs(lv, nChars, opts.gen, opts.timeF), gen };
   }
   // rete di sicurezza (non dovrebbe mai servire)
   const tokens = randLetters(4).split('').map(ch=>({ch, color:null, size:null}));
@@ -388,6 +390,18 @@ export function scoreInversioneAnswer(item, typed, rtMs){
 }
 export function maybeAdaptInversione(cfg, session){
   if(!cfg.adaptive || session.invAdaptBlock.length < INVERSIONE_ADAPT_BLOCK) return;
-  session.fineLevel = (session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg)) + adaptStepFine(mean(session.invAdaptBlock), session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg), 1, 10);
+  const recent = (session.choiceLog||[]).slice(-INVERSIONE_ADAPT_BLOCK);
+  const misses = recent.filter(r=>!r.correct);
+  const near = misses.filter(r=>!r.omitted);
+  const nearMiss = near.length ? near.reduce((a,r)=>a+(r.partial||0),0)/near.length : null;
+  const fine = session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg);
+  const timeF = session.timeF!=null ? session.timeF : timeFStartOf(cfg);
+  const acc = mean(session.invAdaptBlock);
+  const d = decideStep({ acc, misses:misses.length, omitted:misses.filter(r=>r.omitted).length, nearMiss, medRtFrac:null },
+                       { fine, timeF, successBlocks:session.successBlocks||0 }, { hasTime:true, mode:'inversione' });
+  session.fineLevel = fine + d.dFine;
+  session.timeF = clampTimeF(timeF + d.dTime);
+  if(acc > 0.85) session.successBlocks = (session.successBlocks||0) + 1;
+  session.lastStep = d.why;
   session.invAdaptBlock = [];
 }

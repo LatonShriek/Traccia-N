@@ -9,6 +9,7 @@ import { adaptLevelKey } from '../core/bands.js';
 import { seqLabel } from '../core/pools.js';
 import { computeEZDiffusion, computeLISAS } from '../core/scores.js';
 import { mean, sd } from '../core/stats.js';
+import { genOfFine } from '../core/assi.js';
 import { hasTitrationMode } from '../core/titration.js';
 import { scoreGoalTask } from './goaltask.js';
 import { memoriaEffectiveMateriale, memoriaLearnItems } from './memoria.js';
@@ -94,6 +95,8 @@ import { EXERCISES } from './registry.js';
         return null;
       })(),
       finalLevelFine: (cfg.adaptive && ['intrusopercettivo','griglie','inversione','runningspan'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? cfg.adaptFine : null,
+      finalTimeF: (cfg.adaptive && ['intrusopercettivo','inversione'].includes(cfg.taskMode) && typeof cfg.adaptTimeF==='number') ? cfg.adaptTimeF : null,
+      finalGen: (cfg.adaptive && ['intrusopercettivo','griglie','inversione'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? Math.round(genOfFine(cfg.adaptFine)) : null,
       localPatientId: patientProfile ? null : (activeLocalPatientId || null),
       pazienteId: (!patientProfile && activeRemotePatientId) ? activeRemotePatientId : null,
       durationMs, family

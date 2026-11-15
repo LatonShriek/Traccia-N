@@ -6,6 +6,7 @@
 // Il generatore ha 32 livelli, Traccia-N 10: il livello 1-10 corrisponde a 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
 // Funzioni pure: nessun accesso allo schermo; il caso passa da `rng` (per i test).
 import { adaptStep, adaptStepFine, fineStartOf } from '../core/adapt.js';
+import { decideStep, timeFStartOf, clampTimeF, loadOfGen } from '../core/assi.js';
 import { mean } from '../core/stats.js';
 
 const MAX_LEVEL = 32;
@@ -125,6 +126,16 @@ export function intrusoPlanOfGen(g){
   const ns = eligible(g,len).map(f=>niceCount(targetN(g,f,Math.min(len,maxLen(f)))));
   return { gen:g, len, nMin:Math.min(...ns), nMax:Math.max(...ns), nMean: ns.reduce((a,b)=>a+b,0)/ns.length };
 }
+// Tempo per schermata a un livello INTERO del generatore (asse fine, 15 nov): simboli da esaminare ÷ carico atteso,
+// arrotondato ai 2 s, mai sotto i 20 s. Ai livelli di Traccia-N coincide (±2 s) con INTRUSO_LIMIT_MS.
+const _limCache = new Map();
+export function intrusoLimitMsOfGen(g){
+  if(!_limCache.has(g)){
+    const p = intrusoPlanOfGen(g);
+    _limCache.set(g, Math.max(20, Math.round(p.nMean*p.len/loadOfGen(g)/2)*2)*1000);
+  }
+  return _limCache.get(g);
+}
 export function intrusoPlanAt(level){
   const lv = Math.max(1,Math.min(10,level)), g = intrusoGenLevel(lv);
   const p = intrusoPlanOfGen(g);
@@ -158,7 +169,8 @@ function distinctTypes(pool, len, k, rng){
 // opts.avoidFamilies = id delle famiglie appena usate (per ruotarle).
 export function genIntrusoTrial(level, rng, opts){
   rng = rng || Math.random; opts = opts || {};
-  const lv = Math.max(1,Math.min(10,level)), g = intrusoGenLevel(lv), L = planLen(g);
+  const lv = Math.max(1,Math.min(10,level)), g = opts.gen!=null ? opts.gen : intrusoGenLevel(lv), L = planLen(g);
+  const baseLimit = opts.gen!=null ? intrusoLimitMsOfGen(g) : INTRUSO_LIMIT_MS[lv];
   const el = eligible(g, L).slice().sort((a,b)=>famTerm(a)-famTerm(b));
   const w = Math.min(el.length, Math.max(Math.min(9, el.length), Math.ceil(el.length*0.5)));
   const start = Math.round(levelT(g)*(el.length-w));
@@ -185,16 +197,30 @@ export function genIntrusoTrial(level, rng, opts){
   const objs = [{v:oddType, odd:true}];
   others.forEach((t,i)=>{ const c = base + (extra.has(i)?1:0); for(let j=0;j<c;j++) objs.push({v:t, odd:false}); });
   const mixed = shuffled(objs,rng);
-  return { items:mixed.map(o=>o.v), oddIndex:mixed.findIndex(o=>o.odd), familyId:fam.id, familyLabel:fam.label, len, n, limitMs:INTRUSO_LIMIT_MS[lv] };
+  return { items:mixed.map(o=>o.v), oddIndex:mixed.findIndex(o=>o.odd), familyId:fam.id, familyLabel:fam.label, len, n, gen:g, limitMs:Math.round(baseLimit*(opts.timeF||1)) };
 }
 // Esito di una prova: tocco su un indice (null = tempo scaduto).
 export function scoreIntrusoTrial(trial, tappedIndex, rtMs){
   if(tappedIndex==null) return {correct:false, omitted:true, rt:null};
   return {correct: tappedIndex===trial.oddIndex, omitted:false, rt: rtMs};
 }
-// Adattamento: ogni INTRUSO_ADAPT_BLOCK prove, stessa regola 70/85% degli altri esercizi.
+// Adattamento: ogni INTRUSO_ADAPT_BLOCK prove, stessa soglia 70/85% degli altri esercizi, ma la manopola (contenuto
+// o tempo) la sceglie decideStep (core/assi.js) dal tipo di errore e dal margine di tempo.
 export function maybeAdaptIntruso(cfg, session){
   if(!cfg.adaptive || session.ipAdaptBlock.length < INTRUSO_ADAPT_BLOCK) return;
-  session.fineLevel = (session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg)) + adaptStepFine(mean(session.ipAdaptBlock), session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg), 1, 10);
+  const recent = (session.choiceLog||[]).slice(-INTRUSO_ADAPT_BLOCK);
+  const misses = recent.filter(r=>!r.correct);
+  const rts = recent.filter(r=>r.correct && r.rt!=null).map(r=>r.rt).sort((a,b)=>a-b);
+  const lims = recent.map(r=>r.limitMs).filter(x=>x>0);
+  const medRtFrac = (rts.length && lims.length) ? rts[Math.floor(rts.length/2)] / (lims.reduce((a,b)=>a+b,0)/lims.length) : null;
+  const fine = session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg);
+  const timeF = session.timeF!=null ? session.timeF : timeFStartOf(cfg);
+  const acc = mean(session.ipAdaptBlock);
+  const d = decideStep({ acc, misses:misses.length, omitted:misses.filter(r=>r.omitted).length, nearMiss:null, medRtFrac },
+                       { fine, timeF, successBlocks:session.successBlocks||0 }, { hasTime: !(cfg.intrusoLimitS>0), mode:'intruso' });
+  session.fineLevel = fine + d.dFine;
+  session.timeF = clampTimeF(timeF + d.dTime);
+  if(acc > 0.85) session.successBlocks = (session.successBlocks||0) + 1;
+  session.lastStep = d.why;
   session.ipAdaptBlock = [];
 }

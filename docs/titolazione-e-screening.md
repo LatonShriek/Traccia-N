@@ -198,3 +198,18 @@ Vale per gli esercizi a prove autonome: **Intruso percettivo, Griglie attentive,
 - **Selettore esercizi** a menù esplodibili per dominio (si apre quello dell'esercizio scelto).
 
 - **Intruso (15 nov 2026)**: i livelli 1-10 restano quelli di PdM (livelli del generatore 1, 4, 8, 11, 15, 18, 22, 25, 29, 32); è tarato solo il tempo per schermata (da 44 a 32 s con rialzi dove cambia la lunghezza dell'elemento) per un carico da 0,4 a 2,5 simboli/s. Una taratura che accorciava la scala è stata annullata nello stesso giorno.
+
+## Motore ibrido PdM ↔ Traccia-N (15 nov 2026, sera) — Intruso, Griglie, Inversione
+
+Codice: `js/core/assi.js` (test: `tests/assi.test.js`). Solo in modalità adattiva.
+
+1. **Asse fine sul generatore 1–32.** Il livello «vero» resta un numero 1–10 con la virgola (stesso salvataggio di prima); ogni prova pesca però un **livello intero del generatore** per interpolazione fra 1, 4, 8, 11, 15, 18, 22, 25, 29, 32, con dispersione 50% al centro, 20% ±1, 5% ±2 (prima ±1 livello di Traccia-N = ±3-4 del generatore). Il livello 1–10 mostrato e salvato è quello più vicino.
+2. **Transizioni sfumate** (conseguenza della 1): vicino ai confini (elemento da 1→2 simboli al gen. 9, 2→3 al gen. 21, alfanumerico al gen. 11…) la seduta mescola i due lati.
+3. **Contenuto e tempo come due manopole.** Fattore tempo `timeF` 0,7–1,3 (passo 0,1), salvato come `adaptTimeF`. Intruso: tempo per schermata = simboli da esaminare ÷ carico atteso (carico da 0,36 a 2,49 simboli/s, +24% per livello, arrotondato a 2 s, minimo 20 s) × `timeF`; se nel Setup si fissa a mano il tempo (`intrusoLimitS`) il fattore non si muove. Inversione: tempo di visione per carattere interpolato sul livello fine × `timeF` (minimo 1,5 s). Griglie: nessun tempo concesso, quindi nessun fattore (la velocità entra solo nel credito di efficienza).
+4. **La manopola si sceglie dal blocco** (`decideStep`, soglie 85% / 70% invariate):
+   - riuscito: se si era concesso tempo in più, rientra prima quello; Intruso: se il tempo mediano dei giusti è < 50% del concesso si stringe il tempo (−0,1), altrimenti sale il livello (+0,5); Inversione: i blocchi riusciti alternano livello e tempo;
+   - non riuscito: Intruso: se almeno metà dei mancati sono tempo scaduto → +0,1 di tempo (livello fermo); Inversione: se i mancati sono «quasi giusti» (parziale medio ≥ 0,5) → +0,1 di tempo di visione; altrimenti scende il livello (−0,5).
+   Il tempo si allarga al massimo di 1,3 volte; poi scende il contenuto.
+5. Ogni risposta registra `gen` (livello del generatore), `limitMs`/`timeF` dove ha senso; la seduta registra `finalGen` e `finalTimeF`.
+
+**Cosa non è validato:** distribuzione della dispersione (50/20/5), soglia del 50% di margine, passo di 0,1, regola delle «quasi giuste» per Inversione. Sono ipotesi di partenza, da guardare sui dati reali. Griglie ha solo le ipotesi 1–2 (e il credito di efficienza), perché non ha un tempo concesso.

@@ -72,6 +72,7 @@ import { DUAL_LEVEL_MAX, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, S
 import { KEY, getRaw, setRaw, readJSON, writeJSON, removeKey, listByPrefix, getLocalPatient, readAllLocalPatients, setLocalPatient, removeLocalPatient, updateLocalPatient, saveSessionLocal, listSessionsLocal, rewriteSessionsLocal } from './js/services/local-store.js';
 import { recToRow, rowToRec, fetchRole, upsertSessionRow, fetchSessionRows, fetchMyPatients, fetchPatientFresh, fetchOperators, countPatientsOfOperator, fetchAccessRows, insertAccessEvent, insertAuditAction, fetchUsageRows, minutesOf } from './js/services/cloud.js';
 import { PROFILI, patchOf as patchOfProfilo } from './js/core/profili.js';
+import { trialGenFromFine, lvOfGen, timeFStartOf, timeFLabel } from './js/core/assi.js';
 import { ADAPT_BLOCK, adaptStep, countedOutcome, countedByBucket, creditByBucket, trialLevelFromFine, fineStartOf, fineLabel } from './js/core/adapt.js';
 import { computeEZDiffusion, computeLISAS, primaryAccuracyOf, computeExerciseTimeSummary } from './js/core/scores.js';
 import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TARGET_RATE, resolvedFreqForDisplay, resolvedIsiForDisplay, neglectSubLevelForDisplay, categEffectiveStructure, CATEG_STRUCTURE_LABELS, CATEG_STRUCTURE_HINTS, categTitrationModeHint, tapatTitrationModeHint, neglectTitrationModeHint, dualTitrationModeHint, titrationModeHint, neglectProgressivaPhase, LEVEL_FIELD_OF_TASKMODE, levelOfCfg } from './js/core/titration.js';
@@ -2780,15 +2781,26 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function fineLv(){
     if(cfg.adaptive){
       if(session.fineLevel==null) session.fineLevel = fineStartOf(cfg);
-      cfg.adaptStartLevel = trialLevelFromFine(session.fineLevel, 1, 10);
-    }
+      if(GEN_AXIS.includes(cfg.taskMode)){ // asse fine sul generatore 1-32 (ipotesi 1-4, 15 nov)
+        if(session.timeF==null) session.timeF = timeFStartOf(cfg);
+        session.trialGen = trialGenFromFine(session.fineLevel);
+        cfg.adaptStartLevel = lvOfGen(session.trialGen);
+      } else { session.trialGen = null; cfg.adaptStartLevel = trialLevelFromFine(session.fineLevel, 1, 10); }
+    } else session.trialGen = null;
     return cfg.adaptStartLevel;
   }
-  function fineText(){ return cfg.adaptive && session.fineLevel!=null ? fineLabel(session.fineLevel) : String(cfg.adaptStartLevel); }
+  const GEN_AXIS = ['intrusopercettivo','griglie','inversione'];
+  function genOpts(){ return (cfg.adaptive && session.trialGen!=null) ? { gen:session.trialGen, timeF:session.timeF||1 } : {}; }
+  function fineText(){
+    if(!(cfg.adaptive && session.fineLevel!=null)) return String(cfg.adaptStartLevel);
+    const tf = (GEN_AXIS.includes(cfg.taskMode) && cfg.taskMode!=='griglie' && session.timeF!=null && Math.abs(session.timeF-1)>0.01) ? ' · tempo '+timeFLabel(session.timeF) : '';
+    return fineLabel(session.fineLevel)+tf;
+  }
   function fineFinish(){ // a fine seduta: il livello salvato è quello vero (arrotondato), con i mezzi gradini a parte
     if(!cfg.adaptive || session.fineLevel==null) return;
     if(!['intrusopercettivo','griglie','inversione','runningspan'].includes(cfg.taskMode)) return;
     cfg.adaptFine = session.fineLevel;
+    if(session.timeF!=null) cfg.adaptTimeF = session.timeF;
     cfg.adaptStartLevel = Math.max(1, Math.min(10, Math.round(session.fineLevel)));
   }
   function rtBucketOutcome(bucket, score, rt){ session.rtB = session.rtB || {}; return creditByBucket(session.rtB, bucket, +score, rt); } // score 0–1 (true/false valgono 1/0)
@@ -5199,7 +5211,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function beginIntrusoTrial(){
     if(session.paused) return;
-    if(!session.currentTrial) session.currentTrial = genIntrusoTrialOf(fineLv(), null, {avoidFamilies:session.recentFams});
+    if(!session.currentTrial) session.currentTrial = genIntrusoTrialOf(fineLv(), null, Object.assign({avoidFamilies:session.recentFams}, genOpts()));
     session.trialShownAt = performance.now();
     render();
     session.timer = setTimeout(()=>resolveIntrusoTrial(null), cfg.intrusoLimitS>0 ? cfg.intrusoLimitS*1000 : session.currentTrial.limitMs);
@@ -5210,13 +5222,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const rt = Math.round(performance.now()-session.trialShownAt);
     const sc = scoreIntrusoTrial(trial, tapped, rt);
     const ipCounted = Math.round(rtBucketOutcome('intruso', sc.correct, sc.rt)*100)/100;
-    session.choiceLog.push({correct:sc.correct, credit:ipCounted, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, family:trial.familyId, n:trial.n});
+    session.choiceLog.push({correct:sc.correct, credit:ipCounted, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, gen:trial.gen, limitMs:(cfg.intrusoLimitS>0 ? cfg.intrusoLimitS*1000 : trial.limitMs), timeF:session.timeF||null, family:trial.familyId, n:trial.n});
     session.ipAdaptBlock.push(ipCounted); trialFeedback(!!sc.correct);
     maybeAdaptIntrusoOf(cfg, session);
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
     session.recentFams = [trial.familyId].concat(session.recentFams).slice(0,2);
-    session.currentTrial = genIntrusoTrialOf(fineLv(), null, {avoidFamilies:session.recentFams}); // livello letto ORA, dopo l'eventuale adattamento
+    session.currentTrial = genIntrusoTrialOf(fineLv(), null, Object.assign({avoidFamilies:session.recentFams}, genOpts())); // livello letto ORA, dopo l'eventuale adattamento
     beginIntrusoTrial();
   }
   function updateIntrusoScreen(){
@@ -5256,7 +5268,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     view='task'; render();
   }
   function newGriglieGrid(){
-    session.grid = genGrigliaScreen(fineLv());
+    session.grid = genGrigliaScreen(fineLv(), genOpts().gen);
     session.ruleIdx = 0; grigliaResetAnswer();
     session.trialShownAt = performance.now();
   }
@@ -5279,7 +5291,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       if(!session.reveal){ // 1° passaggio: l'OK generale chiude la selezione e mostra giusti / sbagliati / mancanti
         const rt = Math.round(performance.now()-session.trialShownAt);
         const sc = scoreGrigliaSelection(rule, [...session.sel], rt);
-        session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, expected:rule.touch.target.length, given:session.sel.size, hit:sc.hit.length, wrong:sc.wrong.length, missed:sc.missed.length, mode:'tocco', tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
+        session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, gen:session.grid.gen, expected:rule.touch.target.length, given:session.sel.size, hit:sc.hit.length, wrong:sc.wrong.length, missed:sc.missed.length, mode:'tocco', tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
         session.grAdaptBlock.push(rtBucketOutcome('tocco:'+rule.kind, sc.score, sc.rt!=null ? sc.rt/Math.max(1, rule.touch.target.length) : null)); trialFeedback(!!sc.correct);
         session.reveal = sc; render();
         return;
@@ -5290,7 +5302,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const rt = Math.round(performance.now()-session.trialShownAt);
     const given = grigliaGiven(rule);
     const sc = scoreGrigliaAnswer(rule, given, rt);
-    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, expected:rule.input.expected, given, tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
+    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, gen:session.grid.gen, expected:rule.input.expected, given, tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
     session.grAdaptBlock.push(rtBucketOutcome('num:'+rule.kind, sc.score, sc.rt)); trialFeedback(!!sc.correct);
     grigliaAdvance();
   }
@@ -5414,14 +5426,14 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     view='task'; render();
   }
   function nextInversioneItem(){
-    session.item = genInversioneItem(fineLv(), cfg.inversioneRegola||'auto', session.used, {pool:cfg.inversionePool, nCons:cfg.inversioneNCons});
+    session.item = genInversioneItem(fineLv(), cfg.inversioneRegola||'auto', session.used, Object.assign({pool:cfg.inversionePool, nCons:cfg.inversioneNCons}, genOpts()));
     session.phase = 'gap'; session.typed = ''; session.consIdx = 0;
   }
   function resolveInversioneTrial(){
     const it = session.item, c = it.consegne[session.consIdx];
     const rt = Math.round(performance.now()-session.typeStartAt);
     const sc = scoreInversioneAnswer({multi:it.multi, expectedTokens:c.expectedTokens}, session.typed, rt);
-    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, expected:c.expected, given:session.typed.toUpperCase().trim(), partial:Math.round(sc.partial*100)/100, rule:c.rule, double:c.double, kind:it.kind, len:it.len, nCons:it.consegne.length, consIdx:session.consIdx});
+    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, gen:it.gen, timeF:session.timeF||null, expected:c.expected, given:session.typed.toUpperCase().trim(), partial:Math.round(sc.partial*100)/100, rule:c.rule, double:c.double, kind:it.kind, len:it.len, nCons:it.consegne.length, consIdx:session.consIdx});
     session.invAdaptBlock.push(rtBucketOutcome('inv:'+it.len, sc.correct, sc.rt)); trialFeedback(!!sc.correct);
     if(session.consIdx+1 < it.consegne.length){ // stessa sequenza (nascosta), consegna successiva
       session.consIdx++; session.typed=''; session.typeStartAt = performance.now();

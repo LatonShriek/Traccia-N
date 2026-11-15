@@ -62,7 +62,7 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
   (1 simbolo, coppie dal livello 9 del generatore, terne dal 21), stessa somiglianza dei tipi,
   stessa numerosità a punteggio unico, stessa impaginazione a griglia piena con cornice sui
   gruppi di simboli. Livelli 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore.
-  Si risponde toccando/cliccando l'elemento. Tempo per schermata da 40 a 22 s (ipotesi di
+  Si risponde toccando/cliccando l'elemento. Tempo per schermata da 44 a 32 s (taratura del 15 nov 2026) (ipotesi di
   partenza, da tarare sull'uso clinico). Codice in `js/exercises/intrusopercettivo.js`.
 - **Griglie attentive** (ruolo «allenamento»): **porting diretto** delle Griglie-Conteggio del generatore
   (il codice del generatore è copiato invariato in `js/exercises/griglie.js`): stessi simboli (forme,
@@ -164,7 +164,7 @@ modifiche a quelle parti, controllare a mano su tablet.
   sulla stessa sequenza (`INVERSIONE_NCONS_P`, **ipotesi da validare**: 1 sola ai livelli 1-2, spesso 3 ai livelli 9-10);
   pool delle consegne spuntabile a mano (`cfg.inversionePool`, vale a tutti i livelli; vuoto = automatico per livello).
 - **Intruso percettivo**: predefinito 10 schermate; tempo massimo per schermata modificabile (`cfg.intrusoLimitS`, 0 = tabella
-  `INTRUSO_LIMIT_MS`, 40→22 s, **proposta non validata**). **Griglie attentive**: predefinito 1 griglia = 10 consegne.
+  `INTRUSO_LIMIT_MS`, 44→32 s dal 15 nov, **proposta non validata**). **Griglie attentive**: predefinito 1 griglia = 10 consegne.
 - **Cancellazione**: il layout «Organizzato» ora è una griglia regolare (prima celle vuote a caso e scarto ampio → sembrava sparso).
 - **Schermo**: Intruso, Griglie, Inversione e Running span usano tutta la larghezza e tasti/caratteri più grandi.
 - **Riscontro per prova (correzione)**: non più un lampo a schermo, ma la stessa fila di quadratini verde/rosso delle altre prove,
@@ -197,4 +197,4 @@ Vale per gli esercizi a prove autonome: **Intruso percettivo, Griglie attentive,
 - **Cambiamento del singolo paziente** (`js/core/nof1.js`): soglia da intervallo di previsione sulla variabilità delle misure di base (3-5 misure con forme parallele ruotate). Pronto come funzione e testato; **non ancora collegato** a una schermata né a un grafico.
 - **Selettore esercizi** a menù esplodibili per dominio (si apre quello dell'esercizio scelto).
 
-- **Intruso tarato (15 nov 2026, mattina)**: livelli 1-10 = livelli 1, 3, 4, 8, 9, 11, 15, 20, 21, 22 del generatore, con tempi da 42 a 28 s (carico da 0,4 a 2,5 simboli/s). Le righe sopra che dicono «1, 4, 8, 11, 15, 18, 22, 25, 29, 32» sono quelle di prima della taratura.
+- **Intruso (15 nov 2026)**: i livelli 1-10 restano quelli di PdM (livelli del generatore 1, 4, 8, 11, 15, 18, 22, 25, 29, 32); è tarato solo il tempo per schermata (da 44 a 32 s con rialzi dove cambia la lunghezza dell'elemento) per un carico da 0,4 a 2,5 simboli/s. Una taratura che accorciava la scala è stata annullata nello stesso giorno.

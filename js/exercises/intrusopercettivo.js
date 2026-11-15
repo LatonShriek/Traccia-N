@@ -108,14 +108,15 @@ export function bestGridCols(n, areaW, areaH){
 }
 
 // ---- dal livello 1-10 di Traccia-N al livello 1-32 del generatore ----
-// Taratura del 15 nov 2026 (docs/carichi-e-scala-livelli.md): i livelli 1-10 NON sono più equidistanti sul generatore.
-// Sono scelti (insieme al tempo per schermata) perché il carico — simboli da esaminare al secondo — cresca ogni
-// livello di circa il 23%, da ≈0,4 a ≈2,5 simboli/s; prima il 10 chiedeva ≈3,6 (0,85 s per oggetto di 3 simboli).
-// Il livello 32 del generatore (il massimo originale) resta nel generatore ma non è più raggiunto dalla scala.
-export const INTRUSO_GEN_OF_LEVEL = [1, 3, 4, 8, 9, 11, 15, 20, 21, 22];
+// Progressione = quella di PdM generator (livelli del generatore 1, 4, 8, 11, 15, 18, 22, 25, 29, 32: stessi contenuti,
+// famiglie di simboli e numerosità; 15 nov 2026, su richiesta di Rodrigo, dopo una taratura che ne escludeva il tratto alto).
+// Solo il TEMPO per schermata è tarato per Traccia-N (in PdM non c'è tempo): scelto perché il carico — simboli da
+// esaminare al secondo — cresca di circa il 23% a livello, da ≈0,4 a ≈2,5 simboli/s. Dove la lunghezza dell'elemento
+// cambia (livelli 4 e 7) il tempo sale: è il «dente di sega» di PdM, che là agisce sul numero di elementi.
+export const INTRUSO_GEN_OF_LEVEL = [1, 4, 8, 11, 15, 18, 22, 25, 29, 32];
 export function intrusoGenLevel(level){ return INTRUSO_GEN_OF_LEVEL[Math.max(1,Math.min(10,Math.round(level)))-1]; }
 // tempo massimo per schermata (ipotesi di partenza, da tarare sull'uso clinico)
-export const INTRUSO_LIMIT_MS = {1:42000,2:40000,3:36000,4:36000,5:36000,6:36000,7:34000,8:32000,9:32000,10:28000};
+export const INTRUSO_LIMIT_MS = {1:44000,2:44000,3:42000,4:54000,5:50000,6:42000,7:50000,8:42000,9:38000,10:32000};
 export const INTRUSO_ADAPT_BLOCK = 6;
 export function intrusoFamiliesAt(level){ const g = intrusoGenLevel(level); return INTRUSO_FAMILIES.filter(f=>f.unlockLevel<=g); }
 // Che cosa aspettarsi a un livello (per la scheda di configurazione): lunghezza, numero tipico, tempo.

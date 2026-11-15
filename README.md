@@ -38,6 +38,7 @@ multi-operatore e accesso paziente — è opzionale.
 | Carico di ogni livello e ipotesi di taratura (bozza) | [docs/carichi-e-scala-livelli.md](docs/carichi-e-scala-livelli.md) |
 | Prove per profilo: esistenti, da creare, ipotesi (bozza) | [docs/profili-e-prove.md](docs/profili-e-prove.md) |
 | Letteratura: profili, perché un training funziona, generalizzazione (bozza) | [docs/letteratura-training.md](docs/letteratura-training.md) |
+| Protocolli per rilevare cambiamenti reali (bozza) | [docs/protocolli-rilevazione-cambiamento.md](docs/protocolli-rilevazione-cambiamento.md) |
 | Simon, Categorizzazione, Scenari ecologici, Strategie di memoria | [docs/esercizi.md](docs/esercizi.md) |
 | Batteria di screening iniziale e controllo motorio di base | [docs/screening-e-controllo-motorio.md](docs/screening-e-controllo-motorio.md) |
 | Test di regressione e prova dimostrativa | [docs/test-e-demo.md](docs/test-e-demo.md) |

@@ -34,8 +34,11 @@ module.exports = async function run(t) {
     t.ok(IP.INTRUSO_FAMILIES.length === 31, 'le famiglie del generatore sono tutte presenti (' + IP.INTRUSO_FAMILIES.length + ')');
     t.ok(IP.intrusoFamiliesAt(1).every(f => f.unlockLevel <= 1), 'al livello 1 solo famiglie familiari');
     t.ok(!IP.intrusoFamiliesAt(1).some(f => ['cjk', 'geez', 'mahjong'].includes(f.id)), 'ideogrammi, ge\'ez e mahjong non compaiono al livello 1');
-    t.ok(IP.intrusoFamiliesAt(10).length === IP.INTRUSO_FAMILIES.length, 'al livello 10 tutte le famiglie');
-    t.ok([1, 4, 8, 11, 15, 18, 22, 25, 29, 32].every((g, i) => IP.intrusoGenLevel(i + 1) === g), 'livelli 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore');
+    t.ok(IP.intrusoFamiliesAt(10).length === IP.INTRUSO_FAMILIES.filter(f => f.unlockLevel <= 22).length && IP.intrusoFamiliesAt(10).length >= 25, 'al livello 10 le famiglie fino al livello 22 del generatore (le 3 più esotiche, 24-28, restano fuori dopo la taratura)');
+    t.ok([1, 3, 4, 8, 9, 11, 15, 20, 21, 22].every((g, i) => IP.intrusoGenLevel(i + 1) === g), 'livelli 1-10 = livelli 1, 3, 4, 8, 9, 11, 15, 20, 21, 22 del generatore (taratura 15 nov)');
+    const rate = l => { const p = IP.intrusoPlanOfGen(IP.intrusoGenLevel(l)); return p.nMean * p.len / (IP.INTRUSO_LIMIT_MS[l] / 1000); };
+    t.ok(rate(1) > 0.35 && rate(1) < 0.45 && rate(10) > 2.3 && rate(10) < 2.7, 'carico da ≈0,4 a ≈2,5 simboli/s');
+    for (let l = 2; l <= 10; l++) t.ok(rate(l) / rate(l - 1) > 1.05 && rate(l) / rate(l - 1) < 1.5, 'livello ' + l + ': il carico cresce del 5-50% rispetto al precedente');
   });
   t.group('Griglie attentive — risposta a tocco', () => {
     let nTouch = 0, nAll = 0, okCnt = true, okScore = true;

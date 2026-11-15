@@ -196,3 +196,5 @@ Vale per gli esercizi a prove autonome: **Intruso percettivo, Griglie attentive,
 - **Profili consigliati** (`js/core/profili.js`): sottoinsiemi di esercizi per tipo di difficoltà (ADHD, DSA, MCI esecutivo, MCI amnestico, negligenza) con livello e durata di partenza; sono ipotesi, si caricano nel Setup e restano modificabili.
 - **Cambiamento del singolo paziente** (`js/core/nof1.js`): soglia da intervallo di previsione sulla variabilità delle misure di base (3-5 misure con forme parallele ruotate). Pronto come funzione e testato; **non ancora collegato** a una schermata né a un grafico.
 - **Selettore esercizi** a menù esplodibili per dominio (si apre quello dell'esercizio scelto).
+
+- **Intruso tarato (15 nov 2026, mattina)**: livelli 1-10 = livelli 1, 3, 4, 8, 9, 11, 15, 20, 21, 22 del generatore, con tempi da 42 a 28 s (carico da 0,4 a 2,5 simboli/s). Le righe sopra che dicono «1, 4, 8, 11, 15, 18, 22, 25, 29, 32» sono quelle di prima della taratura.

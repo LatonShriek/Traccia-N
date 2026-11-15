@@ -11,27 +11,27 @@ Ancore proposte per ogni esercizio:
 - **Livello 10**: impegnativo anche per un adulto sano; non deve richiedere prestazioni al limite fisico (tempo per oggetto sotto la soglia di discriminazione).
 - **Passi**: carico che cresce di una quota simile a ogni livello (circa 15-30% fra livelli vicini), senza tratti piatti né salti.
 
-## Intruso percettivo
+## Intruso percettivo (TARATO il 15 nov 2026)
 
-Carico = simboli da esaminare al secondo (oggetti × simboli per oggetto ÷ tempo per schermata). Il livello 1-10 corrisponde a un livello del generatore originale (32).
+Carico = simboli da esaminare al secondo (oggetti × simboli per oggetto ÷ tempo per schermata). Prima della taratura i livelli 1-10 erano equidistanti sui 32 del generatore (1, 4, 8, 11, 15, 18, 22, 25, 29, 32) con tempi da 40 a 22 s: il carico cresceva di 9 volte, a scatti (+75% fra 3 e 4, +55% fra 6 e 7) e il 10 chiedeva 3,55 simboli/s (0,85 s per oggetto di 3 simboli). Su indicazione di Rodrigo il 10 è stato portato a ≈2,5 simboli/s e gli altri livelli ridistribuiti con crescita regolare (≈ +23% per livello) cercando, con una piccola ottimizzazione, la combinazione livello del generatore + tempo che segue meglio la curva.
 
-| Livello | Gen. | Oggetti | Simboli per oggetto | Tempo schermata (s) | s per oggetto | Simboli/s |
-|---|---|---|---|---|---|---|
-| 1 | 1 | 15–16 | 1 | 40 | 2,58 | 0,39 |
-| 2 | 4 | 18–21 | 1 | 38 | 1,95 | 0,51 |
-| 3 | 8 | 21–25 | 1 | 36 | 1,57 | 0,64 |
-| 4 | 11 | 18–20 | 2 | 34 | 1,79 | 1,12 |
-| 5 | 15 | 20–24 | 2 | 32 | 1,45 | 1,38 |
-| 6 | 18 | 21–25 | 2 | 30 | 1,30 | 1,53 |
-| 7 | 22 | 21–24 | 3 | 28 | 1,24 | 2,41 |
-| 8 | 25 | 18–25 | 3 | 26 | 1,21 | 2,48 |
-| 9 | 29 | 21–27 | 3 | 24 | 1,00 | 3,00 |
-| 10 | 32 | 25–27 | 3 | 22 | 0,85 | 3,55 |
+| Livello | Gen. | Oggetti (medio) | Simboli per oggetto | Tempo schermata (s) | Simboli/s |
+|---|---|---|---|---|---|
+| 1 | 1 | 15,9 | 1 | 42 | 0,38 |
+| 2 | 3 | 19,4 | 1 | 40 | 0,47 |
+| 3 | 4 | 20,6 | 1 | 36 | 0,58 |
+| 4 | 8 | 24,6 | 1 | 36 | 0,69 |
+| 5 | 9 | 17,6 | 2 | 36 | 0,97 |
+| 6 | 11 | 19,3 | 2 | 36 | 1,08 |
+| 7 | 15 | 23,0 | 2 | 34 | 1,35 |
+| 8 | 20 | 26,5 | 2 | 32 | 1,66 |
+| 9 | 21 | 22,8 | 3 | 32 | 2,12 |
+| 10 | 22 | 23,5 | 3 | 28 | 2,50 |
 
-Letture:
-- Il carico cresce di quasi **9 volte** da 1 a 10, ma non in modo regolare: salti di +75% a 3→4 e di +55% a 6→7, tratti quasi piatti a 7→8.
-- Il livello 10 chiede 0,85 s per oggetto con oggetti di 3 simboli: probabilmente oltre il limite di molti adulti sani. **Ipotesi**: portare il 10 a circa 2,4–2,6 simboli/s (oggi è il livello 7-8) e redistribuire gli altri fra 0,4 e 2,5.
-- Con il livello a mezzi gradini e la dispersione ±1, il 10 resta raggiungibile solo da chi supera davvero il 9.
+Conseguenze da sapere:
+- I livelli salvati nei pazienti **non cambiano numero ma cambiano significato**: un paziente al livello 6 prima era a un carico di 1,5 simboli/s, ora a 1,1. Le sedute già registrate restano confrontabili solo conoscendo la data della taratura.
+- Il generatore al massimo originale (livello 32) e le 3 famiglie di simboli più esotiche (cirillico arcaico, sillabico aborigeno, ideogrammi cjk) non sono più raggiunti dalla scala 1-10.
+- Il tempo per schermata sale rispetto a prima nei livelli alti (da 22 a 28 s al 10) e il tempo scaduto resta un errore.
 
 ## Running span
 
@@ -97,5 +97,5 @@ N-back (n da 1 a 3 con distrattori), Go/No-Go (frequenza e numero di elementi no
 ## Che cosa serve da Rodrigo
 
 - Confermare le ancore (livello 1 e 10).
-- Decidere se ridurre subito il livello 10 dell'Intruso (modifica della tabella del generatore).
+- ~~Ridurre il livello 10 dell'Intruso~~ — fatto il 15 nov (vedi sopra).
 - Procedere con la taratura degli altri esercizi dopo il pilota.

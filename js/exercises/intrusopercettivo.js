@@ -108,16 +108,26 @@ export function bestGridCols(n, areaW, areaH){
 }
 
 // ---- dal livello 1-10 di Traccia-N al livello 1-32 del generatore ----
-export function intrusoGenLevel(level){ return Math.round(1 + (Math.max(1,Math.min(10,level))-1)*(MAX_LEVEL-1)/9); }
+// Taratura del 15 nov 2026 (docs/carichi-e-scala-livelli.md): i livelli 1-10 NON sono più equidistanti sul generatore.
+// Sono scelti (insieme al tempo per schermata) perché il carico — simboli da esaminare al secondo — cresca ogni
+// livello di circa il 23%, da ≈0,4 a ≈2,5 simboli/s; prima il 10 chiedeva ≈3,6 (0,85 s per oggetto di 3 simboli).
+// Il livello 32 del generatore (il massimo originale) resta nel generatore ma non è più raggiunto dalla scala.
+export const INTRUSO_GEN_OF_LEVEL = [1, 3, 4, 8, 9, 11, 15, 20, 21, 22];
+export function intrusoGenLevel(level){ return INTRUSO_GEN_OF_LEVEL[Math.max(1,Math.min(10,Math.round(level)))-1]; }
 // tempo massimo per schermata (ipotesi di partenza, da tarare sull'uso clinico)
-export const INTRUSO_LIMIT_MS = {1:40000,2:38000,3:36000,4:34000,5:32000,6:30000,7:28000,8:26000,9:24000,10:22000};
+export const INTRUSO_LIMIT_MS = {1:42000,2:40000,3:36000,4:36000,5:36000,6:36000,7:34000,8:32000,9:32000,10:28000};
 export const INTRUSO_ADAPT_BLOCK = 6;
 export function intrusoFamiliesAt(level){ const g = intrusoGenLevel(level); return INTRUSO_FAMILIES.filter(f=>f.unlockLevel<=g); }
 // Che cosa aspettarsi a un livello (per la scheda di configurazione): lunghezza, numero tipico, tempo.
-export function intrusoPlanAt(level){
-  const lv = Math.max(1,Math.min(10,level)), g = intrusoGenLevel(lv), len = planLen(g);
+export function intrusoPlanOfGen(g){
+  const len = planLen(g);
   const ns = eligible(g,len).map(f=>niceCount(targetN(g,f,Math.min(len,maxLen(f)))));
-  return { gen:g, len, nMin:Math.min(...ns), nMax:Math.max(...ns), limitMs:INTRUSO_LIMIT_MS[lv] };
+  return { gen:g, len, nMin:Math.min(...ns), nMax:Math.max(...ns), nMean: ns.reduce((a,b)=>a+b,0)/ns.length };
+}
+export function intrusoPlanAt(level){
+  const lv = Math.max(1,Math.min(10,level)), g = intrusoGenLevel(lv);
+  const p = intrusoPlanOfGen(g);
+  return { gen:g, len:p.len, nMin:p.nMin, nMax:p.nMax, limitMs:INTRUSO_LIMIT_MS[lv] };
 }
 // compatibilità con il registro e la scheda (n = numero tipico)
 export const INTRUSO_LEVELS = new Proxy({}, { get:(_,k)=>{ const lv = Number(k); if(!(lv>=1 && lv<=10)) return undefined; const p = intrusoPlanAt(lv); return {n:p.nMax, len:p.len, limitMs:p.limitMs}; } });

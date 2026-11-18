@@ -1,6 +1,6 @@
 # Letteratura: che cosa funziona per profilo, perché un training funziona, come favorire la generalizzazione (BOZZA)
 
-_15 nov 2026. Ricerca fatta sulle fonti raggiungibili da Claude (abstract e pagine ufficiali di PubMed, PMC, Cochrane, riviste, comunicati degli autori); **non ho letto per intero tutti gli articoli**: quando una cifra viene da un abstract o da un riassunto lo dico. Le sezioni «Ipotesi» sono ragionamento mio, non letteratura. I testi vanno controllati prima di usarli in un referto o in una pubblicazione._
+_15 nov 2026. Ricerca fatta sulle fonti raggiungibili in rete (abstract e pagine ufficiali di PubMed, PMC, Cochrane, riviste, comunicati degli autori); **non sono stati letti per intero tutti gli articoli**: quando una cifra viene da un abstract o da un riassunto è indicato. Le sezioni «Ipotesi» sono ragionamento, non letteratura. I testi vanno controllati prima di usarli in un referto o in una pubblicazione._
 
 ## 1. Lettura d'insieme (una frase per capire il resto)
 

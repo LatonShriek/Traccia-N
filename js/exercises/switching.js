@@ -3,7 +3,8 @@
 // dichiarate qui sotto. In index.html restano, dove servono, funzioni da una riga con lo
 // stesso nome che chiamano queste con la cfg (e la seduta) correnti.
 // - buildSwitching riceve cfg come parametro invece di leggere la variabile dell'app.
-import { ADAPT_SWITCH_BALANCE } from '../core/levels.js';
+import { ADAPT_SWITCH_BALANCE, lerpLevel } from '../core/levels.js';
+import { fineStartOf } from '../core/adapt.js';
 import { POOLS } from '../core/pools.js';
 import { genDualDimItem, pickDualDimRegime, switchRulesetFor } from '../core/rules.js';
 
@@ -17,7 +18,7 @@ import { genDualDimItem, pickDualDimRegime, switchRulesetFor } from '../core/rul
     // livello raggiunto l'ultima volta (buildSwitching gira prima che la
     // sessione esista, quindi non può leggere un livello "in diretta" come
     // fa il CSI, che invece si aggiorna davvero prova per prova).
-    const dominance = cfg.titrationMode!=='manuale' ? (ADAPT_SWITCH_BALANCE[cfg.adaptStartLevel]||0.5) : 0.5;
+    const dominance = cfg.titrationMode!=='manuale' ? (lerpLevel(ADAPT_SWITCH_BALANCE, fineStartOf(cfg))||0.5) : 0.5;
     let activeRule = Math.random()<0.5 ? 'A' : 'B';
     for(let i=0;i<cfg.trials;i++){
       const prevRule = activeRule;

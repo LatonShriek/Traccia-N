@@ -4,7 +4,8 @@
 // stesso nome che chiamano queste con la cfg e la seduta correnti.
 // - pushAdaptOutcome, maybeAdapt, maybeAdaptDualChannel e resolve* ricevono cfg e session come parametri (resolve*: cfg, session, trial).
 // - adaptLevelKey e sessionLevelBounds vengono da js/core/bands.js con la cfg passata.
-import { ADAPT_BLOCK, adaptStep, creditByBucket } from '../core/adapt.js';
+import { ADAPT_BLOCK, adaptStep, adaptStepFine, creditByBucket } from '../core/adapt.js';
+import { HALF_STEP_MODES } from '../core/levels.js';
 import { DUAL_LEVEL_MAX, adaptLevelKey, sessionLevelBounds } from '../core/bands.js';
 
   // Titolazione adattiva sensibile a velocità+accuratezza, non solo
@@ -43,7 +44,19 @@ import { DUAL_LEVEL_MAX, adaptLevelKey, sessionLevelBounds } from '../core/bands
     if(session.adaptBlock.length < ADAPT_BLOCK) return;
     const acc = session.adaptBlock.reduce((a, x) => a + (+x), 0) / session.adaptBlock.length; // media dei crediti (true/false valgono 1/0)
     const bounds = sessionLevelBounds(cfg);
-    const step = adaptStep(acc, session[levelKey], bounds.min, bounds.max);
+    const half = levelKey==='adaptLevel' && HALF_STEP_MODES.includes(cfg.taskMode);
+    let step;
+    if(half){
+      // mezzi gradini: si decide sugli ultimi 2 blocchi (16 prove) se stanno allo STESSO livello — con 8 prove l'errore standard è ≈0,14, con 16 ≈0,10
+      const mean = b => b.reduce((a, x) => a + (+x), 0) / b.length;
+      const prev = session.prevAdaptBlock && session.prevAdaptLevel === session[levelKey] ? session.prevAdaptBlock : null;
+      const win = prev ? (mean(prev) + acc) / 2 : acc;
+      step = adaptStepFine(win, session[levelKey], bounds.min, bounds.max);
+      if(step){ session.prevAdaptBlock = null; }
+      else { session.prevAdaptBlock = session.adaptBlock.slice(); session.prevAdaptLevel = session[levelKey]; }
+    } else {
+      step = adaptStep(acc, session[levelKey], bounds.min, bounds.max);
+    }
     if(step){
       session[levelKey] += step;
       session.levelChanges.push({trialIdx:session.idx, level:session[levelKey], how:'auto'});

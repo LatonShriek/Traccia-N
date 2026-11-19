@@ -91,10 +91,10 @@ import { EXERCISES } from './registry.js';
         if(cfg.taskMode==='goaltask') return cfg.goaltaskLivello;
         if(cfg.taskMode==='memoria') return session.material ? session.material.livello : null;
         if(cfg.taskMode==='runningspan' || cfg.taskMode==='intrusopercettivo' || cfg.taskMode==='griglie' || cfg.taskMode==='inversione' || cfg.taskMode==='pasat' || cfg.taskMode==='serie') return cfg.adaptStartLevel;
-        if(adaptLevelKey(cfg)==='adaptLevel') return session.adaptLevel;
+        if(adaptLevelKey(cfg)==='adaptLevel') return Math.round(session.adaptLevel);
         return null;
       })(),
-      finalLevelFine: (cfg.adaptive && ['intrusopercettivo','griglie','inversione','runningspan'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? cfg.adaptFine : null,
+      finalLevelFine: (cfg.adaptive && ['intrusopercettivo','griglie','inversione','runningspan'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? cfg.adaptFine : ((cfg.adaptive && ['sequenza','stopsignal','ant','simon','switching'].includes(cfg.taskMode) && session && typeof session.adaptLevel==='number' && !Number.isInteger(session.adaptLevel)) ? session.adaptLevel : null),
       finalTimeF: (cfg.adaptive && ['intrusopercettivo','inversione'].includes(cfg.taskMode) && typeof cfg.adaptTimeF==='number') ? cfg.adaptTimeF : null,
       finalGen: (cfg.adaptive && ['intrusopercettivo','griglie','inversione'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? Math.round(genOfFine(cfg.adaptFine)) : null,
       localPatientId: patientProfile ? null : (activeLocalPatientId || null),

@@ -84,3 +84,16 @@
 
   // TAPAT (blocco tonico): intervallo min-max fra stimoli, in ms, per livello.
   export const TAPAT_LEVELS = { 1:[900,1800],2:[1400,2600],3:[2000,4000],4:[3000,6000],5:[4000,8000],6:[5000,9500],7:[6000,11000],8:[8000,13000],9:[10000,18000],10:[12000,25000] };
+
+  // ─── Livelli intermedi (19 nov 2026) ─────────────────────────────────────────
+  // Esercizi senza fasce strutturali: il livello ha mezzi gradini (1, 1,5, … 10) e i parametri continui sono interpolati a metà
+  // strada fra due livelli interi (es. Sequenza 2,5 = ISI a metà fra livello 2 e 3). I livelli interi restano IDENTICI a prima.
+  // Esclusi per ora gli esercizi con fasce strutturali (N-back, Go/No-Go, Categorizzazione) e il Doppio compito.
+  export const HALF_STEP_MODES = ['sequenza','stopsignal','ant','simon','switching'];
+  export function lerpLevel(table, level){
+    const lo = Math.floor(level), hi = Math.ceil(level);
+    const a = table[lo], b = table[hi];
+    if(a === undefined) return b;
+    if(b === undefined || lo === hi) return a;
+    return a + (b - a) * (level - lo);
+  }

@@ -36,6 +36,7 @@ import { KEY_LAYOUTS } from './js/core/keylayout.js';
 import { mean, sd } from './js/core/stats.js';
 import { isTapatLike, isTapatKey } from './js/core/records.js';
 import { RCI_BASELINE_N, computeRCIRows } from './js/core/rci.js';
+import { HALF_STEP_MODES, lerpLevel } from './js/core/levels.js';
 import { ADAPT_ISI, ADAPT_GONOGO_FREQ, NBACK_LEVEL_TABLE, nbackParamsForLevel, nbackLureLag, ADAPT_SWITCH_BALANCE, ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE, CATEG_STRUCTURE_OF_LEVEL, CATEG_ISI, CATEG_LURE, categStructureOfLevel, DUAL_DOUBLE_TARGET_GRACE_MS, ADAPT_GONOGO_COUNT, ADAPT_SWITCH_CSI, ADAPT_NEGLECT_SIZE, ADAPT_SEQ_LEN, ADAPT_NEGLECT_TIME, TAPAT_LEVELS } from './js/core/levels.js';
 import { POOLS, defaultTargetSeq, VISUAL_MISTA_TYPES, AUDIO_MISTA_TYPES, SEQUENZA_MISTA_TYPES, mistaTypesFor, randMistaStim, randomMistaTargetSeq, seqLabel, sameStim } from './js/core/pools.js';
 import { ANT_MATERIAL_OPTIONS, ANT_MATERIAL_TOKENS, CATEG_LETTERE, CATEG_NUMERI, DUAL_DIM1_LABELS, DUAL_DIM2_LABELS, DUAL_DIM_ALL, DUAL_DIM_ROTATION, SIMON_COLORS, SIMON_CONGRUENCE_PROB, STOPSIGNAL_RULES, SWITCH_BIVALENTE_LETTERE, SWITCH_BIVALENTE_NUM_POOL, SWITCH_RULESETS, dualDim1IsA, dualDim1KeyOf, dualDim2IsA, dualDim2KeyOf, genDualDimItem, pickDualDimRegime, switchRulesetFor } from './js/core/rules.js';
@@ -2872,7 +2873,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       trail:[], responses:new Set(), respTime:null, trialStart:0,
       rts:[], startedAt: Date.now(), paused:false, pausedAt:null,
       currentSSD: cfg.ssd, ssdHistory:[], showStopCue:false, stopCueTimer:null, discrimLog:[], discrimCongLog:[],
-      liveNLevel: cfg.nLevel, tapatLevel: cfg.tapatStartLevel, adaptLevel: cfg.adaptStartLevel, liveTapatGradient: cfg.tapatGradient,
+      liveNLevel: cfg.nLevel, tapatLevel: cfg.tapatStartLevel, adaptLevel: HALF_STEP_MODES.includes(cfg.taskMode) ? fineStartOf(cfg) : cfg.adaptStartLevel, liveTapatGradient: cfg.tapatGradient,
       categLevel: cfg.categLivello, categPrevCat: null, categPrevCat2: null,
       dualLevel1: cfg.dualStartLevel1, dualLevel2: cfg.dualStartLevel2, adaptBlock1:[], adaptBlock2:[], prevDual1:null, prevDual2:null,
       adaptBlock:[], levelChanges:[],
@@ -3048,7 +3049,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(nv===session[levelKey]) return;
     session[levelKey] = nv;
     const isNeglect = cfg.taskMode==='neglect';
-    if(!isNeglect) session.adaptBlock = []; // il blocco automatico riparte da qui
+    if(!isNeglect){ session.adaptBlock = []; session.prevAdaptBlock = null; } // il blocco automatico riparte da qui
     session.levelChanges.push({trialIdx: isNeglect ? session.boardIdx : session.idx, level:nv, how:'manuale'});
     if(isNeglect) updateNeglectScreen(); else updateTaskScreen();
   }
@@ -3130,7 +3131,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(cfg.taskMode==='switching' && cfg.titrationMode!=='manuale'){
       session.phase='cue';
       render();
-      const csi = ADAPT_SWITCH_CSI[session.adaptLevel] || 400;
+      const csi = lerpLevel(ADAPT_SWITCH_CSI, session.adaptLevel) || 400;
       scheduleStep(()=> showTrialStimulus(trial), csi);
       return;
     }
@@ -3196,7 +3197,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         const avgLevel = Math.round(((session.dualLevel1||1)+(session.dualLevel2||1))/2);
         isi = ADAPT_ISI.dualtask[Math.max(1,Math.min(10,avgLevel))] || cfg.isi;
       } else if(!trial.isiOverride && TITRATION_EXERCISES.includes(cfg.taskMode) && cfg.titrationMode!=='manuale' && ADAPT_ISI[cfg.taskMode]){
-        isi = ADAPT_ISI[cfg.taskMode][session.adaptLevel];
+        isi = Math.round(lerpLevel(ADAPT_ISI[cfg.taskMode], session.adaptLevel));
       }
       scheduleStep(()=> maybeResolveWithGrace(trial), Math.max(50,isi-cfg.stimDuration));
     }, cfg.stimDuration);
@@ -3619,13 +3620,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const d = taskDom;
     const trial = session.idx>=0 && session.idx<session.seq.length ? session.seq[session.idx] : null;
     const genericLevelKey = adaptLevelKey();
-    const modeLabel = cfg.taskMode==='sequenza' ? 'sequenza bersaglio · livello '+session.adaptLevel
+    const modeLabel = cfg.taskMode==='sequenza' ? 'sequenza bersaglio · livello '+fineLabel(session.adaptLevel)
       : cfg.taskMode==='nback' ? 'livello '+session.liveNLevel+' · n='+nbackParamsForLevel(session.liveNLevel).n+(cfg.adaptive?' (adattivo)':'')
       : cfg.taskMode==='gonogo' ? 'go/no-go · livello '+session.adaptLevel
-      : cfg.taskMode==='stopsignal' ? 'SSD '+Math.round(session.currentSSD)+'ms · ritmo livello '+session.adaptLevel
+      : cfg.taskMode==='stopsignal' ? 'SSD '+Math.round(session.currentSSD)+'ms · ritmo livello '+fineLabel(session.adaptLevel)
       : (cfg.taskMode==='tapat' && trial) ? 'TAPAT — blocco '+(trial.block==='tonic'?'tonico':'fasico')+' · livello '+session.tapatLevel+(cfg.adaptive?' (adattivo)':'')
-      : cfg.taskMode==='ant' ? 'ANT · livello '+session.adaptLevel
-      : cfg.taskMode==='switching' ? EXERCISES[cfg.taskMode].label+' · livello '+session.adaptLevel
+      : cfg.taskMode==='ant' ? 'ANT · livello '+fineLabel(session.adaptLevel)
+      : cfg.taskMode==='switching' ? EXERCISES[cfg.taskMode].label+' · livello '+fineLabel(session.adaptLevel)
       : cfg.taskMode==='dualtask' ? 'doppio compito · C1 livello '+session.dualLevel1+' · C2 livello '+session.dualLevel2
       : cfg.taskMode==='categorizzazione' ? EXERCISES[cfg.taskMode].label+' · livello '+cfg.categLivello+' · ISI/lure livello '+session.categLevel+(cfg.adaptive?' (adattivo)':'')
       : EXERCISES[cfg.taskMode].label;
@@ -5691,7 +5692,10 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     else if(cfg.taskMode==='neglect' && cfg.neglectMode==='regola') cfg.neglectRuleLevel = session.liveBoardLevel;
     else if(cfg.taskMode==='neglect') cfg.neglectStartLevel = session.liveBoardLevel;
     else if(cfg.taskMode==='categorizzazione') cfg.categLivello = session.categLevel;
-    else if(adaptLevelKey()==='adaptLevel') cfg.adaptStartLevel = session.adaptLevel;
+    else if(adaptLevelKey()==='adaptLevel'){
+      cfg.adaptStartLevel = Math.round(session.adaptLevel);
+      if(HALF_STEP_MODES.includes(cfg.taskMode)) cfg.adaptFine = session.adaptLevel; // il valore con la virgola, come per Intruso/Griglie/Inversione
+    }
     if(cfg.taskMode==='dualtask'){ cfg.dualStartLevel1 = session.dualLevel1; cfg.dualStartLevel2 = session.dualLevel2; }
     const snap = presetCfgOf(cfg);
     const lastAcc = primaryAccuracyOf(rec);

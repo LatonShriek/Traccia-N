@@ -1,6 +1,8 @@
-# PdM CDCD / Traccia-N — livelli intermedi (proposta, nulla ancora modificato)
+# Livelli intermedi dei classici: tabelle
 
-Regola: i livelli interi restano IDENTICI a oggi (i livelli già salvati non cambiano significato). Un livello x,5 prende il contenuto strutturale del livello successivo e porta i parametri continui a metà strada. Dove cambia una banda strutturale (n dell N-back, struttura di Categorizzazione) non si interpola tra una banda e l altra.
+**Stato (19 nov 2026):** ATTIVI per Sequenza, Stop-Signal, ANT/Simon e Switch (19 livelli). PROPOSTA, non ancora nel codice, per Go/NoGo (16 livelli), N-back (17), Categorizzazione (15) e Doppio compito (19 per canale).
+
+Regola: i livelli interi restano IDENTICI a oggi (i livelli già salvati non cambiano significato). Un livello x,5 porta i parametri continui a metà strada fra due livelli interi; Sequenza prende anche la lunghezza del livello successivo. Dove cambia una fascia strutturale (n dell N-back, numero di no-go del Go/NoGo, struttura di Categorizzazione) non si interpola tra una fascia e l altra. La decisione di salire o scendere di mezzo livello si prende sugli ultimi 2 blocchi (16 prove) se stanno allo stesso livello.
 
 ## Sequenza (19 livelli)
 Mezzo livello = lunghezza del livello successivo, ISI a metà strada.
@@ -27,29 +29,26 @@ Mezzo livello = lunghezza del livello successivo, ISI a metà strada.
 | 9,5 | 5 | 1025 |
 | 10 | 5 | 900 |
 
-## Go/NoGo (19 livelli)
-Mezzo livello = n. no-go del livello successivo, frequenza no-go a metà. (Oggi non esiste una tabella di velocità: vedi nota.)
+## Go/NoGo (16 livelli)
+Mezzi livelli solo DENTRO una fascia (1-4, 5-7, 8-9, 10): il numero di no-go noti non cambia a metà seduta. Frequenza no-go a metà strada.
 
 | Liv. | N. no-go | Freq. no-go |
 |---|---|---|
 | 1 | 1 | 0,48 |
-| 1,5 | 1 | 0,46 |
+| 1,5 | 1 | 0,460 |
 | 2 | 1 | 0,44 |
-| 2,5 | 1 | 0,42 |
+| 2,5 | 1 | 0,420 |
 | 3 | 1 | 0,40 |
-| 3,5 | 1 | 0,37 |
+| 3,5 | 1 | 0,370 |
 | 4 | 1 | 0,34 |
-| 4,5 | 2 | 0,31 |
 | 5 | 2 | 0,28 |
-| 5,5 | 2 | 0,25 |
+| 5,5 | 2 | 0,250 |
 | 6 | 2 | 0,22 |
-| 6,5 | 2 | 0,20 |
+| 6,5 | 2 | 0,195 |
 | 7 | 2 | 0,17 |
-| 7,5 | 3 | 0,15 |
 | 8 | 3 | 0,12 |
-| 8,5 | 3 | 0,10 |
+| 8,5 | 3 | 0,100 |
 | 9 | 3 | 0,08 |
-| 9,5 | 4 | 0,07 |
 | 10 | 4 | 0,05 |
 
 ## N-back (17 livelli)

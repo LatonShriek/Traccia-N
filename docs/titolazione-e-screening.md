@@ -213,3 +213,10 @@ Codice: `js/core/assi.js` (test: `tests/assi.test.js`). Solo in modalità adatti
 5. Ogni risposta registra `gen` (livello del generatore), `limitMs`/`timeF` dove ha senso; la seduta registra `finalGen` e `finalTimeF`.
 
 **Cosa non è validato:** distribuzione della dispersione (50/20/5), soglia del 50% di margine, passo di 0,1, regola delle «quasi giuste» per Inversione. Sono ipotesi di partenza, da guardare sui dati reali. Griglie ha solo le ipotesi 1–2 (e il credito di efficienza), perché non ha un tempo concesso.
+
+## Accuratezza e velocità in tutti i classici; mezzi livelli (19 nov 2026)
+
+- **Credito per prova** (`pushAdaptOutcome` in `js/exercises/resolve.js`): punteggio × fattore velocità (1 fino a 1,3 × la propria mediana, 0 a 2,1 ×, 4 tempi di storia). Il blocco di 8 prove si valuta sulla media dei crediti (soglie 0,85 / 0,70 invariate). Sostituisce il filtro sì/no «più lenta di 1,6 × la mediana». Doppio compito: un credito per canale con le proprie mediane (`session.respTimes`); Cancellazione: credito per tavola (tempo per bersaglio); Serie: credito per prova. PASAT escluso (ritmo imposto).
+- **Mezzi livelli** (`HALF_STEP_MODES` in `js/core/levels.js`): Sequenza, Stop-Signal, ANT/Simon, Switch. Livello con la virgola, parametri interpolati (`lerpLevel`), passo ±0,5, decisione sugli ultimi 2 blocchi se allo stesso livello. Salvataggio: `adaptStartLevel` intero (arrotondato), valore con la virgola in `adaptFine` e `finalLevelFine`. La lunghezza della Sequenza resta quella del livello di partenza (struttura fissa durante la seduta). Tabelle: [tabella-livelli-intermedi.md](tabella-livelli-intermedi.md). Non ancora applicato a Go/NoGo, N-back, Categorizzazione, Doppio compito (fasce strutturali).
+- Mappa generale: [guida-titolazione.md](guida-titolazione.md).
+

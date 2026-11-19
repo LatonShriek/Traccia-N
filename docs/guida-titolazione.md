@@ -10,9 +10,10 @@ _Pagina di consultazione unica (19 nov 2026). Riassume il senso di tutte le modi
 
 ## 2. Tre famiglie di esercizi
 
-**A. Classici, livello intero 1–10, tabelle validate** (N-back, Go/NoGo, Sequenza, Stop-Signal, ANT/Simon, Switch, Categorizzazione, Doppio compito, TAPAT, Cancellazione).
-- Blocco da 8 prove, ±1 livello.
-- Una risposta **corretta ma più lenta di 1,6 × la propria mediana** non conta come successo nel blocco (servono ≥4 tempi corretti prima che il filtro parta). Il 1,6 è una **nostra soglia pratica** (nessuna fonte): serve a non far salire chi risponde giusto ma con troppa fatica.
+**A. Classici** (N-back, Go/NoGo, Sequenza, Stop-Signal, ANT/Simon, Switch, Categorizzazione, Doppio compito, TAPAT, Cancellazione). Tabelle di livello validate, livelli interi 1–10 salvo i **mezzi livelli** (19 nov: Sequenza, Stop-Signal, ANT/Simon, Switch → 19 livelli; vedi §4).
+- Blocco da 8 prove. **Accuratezza e velocità insieme (19 nov 2026, tutti i classici):** ogni prova vale un **credito** = punteggio (1 giusta, 0 sbagliata) × fattore velocità (1 fino a 1,3 × la propria mediana, poi scende fino a 0 a 2,1 ×; servono 4 tempi già osservati; le prove senza tempo, come il rifiuto corretto, valgono solo la correttezza). Si sale se la media dei crediti del blocco supera 0,85, si scende sotto 0,70. Prima, una giusta ma più lenta di 1,6 × la mediana valeva 0 (filtro sì/no): ora la penalità è graduale (a 1,6 × vale circa 0,63). Soglie 1,3 e 2,1 **ipotesi**, nessuna fonte.
+- Dove si misura la velocità: tempo di risposta per prova (Go/NoGo, N-back, Sequenza, Stop-Signal, ANT/Simon, Switch, Categorizzazione, TAPAT), **per canale** nel Doppio compito (tocco visivo e uditivo con le proprie mediane), **per tavola** nella Cancellazione (tempo per bersaglio), nelle Serie. **PASAT** no: la velocità è già imposta dal ritmo.
+- Con i mezzi livelli si decide sugli **ultimi 2 blocchi** (16 prove) se stanno allo stesso livello: con 8 prove l'errore standard è circa 0,14, con 16 circa 0,10.
 - Casi speciali: Stop-Signal ha lo staircase SSD (continuo) più l'ISI; Doppio compito ha un livello per canale; TAPAT un gradiente spaziale (±5, limiti 25–75); Cancellazione solo Classico.
 - Memoria e Compito a obiettivi **non hanno titolazione**.
 
@@ -33,10 +34,10 @@ Distribuzione della dispersione (50/20/5), soglia del 50% di margine sul tempo, 
 
 | Cosa | Decisione di Rodrigo (18–19 nov) | Stato |
 |---|---|---|
-| **Livelli intermedi per i classici** | andare avanti; tabelle esatte in [tabella-livelli-intermedi.md](tabella-livelli-intermedi.md): 19 livelli (Sequenza, Go/NoGo, Switch, Doppio compito, Stop-Signal, ANT/Simon), 17 (N-back), 15 (Categorizzazione); i livelli interi restano identici a oggi | **proposta** |
-| Tolleranza 2,0 × (invece di 1,6 ×) ai mezzi livelli | proposta mia, da confermare | **proposta** |
-| Tabella ISI per Go/NoGo e N-back (oggi non hanno leva di velocità) | da definire: i valori non esistono ancora | **proposta** |
-| **Simboli più difficili** (PdM e Traccia-N) | rotazioni a passi di 45° (mai 30°), anche speculari; 180° solo per figure asimmetriche; l'ampliamento della famiglia segue le prime esposizioni e precede la consegna doppia; poi doppia con 4 orientamenti, doppia con 8, poi tripla; anche nei PowerPoint | **proposta** (resta da precisare che cosa siano «4» e «8 orientamenti») |
+| **Livelli intermedi per i classici** | tabelle in [tabella-livelli-intermedi.md](tabella-livelli-intermedi.md); i livelli interi restano identici a oggi | **attivo** per Sequenza, Stop-Signal, ANT/Simon, Switch (19 livelli; la lunghezza della Sequenza segue il livello di partenza della seduta e non cambia a metà seduta). **Proposta, non nel codice:** Go/NoGo (16 livelli: mezzi livelli solo dentro le fasce), N-back (17), Categorizzazione (15), Doppio compito (19 per canale) |
+| Tolleranza 2,0 × ai mezzi livelli | superata: il credito graduale (§2.A) rende inutile la soglia secca | **non necessaria** |
+| Tabella ISI per Go/NoGo e N-back (oggi non hanno leva di velocità) | Rodrigo ha accettato che la proponga io: **i valori vanno ancora scritti e fatti approvare** (cambiano l'esperienza dei pazienti: oggi l'ISI è quello scelto nel Setup) | **da fare** |
+| **Simboli più difficili** (PdM e Traccia-N) | rotazioni a passi di 45° (mai 30°), anche speculari; 180° solo per figure asimmetriche; l'ampliamento della famiglia segue le prime esposizioni e precede la consegna doppia; poi doppia con 4 orientamenti, doppia con 8, poi tripla; anche nei PowerPoint | **proposta** (precisato: 4 orientamenti = 0°, 45°, 90°, 135°; 8 orientamenti = tutti i multipli di 45°) |
 | **Sonda** (prova a difficoltà fissa) | livello personale congelato dopo la baseline (opzione B) più tre livelli attorno alla soglia con funzione psicometrica (opzione C); tasso di lapsus fissato in anticipo (2–5%) | **proposta** |
 | Insiemi di stimoli esclusi | famiglie abbinate per difficoltà, assegnate a caso per paziente con seme salvato, bilanciate tra pazienti; riflessione basata su Barnett & Ceci 2002 e Gick & Holyoak 1983 (letti solo gli abstract), nessuna evidenza diretta in riabilitazione | **proposta** |
 | Calendario casualizzato (linee di base multiple) | convenzione WWC: ≥3 dimostrazioni, ≥5 punti per fase; con 4 esercizi o più, il test di randomizzazione può raggiungere p ≈ 0,04 | **proposta** |
@@ -46,10 +47,10 @@ Distribuzione della dispersione (50/20/5), soglia del 50% di margine sul tempo, 
 
 ## 5. Cose da non confondere
 
-- Il filtro «1,6 ×» vale solo per i **classici**. Intruso, Griglie e Inversione usano il **credito di efficienza** (§2.B.3).
+- Dal 19 nov il filtro sì/no «1,6 ×» non esiste più: tutti usano un **credito** accuratezza × velocità (stessa idea, §2.A e §2.B.3).
 - Il livello 1–10 salvato resta intero (`adaptStartLevel`); il valore con la virgola è in `adaptFine` / `finalLevelFine`; il livello del generatore in `finalGen`, il fattore tempo in `adaptTimeF` / `finalTimeF`.
 - Il confronto prima/dopo (indice di cambiamento affidabile, `rci.js`) con la titolazione adattiva è poco informativo sull'accuratezza, che per costruzione resta al 70–85%: servono prove a difficoltà fissa (sonde / misure di rivalutazione).
 
 ## 6. Dove sta nel codice
 
-`js/core/adapt.js` (regola 85/70, 1,6 ×, credito, mezzi gradini) · `js/core/levels.js` (tabelle dei classici) · `js/core/bands.js` (fasce strutturali) · `js/core/titration.js` · `js/core/assi.js` (motore ibrido, tempo, dispersione sul generatore) · `js/core/rci.js`, `js/core/nof1.js` (cambiamento affidabile) · test: `tests/adapt.test.js`, `tests/assi.test.js`.
+`js/core/adapt.js` (regola 85/70, credito, mezzi gradini) · `js/exercises/resolve.js` (credito per prova, finestra di 2 blocchi) · `js/core/levels.js` (tabelle dei classici, `lerpLevel`, `HALF_STEP_MODES`) · `js/core/bands.js` (fasce strutturali) · `js/core/titration.js` · `js/core/assi.js` (motore ibrido, tempo, dispersione sul generatore) · `js/core/rci.js`, `js/core/nof1.js` (cambiamento affidabile) · test: `tests/adapt.test.js`, `tests/assi.test.js`, `tests/resolve.test.js`, `tests/livelli-intermedi.test.js`.

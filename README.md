@@ -34,6 +34,8 @@ multi-operatore e accesso paziente — è opzionale.
 | Difficoltà adattiva (livelli, regole per esercizio) | [docs/difficolta-adattiva.md](docs/difficolta-adattiva.md) |
 | Tabelle dei livelli 1–10 (generata dal codice) | [docs/livelli.md](docs/livelli.md) |
 | Titolazione e screening: come funzionano e perché | [docs/titolazione-e-screening.md](docs/titolazione-e-screening.md) |
+| **Guida alla titolazione: cosa è cambiato, perché, a che punto siamo** | [docs/guida-titolazione.md](docs/guida-titolazione.md) |
+| Livelli intermedi dei classici (proposta, tabelle esatte) | [docs/tabella-livelli-intermedi.md](docs/tabella-livelli-intermedi.md) |
 | Tabella test → esercizi → livelli (bozza da validare) | [docs/tabella-test-esercizi.md](docs/tabella-test-esercizi.md) |
 | Carico di ogni livello e ipotesi di taratura (bozza) | [docs/carichi-e-scala-livelli.md](docs/carichi-e-scala-livelli.md) |
 | Prove per profilo: esistenti, da creare, ipotesi (bozza) | [docs/profili-e-prove.md](docs/profili-e-prove.md) |

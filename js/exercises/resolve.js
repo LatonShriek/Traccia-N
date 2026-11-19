@@ -4,7 +4,7 @@
 // stesso nome che chiamano queste con la cfg e la seduta correnti.
 // - pushAdaptOutcome, maybeAdapt, maybeAdaptDualChannel e resolve* ricevono cfg e session come parametri (resolve*: cfg, session, trial).
 // - adaptLevelKey e sessionLevelBounds vengono da js/core/bands.js con la cfg passata.
-import { ADAPT_BLOCK, adaptStep, countedOutcome } from '../core/adapt.js';
+import { ADAPT_BLOCK, adaptStep, creditByBucket } from '../core/adapt.js';
 import { DUAL_LEVEL_MAX, adaptLevelKey, sessionLevelBounds } from '../core/bands.js';
 
   // Titolazione adattiva sensibile a velocità+accuratezza, non solo
@@ -26,10 +26,12 @@ import { DUAL_LEVEL_MAX, adaptLevelKey, sessionLevelBounds } from '../core/bands
   // che devono sapere se un reset è appena avvenuto (es. il gradiente
   // spaziale del TAPAT).
   export function pushAdaptOutcome(cfg, session, correct, rtMs){
-    session.adaptRTHistory = session.adaptRTHistory || [];
-    const counted = countedOutcome(correct, rtMs, session.adaptRTHistory);
-    if(correct && rtMs!=null) session.adaptRTHistory.push(rtMs);
-    session.adaptBlock.push(counted);
+    // 19 nov 2026: accuratezza E velocità in ogni prova (come Intruso, Griglie, Inversione). Il blocco contiene il
+    // CREDITO = punteggio (1 giusta, 0 sbagliata) × fattore velocità (1 fino a 1,3 × la propria mediana, poi scende
+    // a 0 a 2,1 ×; servono 4 tempi già osservati). Sostituisce il vecchio filtro sì/no «più lenta di 1,6 ×».
+    session.rtB = session.rtB || {};
+    const credit = Math.round(creditByBucket(session.rtB, 'g', correct ? 1 : 0, rtMs) * 100) / 100;
+    session.adaptBlock.push(credit);
     const before = session.adaptBlock.length;
     maybeAdapt(cfg, session);
     return before;
@@ -39,7 +41,7 @@ import { DUAL_LEVEL_MAX, adaptLevelKey, sessionLevelBounds } from '../core/bands
     const levelKey = adaptLevelKey(cfg);
     if(!levelKey) return;
     if(session.adaptBlock.length < ADAPT_BLOCK) return;
-    const acc = session.adaptBlock.filter(Boolean).length / session.adaptBlock.length;
+    const acc = session.adaptBlock.reduce((a, x) => a + (+x), 0) / session.adaptBlock.length; // media dei crediti (true/false valgono 1/0)
     const bounds = sessionLevelBounds(cfg);
     const step = adaptStep(acc, session[levelKey], bounds.min, bounds.max);
     if(step){
@@ -171,9 +173,12 @@ import { DUAL_LEVEL_MAX, adaptLevelKey, sessionLevelBounds } from '../core/bands
     else { session.countsAud.correctRejections++; ch2Correct=true; }
     // i due canali sono valutati e adattati in modo indipendente, non con
     // un'unica media che confonderebbe quale dei due sta davvero in difficoltà
-    session.adaptBlock1.push(ch1Correct);
+    // 19 nov 2026: credito = giusta × velocità del PROPRIO canale (tempo del tocco vs propria mediana, per canale)
+    session.rtB = session.rtB || {};
+    const rtV = session.respTimes ? session.respTimes.vis : null, rtA = session.respTimes ? session.respTimes.aud : null;
+    session.adaptBlock1.push(Math.round(creditByBucket(session.rtB, 'vis', ch1Correct ? 1 : 0, rtV != null ? rtV : null) * 100) / 100);
     maybeAdaptDualChannel(cfg, session, 1);
-    session.adaptBlock2.push(ch2Correct);
+    session.adaptBlock2.push(Math.round(creditByBucket(session.rtB, 'aud', ch2Correct ? 1 : 0, rtA != null ? rtA : null) * 100) / 100);
     maybeAdaptDualChannel(cfg, session, 2);
     return ok ? 'hit' : 'err';
   }
@@ -183,7 +188,7 @@ import { DUAL_LEVEL_MAX, adaptLevelKey, sessionLevelBounds } from '../core/bands
     const levelKey = channel===1 ? 'dualLevel1' : 'dualLevel2';
     const block = session[blockKey];
     if(block.length < ADAPT_BLOCK) return;
-    const acc = block.filter(Boolean).length / block.length;
+    const acc = block.reduce((a, x) => a + (+x), 0) / block.length; // media dei crediti
     const step = adaptStep(acc, session[levelKey], 1, DUAL_LEVEL_MAX);
     if(step){
       session[levelKey] += step;

@@ -127,7 +127,7 @@ module.exports = async function run(t) {
     const out = R.resolveDualTask(cfg, s, { valid: true, visualIsTarget: true, audioIsTarget: true });
     t.eq(out, 'err', 'basta un canale sbagliato per essere errore');
     t.eq([s.counts.hits, s.countsAud.misses], [1, 1], 'visivo hit, uditivo miss');
-    t.eq([s.adaptBlock1, s.adaptBlock2], [[true], [false]], 'i blocchi adattivi sono indipendenti');
+    t.eq([s.adaptBlock1, s.adaptBlock2], [[1], [0]], 'i blocchi adattivi sono indipendenti');
     const g = mkSession(); g.responses.add('vis'); g.responses.add('aud');
     t.eq(R.resolveDualTask(cfg, g, { valid: true, visualIsTarget: true, audioIsTarget: true }), 'hit', 'entrambi giusti → hit');
     const f = mkSession(); f.responses.add('aud');
@@ -167,14 +167,32 @@ module.exports = async function run(t) {
     t.eq(dual.levelChanges.map(c => c.canale), [1, 2], 'cambi registrati per canale');
   });
 
+  t.group('maybeAdapt — media dei crediti (accuratezza × velocità)', () => {
+    const cfg = cfgOf('gonogo', { adaptive: true, adaptStartLevel: 5 });
+    const up = mkSession({ adaptLevel: 5, adaptBlock: [1, 1, 1, 1, 1, 1, 1, 0.9] });          // media 0,99
+    R.maybeAdapt(cfg, up); t.eq(up.adaptLevel, 6, 'crediti alti: sale');
+    const slow = mkSession({ adaptLevel: 5, adaptBlock: [1, 1, 1, 1, 1, 1, 1, 1].map((x, i) => i < 4 ? 0.63 : x) }); // giuste ma lente: media ≈ 0,82
+    R.maybeAdapt(cfg, slow); t.eq(slow.adaptLevel, 5, 'tutte giuste ma lente: non sale (fascia 70-85%)');
+    const cfg6 = cfgOf('gonogo', { adaptive: true, adaptStartLevel: 6 }); // fascia 5-7: la seduta non esce dalla fascia
+    const slower = mkSession({ adaptLevel: 6, adaptBlock: [0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6] });
+    R.maybeAdapt(cfg6, slower); t.eq(slower.adaptLevel, 5, 'molto lente: scende');
+  });
   t.group('pushAdaptOutcome — restituisce la lunghezza del blocco prima del reset', () => {
     const cfg = cfgOf('gonogo', { adaptive: true, adaptStartLevel: 6 });
     const s = mkSession({ adaptLevel: 6, adaptBlock: Array(7).fill(true) });
     t.eq(R.pushAdaptOutcome(cfg, s, true, 400), 8, 'restituisce 8 (il blocco si è appena valutato)');
     t.eq(s.adaptBlock, [], 'e il blocco è stato azzerato');
     t.eq(s.adaptLevel, 7, 'il livello è salito');
-    const q = mkSession({ adaptRTHistory: [400, 400, 400, 400] });
-    R.pushAdaptOutcome(cfg, q, true, 1200); // oltre 1.6 × mediana: corretta ma lenta
-    t.eq(q.adaptBlock, [false], 'risposta corretta ma troppo lenta non conta come successo pieno');
+    // 19 nov 2026: credito = punteggio × fattore velocità (1 fino a 1,3 × mediana, 0 a 2,1 ×)
+    const q = mkSession({ rtB: { g: [400, 400, 400, 400] } });
+    R.pushAdaptOutcome(cfg, q, true, 400);  // tempo nella norma
+    R.pushAdaptOutcome(cfg, q, true, 640);  // 1,6 × la mediana: ≈ 0,63
+    R.pushAdaptOutcome(cfg, q, true, 1000); // oltre 2,1 ×: 0
+    R.pushAdaptOutcome(cfg, q, false, 400); // errore: 0
+    t.eq(q.adaptBlock, [1, 0.63, 0, 0], 'il blocco contiene crediti: giusta veloce 1, giusta lenta frazione, troppo lenta o errore 0');
+    const nort = mkSession({});
+    R.pushAdaptOutcome(cfg, nort, true, null);
+    R.pushAdaptOutcome(cfg, nort, false, null);
+    t.eq(nort.adaptBlock, [1, 0], 'senza tempo (es. correct rejection) vale solo la correttezza');
   });
 };

@@ -3003,7 +3003,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     });
     if(cfg.adaptive){
       const totalTargets = tL.length+tR.length;
-      const acc = totalTargets>0 ? (foundLeft+foundRight)/totalTargets : 1;
+      session.rtB = session.rtB || {};
+      const acc = totalTargets>0 ? creditByBucket(session.rtB, 'tavola', (foundLeft+foundRight)/totalTargets, timeMs/Math.max(1,totalTargets)) : 1; // accuratezza × velocità (tempo per bersaglio vs propria mediana)
       const neglectBandKey = cfg.neglectMode==='progressiva' ? 'neglectProgressiva' : cfg.neglectMode==='regola' ? 'neglectRegola' : null;
       const neglectStart = cfg.neglectMode==='regola' ? cfg.neglectRuleLevel : cfg.neglectStartLevel;
       const bounds = neglectBandKey ? (structuralBandBounds(neglectBandKey, neglectStart) || {min:1,max:currentLevelMax()}) : {min:1,max:currentLevelMax()};
@@ -3117,7 +3118,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       : cfg.taskMode==='dualtask' ? genDualTaskTrial()
       : cfg.taskMode==='categorizzazione' ? genCategTrial()
       : session.seq[session.idx];
-    session.responses=new Set(); session.respTime=null; session.showStopCue=false; session.dualGraceUsed=false;
+    session.responses=new Set(); session.respTime=null; session.respTimes={}; session.showStopCue=false; session.dualGraceUsed=false;
     if(session.stopCueTimer){ clearTimeout(session.stopCueTimer); session.stopCueTimer=null; }
     session.trialStart = performance.now();
 
@@ -3311,7 +3312,9 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(session.responses.has(action)) return;
     if(cfg.taskMode!=='dualtask' && session.responses.size>0) return;
     session.responses.add(action);
-    if(session.respTime===null) session.respTime = performance.now()-session.trialStart;
+    const nowRt = performance.now()-session.trialStart;
+    if(session.respTime===null) session.respTime = nowRt;
+    (session.respTimes || (session.respTimes = {}))[action] = nowRt; // tempo per canale (doppio compito)
   }
   function resolveTrial(){
     const trial = session.seq[session.idx];
@@ -5562,7 +5565,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     if(expected!==undefined){
       const sc = scoreSerieTrial(expected, session.answered ? session.answered.value : null, session.answered ? session.answered.rt : null);
       session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, nogo:sc.nogo, commission:sc.commission, level:cfg.adaptStartLevel, regola:sr.index});
-      session.serieAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
+      session.serieAdaptBlock.push(rtBucketOutcome('serie', sc.correct, sc.rt)); trialFeedback(!!sc.correct);
       maybeAdaptSerieOf(cfg, session);
     }
     session.idx++;

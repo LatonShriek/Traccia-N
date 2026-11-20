@@ -220,3 +220,9 @@ Codice: `js/core/assi.js` (test: `tests/assi.test.js`). Solo in modalità adatti
 - **Mezzi livelli** (`HALF_STEP_MODES` in `js/core/levels.js`): Sequenza, Stop-Signal, ANT/Simon, Switch. Livello con la virgola, parametri interpolati (`lerpLevel`), passo ±0,5, decisione sugli ultimi 2 blocchi se allo stesso livello. Salvataggio: `adaptStartLevel` intero (arrotondato), valore con la virgola in `adaptFine` e `finalLevelFine`. La lunghezza della Sequenza resta quella del livello di partenza (struttura fissa durante la seduta). Tabelle: [tabella-livelli-intermedi.md](tabella-livelli-intermedi.md). Non ancora applicato a Go/NoGo, N-back, Categorizzazione, Doppio compito (fasce strutturali).
 - Mappa generale: [guida-titolazione.md](guida-titolazione.md).
 
+## Go/NoGo: mezzi livelli e tabella ISI (20 nov 2026)
+
+- **Mezzi livelli dentro la fascia** (`HALF_STEP_MODES` ora include `gonogo`): le fasce strutturali (1–4, 5–7, 8–9, 10) restano quelle di prima e la seduta non le esce mai; dentro la fascia il livello sale e scende di 0,5 e la frequenza no-go è interpolata (`lerpLevel`). Il numero di elementi no-go cambia solo fra una fascia e l'altra e usa la parte intera del livello. In tutto 16 livelli. Decisione sugli ultimi 2 blocchi, come per gli altri.
+- **ISI da tabella** (`ADAPT_ISI.gonogo`, in modalità Livello e Adattivo; in Manuale resta l'ISI del Setup): 2000, 1800, 1650, 1500 | 1800, 1650, 1500 | 1650, 1500 | 1400 ms. Riparte più lenta a ogni fascia per non sommare due salti di difficoltà. **Valori proposti, senza fonte, da tarare sui dati reali.**
+- Salvataggio e schermo come per gli altri mezzi livelli: `adaptStartLevel` intero, `adaptFine` e `finalLevelFine` con la virgola; «livello 5,5» a schermo.
+- **Dispersione per prova: scelta A** (solo dove le transizioni sono strutturali); Go/NoGo non ne ha.

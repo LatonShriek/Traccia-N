@@ -13,7 +13,11 @@
     sequenza: {1:4500,2:3900,3:3200,4:2700,5:2200,6:1900,7:1700,8:1500,9:1150,10:900},
     dualtask: {1:3000,2:2700,3:2400,4:2100,5:1800,6:1550,7:1300,8:1100,9:900,10:700}, // ISI condivisa (leva secondaria), esteso da 5 a 10 livelli
     ant:      {1:3200,2:2800,3:2400,4:2000,5:1600,6:1400,7:1200,8:1000,9:800,10:650},  // solo ANT classico, non TAPAT
-    stopsignal: {1:3600,2:3200,3:2800,4:2400,5:2000,6:1700,7:1400,8:1150,9:950,10:750} // leva secondaria, indipendente dallo staircase SSD
+    stopsignal: {1:3600,2:3200,3:2800,4:2400,5:2000,6:1700,7:1400,8:1150,9:950,10:750}, // leva secondaria, indipendente dallo staircase SSD
+    // Go/No-Go (20 nov 2026): prima l'ISI veniva dal Setup. Ora, come la lure dell'N-back, RIPARTE più lenta all'inizio di ogni fascia
+    // strutturale (1-4, 5-7, 8-9, 10) per non sommare due salti di difficoltà (numero di elementi no-go + velocità). Valori proposti
+    // da tarare sui dati reali: non hanno una fonte.
+    gonogo:   {1:2000,2:1800,3:1650,4:1500,5:1800,6:1650,7:1500,8:1650,9:1500,10:1400}
   };
   // Simon usa ESATTAMENTE la scala dell'ANT classico (complessità percettivo-motoria comparabile, 2AFC spaziale): una sola tabella, due nomi.
   // Per darle valori propri basta sostituire questa riga con una tabella dedicata.
@@ -88,8 +92,10 @@
   // ─── Livelli intermedi (19 nov 2026) ─────────────────────────────────────────
   // Esercizi senza fasce strutturali: il livello ha mezzi gradini (1, 1,5, … 10) e i parametri continui sono interpolati a metà
   // strada fra due livelli interi (es. Sequenza 2,5 = ISI a metà fra livello 2 e 3). I livelli interi restano IDENTICI a prima.
-  // Esclusi per ora gli esercizi con fasce strutturali (N-back, Go/No-Go, Categorizzazione) e il Doppio compito.
-  export const HALF_STEP_MODES = ['sequenza','stopsignal','ant','simon','switching'];
+  // Esclusi per ora N-back, Categorizzazione e Doppio compito. Il Go/No-Go (20 nov) ha i mezzi gradini SOLO DENTRO la fascia strutturale
+  // (1-4, 5-7, 8-9, 10): il livello non esce mai dalla fascia di partenza, quindi 16 livelli in tutto. Il numero di elementi no-go,
+  // che cambia solo fra una fascia e l'altra, usa la parte intera.
+  export const HALF_STEP_MODES = ['sequenza','stopsignal','ant','simon','switching','gonogo'];
   export function lerpLevel(table, level){
     const lo = Math.floor(level), hi = Math.ceil(level);
     const a = table[lo], b = table[hi];

@@ -141,12 +141,12 @@ module.exports = async function run(t) {
     const S = o => mkSession(Object.assign({ adaptLevel: 6 }, o));
     const up = S({ adaptBlock: Array(8).fill(true) });
     R.maybeAdapt(cfg, up);
-    t.eq(up.adaptLevel, 7, '8/8 corretti → sale di 1');
+    t.eq(up.adaptLevel, 6.5, '8/8 corretti → sale di mezzo livello (Go/No-Go ha i mezzi livelli dentro la fascia)');
     t.eq(up.adaptBlock, [], 'il blocco si azzera');
     t.eq(up.levelChanges[0].how, 'auto', 'cambio registrato come automatico');
     const down = S({ adaptBlock: [true, true, true, true, true, false, false, false] }); // 5/8 = 0.625
     R.maybeAdapt(cfg, down);
-    t.eq(down.adaptLevel, 5, '5/8 → scende di 1');
+    t.eq(down.adaptLevel, 5.5, '5/8 → scende di mezzo livello');
     const stay = S({ adaptBlock: [true, true, true, true, true, true, false, false] }); // 6/8 = 0.75
     R.maybeAdapt(cfg, stay);
     t.eq(stay.adaptLevel, 6, '6/8 → resta');
@@ -170,19 +170,19 @@ module.exports = async function run(t) {
   t.group('maybeAdapt — media dei crediti (accuratezza × velocità)', () => {
     const cfg = cfgOf('gonogo', { adaptive: true, adaptStartLevel: 5 });
     const up = mkSession({ adaptLevel: 5, adaptBlock: [1, 1, 1, 1, 1, 1, 1, 0.9] });          // media 0,99
-    R.maybeAdapt(cfg, up); t.eq(up.adaptLevel, 6, 'crediti alti: sale');
+    R.maybeAdapt(cfg, up); t.eq(up.adaptLevel, 5.5, 'crediti alti: sale di mezzo livello');
     const slow = mkSession({ adaptLevel: 5, adaptBlock: [1, 1, 1, 1, 1, 1, 1, 1].map((x, i) => i < 4 ? 0.63 : x) }); // giuste ma lente: media ≈ 0,82
     R.maybeAdapt(cfg, slow); t.eq(slow.adaptLevel, 5, 'tutte giuste ma lente: non sale (fascia 70-85%)');
     const cfg6 = cfgOf('gonogo', { adaptive: true, adaptStartLevel: 6 }); // fascia 5-7: la seduta non esce dalla fascia
     const slower = mkSession({ adaptLevel: 6, adaptBlock: [0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6] });
-    R.maybeAdapt(cfg6, slower); t.eq(slower.adaptLevel, 5, 'molto lente: scende');
+    R.maybeAdapt(cfg6, slower); t.eq(slower.adaptLevel, 5.5, 'molto lente: scende di mezzo livello');
   });
   t.group('pushAdaptOutcome — restituisce la lunghezza del blocco prima del reset', () => {
     const cfg = cfgOf('gonogo', { adaptive: true, adaptStartLevel: 6 });
     const s = mkSession({ adaptLevel: 6, adaptBlock: Array(7).fill(true) });
     t.eq(R.pushAdaptOutcome(cfg, s, true, 400), 8, 'restituisce 8 (il blocco si è appena valutato)');
     t.eq(s.adaptBlock, [], 'e il blocco è stato azzerato');
-    t.eq(s.adaptLevel, 7, 'il livello è salito');
+    t.eq(s.adaptLevel, 6.5, 'il livello è salito di mezzo livello');
     // 19 nov 2026: credito = punteggio × fattore velocità (1 fino a 1,3 × mediana, 0 a 2,1 ×)
     const q = mkSession({ rtB: { g: [400, 400, 400, 400] } });
     R.pushAdaptOutcome(cfg, q, true, 400);  // tempo nella norma

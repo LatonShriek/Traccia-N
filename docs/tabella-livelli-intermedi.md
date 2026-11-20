@@ -1,6 +1,6 @@
 # Livelli intermedi dei classici: tabelle
 
-**Stato (19 nov 2026):** ATTIVI per Sequenza, Stop-Signal, ANT/Simon e Switch (19 livelli). PROPOSTA, non ancora nel codice, per Go/NoGo (16 livelli), N-back (17), Categorizzazione (15) e Doppio compito (19 per canale).
+**Stato (20 nov 2026):** ATTIVI per Sequenza, Stop-Signal, ANT/Simon e Switch (19 livelli) e per Go/NoGo (16 livelli, con tabella ISI). PROPOSTA, non ancora nel codice, per N-back (17), Categorizzazione (15) e Doppio compito (19 per canale).
 
 Regola: i livelli interi restano IDENTICI a oggi (i livelli già salvati non cambiano significato). Un livello x,5 porta i parametri continui a metà strada fra due livelli interi; Sequenza prende anche la lunghezza del livello successivo. Dove cambia una fascia strutturale (n dell N-back, numero di no-go del Go/NoGo, struttura di Categorizzazione) non si interpola tra una fascia e l altra. La decisione di salire o scendere di mezzo livello si prende sugli ultimi 2 blocchi (16 prove) se stanno allo stesso livello.
 
@@ -29,27 +29,27 @@ Mezzo livello = lunghezza del livello successivo, ISI a metà strada.
 | 9,5 | 5 | 1025 |
 | 10 | 5 | 900 |
 
-## Go/NoGo (16 livelli)
-Mezzi livelli solo DENTRO una fascia (1-4, 5-7, 8-9, 10): il numero di no-go noti non cambia a metà seduta. Frequenza no-go a metà strada.
+## Go/NoGo (16 livelli) — ATTIVO dal 20 nov
+Mezzi livelli solo DENTRO una fascia (1-4, 5-7, 8-9, 10): il numero di no-go noti non cambia a metà seduta. Frequenza no-go e ISI a metà strada. L ISI (nuova leva di velocità, valori proposti e approvati da Rodrigo, da tarare sui dati) ricomincia più lenta a ogni fascia.
 
-| Liv. | N. no-go | Freq. no-go |
-|---|---|---|
-| 1 | 1 | 0,48 |
-| 1,5 | 1 | 0,460 |
-| 2 | 1 | 0,44 |
-| 2,5 | 1 | 0,420 |
-| 3 | 1 | 0,40 |
-| 3,5 | 1 | 0,370 |
-| 4 | 1 | 0,34 |
-| 5 | 2 | 0,28 |
-| 5,5 | 2 | 0,250 |
-| 6 | 2 | 0,22 |
-| 6,5 | 2 | 0,195 |
-| 7 | 2 | 0,17 |
-| 8 | 3 | 0,12 |
-| 8,5 | 3 | 0,100 |
-| 9 | 3 | 0,08 |
-| 10 | 4 | 0,05 |
+| Liv. | N. no-go | Freq. no-go | ISI (ms) |
+|---|---|---|---|
+| 1 | 1 | 0,48 | 2000 |
+| 1,5 | 1 | 0,460 | 1900 |
+| 2 | 1 | 0,44 | 1800 |
+| 2,5 | 1 | 0,420 | 1725 |
+| 3 | 1 | 0,40 | 1650 |
+| 3,5 | 1 | 0,370 | 1575 |
+| 4 | 1 | 0,34 | 1500 |
+| 5 | 2 | 0,28 | 1800 |
+| 5,5 | 2 | 0,250 | 1725 |
+| 6 | 2 | 0,22 | 1650 |
+| 6,5 | 2 | 0,195 | 1575 |
+| 7 | 2 | 0,17 | 1500 |
+| 8 | 3 | 0,12 | 1650 |
+| 8,5 | 3 | 0,100 | 1575 |
+| 9 | 3 | 0,08 | 1500 |
+| 10 | 4 | 0,05 | 1400 |
 
 ## N-back (17 livelli)
 Mezzi livelli solo DENTRO una banda di n (nessuno tra 4 e 5, né tra 9 e 10).

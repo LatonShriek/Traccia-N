@@ -2645,8 +2645,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     }
     if(isGoNoGo && cfg.adaptive && cfg.targetSeq.length){
       const activeN = Math.min(cfg.targetSeq.length, ADAPT_GONOGO_COUNT[cfg.adaptStartLevel]||1);
-      const activeFreq = Math.round((ADAPT_GONOGO_FREQ[cfg.adaptStartLevel]||cfg.targetRate)*100);
-      wrap.appendChild(el('p',{class:'hint'},['A livello '+cfg.adaptStartLevel+': '+activeN+' element'+(activeN===1?'o':'i')+' attiv'+(activeN===1?'o':'i')+' su '+cfg.targetSeq.length+' nel pool, frequenza '+activeFreq+'% — il campo "Frequenza no-go" sotto è ignorato in modalità adattiva.']));
+      const activeFreq = Math.round((lerpLevel(ADAPT_GONOGO_FREQ, fineStartOf(cfg))||cfg.targetRate)*100);
+      wrap.appendChild(el('p',{class:'hint'},['A livello '+fineLabel(fineStartOf(cfg))+': '+activeN+' element'+(activeN===1?'o':'i')+' attiv'+(activeN===1?'o':'i')+' su '+cfg.targetSeq.length+' nel pool, frequenza '+activeFreq+'% — il campo "Frequenza no-go" sotto è ignorato in modalità adattiva.']));
     }
     return wrap;
   }
@@ -3622,7 +3622,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const genericLevelKey = adaptLevelKey();
     const modeLabel = cfg.taskMode==='sequenza' ? 'sequenza bersaglio · livello '+fineLabel(session.adaptLevel)
       : cfg.taskMode==='nback' ? 'livello '+session.liveNLevel+' · n='+nbackParamsForLevel(session.liveNLevel).n+(cfg.adaptive?' (adattivo)':'')
-      : cfg.taskMode==='gonogo' ? 'go/no-go · livello '+session.adaptLevel
+      : cfg.taskMode==='gonogo' ? 'go/no-go · livello '+fineLabel(session.adaptLevel)
       : cfg.taskMode==='stopsignal' ? 'SSD '+Math.round(session.currentSSD)+'ms · ritmo livello '+fineLabel(session.adaptLevel)
       : (cfg.taskMode==='tapat' && trial) ? 'TAPAT — blocco '+(trial.block==='tonic'?'tonico':'fasico')+' · livello '+session.tapatLevel+(cfg.adaptive?' (adattivo)':'')
       : cfg.taskMode==='ant' ? 'ANT · livello '+fineLabel(session.adaptLevel)

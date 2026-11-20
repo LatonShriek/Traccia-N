@@ -4,7 +4,7 @@
 // che chiama questa con la cfg e la seduta correnti.
 // - genGoNoGoTrial riceve cfg e session come parametri invece di leggere le variabili dell'app.
 import { POOLS, mistaTypesFor, randMistaStim, sameStim, seqLabel } from '../core/pools.js';
-import { ADAPT_GONOGO_COUNT, ADAPT_GONOGO_FREQ } from '../core/levels.js';
+import { ADAPT_GONOGO_COUNT, ADAPT_GONOGO_FREQ, lerpLevel } from '../core/levels.js';
 
   // Go/No-Go: generazione incrementale, necessaria perché con l'adattivo
   // attivo la frequenza no-go cambia durante la sessione.
@@ -13,9 +13,9 @@ import { ADAPT_GONOGO_COUNT, ADAPT_GONOGO_FREQ } from '../core/levels.js';
     const mistaTypes = isMista ? mistaTypesFor(cfg.gonogoMista) : null;
     const pool = isMista ? null : POOLS[cfg.stimType];
     const fullSet = cfg.targetSeq;
-    const count = cfg.adaptive ? Math.min(fullSet.length, ADAPT_GONOGO_COUNT[session.adaptLevel]||1) : fullSet.length;
+    const count = cfg.adaptive ? Math.min(fullSet.length, ADAPT_GONOGO_COUNT[Math.floor(session.adaptLevel)]||1) : fullSet.length;
     const activeNoGo = fullSet.slice(0, Math.max(1,count));
-    const freq = cfg.titrationMode!=='manuale' ? (ADAPT_GONOGO_FREQ[session.adaptLevel] || cfg.targetRate) : cfg.targetRate;
+    const freq = cfg.titrationMode!=='manuale' ? (lerpLevel(ADAPT_GONOGO_FREQ, session.adaptLevel) || cfg.targetRate) : cfg.targetRate;
     let val;
     if(Math.random() < freq){ val = activeNoGo[Math.floor(Math.random()*activeNoGo.length)]; }
     else if(isMista){

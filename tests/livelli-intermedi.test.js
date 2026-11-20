@@ -5,11 +5,12 @@ const { importCore } = require('./lib/core');
 module.exports = async function run(t){
   const L = await importCore('levels.js');
   const R = await importCore('../exercises/resolve.js');
+  const M = await importCore('../exercises/gonogo.js');
   const cfgOf = (taskMode, o) => Object.assign({ taskMode, respMode: 'touch', adaptive: true }, o);
   const S = o => Object.assign({ idx: 0, adaptBlock: [], levelChanges: [], adaptLevel: 4, rtB: {} }, o);
 
   t.group('lerpLevel: interi invariati, mezzi livelli a metà strada', () => {
-    t.ok(L.HALF_STEP_MODES.join()==='sequenza,stopsignal,ant,simon,switching', 'esercizi coinvolti: solo quelli senza fasce strutturali');
+    t.ok(L.HALF_STEP_MODES.join()==='sequenza,stopsignal,ant,simon,switching,gonogo', 'esercizi coinvolti: quelli senza fasce e il Go/No-Go dentro la fascia');
     for(const k of [1,2,5,10]) t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, k), L.ADAPT_ISI.sequenza[k], 'Sequenza livello intero '+k+' identico a prima');
     t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, 1.5), 4200, 'Sequenza 1,5 = 4200 ms');
     t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, 2.5), 3550, 'Sequenza 2,5 = 3550 ms');
@@ -50,9 +51,34 @@ module.exports = async function run(t){
     const bot = S({ adaptLevel: 1, adaptBlock: Array(8).fill(0) }); R.maybeAdapt(cfg, bot); t.eq(bot.adaptLevel, 1, 'al livello 1 non scende sotto');
   });
 
-  t.group('esercizi con fasce strutturali: invariati (passo intero)', () => {
-    const cfg = cfgOf('gonogo', { adaptStartLevel: 6 });
-    const s = S({ adaptLevel: 6, adaptBlock: Array(8).fill(1) }); R.maybeAdapt(cfg, s);
-    t.eq(s.adaptLevel, 7, 'Go/No-Go continua a salire di 1 (non ha ancora i mezzi livelli)');
+  t.group('Go/No-Go: mezzi livelli solo dentro la fascia, ISI da tabella', () => {
+    const G = L.ADAPT_ISI.gonogo;
+    t.eq([1,2,3,4,5,6,7,8,9,10].map(k => G[k]), [2000,1800,1650,1500,1800,1650,1500,1650,1500,1400], 'tabella ISI approvata (riparte più lenta a ogni fascia)');
+    t.eq(L.lerpLevel(G, 1.5), 1900, 'livello 1,5: ISI 1900 ms');
+    t.eq(L.lerpLevel(G, 3.5), 1575, 'livello 3,5: ISI 1575 ms');
+    t.eq(L.lerpLevel(G, 5.5), 1725, 'livello 5,5: ISI 1725 ms');
+    t.eq(L.lerpLevel(L.ADAPT_GONOGO_FREQ, 6.5), 0.195, 'livello 6,5: frequenza no-go 0,195');
+    const up = (lv, start) => { const s = S({ adaptLevel: lv, adaptBlock: Array(8).fill(1) }); R.maybeAdapt(cfgOf('gonogo', { adaptStartLevel: start }), s); return s.adaptLevel; };
+    const dn = (lv, start) => { const s = S({ adaptLevel: lv, adaptBlock: Array(8).fill(0) }); R.maybeAdapt(cfgOf('gonogo', { adaptStartLevel: start }), s); return s.adaptLevel; };
+    t.eq(up(6, 6), 6.5, 'fascia 5-7: sale di mezzo livello');
+    t.eq(up(7, 6), 7, 'fascia 5-7: al 7 non esce dalla fascia');
+    t.eq(dn(5, 6), 5, 'fascia 5-7: al 5 non scende nella fascia 1-4');
+    t.eq(up(4, 3), 4, 'fascia 1-4: al 4 non sale nella fascia 5-7');
+    t.eq(up(8, 8), 8.5, 'fascia 8-9: 8 → 8,5');
+    t.eq(up(10, 10), 10, 'fascia 10: un solo livello');
+    // finestra di 2 blocchi, come gli altri
+    const cfg = cfgOf('gonogo', { adaptStartLevel: 2 });
+    const a = S({ adaptLevel: 2, adaptBlock: [1,1,1,1,1,1,0,0] }); R.maybeAdapt(cfg, a);
+    a.adaptBlock = Array(8).fill(1); R.maybeAdapt(cfg, a);
+    t.eq(a.adaptLevel, 2.5, 'due blocchi 0,75 e 1,00: sale di mezzo livello');
+    // numero di elementi no-go: cambia solo con la fascia, anche con livelli frazionari
+    const gen = (lv) => { const ss = { adaptLevel: lv, seq: [] }; const c = { gonogoMista: 'no', stimType: 'lettere', targetSeq: ['A','B','C','D'], adaptive: true, titrationMode: 'adattivo', targetRate: 0.2 }; return { c, ss }; };
+    {
+      for(const [lv, n] of [[1,1],[3.5,1],[5.5,2],[6.5,2],[8.5,3],[10,4]]){
+        const { c, ss } = gen(lv);
+        const seen = new Set(); for(let i=0;i<2000;i++){ const tr = M.genGoNoGoTrial(c, ss); if(!tr.isTarget) seen.add(tr.val); }
+        t.eq(seen.size, n, 'livello '+lv+': '+n+' elemento/i no-go attivo/i');
+      }
+    }
   });
 };

@@ -6,11 +6,12 @@ module.exports = async function run(t){
   const L = await importCore('levels.js');
   const R = await importCore('../exercises/resolve.js');
   const M = await importCore('../exercises/gonogo.js');
+  const A = await importCore('adapt.js');
   const cfgOf = (taskMode, o) => Object.assign({ taskMode, respMode: 'touch', adaptive: true }, o);
   const S = o => Object.assign({ idx: 0, adaptBlock: [], levelChanges: [], adaptLevel: 4, rtB: {} }, o);
 
   t.group('lerpLevel: interi invariati, mezzi livelli a metà strada', () => {
-    t.ok(L.HALF_STEP_MODES.join()==='sequenza,stopsignal,ant,simon,switching,gonogo', 'esercizi coinvolti: quelli senza fasce e il Go/No-Go dentro la fascia');
+    t.ok(L.HALF_STEP_MODES.join()==='sequenza,stopsignal,ant,simon,switching,gonogo,nback', 'esercizi coinvolti: quelli senza fasce, Go/No-Go e N-back dentro la fascia');
     for(const k of [1,2,5,10]) t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, k), L.ADAPT_ISI.sequenza[k], 'Sequenza livello intero '+k+' identico a prima');
     t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, 1.5), 4200, 'Sequenza 1,5 = 4200 ms');
     t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, 2.5), 3550, 'Sequenza 2,5 = 3550 ms');
@@ -80,5 +81,27 @@ module.exports = async function run(t){
         t.eq(seen.size, n, 'livello '+lv+': '+n+' elemento/i no-go attivo/i');
       }
     }
+  });
+
+  t.group('N-back: mezzi livelli solo dentro la banda di n, ISI da tabella', () => {
+    const N = L.ADAPT_ISI.nback;
+    t.eq([1,2,3,4,5,6,7,8,9,10].map(k => N[k]), [3000,2800,2600,2400,3000,2800,2600,2400,2200,3000], 'tabella ISI approvata (riparte più lenta a ogni banda)');
+    t.eq(L.lerpLevel(N, 1.5), 2900, 'livello 1,5: ISI 2900 ms');
+    t.eq(L.lerpLevel(N, 8.5), 2300, 'livello 8,5: ISI 2300 ms');
+    const p1 = L.nbackParamsForLevel(2), p15 = L.nbackParamsForLevel(2.5), p3 = L.nbackParamsForLevel(3);
+    t.ok(p15.n===1 && Math.abs(p15.freq-(p1.freq+p3.freq)/2)<1e-9 && Math.abs(p15.lure-(p1.lure+p3.lure)/2)<1e-9, 'livello 2,5: n=1, frequenza e lure a metà fra 2 e 3');
+    t.eq(L.nbackParamsForLevel(7.5).n, 2, 'livello 7,5: n=2');
+    t.eq(L.nbackParamsForLevel(6), L.NBACK_LEVEL_TABLE[6], 'livelli interi identici a prima');
+    const up = (lv, start) => { const s = S({ liveNLevel: lv, adaptBlock: Array(8).fill(1) }); R.maybeAdapt(cfgOf('nback', { nLevel: start }), s); return s.liveNLevel; };
+    const dn = (lv, start) => { const s = S({ liveNLevel: lv, adaptBlock: Array(8).fill(0) }); R.maybeAdapt(cfgOf('nback', { nLevel: start }), s); return s.liveNLevel; };
+    t.eq(up(2, 2), 2.5, 'banda 1-4: sale di mezzo livello');
+    t.eq(up(4, 2), 4, 'banda 1-4: al 4 non passa a n=2');
+    t.eq(dn(5, 7), 5, 'banda 5-9: al 5 non scende a n=1');
+    t.eq(up(9, 7), 9, 'banda 5-9: al 9 non passa a n=3');
+    t.eq(up(7, 7), 7.5, 'banda 5-9: 7 → 7,5');
+    t.eq(up(10, 10), 10, 'banda 10: un solo livello');
+    t.eq(dn(10, 10), 10, 'banda 10: non scende');
+    t.eq(A.nFineStartOf({ nLevel: 6, nLevelFine: 5.5 }), 5.5, 'livello con la virgola coerente con nLevel: usato');
+    t.eq(A.nFineStartOf({ nLevel: 3, nLevelFine: 5.5 }), 3, 'incoerente (livello cambiato a mano): ignorato');
   });
 };

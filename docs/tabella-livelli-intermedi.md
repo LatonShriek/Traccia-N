@@ -1,6 +1,6 @@
 # Livelli intermedi dei classici: tabelle
 
-**Stato (20 nov 2026):** ATTIVI per Sequenza, Stop-Signal, ANT/Simon e Switch (19 livelli) e per Go/NoGo (16 livelli, con tabella ISI). PROPOSTA, non ancora nel codice, per N-back (17), Categorizzazione (15) e Doppio compito (19 per canale).
+**Stato (20 nov 2026):** ATTIVI per Sequenza, Stop-Signal, ANT/Simon e Switch (19 livelli), Go/NoGo (16 livelli) e N-back (17 livelli), gli ultimi due con tabella ISI. PROPOSTA, non ancora nel codice, per Categorizzazione (15) e Doppio compito (19 per canale).
 
 Regola: i livelli interi restano IDENTICI a oggi (i livelli già salvati non cambiano significato). Un livello x,5 porta i parametri continui a metà strada fra due livelli interi; Sequenza prende anche la lunghezza del livello successivo. Dove cambia una fascia strutturale (n dell N-back, numero di no-go del Go/NoGo, struttura di Categorizzazione) non si interpola tra una fascia e l altra. La decisione di salire o scendere di mezzo livello si prende sugli ultimi 2 blocchi (16 prove) se stanno allo stesso livello.
 
@@ -51,28 +51,28 @@ Mezzi livelli solo DENTRO una fascia (1-4, 5-7, 8-9, 10): il numero di no-go not
 | 9 | 3 | 0,08 | 1500 |
 | 10 | 4 | 0,05 | 1400 |
 
-## N-back (17 livelli)
-Mezzi livelli solo DENTRO una banda di n (nessuno tra 4 e 5, né tra 9 e 10).
+## N-back (17 livelli) — ATTIVO dal 20 nov
+Mezzi livelli solo DENTRO una banda di n (nessuno tra 4 e 5, né tra 9 e 10). Frequenza target, lure e ISI a metà strada. L ISI (nuova leva di velocità, valori approvati da Rodrigo, da tarare sui dati) ricomincia più lenta a ogni banda.
 
-| Liv. | n | Freq. target | Lure |
-|---|---|---|---|
-| 1 | 1 | 0,38 | 0,00 |
-| 1,5 | 1 | 0,34 | 0,04 |
-| 2 | 1 | 0,30 | 0,08 |
-| 2,5 | 1 | 0,27 | 0,11 |
-| 3 | 1 | 0,24 | 0,15 |
-| 3,5 | 1 | 0,21 | 0,18 |
-| 4 | 1 | 0,18 | 0,22 |
-| 5 | 2 | 0,34 | 0,00 |
-| 5,5 | 2 | 0,31 | 0,05 |
-| 6 | 2 | 0,28 | 0,10 |
-| 6,5 | 2 | 0,25 | 0,14 |
-| 7 | 2 | 0,22 | 0,18 |
-| 7,5 | 2 | 0,19 | 0,21 |
-| 8 | 2 | 0,16 | 0,25 |
-| 8,5 | 2 | 0,14 | 0,29 |
-| 9 | 2 | 0,12 | 0,32 |
-| 10 | 3 | 0,20 | 0,20 |
+| Liv. | n | Freq. target | Lure | ISI (ms) |
+|---|---|---|---|---|
+| 1 | 1 | 0,38 | 0,00 | 3000 |
+| 1,5 | 1 | 0,34 | 0,04 | 2900 |
+| 2 | 1 | 0,30 | 0,08 | 2800 |
+| 2,5 | 1 | 0,27 | 0,11 | 2700 |
+| 3 | 1 | 0,24 | 0,15 | 2600 |
+| 3,5 | 1 | 0,21 | 0,18 | 2500 |
+| 4 | 1 | 0,18 | 0,22 | 2400 |
+| 5 | 2 | 0,34 | 0,00 | 3000 |
+| 5,5 | 2 | 0,31 | 0,05 | 2900 |
+| 6 | 2 | 0,28 | 0,10 | 2800 |
+| 6,5 | 2 | 0,25 | 0,14 | 2700 |
+| 7 | 2 | 0,22 | 0,18 | 2600 |
+| 7,5 | 2 | 0,19 | 0,21 | 2500 |
+| 8 | 2 | 0,16 | 0,25 | 2400 |
+| 8,5 | 2 | 0,14 | 0,29 | 2300 |
+| 9 | 2 | 0,12 | 0,32 | 2200 |
+| 10 | 3 | 0,20 | 0,20 | 3000 |
 
 ## Switch (19 livelli)
 Entrambi i parametri a metà strada.

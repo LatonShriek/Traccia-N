@@ -83,7 +83,7 @@ import { EXERCISES } from './registry.js';
       // questo, lo storico non poteva mostrare il livello per nessun
       // altro esercizio, perché il dato non veniva proprio registrato.
       finalLevel: (()=>{
-        if(cfg.taskMode==='nback') return session.liveNLevel;
+        if(cfg.taskMode==='nback') return Math.round(session.liveNLevel);
         if(cfg.taskMode==='categorizzazione') return session.categLevel;
         if(cfg.taskMode==='tapat') return session.tapatLevel;
         if(cfg.taskMode==='neglect') return session.liveBoardLevel;
@@ -94,7 +94,7 @@ import { EXERCISES } from './registry.js';
         if(adaptLevelKey(cfg)==='adaptLevel') return Math.round(session.adaptLevel);
         return null;
       })(),
-      finalLevelFine: (cfg.adaptive && ['intrusopercettivo','griglie','inversione','runningspan'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? cfg.adaptFine : ((cfg.adaptive && ['sequenza','stopsignal','ant','simon','switching','gonogo'].includes(cfg.taskMode) && session && typeof session.adaptLevel==='number' && !Number.isInteger(session.adaptLevel)) ? session.adaptLevel : null),
+      finalLevelFine: (cfg.adaptive && ['intrusopercettivo','griglie','inversione','runningspan'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? cfg.adaptFine : ((cfg.adaptive && ['sequenza','stopsignal','ant','simon','switching','gonogo'].includes(cfg.taskMode) && session && typeof session.adaptLevel==='number' && !Number.isInteger(session.adaptLevel)) ? session.adaptLevel : ((cfg.adaptive && cfg.taskMode==='nback' && session && typeof session.liveNLevel==='number' && !Number.isInteger(session.liveNLevel)) ? session.liveNLevel : null)),
       finalTimeF: (cfg.adaptive && ['intrusopercettivo','inversione'].includes(cfg.taskMode) && typeof cfg.adaptTimeF==='number') ? cfg.adaptTimeF : null,
       finalGen: (cfg.adaptive && ['intrusopercettivo','griglie','inversione'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? Math.round(genOfFine(cfg.adaptFine)) : null,
       localPatientId: patientProfile ? null : (activeLocalPatientId || null),
@@ -134,7 +134,7 @@ import { EXERCISES } from './registry.js';
         rec.incongAccuracy = incongLog.length ? incongLog.filter(x=>x.correct).length/incongLog.length : null;
       }
       if(cfg.taskMode==='nback'){
-        rec.finalNLevel = session.liveNLevel;
+        rec.finalNLevel = Math.round(session.liveNLevel);
         rec.adaptive = cfg.adaptive;
         rec.levelChanges = session.levelChanges.length ? session.levelChanges : null;
       }

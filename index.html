@@ -74,7 +74,7 @@ import { KEY, getRaw, setRaw, readJSON, writeJSON, removeKey, listByPrefix, getL
 import { recToRow, rowToRec, fetchRole, upsertSessionRow, fetchSessionRows, fetchMyPatients, fetchPatientFresh, fetchOperators, countPatientsOfOperator, fetchAccessRows, insertAccessEvent, insertAuditAction, fetchUsageRows, minutesOf } from './js/services/cloud.js';
 import { PROFILI, patchOf as patchOfProfilo } from './js/core/profili.js';
 import { trialGenFromFine, lvOfGen, timeFStartOf, timeFLabel } from './js/core/assi.js';
-import { ADAPT_BLOCK, adaptStep, countedOutcome, countedByBucket, creditByBucket, trialLevelFromFine, fineStartOf, fineLabel } from './js/core/adapt.js';
+import { ADAPT_BLOCK, adaptStep, countedOutcome, countedByBucket, creditByBucket, trialLevelFromFine, fineStartOf, nFineStartOf, fineLabel } from './js/core/adapt.js';
 import { computeEZDiffusion, computeLISAS, primaryAccuracyOf, computeExerciseTimeSummary } from './js/core/scores.js';
 import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TARGET_RATE, resolvedFreqForDisplay, resolvedIsiForDisplay, neglectSubLevelForDisplay, categEffectiveStructure, CATEG_STRUCTURE_LABELS, CATEG_STRUCTURE_HINTS, categTitrationModeHint, tapatTitrationModeHint, neglectTitrationModeHint, dualTitrationModeHint, titrationModeHint, neglectProgressivaPhase, LEVEL_FIELD_OF_TASKMODE, levelOfCfg } from './js/core/titration.js';
 (function(){
@@ -223,11 +223,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function loadPreset(p){
     const pc = p.cfg;
-    cfg.stimType = pc.stimType; cfg.taskMode = pc.taskMode; cfg.nLevel = pc.nLevel;
+    cfg.stimType = pc.stimType; cfg.taskMode = pc.taskMode; cfg.nLevel = pc.nLevel; cfg.nLevelFine = pc.nLevelFine;
     cfg.adaptStartLevel = pc.adaptStartLevel || 1; cfg.tapatStartLevel = pc.tapatStartLevel || 1;
     cfg.dualStartLevel1 = pc.dualStartLevel1 || 1; cfg.dualStartLevel2 = pc.dualStartLevel2 || 1;
     cfg.neglectStartLevel = pc.neglectStartLevel || 1;
-    cfg.grigliaRisposta = pc.grigliaRisposta||'tocco'; cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
+    cfg.grigliaRisposta = pc.grigliaRisposta||'tocco'; cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.grigliaNRichieste = Math.max(4, Math.min(30, pc.grigliaNRichieste|0 || 10)); cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
     cfg.targetRate = pc.targetRate; cfg.respMode = pc.respMode; cfg.voice = pc.voice;
     cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.stopsignalInterferenza = pc.stopsignalInterferenza || 'no'; cfg.adaptive = !!pc.adaptive;
     cfg.switchMaterial = pc.switchMaterial || 'numeri'; cfg.dualVisual = pc.dualVisual || 'lettere'; cfg.dualVisual2 = pc.dualVisual2 || 'numeri'; cfg.dualPairing = pc.dualPairing || 'vis-aud'; cfg.antMode = pc.antMode || 'classico';
@@ -1932,8 +1932,9 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       }
       if(cfg.taskMode==='griglie'){
         grid.appendChild(field('Come risponde il paziente', segButtons(['tocco','numero'], cfg.grigliaRisposta||'tocco', v=>{ cfg.grigliaRisposta=v; render(); }, {tocco:'Tocca gli elementi (con correzione)', numero:'Scrive il numero'})));
+        grid.appendChild(field('Numero di consegne per griglia (4–30, di norma 10)', stepper(cfg.grigliaNRichieste||10,4,30,v=>{ cfg.grigliaNRichieste=v; render(); },1)));
         const lv = grigliaPlanAt(cfg.adaptStartLevel);
-        card.appendChild(el('p',{class:'hint'},['A questo livello (= livello '+lv.gen+' del generatore di schede, stesso materiale): simboli «'+lv.categoryLabel+'», griglia '+lv.rows+'×'+lv.cols+'. Ogni griglia ha sempre 10 consegne di difficoltà crescente (colore, sfondo, bordo, posizione, adiacenza, negazione…); il paziente digita il numero (o due, o «quale e di quanti»: la schermata lo dice). Il numero di consegne della seduta è «Prove».']));
+        card.appendChild(el('p',{class:'hint'},['A questo livello (= livello '+lv.gen+' del generatore di schede, stesso materiale): simboli «'+lv.categoryLabel+'», griglia '+lv.rows+'×'+lv.cols+'. Ogni griglia ha '+(cfg.grigliaNRichieste||10)+' consegne di difficoltà crescente (colore, sfondo, bordo, posizione, adiacenza, negazione…); il paziente digita il numero (o due, o «quale e di quanti»: la schermata lo dice). Il numero di consegne della seduta è «Prove».']));
       }
       if(cfg.taskMode==='intrusopercettivo'){
         const lvT = intrusoPlanAt(cfg.adaptStartLevel);
@@ -2873,7 +2874,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       trail:[], responses:new Set(), respTime:null, trialStart:0,
       rts:[], startedAt: Date.now(), paused:false, pausedAt:null,
       currentSSD: cfg.ssd, ssdHistory:[], showStopCue:false, stopCueTimer:null, discrimLog:[], discrimCongLog:[],
-      liveNLevel: cfg.nLevel, tapatLevel: cfg.tapatStartLevel, adaptLevel: HALF_STEP_MODES.includes(cfg.taskMode) ? fineStartOf(cfg) : cfg.adaptStartLevel, liveTapatGradient: cfg.tapatGradient,
+      liveNLevel: nFineStartOf(cfg), tapatLevel: cfg.tapatStartLevel, adaptLevel: HALF_STEP_MODES.includes(cfg.taskMode) ? fineStartOf(cfg) : cfg.adaptStartLevel, liveTapatGradient: cfg.tapatGradient,
       categLevel: cfg.categLivello, categPrevCat: null, categPrevCat2: null,
       dualLevel1: cfg.dualStartLevel1, dualLevel2: cfg.dualStartLevel2, adaptBlock1:[], adaptBlock2:[], prevDual1:null, prevDual2:null,
       adaptBlock:[], levelChanges:[],
@@ -3196,6 +3197,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         // con la tabella ADAPT_ISI.dualtask (10 livelli).
         const avgLevel = Math.round(((session.dualLevel1||1)+(session.dualLevel2||1))/2);
         isi = ADAPT_ISI.dualtask[Math.max(1,Math.min(10,avgLevel))] || cfg.isi;
+      } else if(!trial.isiOverride && cfg.taskMode==='nback' && cfg.titrationMode!=='manuale'){
+        isi = Math.round(lerpLevel(ADAPT_ISI.nback, session.liveNLevel));
       } else if(!trial.isiOverride && TITRATION_EXERCISES.includes(cfg.taskMode) && cfg.titrationMode!=='manuale' && ADAPT_ISI[cfg.taskMode]){
         isi = Math.round(lerpLevel(ADAPT_ISI[cfg.taskMode], session.adaptLevel));
       }
@@ -3621,7 +3624,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const trial = session.idx>=0 && session.idx<session.seq.length ? session.seq[session.idx] : null;
     const genericLevelKey = adaptLevelKey();
     const modeLabel = cfg.taskMode==='sequenza' ? 'sequenza bersaglio · livello '+fineLabel(session.adaptLevel)
-      : cfg.taskMode==='nback' ? 'livello '+session.liveNLevel+' · n='+nbackParamsForLevel(session.liveNLevel).n+(cfg.adaptive?' (adattivo)':'')
+      : cfg.taskMode==='nback' ? 'livello '+fineLabel(session.liveNLevel)+' · n='+nbackParamsForLevel(session.liveNLevel).n+(cfg.adaptive?' (adattivo)':'')
       : cfg.taskMode==='gonogo' ? 'go/no-go · livello '+fineLabel(session.adaptLevel)
       : cfg.taskMode==='stopsignal' ? 'SSD '+Math.round(session.currentSSD)+'ms · ritmo livello '+fineLabel(session.adaptLevel)
       : (cfg.taskMode==='tapat' && trial) ? 'TAPAT — blocco '+(trial.block==='tonic'?'tonico':'fasico')+' · livello '+session.tapatLevel+(cfg.adaptive?' (adattivo)':'')
@@ -5272,7 +5275,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     view='task'; render();
   }
   function newGriglieGrid(){
-    session.grid = genGrigliaScreen(fineLv(), genOpts().gen);
+    session.grid = genGrigliaScreen(fineLv(), genOpts().gen, cfg.grigliaNRichieste||10);
     session.ruleIdx = 0; grigliaResetAnswer();
     session.trialShownAt = performance.now();
   }
@@ -5687,7 +5690,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     // così la prossima volta che lo si riprende parte da qui, non dai default
     // riporta il livello raggiunto nella config, così "Ripeti" e la
     // continuità del profilo partono davvero da dove ci si era fermati
-    if(cfg.taskMode==='nback') cfg.nLevel = session.liveNLevel;
+    if(cfg.taskMode==='nback'){ cfg.nLevel = Math.round(session.liveNLevel); cfg.nLevelFine = session.liveNLevel; }
     else if(cfg.taskMode==='tapat') cfg.tapatStartLevel = session.tapatLevel;
     else if(cfg.taskMode==='neglect' && cfg.neglectMode==='regola') cfg.neglectRuleLevel = session.liveBoardLevel;
     else if(cfg.taskMode==='neglect') cfg.neglectStartLevel = session.liveBoardLevel;
@@ -5908,8 +5911,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       if(r.ssrt!=null) mg.appendChild(metric(Math.round(r.ssrt)+' ms', 'SSRT (stima)'));
       if(r.taskMode==='stopsignal' && r.goAccuracy!=null) mg.appendChild(metric(fmtPct(r.goAccuracy), 'Accuratezza discriminazione (go)'));
       if(r.taskMode==='stopsignal' && r.conflict!=null) mg.appendChild(metric(r.conflict+' ms', 'Interferenza (incong. − cong.)'));
-      if(r.taskMode==='nback' && r.finalNLevel!=null && r.finalNLevel!==r.nLevel){
-        mg.appendChild(metric(r.nLevel+' → '+r.finalNLevel, 'Livello (iniziale → finale)'));
+      if(r.taskMode==='nback' && r.finalNLevel!=null && (r.finalNLevel!==r.nLevel || r.finalLevelFine!=null)){
+        mg.appendChild(metric(r.nLevel+' → '+fineLabel(r.finalLevelFine!=null ? r.finalLevelFine : r.finalNLevel), 'Livello (iniziale → finale)'));
       }
     }
     mg.appendChild(metric(fmtTime(r.durationMs), 'Durata'));

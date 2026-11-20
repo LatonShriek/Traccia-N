@@ -17,7 +17,9 @@
     // Go/No-Go (20 nov 2026): prima l'ISI veniva dal Setup. Ora, come la lure dell'N-back, RIPARTE più lenta all'inizio di ogni fascia
     // strutturale (1-4, 5-7, 8-9, 10) per non sommare due salti di difficoltà (numero di elementi no-go + velocità). Valori proposti
     // da tarare sui dati reali: non hanno una fonte.
-    gonogo:   {1:2000,2:1800,3:1650,4:1500,5:1800,6:1650,7:1500,8:1650,9:1500,10:1400}
+    gonogo:   {1:2000,2:1800,3:1650,4:1500,5:1800,6:1650,7:1500,8:1650,9:1500,10:1400},
+    // N-back (20 nov 2026): prima l'ISI veniva dal Setup. Ora ricomincia più lenta a ogni banda di n (1-4, 5-9, 10), come la lure. Valori proposti, senza fonte, da tarare sui dati.
+    nback:    {1:3000,2:2800,3:2600,4:2400,5:3000,6:2800,7:2600,8:2400,9:2200,10:3000}
   };
   // Simon usa ESATTAMENTE la scala dell'ANT classico (complessità percettivo-motoria comparabile, 2AFC spaziale): una sola tabella, due nomi.
   // Per darle valori propri basta sostituire questa riga con una tabella dedicata.
@@ -43,7 +45,15 @@
     9:{n:2, freq:0.12, lure:0.32},
     10:{n:3, freq:0.20, lure:0.20}
   };
-  export function nbackParamsForLevel(level){ return NBACK_LEVEL_TABLE[level] || NBACK_LEVEL_TABLE[10]; }
+  // Con i mezzi livelli (20 nov) il livello può avere la virgola: n resta quello del livello intero sotto (n cambia solo fra una banda e l'altra, mai a metà seduta),
+  // frequenza bersaglio e lure sono interpolate fra i due livelli interi vicini (sempre nella stessa banda).
+  export function nbackParamsForLevel(level){
+    const lo = Math.max(1, Math.min(10, Math.floor(level))), hi = Math.max(1, Math.min(10, Math.ceil(level)));
+    const a = NBACK_LEVEL_TABLE[lo] || NBACK_LEVEL_TABLE[10], b = NBACK_LEVEL_TABLE[hi] || a;
+    if(lo === hi || a.n !== b.n) return a;
+    const f = level - lo;
+    return { n:a.n, freq:a.freq + (b.freq - a.freq)*f, lure:a.lure + (b.lure - a.lure)*f };
+  }
   // Scarto (lag) usato per generare i lure: n-1 se possibile (la
   // manipolazione classica in letteratura), altrimenti n+1 quando n=1 (non
   // esiste uno scarto "0 indietro" significativo).
@@ -95,7 +105,7 @@
   // Esclusi per ora N-back, Categorizzazione e Doppio compito. Il Go/No-Go (20 nov) ha i mezzi gradini SOLO DENTRO la fascia strutturale
   // (1-4, 5-7, 8-9, 10): il livello non esce mai dalla fascia di partenza, quindi 16 livelli in tutto. Il numero di elementi no-go,
   // che cambia solo fra una fascia e l'altra, usa la parte intera.
-  export const HALF_STEP_MODES = ['sequenza','stopsignal','ant','simon','switching','gonogo'];
+  export const HALF_STEP_MODES = ['sequenza','stopsignal','ant','simon','switching','gonogo','nback'];
   export function lerpLevel(table, level){
     const lo = Math.floor(level), hi = Math.ceil(level);
     const a = table[lo], b = table[hi];

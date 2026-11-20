@@ -44,7 +44,7 @@ import { DUAL_LEVEL_MAX, adaptLevelKey, sessionLevelBounds } from '../core/bands
     if(session.adaptBlock.length < ADAPT_BLOCK) return;
     const acc = session.adaptBlock.reduce((a, x) => a + (+x), 0) / session.adaptBlock.length; // media dei crediti (true/false valgono 1/0)
     const bounds = sessionLevelBounds(cfg);
-    const half = levelKey==='adaptLevel' && HALF_STEP_MODES.includes(cfg.taskMode);
+    const half = HALF_STEP_MODES.includes(cfg.taskMode);
     let step;
     if(half){
       // mezzi gradini: si decide sugli ultimi 2 blocchi (16 prove) se stanno allo STESSO livello — con 8 prove l'errore standard è ≈0,14, con 16 ≈0,10

@@ -6,7 +6,7 @@
 import { SERIE_LEVELS } from '../exercises/serie.js';
 import { nbackParamsForLevel, ADAPT_GONOGO_FREQ, ADAPT_ISI, CATEG_ISI, CATEG_LURE, categStructureOfLevel,
   ADAPT_NEGLECT_SIZE, ADAPT_NEGLECT_TIME, ADAPT_DUAL_FREQ, TAPAT_LEVELS, lerpLevel } from './levels.js';
-import { fineStartOf } from './adapt.js';
+import { fineStartOf, nFineStartOf } from './adapt.js';
 
   // I 6 esercizi con stepper "Livello" condiviso e tabelle ADAPT_* — unici
   // interessati dal modello triplice manuale/livello/adattivo. Doppio
@@ -48,7 +48,7 @@ import { fineStartOf } from './adapt.js';
   // la frequenza bersaglio della Sequenza e la frequenza di cambio regola
   // del Task-switching.
   export function resolvedFreqForDisplay(taskMode, c){
-    if(taskMode==='nback') return nbackParamsForLevel(c.nLevel).freq;
+    if(taskMode==='nback') return nbackParamsForLevel(nFineStartOf(c)).freq;
     if(taskMode==='gonogo') return lerpLevel(ADAPT_GONOGO_FREQ, fineStartOf(c)) || c.targetRate;
     return null;
   }
@@ -57,6 +57,7 @@ import { fineStartOf } from './adapt.js';
     if(taskMode==='stopsignal') return ADAPT_ISI.stopsignal[c.adaptStartLevel];
     if(taskMode==='ant') return ADAPT_ISI.ant[c.adaptStartLevel];
     if(taskMode==='gonogo') return Math.round(lerpLevel(ADAPT_ISI.gonogo, fineStartOf(c)));
+    if(taskMode==='nback') return Math.round(lerpLevel(ADAPT_ISI.nback, nFineStartOf(c)));
     return null;
   }
   // Trasparenza per Cancellazione (Neglect) — parametri diversi dai 6

@@ -4,7 +4,7 @@
 // intorno ci sono solo gli aiuti che nel generatore sono globali e le funzioni d'uso di Traccia-N.
 // Il paziente vede la griglia, legge una consegna alla volta e digita il numero.
 // Il generatore ha 32 livelli, Traccia-N 10: livello 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
-// Ogni griglia ha sempre 10 consegne. Se la risposta non è un solo numero (doppio conteggio, confronto,
+// Ogni griglia ha 10 consegne di norma (modificabili da Setup, 4–30). Se la risposta non è un solo numero (doppio conteggio, confronto,
 // «quale riga»), la schermata chiede più campi e dice chiaramente quali.
 import { adaptStep, adaptStepFine, fineStartOf, numericCloseness } from '../core/adapt.js';
 import { mean } from '../core/stats.js';
@@ -300,7 +300,6 @@ const GRID_POS_W2_FROM = 10;
 function buildPosOptions(rows, cols){
   const isFrame = c => c.row===0 || c.row===rows-1 || c.col===0 || c.col===cols-1;
   const rMid = Math.floor((rows-3)/2), cMid = Math.floor((cols-3)/2);       // per le fasce "centrali"
-  const rowSpan = Math.ceil((rows+1)/2), colSpan = Math.ceil((cols+1)/2);   // per i blocchi (si sovrappongono di una riga/colonna in mezzo, come nell'originale 5×7)
   const colMid = Math.ceil((cols+1)/2);                                    // colonna centrale per "colonne 1, mid e ultima"
   return [
     { w:1, text:"nelle righe pari", f:c=>(c.row+1)%2===0 },
@@ -323,10 +322,6 @@ function buildPosOptions(rows, cols){
     { w:2, text:"nelle celle in riga dispari e colonna pari", f:c=>(c.row+1)%2===1 && (c.col+1)%2===0 },
     { w:2, text:"nelle celle in riga pari e colonna dispari", f:c=>(c.row+1)%2===0 && (c.col+1)%2===1 },
     { w:2, text:"nelle celle in riga pari e colonna pari", f:c=>(c.row+1)%2===0 && (c.col+1)%2===0 },
-    { w:2, text:`nel blocco in alto a sinistra (righe 1–${rowSpan}, colonne 1–${colSpan})`, f:c=>c.row<rowSpan && c.col<colSpan },
-    { w:2, text:`nel blocco in alto a destra (righe 1–${rowSpan}, colonne ${cols-colSpan+1}–${cols})`, f:c=>c.row<rowSpan && c.col>=cols-colSpan },
-    { w:2, text:`nel blocco in basso a sinistra (righe ${rows-rowSpan+1}–${rows}, colonne 1–${colSpan})`, f:c=>c.row>=rows-rowSpan && c.col<colSpan },
-    { w:2, text:`nel blocco in basso a destra (righe ${rows-rowSpan+1}–${rows}, colonne ${cols-colSpan+1}–${cols})`, f:c=>c.row>=rows-rowSpan && c.col>=cols-colSpan },
     { w:2, text:`nella prima e nell'ultima riga (righe 1 e ${rows})`, f:c=>c.row===0 || c.row===rows-1 },
     { w:2, text:`nelle colonne 1, ${colMid} e ${cols}`, f:c=>c.col===0 || c.col===colMid-1 || c.col===cols-1 },
     { w:1, text:"nella metà sinistra della griglia", f:c=>c.col < Math.floor(cols/2) },
@@ -352,14 +347,15 @@ const GRID_SCORE_SPREAD = [1.0, 2.4];   // semi-ampiezza della rampa dentro la g
 const GRID_COLOR_SHARE = [0.5, 0.7];    // quota minima di consegne che usano sfondo/bordo/colore del simbolo
 const GRID_ABSTRACTION_MAX = [1, 4.2];  // astrazione massima ammessa a livello 1 → 32
 function gridTierFromScore(sc){ return sc<1.5 ? 1 : sc<3.5 ? 2 : sc<5.5 ? 3 : 4; }
-function gridScoreTargets(effLevel){
+function gridScoreTargets(effLevel, N=10){
   const t = levelT(effLevel);
   const mu = GRID_SCORE_MU[0] + (GRID_SCORE_MU[1]-GRID_SCORE_MU[0])*t;
   const w = GRID_SCORE_SPREAD[0] + (GRID_SCORE_SPREAD[1]-GRID_SCORE_SPREAD[0])*t;
-  return Array.from({length:10}, (_,i)=> Math.max(0, mu + w*(i-4.5)/4.5));
+  const h = (N-1)/2; // N=10 → 4,5: identico a prima
+  return Array.from({length:N}, (_,i)=> Math.max(0, mu + w*(i-h)/h));
 }
 function gridAbstractionMax(effLevel){ const t = levelT(effLevel); return GRID_ABSTRACTION_MAX[0] + (GRID_ABSTRACTION_MAX[1]-GRID_ABSTRACTION_MAX[0])*Math.pow(t,0.9); }
-function gridColorMin(effLevel){ const t = levelT(effLevel); return Math.round(10*(GRID_COLOR_SHARE[0] + (GRID_COLOR_SHARE[1]-GRID_COLOR_SHARE[0])*t)); }
+function gridColorMin(effLevel, N=10){ const t = levelT(effLevel); return Math.round(N*(GRID_COLOR_SHARE[0] + (GRID_COLOR_SHARE[1]-GRID_COLOR_SHARE[0])*t)); }
 
 // Un criterio è descritto da una "specifica": gruppo di simboli (uno, due in alternativa
 // "«A» o «B»", oppure una proprietà della famiglia) + vincoli su sfondo / bordo (colore e stile:
@@ -747,14 +743,14 @@ function gridRulesConflict(a, b){
   const sub = (x,y) => x.every(k=>y.includes(k));
   return sub(a.axes, b.axes) || sub(b.axes, a.axes);
 }
-// Sceglie le 10 consegne di UNA griglia seguendo la rampa di punteggio del livello (gridScoreTargets): per ogni
+// Sceglie le N consegne (di norma 10) di UNA griglia seguendo la rampa di punteggio del livello (gridScoreTargets): per ogni
 // posto della rampa prende la consegna il cui punteggio è più vicino, con penalità per conteggi già usciti,
 // stesso bersaglio o stesso colore già usato, sbilanciamento stimolo/posizione; quota minima di consegne con
 // colori; astrazione massima e numero di consegne astratte limitati dal livello. Ritorna { chosen, cost }.
-function selectRulesByScore(evaluated, effLevel){
-  const N = 10, t = levelT(effLevel);
-  const amax = gridAbstractionMax(effLevel), cmin = gridColorMin(effLevel), targets = gridScoreTargets(effLevel);
-  const capA2 = Math.floor(1 + 5*t), capA3 = Math.floor(1 + 3*t), capRel = t<0.7 ? 1 : 2;
+function selectRulesByScore(evaluated, effLevel, N=10){
+  const t = levelT(effLevel), k = N/10; // k=1 con 10 consegne: tetti identici a prima; con più consegne i tetti di astrazione crescono in proporzione
+  const amax = gridAbstractionMax(effLevel), cmin = gridColorMin(effLevel, N), targets = gridScoreTargets(effLevel, N);
+  const capA2 = Math.floor((1 + 5*t)*k), capA3 = Math.floor((1 + 3*t)*k), capRel = Math.floor((t<0.7 ? 1 : 2)*k);
   const pool = evaluated.filter(r => r.count>=4 && r.count<=14 && r.parts.A <= amax+1e-9);
   let best = null;
   for(let rep=0; rep<4; rep++){
@@ -798,7 +794,7 @@ function selectRulesByScore(evaluated, effLevel){
   return best;
 }
 
-function genOneGrid(symbols, level, category, rows, cols){
+function genOneGrid(symbols, level, category, rows, cols, N=10){
   // Più tentativi di griglia, tenendo il migliore (costo minore = consegne più vicine alla rampa di punteggio,
   // conteggi diversi tra loro, nessun bersaglio ripetuto, colori usati). La combinatoria segue il livello
   // EFFETTIVO (leggibilità della categoria, vedi tierEffectiveLevel); la dimensione della griglia segue il livello vero.
@@ -806,9 +802,9 @@ function genOneGrid(symbols, level, category, rows, cols){
   let best = null;
   for(let attempt=0; attempt<25; attempt++){
     const { cells, evaluated } = buildGridAttempt(symbols, level, effLevel, rows, cols);
-    const sel = selectRulesByScore(evaluated, effLevel);
+    const sel = selectRulesByScore(evaluated, effLevel, N);
     if(!best || sel.cost < best.cost) best = { cells, rules: sel.chosen, cost: sel.cost };
-    if(sel.chosen.length===10 && sel.cost < 7) break;
+    if(sel.chosen.length===N && sel.cost < 7*N/10) break;
   }
   return best;
 }
@@ -903,18 +899,19 @@ function touchSpec(r, cells){
   if(target.length!==r.count) return null;
   return { text:r.text.replace(/^Conta /,'Tocca ').replace('si conta una volta sola','si tocca una volta sola'), target };
 }
-// Una griglia con le sue consegne: sempre 10 (si rigenera finché il generatore ne dà 10), nell'ordine della rampa di difficoltà.
-export function genGrigliaScreen(level, gen){
+// Una griglia con le sue consegne: N (di norma 10; si rigenera finché il generatore ne dà N), nell'ordine della rampa di difficoltà.
+export function genGrigliaScreen(level, gen, nReq){
+  const N = Math.max(4, Math.min(30, Math.round(nReq||10)));
   const g = gen!=null ? gen : grigliaGenLevel(level);
   const rows = gridRowsForLevel(g), cols = gridColsForLevel(g);
   let best = null;
   for(let i=0; i<60; i++){
     const fam = familyForLevel(g, null);
     const symbols = fam.kind==='unicode' ? Array.from({length:fam.count},(_,k)=>String.fromCodePoint(fam.base+k)) : fam.pool;
-    const { cells, rules } = genOneGrid(symbols, g, fam.category, rows, cols);
+    const { cells, rules } = genOneGrid(symbols, g, fam.category, rows, cols, N);
     const parsed = rules.map(r=>({ r, inp:parseInput(r) })).filter(x=>x.inp);
     if(!best || parsed.length>best.parsed.length) best = { cells, parsed, category:fam.category };
-    if(parsed.length>=10) break;
+    if(parsed.length>=N) break;
   }
   return { cells:best.cells, rows, cols, category:best.category, gen:g,
     rules:best.parsed.map(({r,inp})=>({ text:r.text, count:r.count, tier:r.tier, kind:r.kind, vk:r.vk||null, input:inp, matches:r.matches, touch:touchSpec(r, best.cells) })) };

@@ -71,6 +71,11 @@ export function fineStartOf(cfg){
   const f = cfg.adaptFine;
   return (typeof f==='number' && isFinite(f) && Math.round(f) === cfg.adaptStartLevel) ? f : cfg.adaptStartLevel;
 }
+// N-back: il livello vive in nLevel (intero, arrotondato) e nLevelFine (con la virgola, solo se coerente con nLevel).
+export function nFineStartOf(cfg){
+  const f = cfg.nLevelFine;
+  return (typeof f==='number' && isFinite(f) && Math.round(f) === cfg.nLevel) ? f : cfg.nLevel;
+}
 export function fineLabel(f){
   return Number.isInteger(f) ? String(f) : f.toFixed(1).replace('.', ',');
 }

@@ -421,6 +421,7 @@ import { serieRuleFor } from './serie.js';
     serieRegola:0, // solo per Serie alternate: 0 = la regola segue il livello, 1-32 = regola fissata a mano
     pasatMateriale:'somme', // solo per PASAT: 'somme'|'giorni'|'mesi'
     grigliaRisposta:'tocco', // Griglie: 'tocco' (indica gli elementi, con correzione dopo l'OK) | 'numero' (scrive il conteggio); le consegne «quante righe / quale riga» restano a numero
+    grigliaNRichieste:10, // Griglie: numero di consegne per griglia (10 di norma, 4–30)
     intrusoLimitS:0, // Intruso: tempo massimo per schermata in secondi (0 = tabella del livello)
     inversionePool:[], // consegne ammesse scelte a mano (vuoto = automatico per livello; include 'doppie')
     inversioneNCons:'auto', // consegne per sequenza: 'auto' (1-3 secondo il livello) oppure 1/2/3
@@ -448,7 +449,7 @@ import { serieRuleFor } from './serie.js';
   // Titolazione: elenco esercizi, trasparenza dei parametri (hint) e risoluzione livello -> js/core/titration.js (passo 3b).
   export function presetCfgOf(c){
     return {
-      stimType:c.stimType, taskMode:c.taskMode, nLevel:c.nLevel,
+      stimType:c.stimType, taskMode:c.taskMode, nLevel:c.nLevel, nLevelFine:c.nLevelFine,
       adaptStartLevel:c.adaptStartLevel, adaptFine:c.adaptFine, adaptTimeF:c.adaptTimeF, tapatStartLevel:c.tapatStartLevel,
       dualStartLevel1:c.dualStartLevel1, dualStartLevel2:c.dualStartLevel2, neglectStartLevel:c.neglectStartLevel,
       targetSeq: (EXERCISES[c.taskMode].usesTargetSeq)
@@ -469,7 +470,7 @@ import { serieRuleFor } from './serie.js';
       goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx, pasatMateriale:c.pasatMateriale, serieRegola:c.serieRegola,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
-      grigliaRisposta:c.grigliaRisposta, intrusoLimitS:c.intrusoLimitS, inversionePool:c.inversionePool, inversioneNCons:c.inversioneNCons, durataMin:c.durataMin, feedbackProva:c.feedbackProva, categLivello:c.categLivello, categTipo:c.categTipo, serieRegola:c.serieRegola, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
+      grigliaRisposta:c.grigliaRisposta, intrusoLimitS:c.intrusoLimitS, grigliaNRichieste:c.grigliaNRichieste, inversionePool:c.inversionePool, inversioneNCons:c.inversioneNCons, durataMin:c.durataMin, feedbackProva:c.feedbackProva, categLivello:c.categLivello, categTipo:c.categTipo, serieRegola:c.serieRegola, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
       categRegime:c.categRegime, switchRegime:c.switchRegime,
       simonCongruenza:c.simonCongruenza, simonMateriale:c.simonMateriale,
       inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'

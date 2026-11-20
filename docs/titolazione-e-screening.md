@@ -226,3 +226,14 @@ Codice: `js/core/assi.js` (test: `tests/assi.test.js`). Solo in modalità adatti
 - **ISI da tabella** (`ADAPT_ISI.gonogo`, in modalità Livello e Adattivo; in Manuale resta l'ISI del Setup): 2000, 1800, 1650, 1500 | 1800, 1650, 1500 | 1650, 1500 | 1400 ms. Riparte più lenta a ogni fascia per non sommare due salti di difficoltà. **Valori proposti, senza fonte, da tarare sui dati reali.**
 - Salvataggio e schermo come per gli altri mezzi livelli: `adaptStartLevel` intero, `adaptFine` e `finalLevelFine` con la virgola; «livello 5,5» a schermo.
 - **Dispersione per prova: scelta A** (solo dove le transizioni sono strutturali); Go/NoGo non ne ha.
+
+## N-back: mezzi livelli e tabella ISI (20 nov 2026)
+
+- **Mezzi livelli dentro la banda di n** (1–4: n=1; 5–9: n=2; 10: n=3). La seduta non cambia mai n. Frequenza bersaglio e lure sono interpolate fra i due livelli interi vicini (`nbackParamsForLevel`). In tutto 17 livelli, decisione sugli ultimi 2 blocchi.
+- **ISI da tabella** (`ADAPT_ISI.nback`, in modalità Livello e Adattivo): 3000, 2800, 2600, 2400 | 3000, 2800, 2600, 2400, 2200 | 3000 ms; riparte più lenta a ogni banda. **Valori proposti, senza fonte, da tarare sui dati.**
+- Salvataggio: `nLevel` intero (arrotondato), `nLevelFine` con la virgola, `finalLevelFine` nel record; «livello 6,5» a schermo.
+
+## Griglie: consegne di posizione e numero di consegne (20 nov 2026)
+
+- Tolte le quattro consegne «nel blocco in alto/basso a sinistra/destra (righe a–b, colonne c–d)».
+- Numero di consegne per griglia modificabile (4–30; 10 di norma, comportamento identico a prima). La rampa di difficoltà si allunga in proporzione; con 30 consegne il generatore le produce davvero (verificato).

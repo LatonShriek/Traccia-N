@@ -1,6 +1,6 @@
 # Livelli intermedi dei classici: tabelle
 
-**Stato (20 nov 2026):** ATTIVI per Sequenza, Stop-Signal, ANT/Simon e Switch (19 livelli), Go/NoGo (16 livelli) e N-back (17 livelli), gli ultimi due con tabella ISI. PROPOSTA, non ancora nel codice, per Categorizzazione (15) e Doppio compito (19 per canale).
+**Stato (20 nov 2026):** ATTIVI per Sequenza, Stop-Signal, ANT/Simon e Switch (19 livelli), Go/NoGo (16), N-back (17), Categorizzazione (15, più le regole di Serie) e Doppio compito (19 per canale). Go/NoGo e N-back hanno anche una tabella ISI nuova.
 
 Regola: i livelli interi restano IDENTICI a oggi (i livelli già salvati non cambiano significato). Un livello x,5 porta i parametri continui a metà strada fra due livelli interi; Sequenza prende anche la lunghezza del livello successivo. Dove cambia una fascia strutturale (n dell N-back, numero di no-go del Go/NoGo, struttura di Categorizzazione) non si interpola tra una fascia e l altra. La decisione di salire o scendere di mezzo livello si prende sugli ultimi 2 blocchi (16 prove) se stanno allo stesso livello.
 
@@ -99,8 +99,8 @@ Entrambi i parametri a metà strada.
 | 9,5 | 0,955 | 100 |
 | 10 | 0,97 | 80 |
 
-## Doppio compito (19 livelli per canale)
-Tre parametri a metà strada; i due canali restano indipendenti.
+## Doppio compito (19 livelli per canale) — ATTIVO dal 20 nov
+Tre parametri a metà strada; i due canali restano indipendenti. L ISI condiviso segue la media dei due livelli (con la virgola).
 
 | Liv. | Freq. target | Lure | ISI (ms) |
 |---|---|---|---|
@@ -174,8 +174,8 @@ Solo la leva ISI (per Stop-Signal lo staircase SSD resta com'è).
 | 9,5 | 725 |
 | 10 | 650 |
 
-## Categorizzazione (15 livelli)
-Mezzi livelli solo dentro la banda di struttura (1-2, 3-4, 5-6, 7-8, 9-10).
+## Categorizzazione (15 livelli) — ATTIVO dal 20 nov
+Mezzi livelli solo dentro la banda di struttura (1-2, 3-4, 5-6, 7-8, 9-10). Vale anche per le regole di Serie (bande 1-2, 3-4, 5-6, 7-10, 11): lì la regola resta quella del livello di partenza e il ritmo segue il livello.
 
 | Liv. | Struttura | ISI (ms) | Lure |
 |---|---|---|---|

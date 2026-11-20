@@ -202,7 +202,14 @@ import { DUAL_LEVEL_MAX, adaptLevelKey, sessionLevelBounds } from '../core/bands
     const block = session[blockKey];
     if(block.length < ADAPT_BLOCK) return;
     const acc = block.reduce((a, x) => a + (+x), 0) / block.length; // media dei crediti
-    const step = adaptStep(acc, session[levelKey], 1, DUAL_LEVEL_MAX);
+    // mezzi gradini per canale (20 nov): decisione sugli ultimi 2 blocchi dello stesso canale se stanno allo stesso livello
+    const mean = b => b.reduce((a, x) => a + (+x), 0) / b.length;
+    const pb = 'prevDualBlk'+channel, pl = 'prevDualLv'+channel;
+    const prev = session[pb] && session[pl] === session[levelKey] ? session[pb] : null;
+    const win = prev ? (mean(prev) + acc) / 2 : acc;
+    const step = adaptStepFine(win, session[levelKey], 1, DUAL_LEVEL_MAX);
+    if(step){ session[pb] = null; }
+    else { session[pb] = block.slice(); session[pl] = session[levelKey]; }
     if(step){
       session[levelKey] += step;
       session.levelChanges.push({trialIdx:session.idx, level:session[levelKey], how:'auto', canale:channel});

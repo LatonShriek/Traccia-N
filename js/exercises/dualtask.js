@@ -4,7 +4,7 @@
 // che chiama questa con la cfg e la seduta correnti.
 // - buildDualTask riceve cfg, genDualTaskTrial riceve cfg e session come parametri invece di leggere le variabili dell'app.
 import { POOLS } from '../core/pools.js';
-import { ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE } from '../core/levels.js';
+import { ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE, lerpLevel } from '../core/levels.js';
 
   // buildCategorizzazione (generazione dell'intera sequenza in anticipo) è
   // stata sostituita da genCategTrial (sopra) — Categorizzazione condizionale
@@ -38,10 +38,10 @@ import { ADAPT_DUAL_FREQ, ADAPT_DUAL_LURE } from '../core/levels.js';
     const pool1 = pairing==='aud-aud' ? POOLS.suoni : POOLS[cfg.dualVisual];
     const pool2 = pairing==='vis-vis' ? POOLS[cfg.dualVisual2] : pairing==='aud-aud' ? POOLS.suoni2 : POOLS.suoni;
     const i = session.seq.length;
-    const freq1 = cfg.titrationMode!=='manuale' ? (ADAPT_DUAL_FREQ[session.dualLevel1]||cfg.targetRate) : cfg.targetRate;
-    const freq2 = cfg.titrationMode!=='manuale' ? (ADAPT_DUAL_FREQ[session.dualLevel2]||cfg.targetRate) : cfg.targetRate;
-    const lure1 = ADAPT_DUAL_LURE[session.dualLevel1]||0;
-    const lure2 = ADAPT_DUAL_LURE[session.dualLevel2]||0;
+    const freq1 = cfg.titrationMode!=='manuale' ? (lerpLevel(ADAPT_DUAL_FREQ, session.dualLevel1)||cfg.targetRate) : cfg.targetRate;
+    const freq2 = cfg.titrationMode!=='manuale' ? (lerpLevel(ADAPT_DUAL_FREQ, session.dualLevel2)||cfg.targetRate) : cfg.targetRate;
+    const lure1 = lerpLevel(ADAPT_DUAL_LURE, session.dualLevel1)||0;
+    const lure2 = lerpLevel(ADAPT_DUAL_LURE, session.dualLevel2)||0;
     let v1 = pool1[Math.floor(Math.random()*pool1.length)];
     let v2 = pool2[Math.floor(Math.random()*pool2.length)];
     let t1 = i>0 && Math.random()<freq1;

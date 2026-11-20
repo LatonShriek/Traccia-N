@@ -163,7 +163,7 @@ module.exports = async function run(t) {
     const dual = mkSession({ adaptBlock1: Array(8).fill(true), adaptBlock2: Array(8).fill(false) });
     R.maybeAdaptDualChannel(cfgOf('dualtask', { adaptive: true }), dual, 1);
     R.maybeAdaptDualChannel(cfgOf('dualtask', { adaptive: true }), dual, 2);
-    t.eq([dual.dualLevel1, dual.dualLevel2], [5, 3], 'canali adattati indipendentemente');
+    t.eq([dual.dualLevel1, dual.dualLevel2], [4.5, 3.5], 'canali adattati indipendentemente (mezzo livello ciascuno)');
     t.eq(dual.levelChanges.map(c => c.canale), [1, 2], 'cambi registrati per canale');
   });
 

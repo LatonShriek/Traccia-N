@@ -69,7 +69,7 @@ module.exports = async function run(t) {
     t.ok(manualeTxt.includes('1.8'), 'Manuale: mostra l\'ISI grezzo impostato, non uno derivato dai livelli');
 
     const livelloTxt = dualTitrationModeHint(c, 'livello');
-    const avg = Math.round((3 + 8) / 2);
+    const avg = '5,5'; // media 5,5 (dal 20 nov l'ISI segue la media con la virgola)
     t.ok(livelloTxt.includes(String(avg)), 'Livello: menziona il livello medio corretto (' + avg + ') usato per l\'ISI condiviso');
     t.ok(livelloTxt.includes(Math.round(ADAPT_DUAL_FREQ[3] * 100) + '%'), 'Livello: menziona la frequenza corretta del canale 1 (livello 3)');
     t.ok(livelloTxt.includes(Math.round(ADAPT_DUAL_FREQ[8] * 100) + '%'), 'Livello: menziona la frequenza corretta del canale 2 (livello 8)');

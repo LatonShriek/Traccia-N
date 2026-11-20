@@ -451,7 +451,7 @@ import { serieRuleFor } from './serie.js';
     return {
       stimType:c.stimType, taskMode:c.taskMode, nLevel:c.nLevel, nLevelFine:c.nLevelFine,
       adaptStartLevel:c.adaptStartLevel, adaptFine:c.adaptFine, adaptTimeF:c.adaptTimeF, tapatStartLevel:c.tapatStartLevel,
-      dualStartLevel1:c.dualStartLevel1, dualStartLevel2:c.dualStartLevel2, neglectStartLevel:c.neglectStartLevel,
+      dualStartLevel1:c.dualStartLevel1, dualStartLevel2:c.dualStartLevel2, dualFine1:c.dualFine1, dualFine2:c.dualFine2, categLivelloFine:c.categLivelloFine, neglectStartLevel:c.neglectStartLevel,
       targetSeq: (EXERCISES[c.taskMode].usesTargetSeq)
         ? (c.taskMode==='sequenza' && c.sequenzaMista
             ? c.targetSeq.map(e=>({stimType:e.stimType, label:seqLabel(e)}))

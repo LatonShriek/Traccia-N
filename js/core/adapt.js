@@ -76,6 +76,17 @@ export function nFineStartOf(cfg){
   const f = cfg.nLevelFine;
   return (typeof f==='number' && isFinite(f) && Math.round(f) === cfg.nLevel) ? f : cfg.nLevel;
 }
+// Categorizzazione: categLivello (intero) + categLivelloFine (con la virgola, solo se coerente).
+export function categFineStartOf(cfg){
+  const f = cfg.categLivelloFine;
+  return (typeof f==='number' && isFinite(f) && Math.round(f) === cfg.categLivello) ? f : cfg.categLivello;
+}
+// Doppio compito: un livello per canale (1 o 2), con la virgola in dualFine1/dualFine2.
+export function dualFineStartOf(cfg, channel){
+  const base = channel===1 ? cfg.dualStartLevel1 : cfg.dualStartLevel2;
+  const f = channel===1 ? cfg.dualFine1 : cfg.dualFine2;
+  return (typeof f==='number' && isFinite(f) && Math.round(f) === base) ? f : base;
+}
 export function fineLabel(f){
   return Number.isInteger(f) ? String(f) : f.toFixed(1).replace('.', ',');
 }

@@ -237,3 +237,8 @@ Codice: `js/core/assi.js` (test: `tests/assi.test.js`). Solo in modalità adatti
 
 - Tolte le quattro consegne «nel blocco in alto/basso a sinistra/destra (righe a–b, colonne c–d)».
 - Numero di consegne per griglia modificabile (4–30; 10 di norma, comportamento identico a prima). La rampa di difficoltà si allunga in proporzione; con 30 consegne il generatore le produce davvero (verificato).
+
+## Categorizzazione e Doppio compito: mezzi livelli (20 nov 2026)
+
+- **Categorizzazione**: mezzi livelli solo dentro la banda di struttura (1–2, 3–4, 5–6, 7–8, 9–10), 15 livelli; ISI interpolato fra i due livelli (alterna 2200/1300 → 1750 a metà), lure interpolata nella banda 7–8 (0 → 0,30). Vale anche per le regole di Serie (bande 1–2, 3–4, 5–6, 7–10, 11): la regola resta quella del livello di partenza, il ritmo segue il livello. Salvataggio: `categLivello` intero, `categLivelloFine` con la virgola.
+- **Doppio compito**: nessuna banda, quindi 19 livelli per canale, con passo ±0,5 e decisione sugli ultimi 2 blocchi dello stesso canale (stesso livello). Frequenza e lure per canale interpolate; l'ISI condiviso segue la media dei due livelli (con la virgola). Salvataggio: `dualStartLevel1/2` interi, `dualFine1/2` con la virgola. Il tasto C1±/C2± manuale resta a passo 1.

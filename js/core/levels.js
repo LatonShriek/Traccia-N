@@ -105,7 +105,7 @@
   // Esclusi per ora N-back, Categorizzazione e Doppio compito. Il Go/No-Go (20 nov) ha i mezzi gradini SOLO DENTRO la fascia strutturale
   // (1-4, 5-7, 8-9, 10): il livello non esce mai dalla fascia di partenza, quindi 16 livelli in tutto. Il numero di elementi no-go,
   // che cambia solo fra una fascia e l'altra, usa la parte intera.
-  export const HALF_STEP_MODES = ['sequenza','stopsignal','ant','simon','switching','gonogo','nback'];
+  export const HALF_STEP_MODES = ['sequenza','stopsignal','ant','simon','switching','gonogo','nback','categorizzazione','dualtask'];
   export function lerpLevel(table, level){
     const lo = Math.floor(level), hi = Math.ceil(level);
     const a = table[lo], b = table[hi];

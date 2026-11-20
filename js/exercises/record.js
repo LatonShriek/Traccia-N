@@ -84,17 +84,17 @@ import { EXERCISES } from './registry.js';
       // altro esercizio, perché il dato non veniva proprio registrato.
       finalLevel: (()=>{
         if(cfg.taskMode==='nback') return Math.round(session.liveNLevel);
-        if(cfg.taskMode==='categorizzazione') return session.categLevel;
+        if(cfg.taskMode==='categorizzazione') return Math.round(session.categLevel);
         if(cfg.taskMode==='tapat') return session.tapatLevel;
         if(cfg.taskMode==='neglect') return session.liveBoardLevel;
-        if(cfg.taskMode==='dualtask') return session.dualLevel1+'/'+session.dualLevel2;
+        if(cfg.taskMode==='dualtask') return Math.round(session.dualLevel1)+'/'+Math.round(session.dualLevel2);
         if(cfg.taskMode==='goaltask') return cfg.goaltaskLivello;
         if(cfg.taskMode==='memoria') return session.material ? session.material.livello : null;
         if(cfg.taskMode==='runningspan' || cfg.taskMode==='intrusopercettivo' || cfg.taskMode==='griglie' || cfg.taskMode==='inversione' || cfg.taskMode==='pasat' || cfg.taskMode==='serie') return cfg.adaptStartLevel;
         if(adaptLevelKey(cfg)==='adaptLevel') return Math.round(session.adaptLevel);
         return null;
       })(),
-      finalLevelFine: (cfg.adaptive && ['intrusopercettivo','griglie','inversione','runningspan'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? cfg.adaptFine : ((cfg.adaptive && ['sequenza','stopsignal','ant','simon','switching','gonogo'].includes(cfg.taskMode) && session && typeof session.adaptLevel==='number' && !Number.isInteger(session.adaptLevel)) ? session.adaptLevel : ((cfg.adaptive && cfg.taskMode==='nback' && session && typeof session.liveNLevel==='number' && !Number.isInteger(session.liveNLevel)) ? session.liveNLevel : null)),
+      finalLevelFine: (cfg.adaptive && ['intrusopercettivo','griglie','inversione','runningspan'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? cfg.adaptFine : ((cfg.adaptive && ['sequenza','stopsignal','ant','simon','switching','gonogo'].includes(cfg.taskMode) && session && typeof session.adaptLevel==='number' && !Number.isInteger(session.adaptLevel)) ? session.adaptLevel : ((cfg.adaptive && cfg.taskMode==='nback' && session && typeof session.liveNLevel==='number' && !Number.isInteger(session.liveNLevel)) ? session.liveNLevel : ((cfg.adaptive && cfg.taskMode==='categorizzazione' && session && typeof session.categLevel==='number' && !Number.isInteger(session.categLevel)) ? session.categLevel : null))),
       finalTimeF: (cfg.adaptive && ['intrusopercettivo','inversione'].includes(cfg.taskMode) && typeof cfg.adaptTimeF==='number') ? cfg.adaptTimeF : null,
       finalGen: (cfg.adaptive && ['intrusopercettivo','griglie','inversione'].includes(cfg.taskMode) && typeof cfg.adaptFine==='number') ? Math.round(genOfFine(cfg.adaptFine)) : null,
       localPatientId: patientProfile ? null : (activeLocalPatientId || null),

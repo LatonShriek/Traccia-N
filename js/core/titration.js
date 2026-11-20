@@ -6,7 +6,7 @@
 import { SERIE_LEVELS } from '../exercises/serie.js';
 import { nbackParamsForLevel, ADAPT_GONOGO_FREQ, ADAPT_ISI, CATEG_ISI, CATEG_LURE, categStructureOfLevel,
   ADAPT_NEGLECT_SIZE, ADAPT_NEGLECT_TIME, ADAPT_DUAL_FREQ, TAPAT_LEVELS, lerpLevel } from './levels.js';
-import { fineStartOf, nFineStartOf } from './adapt.js';
+import { fineStartOf, nFineStartOf, categFineStartOf, dualFineStartOf, fineLabel } from './adapt.js';
 
   // I 6 esercizi con stepper "Livello" condiviso e tabelle ADAPT_* — unici
   // interessati dal modello triplice manuale/livello/adattivo. Doppio
@@ -100,9 +100,10 @@ import { fineStartOf, nFineStartOf } from './adapt.js';
       const isiPart = struct===4 ? ('frequenza lure '+Math.round((c.targetRate||0)*100)+'%') : ('ISI '+(c.isi/1000).toFixed(1)+'s');
       return 'Modalità Manuale: struttura "'+CATEG_STRUCTURE_LABELS[struct]+'" scelta liberamente qui sotto, indipendente dal numero di livello — '+isiPart+', non collegati a nessuna tabella.';
     }
-    const lvl = c.categLivello;
-    const isi = struct===6 ? (SERIE_LEVELS[lvl]||SERIE_LEVELS[1]).isi : CATEG_ISI[lvl];
-    const lure = CATEG_LURE[lvl];
+    const lvl = c.categLivello, lvlF = categFineStartOf(c);
+    const isiF = struct===6 ? null : lerpLevel(CATEG_ISI, lvlF);
+    const isi = struct===6 ? (SERIE_LEVELS[lvl]||SERIE_LEVELS[1]).isi : (isiF!=null ? Math.round(isiF) : undefined);
+    const lure = lerpLevel(CATEG_LURE, lvlF);
     const paramTxt = isi!=null ? 'ISI '+(isi/1000).toFixed(1)+'s' : (lure!=null ? 'frequenza lure '+Math.round(lure*100)+'%' : '');
     if(mode==='livello'){
       return 'Modalità Livello: livello '+lvl+' → struttura "'+CATEG_STRUCTURE_LABELS[struct]+'", '+paramTxt+' — fissi per l\'intera seduta, la struttura non cambia mai durante la sessione.';
@@ -148,11 +149,11 @@ import { fineStartOf, nFineStartOf } from './adapt.js';
     if(mode==='manuale'){
       return 'Modalità Manuale: la frequenza target di ciascun canale resta quella impostata qui sotto, indipendente dal livello. L\'ISI resta '+(c.isi/1000).toFixed(1)+'s, non collegato al livello.';
     }
-    const freq1 = ADAPT_DUAL_FREQ[c.dualStartLevel1], freq2 = ADAPT_DUAL_FREQ[c.dualStartLevel2];
-    const avgLevel = Math.max(1, Math.min(10, Math.round(((c.dualStartLevel1||1)+(c.dualStartLevel2||1))/2)));
-    const isi = ADAPT_ISI.dualtask[avgLevel];
+    const freq1 = lerpLevel(ADAPT_DUAL_FREQ, dualFineStartOf(c,1)), freq2 = lerpLevel(ADAPT_DUAL_FREQ, dualFineStartOf(c,2));
+    const avgLevel = Math.max(1, Math.min(10, (dualFineStartOf(c,1)+dualFineStartOf(c,2))/2));
+    const isi = Math.round(lerpLevel(ADAPT_ISI.dualtask, avgLevel));
     if(mode==='livello'){
-      return 'Modalità Livello: frequenza target canale 1 ('+Math.round((freq1||0)*100)+'%) e canale 2 ('+Math.round((freq2||0)*100)+'%) seguono la tabella dei rispettivi livelli. ISI condiviso ('+(isi/1000).toFixed(1)+'s) derivato dalla media dei due livelli ('+avgLevel+') — fissi per l\'intera seduta.';
+      return 'Modalità Livello: frequenza target canale 1 ('+Math.round((freq1||0)*100)+'%) e canale 2 ('+Math.round((freq2||0)*100)+'%) seguono la tabella dei rispettivi livelli. ISI condiviso ('+(isi/1000).toFixed(1)+'s) derivato dalla media dei due livelli ('+fineLabel(avgLevel)+') — fissi per l\'intera seduta.';
     }
     return 'Modalità Adattiva: si parte dai livelli '+c.dualStartLevel1+'/'+c.dualStartLevel2+' con gli stessi parametri di tabella della modalità Livello, ma ciascun canale si sposta da solo, in modo indipendente, in base alla propria accuratezza (l\'ISI condiviso segue la media dei due, aggiornata di conseguenza).';
   }

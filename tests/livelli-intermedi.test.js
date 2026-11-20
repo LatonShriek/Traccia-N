@@ -11,7 +11,7 @@ module.exports = async function run(t){
   const S = o => Object.assign({ idx: 0, adaptBlock: [], levelChanges: [], adaptLevel: 4, rtB: {} }, o);
 
   t.group('lerpLevel: interi invariati, mezzi livelli a metà strada', () => {
-    t.ok(L.HALF_STEP_MODES.join()==='sequenza,stopsignal,ant,simon,switching,gonogo,nback', 'esercizi coinvolti: quelli senza fasce, Go/No-Go e N-back dentro la fascia');
+    t.ok(L.HALF_STEP_MODES.join()==='sequenza,stopsignal,ant,simon,switching,gonogo,nback,categorizzazione,dualtask', 'esercizi coinvolti: quelli senza fasce e quelli con fasce (dentro la fascia)');
     for(const k of [1,2,5,10]) t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, k), L.ADAPT_ISI.sequenza[k], 'Sequenza livello intero '+k+' identico a prima');
     t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, 1.5), 4200, 'Sequenza 1,5 = 4200 ms');
     t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, 2.5), 3550, 'Sequenza 2,5 = 3550 ms');
@@ -103,5 +103,27 @@ module.exports = async function run(t){
     t.eq(dn(10, 10), 10, 'banda 10: non scende');
     t.eq(A.nFineStartOf({ nLevel: 6, nLevelFine: 5.5 }), 5.5, 'livello con la virgola coerente con nLevel: usato');
     t.eq(A.nFineStartOf({ nLevel: 3, nLevelFine: 5.5 }), 3, 'incoerente (livello cambiato a mano): ignorato');
+  });
+
+  t.group('Categorizzazione e Doppio compito: mezzi livelli', () => {
+    t.eq(L.lerpLevel(L.CATEG_ISI, 1.5), 1750, 'Categorizzazione 1,5: ISI 1750 ms (fra 2200 e 1300)');
+    t.eq(L.lerpLevel(L.CATEG_ISI, 7.5), undefined, 'Categorizzazione 7,5: nessun ISI di tabella (banda lure)');
+    t.eq(L.lerpLevel(L.CATEG_LURE, 7.5), 0.15, 'Categorizzazione 7,5: lure 0,15');
+    const cu = (lv, start, tipo) => { const s = S({ categLevel: lv, adaptBlock: Array(8).fill(1) }); R.maybeAdapt(cfgOf('categorizzazione', { categLivello: start, categTipo: tipo||'categorie' }), s); return s.categLevel; };
+    const cd = (lv, start) => { const s = S({ categLevel: lv, adaptBlock: Array(8).fill(0) }); R.maybeAdapt(cfgOf('categorizzazione', { categLivello: start }), s); return s.categLevel; };
+    t.eq(cu(3, 3), 3.5, 'banda 3-4: sale di mezzo livello');
+    t.eq(cu(4, 3), 4, 'banda 3-4: al 4 non passa alla banda 5-6');
+    t.eq(cd(3, 3), 3, 'banda 3-4: al 3 non scende alla banda 1-2');
+    t.eq(cu(7, 7, 'serie'), 7.5, 'Serie, banda 7-10: 7 → 7,5');
+    t.eq(cu(11, 11, 'serie'), 11, 'Serie, banda 11: un solo livello');
+    const du = (lv, ch) => { const s = S({ dualLevel1: lv, dualLevel2: lv, adaptBlock1: Array(8).fill(1), adaptBlock2: Array(8).fill(1) }); R.maybeAdaptDualChannel(cfgOf('dualtask', {}), s, ch); return s['dualLevel'+ch]; };
+    t.eq(du(4, 1), 4.5, 'Doppio compito canale 1: 4 → 4,5');
+    t.eq(du(10, 2), 10, 'Doppio compito: tetto 10');
+    const s2 = S({ dualLevel1: 3, dualLevel2: 3, adaptBlock1: [1,1,1,1,1,1,0,0], adaptBlock2: [] }); R.maybeAdaptDualChannel(cfgOf('dualtask', {}), s2, 1);
+    s2.adaptBlock1 = Array(8).fill(1); R.maybeAdaptDualChannel(cfgOf('dualtask', {}), s2, 1);
+    t.eq(s2.dualLevel1, 3.5, 'Doppio compito: finestra di 2 blocchi (0,75 poi 1,00 → mezzo livello)');
+    t.eq(A.categFineStartOf({ categLivello: 4, categLivelloFine: 3.5 }), 3.5, 'categFineStartOf: usa il valore con la virgola se coerente');
+    t.eq(A.dualFineStartOf({ dualStartLevel1: 6, dualFine1: 5.5 }, 1), 5.5, 'dualFineStartOf: canale 1');
+    t.eq(A.dualFineStartOf({ dualStartLevel2: 3, dualFine2: 7.5 }, 2), 3, 'dualFineStartOf: incoerente, ignorato');
   });
 };

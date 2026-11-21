@@ -87,6 +87,18 @@ export function dualFineStartOf(cfg, channel){
   const f = channel===1 ? cfg.dualFine1 : cfg.dualFine2;
   return (typeof f==='number' && isFinite(f) && Math.round(f) === base) ? f : base;
 }
+// Finestra di 2 blocchi (20 nov 2026): se dall'ultima decisione il livello (e il tempo) NON sono cambiati, la decisione guarda il blocco
+// precedente insieme a quello appena concluso (con blocchi piccoli, 4–6 prove, l'errore standard di un solo blocco è troppo largo).
+// cur = oggetto con array (es. {vals, rows}); restituisce gli stessi campi uniti. sig = firma dello stato prima della decisione.
+export function windowOf(session, key, cur, sig){
+  const p = session['_w_'+key];
+  const out = {};
+  Object.keys(cur).forEach(k => { out[k] = (p && p.sig===sig ? p.data[k] : []).concat(cur[k]); });
+  return out;
+}
+export function windowKeep(session, key, cur, sig, stepped){
+  session['_w_'+key] = stepped ? null : { sig, data: Object.fromEntries(Object.keys(cur).map(k => [k, cur[k].slice()])) };
+}
 export function fineLabel(f){
   return Number.isInteger(f) ? String(f) : f.toFixed(1).replace('.', ',');
 }

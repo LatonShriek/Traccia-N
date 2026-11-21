@@ -5,7 +5,8 @@
 // Le 32 regole del generatore sono qui in forma strutturata; i livelli (scala unica con Categorizzazione
 // condizionale, 1-11) ne scelgono una per banda; l'operatore può anche fissarne una a mano.
 // Funzioni pure: il caso passa da `rng`.
-import { adaptStep } from '../core/adapt.js';
+import { adaptStepFine, fineStartOf } from '../core/adapt.js';
+import { lerpLevel } from '../core/levels.js';
 import { mean } from '../core/stats.js';
 
   // Risposte: 'dx' 'sx' 'si' 'no', null = non rispondere (No-Go).
@@ -85,6 +86,7 @@ import { mean } from '../core/stats.js';
   };
   Object.keys(SERIE_LEVELS).forEach(l=>{ SERIE_LEVELS[l].band = SERIE_BAND_OF_LEVEL[l]; });
   export const SERIE_ADAPT_BLOCK = 8;
+  export function serieIsi(level){ return Math.round(lerpLevel(Object.fromEntries(Object.keys(SERIE_LEVELS).map(k => [k, SERIE_LEVELS[k].isi])), level)); }
   // Regola effettiva: se l'operatore ne ha fissata una a mano (cfg.serieRegola 1-32) vale quella; altrimenti
   // una dell'elenco della banda del livello, estratta una volta e ricordata per la seduta (cfg.serieRegoleSeduta).
   export function serieResetRules(cfg){ cfg.serieRegoleSeduta = {}; }
@@ -158,6 +160,14 @@ import { mean } from '../core/stats.js';
     // dentro la banda di partenza: cambiare banda = cambiare regola (come in Categorizzazione)
     const lv0 = session.serieStartLevel || cfg.adaptStartLevel;
     const band = SERIE_BANDS.find(b=>lv0>=b[0] && lv0<=b[1]) || [1, SERIE_MAX_LEVEL];
-    cfg.adaptStartLevel += adaptStep(mean(session.serieAdaptBlock), cfg.adaptStartLevel, band[0], band[1]);
+    // mezzi livelli e decisione sugli ultimi 2 blocchi (16 risposte) se il livello non è cambiato
+    const lv = session.serieLevel!=null ? session.serieLevel : fineStartOf(cfg);
+    const prev = session.seriePrevBlock && session.seriePrevLevel === lv ? session.seriePrevBlock : null;
+    const win = prev ? (mean(prev) + mean(session.serieAdaptBlock)) / 2 : mean(session.serieAdaptBlock);
+    const st = adaptStepFine(win, lv, band[0], band[1]);
+    if(st){ session.seriePrevBlock = null; }
+    else { session.seriePrevBlock = session.serieAdaptBlock.slice(); session.seriePrevLevel = lv; }
+    session.serieLevel = lv + st;
+    cfg.adaptStartLevel = Math.round(session.serieLevel); cfg.adaptFine = session.serieLevel;
     session.serieAdaptBlock = [];
   }

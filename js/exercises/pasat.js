@@ -8,7 +8,8 @@
 //  - mesi:   come giorni, sui 12 mesi
 // Non duplica l'N-back (che chiede "è uguale?"): qui si deve TRASFORMARE l'elemento tenuto a mente.
 // Funzioni pure; il caso passa da `rng`.
-import { adaptStep } from '../core/adapt.js';
+import { adaptStepFine, fineStartOf } from '../core/adapt.js';
+import { lerpLevel } from '../core/levels.js';
 import { mean } from '../core/stats.js';
 
   export const PASAT_DAYS = ['lunedì','martedì','mercoledì','giovedì','venerdì','sabato','domenica'];
@@ -25,6 +26,15 @@ import { mean } from '../core/stats.js';
     10:{isi:2400, lag:2, shift:2}
   };
   export const PASAT_ADAPT_BLOCK = 8;
+  // Bande: lag (1 o 2) e, per giorni/mesi, salto (shift) sono la REGOLA e non cambiano a metà seduta. Con le somme lo shift non conta:
+  // bande per solo lag. Dentro la banda il livello si muove di mezzi gradini e cambia solo il ritmo (ISI), interpolato.
+  export function pasatBand(material, level){
+    const bands = material==='somme' ? [[1,6],[7,10]] : [[1,3],[4,6],[7,8],[9,10]];
+    return bands.find(b => level>=b[0] && level<=b[1]) || bands[bands.length-1];
+  }
+  export function pasatIsi(level){
+    return Math.round(lerpLevel(Object.fromEntries(Object.keys(PASAT_LEVELS).map(k => [k, PASAT_LEVELS[k].isi])), level));
+  }
   export function pasatPool(material){
     if(material==='giorni') return PASAT_DAYS;
     if(material==='mesi') return PASAT_MONTHS;
@@ -48,7 +58,7 @@ import { mean } from '../core/stats.js';
   }
   // Risposta attesa allo stimolo di indice i (null per i primi `lag`, dove non si risponde ancora).
   export function pasatExpected(material, series, i, level){
-    const L = PASAT_LEVELS[level];
+    const L = PASAT_LEVELS[Math.floor(level)] || PASAT_LEVELS[1]; // lag e shift: parte intera (la banda non cambia mai in seduta)
     if(i < L.lag) return null;
     const cur = series[i], prev = series[i-L.lag];
     if(material==='somme') return prev+cur;
@@ -62,6 +72,15 @@ import { mean } from '../core/stats.js';
   }
   export function maybeAdaptPasat(cfg, session){
     if(!cfg.adaptive || session.pasatAdaptBlock.length < PASAT_ADAPT_BLOCK) return;
-    cfg.adaptStartLevel += adaptStep(mean(session.pasatAdaptBlock), cfg.adaptStartLevel, 1, 10);
+    // mezzi livelli e decisione sugli ultimi 2 blocchi (16 risposte) se il livello non è cambiato; mai fuori dalla banda di partenza
+    const lv = session.pasatLevel!=null ? session.pasatLevel : fineStartOf(cfg);
+    const band = pasatBand(cfg.pasatMateriale||'somme', session.pasatStartLevel || cfg.adaptStartLevel);
+    const prev = session.pasatPrevBlock && session.pasatPrevLevel === lv ? session.pasatPrevBlock : null;
+    const win = prev ? (mean(prev) + mean(session.pasatAdaptBlock)) / 2 : mean(session.pasatAdaptBlock);
+    const st = adaptStepFine(win, lv, band[0], band[1]);
+    if(st){ session.pasatPrevBlock = null; }
+    else { session.pasatPrevBlock = session.pasatAdaptBlock.slice(); session.pasatPrevLevel = lv; }
+    session.pasatLevel = lv + st;
+    cfg.adaptStartLevel = Math.round(session.pasatLevel); cfg.adaptFine = session.pasatLevel;
     session.pasatAdaptBlock = [];
   }

@@ -5,7 +5,7 @@
 // unico (INTRUSO_SCORE_W). Cambia solo il modo di rispondere: tocco / clic sull'elemento.
 // Il generatore ha 32 livelli, Traccia-N 10: il livello 1-10 corrisponde a 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
 // Funzioni pure: nessun accesso allo schermo; il caso passa da `rng` (per i test).
-import { adaptStep, adaptStepFine, fineStartOf } from '../core/adapt.js';
+import { adaptStep, adaptStepFine, fineStartOf, windowOf, windowKeep } from '../core/adapt.js';
 import { decideStep, timeFStartOf, clampTimeF, loadOfGen } from '../core/assi.js';
 import { mean } from '../core/stats.js';
 
@@ -208,19 +208,23 @@ export function scoreIntrusoTrial(trial, tappedIndex, rtMs){
 // o tempo) la sceglie decideStep (core/assi.js) dal tipo di errore e dal margine di tempo.
 export function maybeAdaptIntruso(cfg, session){
   if(!cfg.adaptive || session.ipAdaptBlock.length < INTRUSO_ADAPT_BLOCK) return;
-  const recent = (session.choiceLog||[]).slice(-INTRUSO_ADAPT_BLOCK);
+  const cur = { vals: session.ipAdaptBlock.slice(), rows: (session.choiceLog||[]).slice(-INTRUSO_ADAPT_BLOCK) };
+  const fine = session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg);
+  const timeF = session.timeF!=null ? session.timeF : timeFStartOf(cfg);
+  const sig = fine+'|'+timeF;
+  const w = windowOf(session, 'ip', cur, sig); // 2 blocchi se nulla è cambiato dall'ultima decisione
+  const recent = w.rows;
   const misses = recent.filter(r=>!r.correct);
   const rts = recent.filter(r=>r.correct && r.rt!=null).map(r=>r.rt).sort((a,b)=>a-b);
   const lims = recent.map(r=>r.limitMs).filter(x=>x>0);
   const medRtFrac = (rts.length && lims.length) ? rts[Math.floor(rts.length/2)] / (lims.reduce((a,b)=>a+b,0)/lims.length) : null;
-  const fine = session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg);
-  const timeF = session.timeF!=null ? session.timeF : timeFStartOf(cfg);
-  const acc = mean(session.ipAdaptBlock);
+  const acc = mean(w.vals);
   const d = decideStep({ acc, misses:misses.length, omitted:misses.filter(r=>r.omitted).length, nearMiss:null, medRtFrac },
                        { fine, timeF, successBlocks:session.successBlocks||0 }, { hasTime: !(cfg.intrusoLimitS>0), mode:'intruso' });
   session.fineLevel = fine + d.dFine;
   session.timeF = clampTimeF(timeF + d.dTime);
   if(acc > 0.85) session.successBlocks = (session.successBlocks||0) + 1;
   session.lastStep = d.why;
+  windowKeep(session, 'ip', cur, sig, !!(d.dFine || d.dTime));
   session.ipAdaptBlock = [];
 }

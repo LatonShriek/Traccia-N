@@ -7,6 +7,10 @@ module.exports = async function run(t){
   const R = await importCore('../exercises/resolve.js');
   const M = await importCore('../exercises/gonogo.js');
   const A = await importCore('adapt.js');
+  const PS = await importCore('../exercises/pasat.js');
+  const SE = await importCore('../exercises/serie.js');
+  const IP = await importCore('../exercises/intrusopercettivo.js');
+  const RS = await importCore('../exercises/runningspan.js');
   const cfgOf = (taskMode, o) => Object.assign({ taskMode, respMode: 'touch', adaptive: true }, o);
   const S = o => Object.assign({ idx: 0, adaptBlock: [], levelChanges: [], adaptLevel: 4, rtB: {} }, o);
 
@@ -125,5 +129,44 @@ module.exports = async function run(t){
     t.eq(A.categFineStartOf({ categLivello: 4, categLivelloFine: 3.5 }), 3.5, 'categFineStartOf: usa il valore con la virgola se coerente');
     t.eq(A.dualFineStartOf({ dualStartLevel1: 6, dualFine1: 5.5 }, 1), 5.5, 'dualFineStartOf: canale 1');
     t.eq(A.dualFineStartOf({ dualStartLevel2: 3, dualFine2: 7.5 }, 2), 3, 'dualFineStartOf: incoerente, ignorato');
+  });
+
+  t.group('PASAT e Serie: mezzi livelli, bande, ISI, finestra di 2 blocchi', () => {
+    t.eq(PS.pasatBand('somme', 3), [1,6], 'PASAT somme: banda 1-6 (il salto non conta)');
+    t.eq(PS.pasatBand('giorni', 3), [1,3], 'PASAT giorni: banda 1-3 (lag 1, salto 1)');
+    t.eq(PS.pasatBand('giorni', 7), [7,8], 'PASAT giorni: banda 7-8 (lag 2, salto 1)');
+    t.eq(PS.pasatIsi(1.5), 3400, 'PASAT 1,5: ritmo 3400 ms');
+    t.eq(PS.pasatIsi(4), 2800, 'PASAT livelli interi invariati');
+    t.eq(PS.pasatExpected('somme', [3,4,5], 2, 1.5), 9, 'PASAT 1,5: regola del livello intero (lag 1)');
+    const pc = (lv, start, mat) => { const ss = { pasatLevel: lv, pasatStartLevel: start, pasatAdaptBlock: Array(8).fill(1) }; PS.maybeAdaptPasat({ adaptive:true, adaptStartLevel:start, pasatMateriale:mat }, ss); return ss.pasatLevel; };
+    t.eq(pc(2, 2, 'giorni'), 2.5, 'PASAT giorni: sale di mezzo livello');
+    t.eq(pc(3, 2, 'giorni'), 3, 'PASAT giorni: al 3 non esce dalla banda (cambierebbe il salto)');
+    t.eq(pc(3, 2, 'somme'), 3.5, 'PASAT somme: 3 → 3,5 (il salto non conta)');
+    t.eq(pc(6, 2, 'somme'), 6, 'PASAT somme: al 6 non passa a lag 2');
+    t.eq(SE.serieIsi(7.5), 2500, 'Serie 7,5: ritmo 2500 ms');
+    const sc = (lv, start) => { const ss = { serieLevel: lv, serieStartLevel: start, serieAdaptBlock: Array(8).fill(1) }; SE.maybeAdaptSerie({ adaptive:true, serieRegola:0, adaptStartLevel:start }, ss); return ss.serieLevel; };
+    t.eq(sc(7, 7), 7.5, 'Serie banda 7-10: 7 → 7,5');
+    t.eq(sc(2, 1), 2, 'Serie banda 1-2: al 2 non esce dalla banda');
+    const w = { serieLevel: 7, serieStartLevel: 7, serieAdaptBlock: [1,1,1,1,1,1,0,0] }, cfgS = { adaptive:true, serieRegola:0, adaptStartLevel:7 };
+    SE.maybeAdaptSerie(cfgS, w); w.serieAdaptBlock = Array(8).fill(1); SE.maybeAdaptSerie(cfgS, w);
+    t.eq(w.serieLevel, 7.5, 'Serie: 0,75 poi 1,00 → mezzo livello');
+  });
+  t.group('finestra di 2 blocchi nei blocchi piccoli (Running span, Intruso)', () => {
+    const cfgR = { adaptive:true, adaptStartLevel:5 };
+    const r = { rsAdaptBlock: [0.8,0.8,0.8,0.8] };               // 0,80: da solo non muove
+    RS.maybeAdaptRunningSpan(cfgR, r);
+    t.eq(r.fineLevel, 5, 'Running span: 1° blocco 0,80 → resta');
+    r.rsAdaptBlock = [1,1,1,1]; RS.maybeAdaptRunningSpan(cfgR, r);
+    t.eq(r.fineLevel, 5.5, 'Running span: 2° blocco 1,00 → media dei due 0,90 → sale di mezzo livello');
+    const r2 = { rsAdaptBlock: [0.8,0.8,0.8,0.8] }; RS.maybeAdaptRunningSpan(cfgR, r2);
+    r2.rsAdaptBlock = [0.88,0.88,0.88,0.88]; RS.maybeAdaptRunningSpan(cfgR, r2);
+    t.eq(r2.fineLevel, 5, 'Running span: 0,80 e 0,88 → media 0,84, non supera la soglia');
+    const A2 = { adaptive:true, adaptStartLevel:5, intrusoLimitS:0 };
+    const i = { ipAdaptBlock: [1,1,1,1,1,0], choiceLog: [1,1,1,1,1,0].map(c => ({ correct: !!c, omitted:false, rt:1000, limitMs:5000 })) };
+    IP.maybeAdaptIntruso(A2, i);
+    const lvl1 = i.fineLevel, tf1 = i.timeF;
+    i.ipAdaptBlock = [1,1,1,1,1,1]; i.choiceLog = i.choiceLog.concat([1,1,1,1,1,1].map(c => ({ correct:true, omitted:false, rt:1000, limitMs:5000 })));
+    IP.maybeAdaptIntruso(A2, i);
+    t.ok(i.fineLevel !== lvl1 || i.timeF !== tf1, 'Intruso: 0,83 poi 1,00 → media 0,92: la decisione scatta con la finestra');
   });
 };

@@ -65,8 +65,8 @@ import { buildDualTask as buildDualTaskOf, genDualTaskTrial as genDualTaskTrialO
 import { INVERSIONE_SINGLE, INVERSIONE_SINGLE_KEYS, inversionePlanAt, genInversioneItem, scoreInversioneAnswer, maybeAdaptInversione as maybeAdaptInversioneOf } from './js/exercises/inversione.js';
 import { grigliaPlanAt, genGrigliaScreen, scoreGrigliaAnswer, scoreGrigliaSelection, maybeAdaptGriglie as maybeAdaptGrigliaOf, colorHexOf as grigliaColorHex, gridShapeSvgOf } from './js/exercises/griglie.js';
 import { INTRUSO_LEVELS, intrusoPlanAt, bestGridCols as intrusoGridCols, intrusoFramed, INTRUSO_CHAR_WIDTH, INTRUSO_GROUP_CHAR_WIDTH, genIntrusoTrial as genIntrusoTrialOf, scoreIntrusoTrial, maybeAdaptIntruso as maybeAdaptIntrusoOf } from './js/exercises/intrusopercettivo.js';
-import { SERIE_LEVELS, SERIE_MAX_LEVEL, SERIE_BAND_POOLS, SERIE_BAND_OF_LEVEL, serieResetRules, serieRuleForLevel, SERIE_RESPONSE_LABELS, serieRuleFor, genSerieStimuli, serieExpected, scoreSerieTrial, maybeAdaptSerie as maybeAdaptSerieOf } from './js/exercises/serie.js';
-import { PASAT_LEVELS, PASAT_MATERIALS, pasatAnswers, genPasatSeries, pasatExpected, scorePasatTrial, maybeAdaptPasat as maybeAdaptPasatOf } from './js/exercises/pasat.js';
+import { SERIE_LEVELS, serieIsi, SERIE_MAX_LEVEL, SERIE_BAND_POOLS, SERIE_BAND_OF_LEVEL, serieResetRules, serieRuleForLevel, SERIE_RESPONSE_LABELS, serieRuleFor, genSerieStimuli, serieExpected, scoreSerieTrial, maybeAdaptSerie as maybeAdaptSerieOf } from './js/exercises/serie.js';
+import { PASAT_LEVELS, pasatIsi, PASAT_MATERIALS, pasatAnswers, genPasatSeries, pasatExpected, scorePasatTrial, maybeAdaptPasat as maybeAdaptPasatOf } from './js/exercises/pasat.js';
 import { RUNNINGSPAN_LEVELS, RUNNINGSPAN_ADAPT_BLOCK, genRunningSpanTrial as genRunningSpanTrialOf, runningSpanItemsEqual, scoreRunningSpanTrial, maybeAdaptRunningSpan as maybeAdaptRunningSpanOf } from './js/exercises/runningspan.js';
 import { SCREENING_TRIALS, SCREENING_FLAG_THRESHOLD, SCREENING_PROBES, CEILING_PROBES, probeFailed, suggestionFor, ATTENZIONE_ORDER, attenzioneSuggestRule, memoriaSuggestRule, esplorazioneSuggestRule, flessibilitaSuggestRule, SCREENING_DOMAINS, SCREENING_DOMAIN_ORDER } from './js/core/screening.js';
 import { DUAL_LEVEL_MAX, STRUCTURAL_BANDS, TASK_SWITCHING_BIVALENTE_MIN_LEVEL, STOPSIGNAL_INTERFERENZA_MIN_LEVEL, structuralBandBounds, adaptLevelKey as adaptLevelKeyOf, currentLevelMax as currentLevelMaxOf, sessionLevelBounds as sessionLevelBoundsOf } from './js/core/bands.js';
@@ -5499,23 +5499,23 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   // --- PASAT / PVSAT con operazione ---
   function startPasatSession(){
-    session = { idx:0, series:genPasatSeries(cfg.pasatMateriale||'somme', cfg.trials+4), shownAt:0, answered:null, choiceLog:[], pasatAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
+    session = { pasatLevel: fineStartOf(cfg), pasatStartLevel: cfg.adaptStartLevel, idx:0, series:genPasatSeries(cfg.pasatMateriale||'somme', cfg.trials+4), shownAt:0, answered:null, choiceLog:[], pasatAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
     view='task'; render();
     scheduleNextPasat();
   }
   function scheduleNextPasat(){
     if(session.paused) return;
-    const lvl = PASAT_LEVELS[cfg.adaptStartLevel]||PASAT_LEVELS[1];
+    const lvl = PASAT_LEVELS[Math.floor(session.pasatLevel)]||PASAT_LEVELS[1];
     session.answered = null; session.shownAt = performance.now();
     render();
-    session.timer = setTimeout(()=>finishPasatStimulus(lvl), lvl.isi);
+    session.timer = setTimeout(()=>finishPasatStimulus(lvl), pasatIsi(session.pasatLevel));
   }
   function finishPasatStimulus(lvl){
     const mat = cfg.pasatMateriale||'somme';
-    const expected = pasatExpected(mat, session.series, session.idx, cfg.adaptStartLevel);
+    const expected = pasatExpected(mat, session.series, session.idx, session.pasatLevel);
     if(expected!=null){
       const sc = scorePasatTrial(expected, session.answered ? session.answered.value : null, session.answered ? session.answered.rt : null);
-      session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, materiale:mat});
+      session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, level:Math.round(session.pasatLevel), materiale:mat});
       session.pasatAdaptBlock.push(sc.correct); trialFeedback(!!sc.correct);
       maybeAdaptPasatOf(cfg, session);
     }
@@ -5526,7 +5526,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function updatePasatScreen(){
     const {infoSpan, content} = taskDom;
     const mat = cfg.pasatMateriale||'somme';
-    infoSpan.textContent = 'Risposta '+Math.min(session.choiceLog.length+1,cfg.trials)+totTxt()+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Risposta '+Math.min(session.choiceLog.length+1,cfg.trials)+totTxt()+' · livello '+fineLabel(session.pasatLevel);
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     const stim = session.series[session.idx];
@@ -5550,16 +5550,15 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     serieResetRules(cfg);
     const lvl = SERIE_LEVELS[cfg.adaptStartLevel]||SERIE_LEVELS[1];
     const rule = serieRuleFor(cfg).rule;
-    session = { serieStartLevel:cfg.adaptStartLevel, idx:0, seq:genSerieStimuli(cfg.trials+6, rule.marker||0), shownAt:0, answered:null, choiceLog:[], serieAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
+    session = { serieStartLevel:cfg.adaptStartLevel, serieLevel: fineStartOf(cfg), idx:0, seq:genSerieStimuli(cfg.trials+6, rule.marker||0), shownAt:0, answered:null, choiceLog:[], serieAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
     view='task'; render();
     scheduleNextSerie();
   }
   function scheduleNextSerie(){
     if(session.paused) return;
-    const lvl = SERIE_LEVELS[cfg.adaptStartLevel]||SERIE_LEVELS[1];
     session.answered = null; session.shownAt = performance.now();
     render();
-    session.timer = setTimeout(finishSerieStimulus, lvl.isi);
+    session.timer = setTimeout(finishSerieStimulus, serieIsi(session.serieLevel));
   }
   function finishSerieStimulus(){
     const sr = serieRuleFor(cfg);
@@ -5579,7 +5578,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function updateSerieScreen(){
     const {infoSpan, content} = taskDom;
     const sr = serieRuleFor(cfg);
-    infoSpan.textContent = 'Risposta '+Math.min(session.choiceLog.length+1,cfg.trials)+totTxt()+' · regola '+sr.index+' · livello '+cfg.adaptStartLevel;
+    infoSpan.textContent = 'Risposta '+Math.min(session.choiceLog.length+1,cfg.trials)+totTxt()+' · regola '+sr.index+' · livello '+fineLabel(session.serieLevel);
     content.innerHTML = '';
     if(session.paused){ content.appendChild(el('p',{class:'hint', style:'text-align:center; padding:40px 0;'},['In pausa — tocca "Pausa" di nuovo per riprendere.'])); return; }
     const s = session.seq[session.idx];

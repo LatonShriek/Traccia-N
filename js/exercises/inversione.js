@@ -11,7 +11,7 @@
 //    Colore, grandezza del carattere e numeri a più cifre sono NUOVI rispetto al generatore;
 //  - la risposta è corretta in automatico: esatta, più il punteggio parziale per posizione.
 // Il generatore ha 32 livelli, Traccia-N 10: livello 1-10 = livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32.
-import { adaptStep, adaptStepFine, fineStartOf } from '../core/adapt.js';
+import { adaptStep, adaptStepFine, fineStartOf, windowOf, windowKeep } from '../core/adapt.js';
 import { decideStep, timeFStartOf, clampTimeF, interpByGen } from '../core/assi.js';
 import { mean } from '../core/stats.js';
 import { REAL_WORDS, INV_REAL_BLOCK } from './inversione-data.js';
@@ -390,18 +390,22 @@ export function scoreInversioneAnswer(item, typed, rtMs){
 }
 export function maybeAdaptInversione(cfg, session){
   if(!cfg.adaptive || session.invAdaptBlock.length < INVERSIONE_ADAPT_BLOCK) return;
-  const recent = (session.choiceLog||[]).slice(-INVERSIONE_ADAPT_BLOCK);
+  const cur = { vals: session.invAdaptBlock.slice(), rows: (session.choiceLog||[]).slice(-INVERSIONE_ADAPT_BLOCK) };
+  const fine = session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg);
+  const timeF = session.timeF!=null ? session.timeF : timeFStartOf(cfg);
+  const sig = fine+'|'+timeF;
+  const w = windowOf(session, 'inv', cur, sig); // 2 blocchi se nulla è cambiato dall'ultima decisione
+  const recent = w.rows;
   const misses = recent.filter(r=>!r.correct);
   const near = misses.filter(r=>!r.omitted);
   const nearMiss = near.length ? near.reduce((a,r)=>a+(r.partial||0),0)/near.length : null;
-  const fine = session.fineLevel!=null ? session.fineLevel : fineStartOf(cfg);
-  const timeF = session.timeF!=null ? session.timeF : timeFStartOf(cfg);
-  const acc = mean(session.invAdaptBlock);
+  const acc = mean(w.vals);
   const d = decideStep({ acc, misses:misses.length, omitted:misses.filter(r=>r.omitted).length, nearMiss, medRtFrac:null },
                        { fine, timeF, successBlocks:session.successBlocks||0 }, { hasTime:true, mode:'inversione' });
   session.fineLevel = fine + d.dFine;
   session.timeF = clampTimeF(timeF + d.dTime);
   if(acc > 0.85) session.successBlocks = (session.successBlocks||0) + 1;
   session.lastStep = d.why;
+  windowKeep(session, 'inv', cur, sig, !!(d.dFine || d.dTime));
   session.invAdaptBlock = [];
 }

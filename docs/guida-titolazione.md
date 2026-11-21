@@ -57,3 +57,5 @@ Distribuzione della dispersione (50/20/5), soglia del 50% di margine sul tempo, 
 `js/core/adapt.js` (regola 85/70, credito, mezzi gradini) · `js/exercises/resolve.js` (credito per prova, finestra di 2 blocchi) · `js/core/levels.js` (tabelle dei classici, `lerpLevel`, `HALF_STEP_MODES`) · `js/core/bands.js` (fasce strutturali) · `js/core/titration.js` · `js/core/assi.js` (motore ibrido, tempo, dispersione sul generatore) · `js/core/rci.js`, `js/core/nof1.js` (cambiamento affidabile) · test: `tests/adapt.test.js`, `tests/assi.test.js`, `tests/resolve.test.js`, `tests/livelli-intermedi.test.js`.
 
 **Griglie (20 nov):** tolte le consegne a «blocco in alto/basso a sinistra/destra» (sotto-quadranti, poco comprensibili); il numero di consegne per griglia è modificabile (4–30, di norma 10) da Setup in Traccia-N e dalla barra laterale in PdMgenerator. Non è (ancora) una leva di livello: vedi la discussione del 20 nov.
+
+**21 nov:** finestra di 2 blocchi anche per Intruso, Inversione, Griglie e Running span; mezzi livelli con ritmo interpolato e bande per Serie e PASAT (il PASAT non attraversa più la regola a metà seduta). Dettagli in `titolazione-e-screening.md`.

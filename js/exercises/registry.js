@@ -466,7 +466,7 @@ import { serieRuleFor } from './serie.js';
       tapatIsiMin:c.tapatIsiMin, tapatIsiMax:c.tapatIsiMax,
       numDigits:c.numDigits, wordComplexity:c.wordComplexity, showTrail:c.showTrail,
       neglectGradient:c.neglectGradient, neglectLayout:c.neglectLayout, neglectTimeLimit:c.neglectTimeLimit, neglectBoardSize:c.neglectBoardSize,
-      neglectMode:c.neglectMode, neglectRuleLevel:c.neglectRuleLevel,
+      neglectMode:c.neglectMode, neglectRuleLevel:c.neglectRuleLevel, neglectFine:c.neglectFine, tapatFine:c.tapatFine,
       goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx, pasatMateriale:c.pasatMateriale, serieRegola:c.serieRegola,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,

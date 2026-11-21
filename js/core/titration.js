@@ -184,10 +184,12 @@ import { fineStartOf, nFineStartOf, categFineStartOf, dualFineStartOf, fineLabel
   // fase riparte dal proprio pavimento invece di continuare la scala
   // dimensionale della fase precedente.
   export function neglectProgressivaPhase(absLevel){
-    const lvl = Math.max(1, Math.min(30, absLevel||1));
-    if(lvl<=10) return {mode:'classico', subLevel:lvl};
-    if(lvl<=20) return {mode:'intruso', subLevel:lvl-10};
-    return {mode:'regola', subLevel:lvl-20};
+    // Con i mezzi livelli (21 nov) il livello assoluto può avere la virgola: fase e regola usano la parte intera (la fase non cambia mai
+    // a metà seduta), subFine è il sotto-livello con la virgola per dimensione e tempo della tavola.
+    const fine = Math.max(1, Math.min(30, absLevel||1));
+    const lvl = Math.floor(fine);
+    const off = lvl<=10 ? 0 : lvl<=20 ? 10 : 20;
+    return {mode: lvl<=10 ? 'classico' : lvl<=20 ? 'intruso' : 'regola', subLevel:lvl-off, subFine:fine-off};
   }
   // Quale campo di cfg rappresenta il "livello di partenza" per ciascun
   // esercizio — usato per riportarlo a 1 quando si apre l'esercizio senza

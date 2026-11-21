@@ -99,6 +99,17 @@ export function windowOf(session, key, cur, sig){
 export function windowKeep(session, key, cur, sig, stepped){
   session['_w_'+key] = stepped ? null : { sig, data: Object.fromEntries(Object.keys(cur).map(k => [k, cur[k].slice()])) };
 }
+// Cancellazione/Neglect: livello di partenza (intero) con la virgola in neglectFine; in modalità regola il livello è neglectRuleLevel.
+export function neglectFineStartOf(cfg){
+  const base = cfg.neglectMode==='regola' ? cfg.neglectRuleLevel : cfg.neglectStartLevel;
+  const f = cfg.neglectFine;
+  return (typeof f==='number' && isFinite(f) && Math.round(f) === base) ? f : base;
+}
+// TAPAT: tapatStartLevel (intero) + tapatFine (con la virgola, solo se coerente).
+export function tapatFineStartOf(cfg){
+  const f = cfg.tapatFine;
+  return (typeof f==='number' && isFinite(f) && Math.round(f) === cfg.tapatStartLevel) ? f : cfg.tapatStartLevel;
+}
 export function fineLabel(f){
   return Number.isInteger(f) ? String(f) : f.toFixed(1).replace('.', ',');
 }

@@ -85,8 +85,8 @@ import { EXERCISES } from './registry.js';
       finalLevel: (()=>{
         if(cfg.taskMode==='nback') return Math.round(session.liveNLevel);
         if(cfg.taskMode==='categorizzazione') return Math.round(session.categLevel);
-        if(cfg.taskMode==='tapat') return session.tapatLevel;
-        if(cfg.taskMode==='neglect') return session.liveBoardLevel;
+        if(cfg.taskMode==='tapat') return Math.round(session.tapatLevel);
+        if(cfg.taskMode==='neglect') return Math.round(session.liveBoardLevel);
         if(cfg.taskMode==='dualtask') return Math.round(session.dualLevel1)+'/'+Math.round(session.dualLevel2);
         if(cfg.taskMode==='goaltask') return cfg.goaltaskLivello;
         if(cfg.taskMode==='memoria') return session.material ? session.material.livello : null;
@@ -172,7 +172,7 @@ import { EXERCISES } from './registry.js';
         rec.choice.tonicOmissions = tonicTrials.filter(x=>x.omitted).length;
         rec.choice.tonicTotal = tonicTrials.length;
         rec.choice.phasicMeanRT = rtMeanOf(phasicTrials.filter(x=>x.correct).map(x=>x.rt));
-        rec.choice.finalTapatLevel = session.tapatLevel;
+        rec.choice.finalTapatLevel = Math.round(session.tapatLevel);
         rec.choice.adaptive = cfg.adaptive;
       }
       if(cfg.taskMode==='switching'){

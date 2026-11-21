@@ -11,11 +11,14 @@ module.exports = async function run(t){
   const SE = await importCore('../exercises/serie.js');
   const IP = await importCore('../exercises/intrusopercettivo.js');
   const RS = await importCore('../exercises/runningspan.js');
+  const NG = await importCore('../exercises/neglect.js');
+  const TA = await importCore('../exercises/tapat.js');
+  const TI = await importCore('titration.js');
   const cfgOf = (taskMode, o) => Object.assign({ taskMode, respMode: 'touch', adaptive: true }, o);
   const S = o => Object.assign({ idx: 0, adaptBlock: [], levelChanges: [], adaptLevel: 4, rtB: {} }, o);
 
   t.group('lerpLevel: interi invariati, mezzi livelli a metà strada', () => {
-    t.ok(L.HALF_STEP_MODES.join()==='sequenza,stopsignal,ant,simon,switching,gonogo,nback,categorizzazione,dualtask', 'esercizi coinvolti: quelli senza fasce e quelli con fasce (dentro la fascia)');
+    t.ok(L.HALF_STEP_MODES.join()==='sequenza,stopsignal,ant,simon,switching,gonogo,nback,categorizzazione,dualtask,tapat,neglect', 'esercizi coinvolti: tutti i classici (con fasce, dentro la fascia)');
     for(const k of [1,2,5,10]) t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, k), L.ADAPT_ISI.sequenza[k], 'Sequenza livello intero '+k+' identico a prima');
     t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, 1.5), 4200, 'Sequenza 1,5 = 4200 ms');
     t.eq(L.lerpLevel(L.ADAPT_ISI.sequenza, 2.5), 3550, 'Sequenza 2,5 = 3550 ms');
@@ -168,5 +171,21 @@ module.exports = async function run(t){
     i.ipAdaptBlock = [1,1,1,1,1,1]; i.choiceLog = i.choiceLog.concat([1,1,1,1,1,1].map(c => ({ correct:true, omitted:false, rt:1000, limitMs:5000 })));
     IP.maybeAdaptIntruso(A2, i);
     t.ok(i.fineLevel !== lvl1 || i.timeF !== tf1, 'Intruso: 0,83 poi 1,00 → media 0,92: la decisione scatta con la finestra');
+  });
+
+  t.group('TAPAT e Neglect: mezzi livelli', () => {
+    t.eq(TA.tapatRange(2.5), [1700, 3300], 'TAPAT 2,5: finestra 1,7-3,3 s (a metà fra livello 2 e 3)');
+    t.eq(TA.tapatRange(4), L.TAPAT_LEVELS[4], 'TAPAT livelli interi invariati');
+    const tu = (lv) => { const ss = S({ tapatLevel: lv, adaptBlock: Array(8).fill(1) }); R.maybeAdapt(cfgOf('tapat', {}), ss); return ss.tapatLevel; };
+    t.eq(tu(4), 4.5, 'TAPAT: 4 → 4,5');
+    t.eq(TI.neglectProgressivaPhase(15.5), { mode:'intruso', subLevel:5, subFine:5.5 }, 'Neglect progressivo 15,5: fase Intruso, sotto-livello 5 (5,5 fine)');
+    const cN = { neglectMode:'classico', titrationMode:'adattivo', neglectBoardSize:40, neglectTimeLimit:0, neglectStartLevel:2 };
+    t.eq(NG.neglectSizeFor(cN, { liveBoardLevel: 2.5 }), 23, 'Neglect 2,5: 23 elementi (fra 20 e 26)');
+    t.eq(NG.neglectTimeLimitFor(cN, { liveBoardLevel: 2.5 }), 0, 'Neglect 2,5: ancora nessun limite (fra nessun limite e 110 s)');
+    t.eq(NG.neglectTimeLimitFor(cN, { liveBoardLevel: 3.5 }), 100, 'Neglect 3,5: 100 s (fra 110 e 90)');
+    t.eq(NG.neglectBoardSubLevel(cN, { liveBoardLevel: 3.5 }), 3, 'Neglect 3,5: struttura al livello intero 3');
+    t.eq(A.neglectFineStartOf({ neglectMode:'classico', neglectStartLevel: 4, neglectFine: 3.5 }), 3.5, 'neglectFineStartOf coerente');
+    t.eq(A.neglectFineStartOf({ neglectMode:'regola', neglectRuleLevel: 6, neglectFine: 5.5 }), 5.5, 'neglectFineStartOf in regola usa il livello regola');
+    t.eq(A.tapatFineStartOf({ tapatStartLevel: 3, tapatFine: 6.5 }), 3, 'tapatFineStartOf incoerente: ignorato');
   });
 };

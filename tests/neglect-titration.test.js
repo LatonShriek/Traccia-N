@@ -17,12 +17,12 @@ neglectBoardSubLevel = () => N.neglectBoardSubLevel(cfgStub, sessionStub);
 module.exports = async function run(t) {
   await setup();
   t.group('neglectProgressivaPhase — traduzione livello assoluto 1-30 → fase + sotto-livello', () => {
-    t.eq(neglectProgressivaPhase(1), { mode: 'classico', subLevel: 1 }, 'livello 1 → Classico, sotto-livello 1');
-    t.eq(neglectProgressivaPhase(10), { mode: 'classico', subLevel: 10 }, 'livello 10 → ancora Classico, sotto-livello 10 (pavimento della fase)');
-    t.eq(neglectProgressivaPhase(11), { mode: 'intruso', subLevel: 1 }, 'livello 11 → Intruso riparte da sotto-livello 1');
-    t.eq(neglectProgressivaPhase(20), { mode: 'intruso', subLevel: 10 }, 'livello 20 → fine Intruso');
-    t.eq(neglectProgressivaPhase(21), { mode: 'regola', subLevel: 1 }, 'livello 21 → Regola riparte da sotto-livello 1');
-    t.eq(neglectProgressivaPhase(30), { mode: 'regola', subLevel: 10 }, 'livello 30 → soffitto assoluto');
+    t.eq(neglectProgressivaPhase(1), { mode: 'classico', subLevel: 1, subFine: 1 }, 'livello 1 → Classico, sotto-livello 1');
+    t.eq(neglectProgressivaPhase(10), { mode: 'classico', subLevel: 10, subFine: 10 }, 'livello 10 → ancora Classico, sotto-livello 10 (pavimento della fase)');
+    t.eq(neglectProgressivaPhase(11), { mode: 'intruso', subLevel: 1, subFine: 1 }, 'livello 11 → Intruso riparte da sotto-livello 1');
+    t.eq(neglectProgressivaPhase(20), { mode: 'intruso', subLevel: 10, subFine: 10 }, 'livello 20 → fine Intruso');
+    t.eq(neglectProgressivaPhase(21), { mode: 'regola', subLevel: 1, subFine: 1 }, 'livello 21 → Regola riparte da sotto-livello 1');
+    t.eq(neglectProgressivaPhase(30), { mode: 'regola', subLevel: 10, subFine: 10 }, 'livello 30 → soffitto assoluto');
   });
 
   t.group('neglectBoardSubLevel — Manuale non legge mai session.liveBoardLevel', () => {

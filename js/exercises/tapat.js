@@ -4,7 +4,13 @@
 // che chiama questa con la cfg e la seduta correnti.
 // - genTapatTrial riceve cfg e session, buildTAPAT riceve cfg, come parametri invece di leggere le variabili dell'app (buildTAPAT: passo 5c).
 import { POOLS } from '../core/pools.js';
-import { TAPAT_LEVELS } from '../core/levels.js';
+import { TAPAT_LEVELS, lerpLevel } from '../core/levels.js';
+  // Finestra di attesa del blocco tonico, interpolata fra due livelli interi (mezzi livelli, 21 nov).
+  export function tapatRange(level){
+    const lo = Math.max(1, Math.min(10, Math.floor(level))), hi = Math.max(1, Math.min(10, Math.ceil(level)));
+    const t = x => Object.fromEntries(Object.keys(TAPAT_LEVELS).map(k => [k, TAPAT_LEVELS[k][x]]));
+    return [lerpLevel(t(0), level), lerpLevel(t(1), level)];
+  }
 
   export function genTapatTrial(cfg, session){
     const i = session.seq.length;
@@ -14,7 +20,7 @@ import { TAPAT_LEVELS } from '../core/levels.js';
     let cueType, isiOverride;
     if(block==='tonic'){
       cueType = 'none';
-      const range = cfg.titrationMode==='manuale' ? [cfg.tapatIsiMin, cfg.tapatIsiMax] : (TAPAT_LEVELS[session.tapatLevel] || TAPAT_LEVELS[3]);
+      const range = cfg.titrationMode==='manuale' ? [cfg.tapatIsiMin, cfg.tapatIsiMax] : tapatRange(session.tapatLevel);
       isiOverride = range[0] + Math.random()*(range[1]-range[0]);
     } else {
       cueType = Math.random()<0.5 ? 'none' : 'center';

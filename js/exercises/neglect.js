@@ -5,7 +5,7 @@
 // - neglectBottomUpWeakSide, neglectBoardSubLevel e buildNeglectBoard* ricevono cfg e session come parametri; neglectLayoutPositions riceve cfg.
 // - INTRUSO_POOL (mai usata) non è stata portata.
 // - shuffleArr, usata solo dalle tavole, vive qui.
-import { ADAPT_NEGLECT_SIZE } from '../core/levels.js';
+import { ADAPT_NEGLECT_SIZE, ADAPT_NEGLECT_TIME, lerpLevel } from '../core/levels.js';
 import { POOLS, seqLabel } from '../core/pools.js';
 import { neglectProgressivaPhase } from '../core/titration.js';
 
@@ -196,17 +196,37 @@ import { neglectProgressivaPhase } from '../core/titration.js';
   // regola — nella modalità progressiva traduce il contatore assoluto,
   // altrimenti restituisce il livello così com'è (comportamento invariato
   // per le tre modalità standalone).
-  export function neglectBoardSubLevel(cfg, session){
+  // Restituisce la parte INTERA (struttura: regola, alfabeto, bottom-up); neglectBoardSubFine ha la virgola (dimensione e tempo, interpolati).
+  export function neglectBoardSubFine(cfg, session){
     if(cfg.neglectMode==='progressiva'){
       const raw = cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;
-      return neglectProgressivaPhase(raw).subLevel;
+      return neglectProgressivaPhase(raw).subFine;
     }
     if(cfg.neglectMode==='regola') return cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectRuleLevel;
     return cfg.titrationMode!=='manuale' ? (session && session.liveBoardLevel) : cfg.neglectStartLevel;
   }
+  export function neglectBoardSubLevel(cfg, session){
+    const f = neglectBoardSubFine(cfg, session);
+    return f==null ? f : Math.floor(f);
+  }
+  // Dimensione della tavola e tempo limite: interpolati fra i due livelli interi. Il tempo a livello 1-2 è «nessun limite» (0): fra un livello
+  // senza limite e uno con limite resta senza limite (altrimenti a 2,5 il limite sarebbe più stretto che a 3).
+  export function neglectSizeFor(cfg, session){
+    if(cfg.titrationMode==='manuale') return cfg.neglectBoardSize;
+    const v = lerpLevel(ADAPT_NEGLECT_SIZE, neglectBoardSubFine(cfg, session));
+    return v ? Math.round(v) : cfg.neglectBoardSize;
+  }
+  export function neglectTimeLimitFor(cfg, session){
+    if(cfg.titrationMode==='manuale') return cfg.neglectTimeLimit;
+    const f = neglectBoardSubFine(cfg, session), lo = Math.floor(f), hi = Math.ceil(f);
+    const a = ADAPT_NEGLECT_TIME[lo], b = ADAPT_NEGLECT_TIME[hi];
+    if(a===undefined) return cfg.neglectTimeLimit;
+    if(!a || b===undefined || !b) return a;
+    return Math.round(lerpLevel(ADAPT_NEGLECT_TIME, f));
+  }
   export function buildNeglectBoardIntruso(cfg, session){
     const subLevel = neglectBoardSubLevel(cfg, session);
-    const n = cfg.titrationMode!=='manuale' ? (ADAPT_NEGLECT_SIZE[subLevel] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
+    const n = neglectSizeFor(cfg, session);
     const level = subLevel || cfg.neglectStartLevel || 3;
     const pool = intrusoPoolFor(cfg.neglectAlphabet, level);
     const nOdd = n % 2 === 0 ? n+1 : n; // deve essere dispari: bersaglio singolo + il resto ripetuto
@@ -240,7 +260,7 @@ import { neglectProgressivaPhase } from '../core/titration.js';
     const stimType = (cfg.stimType==='numeri' || cfg.stimType==='lettere') ? cfg.stimType : 'lettere';
     const basePool = stimType==='numeri' ? ['1','2','3','4','5','6','7','8','9'] : ['A','E','I','O','U','B','C','D','F','G','H','L','M','N','P','R','S','T'];
     const subLevel = neglectBoardSubLevel(cfg, session);
-    const n = cfg.titrationMode!=='manuale' ? (ADAPT_NEGLECT_SIZE[subLevel] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
+    const n = neglectSizeFor(cfg, session);
     const rule = neglectRuleFor(stimType, subLevel || cfg.neglectRuleLevel, cfg.neglectRuleClauses);
     const positions = neglectLayoutPositions(cfg, n);
     return positions.map(p=>{
@@ -254,7 +274,7 @@ import { neglectProgressivaPhase } from '../core/titration.js';
   export function buildNeglectBoardClassico(cfg, session){
     const pool = POOLS[cfg.stimType];
     const targets = cfg.targetSeq;
-    const n = cfg.titrationMode!=='manuale' ? (ADAPT_NEGLECT_SIZE[neglectBoardSubLevel(cfg, session)] || cfg.neglectBoardSize) : cfg.neglectBoardSize;
+    const n = neglectSizeFor(cfg, session);
     const targetCount = Math.max(4, Math.round(n*0.25));
     // gradiente continuo 0-100: 0=tutti i bersagli a destra, 100=tutti a
     // sinistra, 50=simmetrico. Con l'adattivo attivo, session.liveGradient

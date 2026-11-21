@@ -47,7 +47,7 @@ import { buildSwitching as buildSwitchingOf } from './js/exercises/switching.js'
 import { buildSimon as buildSimonOf } from './js/exercises/simon.js';
 import { buildMantenimento as buildMantenimentoOf } from './js/exercises/mantenimento.js';
 import { CATEG_REGIMES, pickCategRegime, categDim1IsA, categDim2IsA, categL2Outcome, categL3Outcome, categL5Outcome, genCategItem as genCategItemOf, genCategTrial as genCategTrialOf } from './js/exercises/categorizzazione.js';
-import { neglectBoardSubLevel as neglectBoardSubLevelOf, neglectBottomUpWeakSide as neglectBottomUpWeakSideOf, buildNeglectBoard as buildNeglectBoardOf, neglectRuleFor } from './js/exercises/neglect.js';
+import { neglectBoardSubLevel as neglectBoardSubLevelOf, neglectBottomUpWeakSide as neglectBottomUpWeakSideOf, buildNeglectBoard as buildNeglectBoardOf, neglectRuleFor, neglectTimeLimitFor } from './js/exercises/neglect.js';
 import { resolveSignal as resolveSignalOf, resolveChoice as resolveChoiceOf, resolveCategorization as resolveCategorizationOf, resolveDualTask as resolveDualTaskOf } from './js/exercises/resolve.js';
 import { GOALTASK_SCENARIOS, startGoalTask, completeGoalTaskItem, goalTaskVisibleItems, goalTaskTick, scoreGoalTask, goalTaskInstanceFor, goalTaskItemIcon } from './js/exercises/goaltask.js';
 import { memoriaEffectiveMateriale, memoriaNForme, memoriaFormeUsatePerPaziente as memoriaFormeUsatePerPazienteOf, memoriaMaterialFor, memoriaLearnItems, lociRouteFor, MEMORIA_MODO_LABELS } from './js/exercises/memoria.js';
@@ -74,7 +74,7 @@ import { KEY, getRaw, setRaw, readJSON, writeJSON, removeKey, listByPrefix, getL
 import { recToRow, rowToRec, fetchRole, upsertSessionRow, fetchSessionRows, fetchMyPatients, fetchPatientFresh, fetchOperators, countPatientsOfOperator, fetchAccessRows, insertAccessEvent, insertAuditAction, fetchUsageRows, minutesOf } from './js/services/cloud.js';
 import { PROFILI, patchOf as patchOfProfilo } from './js/core/profili.js';
 import { trialGenFromFine, lvOfGen, timeFStartOf, timeFLabel } from './js/core/assi.js';
-import { ADAPT_BLOCK, adaptStep, countedOutcome, countedByBucket, creditByBucket, trialLevelFromFine, fineStartOf, nFineStartOf, categFineStartOf, dualFineStartOf, fineLabel } from './js/core/adapt.js';
+import { ADAPT_BLOCK, adaptStep, countedOutcome, countedByBucket, creditByBucket, trialLevelFromFine, fineStartOf, nFineStartOf, categFineStartOf, dualFineStartOf, neglectFineStartOf, tapatFineStartOf, windowOf, windowKeep, adaptStepFine, fineLabel } from './js/core/adapt.js';
 import { computeEZDiffusion, computeLISAS, primaryAccuracyOf, computeExerciseTimeSummary } from './js/core/scores.js';
 import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TARGET_RATE, resolvedFreqForDisplay, resolvedIsiForDisplay, neglectSubLevelForDisplay, categEffectiveStructure, CATEG_STRUCTURE_LABELS, CATEG_STRUCTURE_HINTS, categTitrationModeHint, tapatTitrationModeHint, neglectTitrationModeHint, dualTitrationModeHint, titrationModeHint, neglectProgressivaPhase, LEVEL_FIELD_OF_TASKMODE, levelOfCfg } from './js/core/titration.js';
 (function(){
@@ -235,7 +235,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     cfg.tapatIsiMin = pc.tapatIsiMin || 900; cfg.tapatIsiMax = pc.tapatIsiMax || 1800;
     cfg.numDigits = pc.numDigits || 1; cfg.wordComplexity = pc.wordComplexity || 'breve'; cfg.showTrail = pc.showTrail!==false;
     cfg.neglectGradient = pc.neglectGradient!=null?pc.neglectGradient:50; cfg.neglectLayout = pc.neglectLayout || 'griglia'; cfg.neglectTimeLimit = pc.neglectTimeLimit!=null?pc.neglectTimeLimit:60; cfg.neglectBoardSize = pc.neglectBoardSize || 40;
-    cfg.neglectMode = pc.neglectMode || 'classico'; cfg.neglectRuleLevel = pc.neglectRuleLevel || 1;
+    cfg.neglectMode = pc.neglectMode || 'classico'; cfg.neglectRuleLevel = pc.neglectRuleLevel || 1; cfg.neglectFine = pc.neglectFine; cfg.tapatFine = pc.tapatFine;
     cfg.goaltaskScenario = pc.goaltaskScenario || 'sei_compiti_classico';
     cfg.goaltaskLivello = pc.goaltaskLivello || 2;
     cfg.memoriaModo = pc.memoriaModo || 'pqrst'; cfg.memoriaLivello = pc.memoriaLivello || 1; cfg.memoriaMateriale = pc.memoriaMateriale || 'lista';
@@ -2874,7 +2874,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       trail:[], responses:new Set(), respTime:null, trialStart:0,
       rts:[], startedAt: Date.now(), paused:false, pausedAt:null,
       currentSSD: cfg.ssd, ssdHistory:[], showStopCue:false, stopCueTimer:null, discrimLog:[], discrimCongLog:[],
-      liveNLevel: nFineStartOf(cfg), tapatLevel: cfg.tapatStartLevel, adaptLevel: HALF_STEP_MODES.includes(cfg.taskMode) ? fineStartOf(cfg) : cfg.adaptStartLevel, liveTapatGradient: cfg.tapatGradient,
+      liveNLevel: nFineStartOf(cfg), tapatLevel: tapatFineStartOf(cfg), adaptLevel: HALF_STEP_MODES.includes(cfg.taskMode) ? fineStartOf(cfg) : cfg.adaptStartLevel, liveTapatGradient: cfg.tapatGradient,
       categLevel: categFineStartOf(cfg), categPrevCat: null, categPrevCat2: null,
       dualLevel1: dualFineStartOf(cfg,1), dualLevel2: dualFineStartOf(cfg,2), adaptBlock1:[], adaptBlock2:[], prevDual1:null, prevDual2:null,
       adaptBlock:[], levelChanges:[],
@@ -2907,7 +2907,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   function startNeglectSession(){
     session = {
       boardIdx:0, totalBoards:cfg.trials, board:[], boardStartTime:0, startedAt:Date.now(),
-      timer:null, timerInfo:null, paused:false, pausedAt:null, liveBoardLevel:cfg.neglectStartLevel, liveGradient:cfg.neglectGradient, levelChanges:[],
+      timer:null, timerInfo:null, paused:false, pausedAt:null, liveBoardLevel:neglectFineStartOf(cfg), liveGradient:cfg.neglectGradient, levelChanges:[],
       awaitingCount:false, countReason:null, // solo per la fase/modalità 'regola': in attesa dell'inserimento del conteggio mentale
       results:[] // {targetsLeft,targetsRight,foundLeft,foundRight,falseAlarms,timeMs,reason} — o, per 'regola', {modalitaConteggio,conteggioAtteso,conteggioDato,corretto,targetsLeft,targetsRight,timeMs,reason}
     };
@@ -2920,7 +2920,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     session.boardStartTime = performance.now();
     session.awaitingCount = false;
     render();
-    const timeLimit = cfg.titrationMode!=='manuale' ? (ADAPT_NEGLECT_TIME[neglectBoardSubLevel()] ?? cfg.neglectTimeLimit) : cfg.neglectTimeLimit;
+    const timeLimit = neglectTimeLimitFor(cfg, session);
     if(timeLimit>0){
       const onTimeUp = ()=> currentNeglectEffMode()==='regola' ? beginRegolaCountEntry('tempo scaduto') : finishBoard('tempo scaduto');
       scheduleStep(onTimeUp, timeLimit*1000);
@@ -2979,13 +2979,19 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       const bandKey = cfg.neglectMode==='progressiva' ? 'neglectProgressiva' : 'neglectRegola';
       const startLevel = cfg.neglectMode==='progressiva' ? cfg.neglectStartLevel : cfg.neglectRuleLevel;
       const bounds = structuralBandBounds(bandKey, startLevel) || {min:1, max:currentLevelMax()};
-      const corretto = val===atteso;
-      if(corretto && session.liveBoardLevel < bounds.max){
-        session.liveBoardLevel++;
-        session.levelChanges.push({board:session.boardIdx, level:session.liveBoardLevel, how:'auto'});
-      } else if(!corretto && session.liveBoardLevel > bounds.min){
-        session.liveBoardLevel--;
-        session.levelChanges.push({board:session.boardIdx, level:session.liveBoardLevel, how:'auto'});
+      // 21 nov: prima un solo numero faceva salire o scendere di un livello (regola «1 su, 1 giù»: converge verso il 50%, non verso 70-85%).
+      // Ora si decide a blocchi di 4 tavole (con le stesse soglie 70/85%: 4/4 sale, 3/4 resta, ≤2/4 scende) e sugli ultimi 2 blocchi se il livello non è cambiato.
+      session.countBlock = (session.countBlock||[]).concat(val===atteso ? 1 : 0);
+      if(session.countBlock.length >= 4){
+        const cur = { vals: session.countBlock.slice() };
+        const w = windowOf(session, 'cnt', cur, String(session.liveBoardLevel));
+        const st = adaptStepFine(w.vals.reduce((a,x)=>a+x,0)/w.vals.length, session.liveBoardLevel, bounds.min, bounds.max);
+        windowKeep(session, 'cnt', cur, String(session.liveBoardLevel), !!st);
+        if(st){
+          session.liveBoardLevel += st;
+          session.levelChanges.push({board:session.boardIdx, level:session.liveBoardLevel, how:'auto'});
+        }
+        session.countBlock = [];
       }
     }
     session.awaitingCount = false;
@@ -3010,7 +3016,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       const neglectBandKey = cfg.neglectMode==='progressiva' ? 'neglectProgressiva' : cfg.neglectMode==='regola' ? 'neglectRegola' : null;
       const neglectStart = cfg.neglectMode==='regola' ? cfg.neglectRuleLevel : cfg.neglectStartLevel;
       const bounds = neglectBandKey ? (structuralBandBounds(neglectBandKey, neglectStart) || {min:1,max:currentLevelMax()}) : {min:1,max:currentLevelMax()};
-      const lvStep = adaptStep(acc, session.liveBoardLevel, bounds.min, bounds.max);
+      // mezzi livelli e decisione sulle ultime 2 tavole se il livello non è cambiato (una tavola ha ≥ 8 bersagli: è già un blocco)
+      const curB = { vals: [acc] };
+      const wB = windowOf(session, 'nb', curB, String(session.liveBoardLevel));
+      const lvStep = adaptStepFine(wB.vals.reduce((a,x)=>a+x,0)/wB.vals.length, session.liveBoardLevel, bounds.min, bounds.max);
+      windowKeep(session, 'nb', curB, String(session.liveBoardLevel), !!lvStep);
       if(lvStep){
         session.liveBoardLevel += lvStep;
         session.levelChanges.push({board:session.boardIdx, level:session.liveBoardLevel, how:'auto'});
@@ -3627,7 +3637,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       : cfg.taskMode==='nback' ? 'livello '+fineLabel(session.liveNLevel)+' · n='+nbackParamsForLevel(session.liveNLevel).n+(cfg.adaptive?' (adattivo)':'')
       : cfg.taskMode==='gonogo' ? 'go/no-go · livello '+fineLabel(session.adaptLevel)
       : cfg.taskMode==='stopsignal' ? 'SSD '+Math.round(session.currentSSD)+'ms · ritmo livello '+fineLabel(session.adaptLevel)
-      : (cfg.taskMode==='tapat' && trial) ? 'TAPAT — blocco '+(trial.block==='tonic'?'tonico':'fasico')+' · livello '+session.tapatLevel+(cfg.adaptive?' (adattivo)':'')
+      : (cfg.taskMode==='tapat' && trial) ? 'TAPAT — blocco '+(trial.block==='tonic'?'tonico':'fasico')+' · livello '+fineLabel(session.tapatLevel)+(cfg.adaptive?' (adattivo)':'')
       : cfg.taskMode==='ant' ? 'ANT · livello '+fineLabel(session.adaptLevel)
       : cfg.taskMode==='switching' ? EXERCISES[cfg.taskMode].label+' · livello '+fineLabel(session.adaptLevel)
       : cfg.taskMode==='dualtask' ? 'doppio compito · C1 livello '+fineLabel(session.dualLevel1)+' · C2 livello '+fineLabel(session.dualLevel2)
@@ -5690,9 +5700,9 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     // riporta il livello raggiunto nella config, così "Ripeti" e la
     // continuità del profilo partono davvero da dove ci si era fermati
     if(cfg.taskMode==='nback'){ cfg.nLevel = Math.round(session.liveNLevel); cfg.nLevelFine = session.liveNLevel; }
-    else if(cfg.taskMode==='tapat') cfg.tapatStartLevel = session.tapatLevel;
-    else if(cfg.taskMode==='neglect' && cfg.neglectMode==='regola') cfg.neglectRuleLevel = session.liveBoardLevel;
-    else if(cfg.taskMode==='neglect') cfg.neglectStartLevel = session.liveBoardLevel;
+    else if(cfg.taskMode==='tapat'){ cfg.tapatStartLevel = Math.round(session.tapatLevel); cfg.tapatFine = session.tapatLevel; }
+    else if(cfg.taskMode==='neglect' && cfg.neglectMode==='regola'){ cfg.neglectRuleLevel = Math.round(session.liveBoardLevel); cfg.neglectFine = session.liveBoardLevel; }
+    else if(cfg.taskMode==='neglect'){ cfg.neglectStartLevel = Math.round(session.liveBoardLevel); cfg.neglectFine = session.liveBoardLevel; }
     else if(cfg.taskMode==='categorizzazione'){ cfg.categLivello = Math.round(session.categLevel); cfg.categLivelloFine = session.categLevel; }
     else if(adaptLevelKey()==='adaptLevel'){
       cfg.adaptStartLevel = Math.round(session.adaptLevel);

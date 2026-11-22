@@ -107,7 +107,7 @@ function inversioneLens(level){
 }
 const INV_ALNUM_FROM = 11, INV_LEXICAL_UNTIL = 8;
 function invPronounceProb(level){ return level<=9 ? 1 : Math.max(0.2, 1 - 0.8*(level-9)/23); }
-function invMixedCaseProb(level){ return level<=14 ? 0 : Math.min(1, (level-14)/12); }
+function invMixedCaseProb(level){ return level<=7 ? 0 : Math.min(1, (level-7)/19); }
 // ====== fine del codice del generatore ======
 
 // ---- Consegne ----------------------------------------------------------------------------------
@@ -171,17 +171,17 @@ export const INVERSIONE_SINGLE = {
                 run:(tk)=>tk.filter(t=>Number(t.ch)%2===0), text:(k)=>'Scrivi SOLO '+NOUN[k]+' PARI, nell\'ordine in cui compaiono.' },
   dispari:    { label:'Solo dispari', minLevel:3, kinds:['digits','numbers'], attr:null,
                 run:(tk)=>tk.filter(t=>Number(t.ch)%2!==0), text:(k)=>'Scrivi SOLO '+NOUN[k]+' DISPARI, nell\'ordine in cui compaiono.' },
-  rossi:      { label:'Solo rossi', minLevel:4, kinds:['letters','digits','alnum','numbers'], attr:'color',
+  rossi:      { label:'Solo rossi', minLevel:2, kinds:['letters','digits','alnum','numbers'], attr:'color',
                 run:(tk)=>tk.filter(t=>t.color==='red'), text:()=>'Scrivi SOLO quelli ROSSI, nell\'ordine in cui compaiono.' },
-  verdi:      { label:'Solo verdi', minLevel:4, kinds:['letters','digits','alnum','numbers'], attr:'color',
+  verdi:      { label:'Solo verdi', minLevel:2, kinds:['letters','digits','alnum','numbers'], attr:'color',
                 run:(tk)=>tk.filter(t=>t.color==='green'), text:()=>'Scrivi SOLO quelli VERDI, nell\'ordine in cui compaiono.' },
-  maiuscole:  { label:'Solo MAIUSCOLE', minLevel:5, kinds:['letters','alnum'], attr:'case',
+  maiuscole:  { label:'Solo MAIUSCOLE', minLevel:3, kinds:['letters','alnum'], attr:'case',
                 run:(tk)=>tk.filter(t=>valueOf.case(t)==='upper'), text:()=>'Scrivi SOLO le lettere MAIUSCOLE, nell\'ordine in cui compaiono.' },
-  minuscole:  { label:'Solo minuscole', minLevel:5, kinds:['letters','alnum'], attr:'case',
+  minuscole:  { label:'Solo minuscole', minLevel:3, kinds:['letters','alnum'], attr:'case',
                 run:(tk)=>tk.filter(t=>valueOf.case(t)==='lower'), text:()=>'Scrivi SOLO le lettere minuscole, nell\'ordine in cui compaiono.' },
-  grandi:     { label:'Solo grandi', minLevel:5, kinds:['letters','digits','alnum','numbers'], attr:'size',
+  grandi:     { label:'Solo grandi', minLevel:3, kinds:['letters','digits','alnum','numbers'], attr:'size',
                 run:(tk)=>tk.filter(t=>t.size==='big'), text:()=>'Scrivi SOLO quelli scritti in GRANDE, nell\'ordine in cui compaiono.' },
-  piccoli:    { label:'Solo piccoli', minLevel:5, kinds:['letters','digits','alnum','numbers'], attr:'size',
+  piccoli:    { label:'Solo piccoli', minLevel:3, kinds:['letters','digits','alnum','numbers'], attr:'size',
                 run:(tk)=>tk.filter(t=>t.size==='small'), text:()=>'Scrivi SOLO quelli scritti in PICCOLO, nell\'ordine in cui compaiono.' }
 };
 export const INVERSIONE_SINGLE_KEYS = Object.keys(INVERSIONE_SINGLE);
@@ -189,14 +189,14 @@ export const INVERSIONE_SINGLE_KEYS = Object.keys(INVERSIONE_SINGLE);
 // cifra/lettera) più un ordine. Dal livello 6, con probabilità crescente.
 // Le doppie compaiono PRIMA dei livelli in cui si introducono colore e grandezza (richiesta di Rodrigo: troppo facile per troppo tempo con sole
 // consegne singole): dal livello 3 con criteri già noti dalle singole (vocali/consonanti sulle lettere, pari/dispari sulle cifre e sui numeri), poi
-// con colore dal 5 (le singole sul colore sono dal 4), con grandezza e maiuscole dal 6 (singole dal 5), cifra/lettera dal 7.
+// con colore dal 3 (le singole sul colore sono dal 2), con grandezza e maiuscole dal 4 (singole dal 3), cifra/lettera dal 5.
 const DOUBLE_CRITERIA = [
   { C:'vowel',  minLevel:3, kinds:['letters'], values:['vowel','cons'] },
   { C:'parity', minLevel:3, kinds:['digits','numbers'], values:['even','odd'] },
-  { C:'color', minLevel:5, kinds:['letters','digits','alnum','numbers'], values:['red','green'] },
-  { C:'size',  minLevel:6, kinds:['letters','digits','alnum','numbers'], values:['big','small'] },
-  { C:'case',  minLevel:6, kinds:['letters'], values:['upper','lower'] },
-  { C:'type',  minLevel:7, kinds:['alnum'], values:['digit','letter'] }
+  { C:'color', minLevel:3, kinds:['letters','digits','alnum','numbers'], values:['red','green'] },
+  { C:'size',  minLevel:4, kinds:['letters','digits','alnum','numbers'], values:['big','small'] },
+  { C:'case',  minLevel:4, kinds:['letters'], values:['upper','lower'] },
+  { C:'type',  minLevel:5, kinds:['alnum'], values:['digit','letter'] }
 ];
 export const INVERSIONE_DOUBLE_P = [0,0,0.2,0.3,0.4,0.5,0.55,0.65,0.75,0.8];
 const DOUBLE_ORDERS_FILTER = ['asc','desc','rev'];
@@ -344,6 +344,10 @@ export function genInversioneItem(level, ruleKey, used, opts){
     // 3) stimolo + attributi (colore/grandezza servono solo se una consegna li usa)
     const tokens = makeTokens(spec.kind, spec.len, gen, lv, pCase);
     if(spec.kind!=='numbers' && isTrivialOrder(tokens.map(t=>t.ch).join(''))) continue;
+    // con una consegna su maiuscole/minuscole la stringa deve avere entrambe (le parole reali dei livelli bassi sono tutte maiuscole)
+    if(spec.kind==='letters' && rules.some(r=>r.attr==='case') && !(tokens.some(t=>t.ch!==t.ch.toLowerCase()) && tokens.some(t=>t.ch!==t.ch.toUpperCase()))){
+      for(let k=0;k<30 && !(tokens.some(t=>t.ch!==t.ch.toLowerCase()) && tokens.some(t=>t.ch!==t.ch.toUpperCase()));k++) tokens.forEach(t=>{ t.ch = Math.random()<0.5 ? t.ch.toUpperCase() : t.ch.toLowerCase(); });
+    }
     let okAttr = true;
     ['color','size'].forEach(at=>{
       const need = rules.filter(r=>r.attr===at);
@@ -361,6 +365,7 @@ export function genInversioneItem(level, ruleKey, used, opts){
     for(const rule of rules){
       const out = rule.run(tokens);
       if(!out.length){ ok = false; break; }
+      if(rule.mode!=='singola' && out.length===tokens.length && out.every((t,i)=>t===tokens[i])){ ok = false; break; } // la risposta non deve coincidere con lo stimolo com'è
       if(!['inverti','ordina','decrescente'].includes(rule.key) && rule.mode!=='gruppi' && out.length>=tokens.length){ ok = false; break; }
       const expectedTokens = out.map(t=>up(t.ch));
       const expected = expectedTokens.join(multi ? ' ' : '');

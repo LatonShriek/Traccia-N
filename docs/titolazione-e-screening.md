@@ -76,7 +76,7 @@ confonderebbe il paziente; si cambia alla seduta successiva, con le istruzioni.
   (almeno 4 risposte), stessa regola 70-85%. «Prove» = numero di consegne.
 - **Inversione e riordino** (ruolo «allenamento», 13 nov 2026): porting del generatore (stessi generatori di
   materiale: parole vere fino al gen. 8, non-parole pronunciabili, cifre, misti lettere+cifre dal gen. 11,
-  maiuscole/minuscole miste dal gen. 15; lunghezze 3→6) più elementi **nuovi** (non nel generatore): colore
+  maiuscole/minuscole miste dal gen. 8 (rampa fino al gen. 26); lunghezze 3→6) più elementi **nuovi** (non nel generatore): colore
   (rosso/verde), grandezza del carattere (grande/piccolo) e numeri a più cifre. File `js/exercises/inversione.js`
   e `inversione-data.js`. Livelli 1-10 = 1, 4, 8, 11, 15, 18, 22, 25, 29, 32 del generatore.
   **Tempo FISSO decrescente**: la sequenza resta a schermo ms_per_carattere × n. caratteri (min 1,5 s) e sparisce
@@ -164,8 +164,12 @@ modifiche a quelle parti, controllare a mano su tablet.
   sulla stessa sequenza (`INVERSIONE_NCONS_P`, **ipotesi da validare**: 1 sola ai livelli 1-2, spesso 3 ai livelli 9-10);
   **Consegne doppie anticipate (22 nov 2026, richiesta di Rodrigo: con sole consegne singole era troppo facile per troppo tempo)**: probabilità
   per livello 1-10 = 0, 0, 20, 30, 40, 50, 55, 65, 75, 80 % (prima 0 fino al 5, poi 20-80). Dal livello 3 con criteri già noti dalle singole
-  (vocali/consonanti sulle lettere, pari/dispari su cifre e numeri), con colore dal 5, con grandezza e maiuscole dal 6, cifra/lettera dal 7;
-  nessun criterio compare in una doppia prima di essere comparso tra le singole (colore 4, grandezza e maiuscole 5).
+  (vocali/consonanti sulle lettere, pari/dispari su cifre e numeri), con colore dal 3, con grandezza e maiuscole dal 4, cifra/lettera dal 5;
+  nessun criterio compare in una doppia prima di essere comparso tra le singole.
+  **Attributi anticipati (22 nov 2026, richiesta di Rodrigo: «verde dal 4, maiuscole/minuscole e grande/piccolo dall'8» del generatore)**: le singole
+  rossi/verdi sono dal livello Traccia-N 2 (gen. 4), maiuscole/minuscole/grandi/piccoli dal 3 (gen. 8); doppie con colore dal 3, con grandezza e
+  maiuscole dal 4, cifra/lettera dal 5. Quota di stringhe a maiuscole miste: 0 fino al gen. 7, poi (gen−7)/19 fino al 100% al 26. Con una consegna su
+  maiuscole/minuscole la stringa ha sempre entrambe le forme. Le doppie «a gruppi» non possono dare come risposta lo stimolo identico.
   pool delle consegne spuntabile a mano (`cfg.inversionePool`, vale a tutti i livelli; vuoto = automatico per livello).
 - **Intruso percettivo**: predefinito 10 schermate; tempo massimo per schermata modificabile (`cfg.intrusoLimitS`, 0 = tabella
   `INTRUSO_LIMIT_MS`, 44→32 s dal 15 nov, **proposta non validata**). **Griglie attentive**: predefinito 1 griglia = 10 consegne.

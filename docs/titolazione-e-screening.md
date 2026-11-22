@@ -258,19 +258,21 @@ Codice: `js/core/assi.js` (test: `tests/assi.test.js`). Solo in modalità adatti
 ## Intruso: scala con orientamenti (22 nov 2026)
 Identico = stesso simbolo E stesso orientamento: due simboli uguali con orientamento diverso valgono come elementi diversi; l'unico deve essere unico anche per orientamento. Niente immagini speculari.
 
+**La rotazione riguarda solo le famiglie con pochi stimoli: semi delle carte e note musicali.** Le altre famiglie a pool piccolo non si possono ruotare senza ambiguità (verificato confrontando le immagini ruotate): cerchi pieni a metà e quadranti ruotati di 90° diventano un altro glifo dello stesso gruppo, i dadi sono uguali a se stessi a 90° o 180°. Nei semi sono tolti ♦ ♢, nelle note ♮ ♯ (simmetrici a 180°). Con i due gruppi rimasti tutti gli 8 angoli risultano distinti.
+
 | Liv. Traccia-N | Elemento | Orientamenti | Famiglie |
 |---|---|---|---|
 | 1 | singolo | nessuno | semplici |
 | 2 | singolo | nessuno | + scritture non familiari (greco, cirillico, armeno, Braille…) |
-| 3 | singolo | 4 (0/45/90/135) | tutte le ruotabili |
-| 4 | singolo | 8 | solo famiglie senza asse di simmetria |
+| 3 | singolo | 4 (0/45/90/135) | solo semi e note |
+| 4 | singolo | 8 | solo semi e note |
 | 5 | coppia | nessuno | tutte |
-| 6 | coppia | 4 | ruotabili |
-| 7 | coppia | 8 | senza asse |
+| 6 | coppia | 4 | solo semi e note |
+| 7 | coppia | 8 | solo semi e note |
 | 8 | terna | nessuno | tutte |
-| 9 | terna | 4 | ruotabili |
-| 10 | terna | 8 (dove ci sono abbastanza famiglie, altrimenti 4) | senza asse / ruotabili |
+| 9 | terna | 4 | solo semi e note |
+| 10 | terna | 8 | solo semi e note |
 
-- Famiglie non ruotabili (una rotazione le trasforma in un altro simbolo del pool): frecce, forme, cerchi, quadranti, tratti da tabella, insiemistici, dadi, domino, Braille, punteggiatura. Glifi tolti quando si ruota: O, o, N, Z (e omologhi), Ⅹ.
+- A questi livelli tutte le schermate della sessione ruotano; con due sole famiglie le schermate si ripetono tra loro (cambiano i simboli estratti e gli orientamenti). La numerosità sale (24–30 elementi) perché semi e note sono famiglie facili e il punteggio di difficoltà va comunque raggiunto.
 - La cornice (coppie e terne di simboli) resta sempre dritta; ruotano solo i simboli dentro. Il corpo si riduce perché l'elemento ruotato resti nella cella.
 - Coppie dal livello del generatore 13 (prima 9), terne dal 24 (prima 21); tempi per schermata ricalcolati a parità di carico (+23% a livello).

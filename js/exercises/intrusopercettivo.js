@@ -66,15 +66,16 @@ export function intrusoOrientCount(g){
   if((x>=10 && x<=12) || (x>=20 && x<=23) || x>=31) return 8;
   return 1;
 }
-// Un elemento ruotato è un elemento DIVERSO dall'originale (identico = stesso simbolo E stesso orientamento). Per questo si ruotano solo
-// famiglie i cui glifi, ruotati, non diventano un altro glifo del pool né restano uguali a se stessi. Fuori: frecce, forme, cerchi, quadranti,
-// tratti da tabella, insiemistici, dadi, domino, Braille, punteggiatura (una rotazione li trasforma in altri simboli dello stesso insieme).
-const ROT_OK = new Set(['digit','letter','roman','cyrillic','armenian','thai','geez','cyrillic-arcaico','canadian','lower','mixedcase','greek',
-  'katakana','hiragana','hebrew','devanagari','cjk','mahjong','suits','music','zodiac']);
-// 180° e oltre solo per figure senza asse di simmetria: a 8 orientamenti compaiono solo queste famiglie
-const ROT_180_OK = new Set(['armenian','thai','geez','cyrillic-arcaico','canadian','katakana','hiragana','hebrew','devanagari','cjk','mahjong']);
-// glifi tolti quando si ruota: rotondi (uguali a ogni angolo) o che ruotati di 90° diventano un altro glifo (N↔Z)
-const ROT_GLYPH_BAN = new Set(['O','o','N','Z','Ο','Ν','Ζ','О','Ⅹ']);
+// Un elemento ruotato è un elemento DIVERSO dall'originale (identico = stesso simbolo E stesso orientamento). 22 nov 2026 (richiesta di Rodrigo):
+// la rotazione riguarda SOLO le famiglie con pochi stimoli (4-5 opzioni), dove l'orientamento allarga davvero le possibilità: semi delle carte e
+// note musicali. Verificato al computer (confronto delle immagini ruotate) che per le altre famiglie a pool piccolo la rotazione dà immagini
+// identiche ad altri stimoli dello stesso gruppo: cerchi pieni a metà e quadranti ruotati di 90° diventano un altro glifo del gruppo; dadi (1, 4, 5
+// uguali a se stessi a 90°, 2, 3 e 6 a 180°). Perciò non ruotano. Niente immagini speculari.
+const ROT_OK = new Set(['suits','music']);
+// con questi due gruppi tutti gli 8 angoli sono distinti (verificato), quindi anche 180° e oltre
+const ROT_180_OK = new Set(['suits','music']);
+// glifi tolti quando si ruota: ♦ ♢ (simmetrici: uguali a se stessi a 180°) e ♮ ♯ (quasi simmetrici a 180°)
+const ROT_GLYPH_BAN = new Set(['♦','♢','♮','♯']);
 const ANGLES = { 4:[0,45,90,135], 8:[0,45,90,135,180,225,270,315] };
 export function intrusoAnglesFor(familyId, g){
   const m = intrusoOrientCount(g);
@@ -126,19 +127,20 @@ function maxLen(f){
   return f.small ? 3 : 2;
 }
 function sessionLen(g){ return g<LEN_STEPS[0] ? 1 : (g<LEN_STEPS[1] ? 2 : 3); }
-function eligible(g, L){
-  let base = INTRUSO_FAMILIES.filter(f=>f.unlockLevel<=g && maxLen(f)>=L);
-  const m = intrusoOrientCount(g); // a livelli con orientamenti: solo famiglie che si possono ruotare (a 8 orientamenti, solo quelle senza asse)
-  if(m>1){
-    let ok = m===8 ? base.filter(f=>ROT_180_OK.has(f.id)) : [];
-    if(ok.length<4) ok = base.filter(f=>ROT_OK.has(f.id)); // pochi senza asse con terne: si allarga alle ruotabili (a 4 orientamenti)
-    if(ok.length>=3) base = ok;
-  }
+function eligibleRaw(g, L){
+  const base = INTRUSO_FAMILIES.filter(f=>f.unlockLevel<=g && maxLen(f)>=L);
   if(L===1) return base;
   const settled = base.filter(f=>g>=f.unlockLevel+3);
   return settled.length>=4 ? settled : base;
 }
-function planLen(g){ let L = sessionLen(g); while(L>1 && eligible(g,L).length<4) L--; return L; }
+// Nei livelli con orientamenti compaiono SOLO le famiglie ruotabili (semi e note): tutte le schermate della sessione ruotano.
+function eligible(g, L){
+  const raw = eligibleRaw(g, L);
+  if(intrusoOrientCount(g)>1){ const ok = raw.filter(f=>ROT_OK.has(f.id)); if(ok.length) return ok; }
+  return raw;
+}
+// la lunghezza della sessione dipende dalle famiglie sbloccate, non da quelle ruotabili
+function planLen(g){ let L = sessionLen(g); while(L>1 && eligibleRaw(g,L).length<4) L--; return L; }
 function gridFriendly(c){ for(let r=3;r<=6;r++) if(c%r===0 && c/r>=3 && c/r<=10) return true; return false; }
 function niceCount(n){
   for(let d=0; d<=2; d++){
@@ -161,8 +163,8 @@ export function bestGridCols(n, areaW, areaH){
 export const INTRUSO_GEN_OF_LEVEL = [1, 4, 8, 11, 15, 18, 22, 25, 29, 32];
 export function intrusoGenLevel(level){ return INTRUSO_GEN_OF_LEVEL[Math.max(1,Math.min(10,Math.round(level)))-1]; }
 // tempo massimo per schermata (ipotesi di partenza, da tarare sull'uso clinico)
-// (22 nov 2026: ricalcolato con la nuova scala — coppie dal gen. 13, terne dal 24 — sempre con carico ≈ +23% a livello)
-export const INTRUSO_LIMIT_MS = {1:44000,2:44000,3:40000,4:34000,5:50000,6:42000,7:36000,8:44000,9:38000,10:32000};
+// (22 nov 2026: ricalcolato con la nuova scala — coppie dal gen. 13, terne dal 24, rotazione solo su semi e note — sempre con carico ≈ +23% a livello)
+export const INTRUSO_LIMIT_MS = {1:44000,2:44000,3:44000,4:40000,5:50000,6:46000,7:44000,8:44000,9:40000,10:32000};
 export const INTRUSO_ADAPT_BLOCK = 6;
 export function intrusoFamiliesAt(level){ const g = intrusoGenLevel(level); return INTRUSO_FAMILIES.filter(f=>f.unlockLevel<=g); }
 // Che cosa aspettarsi a un livello (per la scheda di configurazione): lunghezza, numero tipico, tempo.

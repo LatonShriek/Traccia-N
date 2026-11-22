@@ -26,18 +26,18 @@ module.exports = async function run(t){
   });
   t.group('Transizioni sfumate: vicino al cambio di lunghezza si mescolano i due lati', () => {
     let seed = 11; const rng = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    // gen 9 è il primo con elementi da 2 simboli: al fine corrispondente a gen 8 (len 1) compaiono entrambe le lunghezze
-    const f8 = A.fineOfGen(8), lens = new Set();
+    // gen 13 è il primo con elementi da 2 simboli: al fine corrispondente a gen 12 (len 1) compaiono entrambe le lunghezze
+    const f8 = A.fineOfGen(12), lens = new Set();
     for(let i=0;i<400;i++) lens.add(IP.genIntrusoTrial(5, null, {gen:A.trialGenFromFine(f8, rng)}).len);
-    t.ok(lens.has(1) && lens.has(2), 'a cavallo del confine 8/9 compaiono elementi da 1 e da 2 simboli');
-    const f20 = A.fineOfGen(20), lens2 = new Set();
+    t.ok(lens.has(1) && lens.has(2), 'a cavallo del confine 12/13 compaiono elementi da 1 e da 2 simboli');
+    const f20 = A.fineOfGen(23), lens2 = new Set();
     for(let i=0;i<400;i++) lens2.add(IP.genIntrusoTrial(6, null, {gen:A.trialGenFromFine(f20, rng)}).len);
-    t.ok(lens2.has(2) && lens2.has(3), 'a cavallo del confine 20/21 compaiono elementi da 2 e da 3 simboli');
+    t.ok(lens2.has(2) && lens2.has(3), 'a cavallo del confine 23/24 compaiono elementi da 2 e da 3 simboli');
   });
   t.group('Intruso: tempo dal carico, liscio (nessun dente di sega fra gen vicini)', () => {
     for(let l=1;l<=10;l++){ const g = A.GEN_OF_LEVEL[l-1]; t.ok(Math.abs(IP.intrusoLimitMsOfGen(g) - IP.INTRUSO_LIMIT_MS[l]) <= 6000, 'livello '+l+': tempo da carico entro 6 s dalla tabella ('+IP.intrusoLimitMsOfGen(g)/1000+' contro '+IP.INTRUSO_LIMIT_MS[l]/1000+')'); }
     let maxJump = 0, maxLen = 0;
-    for(let g=2; g<=32; g++){ const j = Math.abs(IP.intrusoLimitMsOfGen(g)-IP.intrusoLimitMsOfGen(g-1)); if(g===9 || g===21) maxLen = Math.max(maxLen, j); else maxJump = Math.max(maxJump, j); }
+    for(let g=2; g<=32; g++){ const j = Math.abs(IP.intrusoLimitMsOfGen(g)-IP.intrusoLimitMsOfGen(g-1)); if(g===13 || g===24) maxLen = Math.max(maxLen, j); else maxJump = Math.max(maxJump, j); }
     t.ok(maxJump <= 6000, 'fra gen vicini senza cambio di lunghezza il tempo cambia al massimo di 6 s ('+maxJump/1000+')');
     t.ok(maxLen <= 17000, 'al cambio di lunghezza (gen 9 e 21) il tempo sale al massimo di 17 s per compensare ('+maxLen/1000+')');
     const a = IP.genIntrusoTrial(5, null, {gen:15, timeF:1}), b = IP.genIntrusoTrial(5, null, {gen:15, timeF:0.8});

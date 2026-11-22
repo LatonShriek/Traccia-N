@@ -254,3 +254,23 @@ Codice: `js/core/assi.js` (test: `tests/assi.test.js`). Solo in modalità adatti
 - **Cancellazione, modalità Classico/Intruso/Regola**: numero di elementi e tempo limite interpolati (il «nessun limite» resta tale finché uno dei due estremi non ha limite); la struttura (regola, fase) segue il livello intero inferiore. Decisione sulle ultime 2 tavole se il livello non è cambiato.
 - **Cancellazione a conteggio binario**: prima un solo numero faceva salire/scendere di un livello (regola 1 su/1 giù, che converge al ~50%); ora si decide a blocchi di 4 tavole con soglie 85/70% e finestra di 2 blocchi.
 - La modalità Regola ora parte dal livello regola salvato (prima poteva ripartire dal livello della modalità Classico).
+
+## Intruso: scala con orientamenti (22 nov 2026)
+Identico = stesso simbolo E stesso orientamento: due simboli uguali con orientamento diverso valgono come elementi diversi; l'unico deve essere unico anche per orientamento. Niente immagini speculari.
+
+| Liv. Traccia-N | Elemento | Orientamenti | Famiglie |
+|---|---|---|---|
+| 1 | singolo | nessuno | semplici |
+| 2 | singolo | nessuno | + scritture non familiari (greco, cirillico, armeno, Braille…) |
+| 3 | singolo | 4 (0/45/90/135) | tutte le ruotabili |
+| 4 | singolo | 8 | solo famiglie senza asse di simmetria |
+| 5 | coppia | nessuno | tutte |
+| 6 | coppia | 4 | ruotabili |
+| 7 | coppia | 8 | senza asse |
+| 8 | terna | nessuno | tutte |
+| 9 | terna | 4 | ruotabili |
+| 10 | terna | 8 (dove ci sono abbastanza famiglie, altrimenti 4) | senza asse / ruotabili |
+
+- Famiglie non ruotabili (una rotazione le trasforma in un altro simbolo del pool): frecce, forme, cerchi, quadranti, tratti da tabella, insiemistici, dadi, domino, Braille, punteggiatura. Glifi tolti quando si ruota: O, o, N, Z (e omologhi), Ⅹ.
+- La cornice (coppie e terne di simboli) resta sempre dritta; ruotano solo i simboli dentro. Il corpo si riduce perché l'elemento ruotato resti nella cella.
+- Coppie dal livello del generatore 13 (prima 9), terne dal 24 (prima 21); tempi per schermata ricalcolati a parità di carico (+23% a livello).

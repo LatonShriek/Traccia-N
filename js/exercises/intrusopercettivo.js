@@ -49,7 +49,45 @@ const ATOMIC = [
   {id:'sets', label:'simboli insiemistici', pool:['∈','∉','∩','∪','⊂','⊃','⊆','⊇','∋','∌'], unlockLevel:9},
   {id:'braille', label:'Braille', pool:codeRange(0x2801,63), unlockLevel:14}
 ];
-export const INTRUSO_FAMILIES = [...TEXT, ...ATOMIC];
+// 22 nov 2026 — scala con ORIENTAMENTI. Ogni famiglia ha due livelli di sblocco: `hard` = quello storico (misura quanto è ostica: pesa
+// sul punteggio di difficoltà), `unlockLevel` = da quando compare. Le scritture non familiari (greco, cirillico, armeno, Braille, ecc.)
+// ora compaiono già come SINGOLI (livelli del generatore 4-6): prima si sbloccavano quando gli elementi erano già coppie e non
+// comparivano mai da soli.
+const UNLOCK_SINGOLI = { greek:4, cyrillic:4, armenian:5, hebrew:5, thai:5, katakana:5, hiragana:5, devanagari:5,
+  geez:6, 'cyrillic-arcaico':6, canadian:6, mahjong:6, braille:6, cjk:6, domino:6 };
+export const INTRUSO_FAMILIES = [...TEXT, ...ATOMIC].map(f => ({ ...f, hard: f.unlockLevel, unlockLevel: UNLOCK_SINGOLI[f.id] ?? f.unlockLevel }));
+// Scala dei livelli del generatore (1-32): contenuto per fascia (Traccia-N usa i livelli 1, 4, 8, 11, 15, 18, 22, 25, 29, 32)
+//   1-3 singoli semplici · 4-6 singoli + scritture non familiari · 7-9 singoli a 4 orientamenti · 10-12 singoli a 8 orientamenti
+//   13-16 coppie · 17-19 coppie a 4 orient. · 20-23 coppie a 8 · 24-27 terne · 28-30 terne a 4 · 31-32 terne a 8
+export const INTRUSO_LEN_STEPS = [13, 24];
+export function intrusoOrientCount(g){
+  const x = Math.floor(g + 1e-9);
+  if((x>=7 && x<=9) || (x>=17 && x<=19) || (x>=28 && x<=30)) return 4;
+  if((x>=10 && x<=12) || (x>=20 && x<=23) || x>=31) return 8;
+  return 1;
+}
+// Un elemento ruotato è un elemento DIVERSO dall'originale (identico = stesso simbolo E stesso orientamento). Per questo si ruotano solo
+// famiglie i cui glifi, ruotati, non diventano un altro glifo del pool né restano uguali a se stessi. Fuori: frecce, forme, cerchi, quadranti,
+// tratti da tabella, insiemistici, dadi, domino, Braille, punteggiatura (una rotazione li trasforma in altri simboli dello stesso insieme).
+const ROT_OK = new Set(['digit','letter','roman','cyrillic','armenian','thai','geez','cyrillic-arcaico','canadian','lower','mixedcase','greek',
+  'katakana','hiragana','hebrew','devanagari','cjk','mahjong','suits','music','zodiac']);
+// 180° e oltre solo per figure senza asse di simmetria: a 8 orientamenti compaiono solo queste famiglie
+const ROT_180_OK = new Set(['armenian','thai','geez','cyrillic-arcaico','canadian','katakana','hiragana','hebrew','devanagari','cjk','mahjong']);
+// glifi tolti quando si ruota: rotondi (uguali a ogni angolo) o che ruotati di 90° diventano un altro glifo (N↔Z)
+const ROT_GLYPH_BAN = new Set(['O','o','N','Z','Ο','Ν','Ζ','О','Ⅹ']);
+const ANGLES = { 4:[0,45,90,135], 8:[0,45,90,135,180,225,270,315] };
+export function intrusoAnglesFor(familyId, g){
+  const m = intrusoOrientCount(g);
+  if(m===1 || !ROT_OK.has(familyId)) return [0];
+  return (m===8 && ROT_180_OK.has(familyId)) ? ANGLES[8] : ANGLES[4];
+}
+// Ingombro (in em) di un elemento di `len` glifi ruotato: serve a dimensionare corpo e cornice perché nulla esca dalla cella.
+export function intrusoRotBox(len, cw, angles, framed){
+  const w = len*cw + (framed ? 0.6 : 0.1), h = framed ? 1.3 : 1.15;
+  let W = w, H = h;
+  angles.forEach(a=>{ const r = a*Math.PI/180, c = Math.abs(Math.cos(r)), n = Math.abs(Math.sin(r)); W = Math.max(W, w*c+h*n); H = Math.max(H, w*n+h*c); });
+  return { w, h, W, H };
+}
 const RECOGNIZABILITY = { mahjong:0.8, domino:0.8, suits:0.8 };
 const recog = id => RECOGNIZABILITY[id] ?? 1;
 // larghezza del carattere per famiglia (per dimensionare il corpo nella cella), come nel generatore
@@ -65,9 +103,9 @@ export function intrusoFramed(familyId, itemLen){ return itemLen>=2 && ATOMIC.so
 
 // ---- difficoltà a punteggio unico (come nel generatore) ----
 const SCORE_W = { len:0.25, fam:0.25, sim:0.20, n:0.30 };
-const TARGET_D = [0.05, 0.80], N_RANGE = [15, 30], LEN_STEPS = [9, 21];
+const TARGET_D = [0.05, 0.80], N_RANGE = [15, 30], LEN_STEPS = INTRUSO_LEN_STEPS;
 const targetD = g => TARGET_D[0] + (TARGET_D[1]-TARGET_D[0])*levelT(g);
-const famTerm = f => Math.min(1, 0.7*Math.min(1, f.unlockLevel/28) + (1 - recog(f.id)));
+const famTerm = f => Math.min(1, 0.7*Math.min(1, f.hard/28) + (1 - recog(f.id)));
 const simTerm = (g, len) => len>=2 ? Math.max(0, Math.min(1, (g-2)/30)) : 0;
 function targetN(g, fam, len){
   const rest = SCORE_W.len*(len-1)/2 + SCORE_W.fam*famTerm(fam) + SCORE_W.sim*simTerm(g,len);
@@ -83,13 +121,19 @@ function textWarmup(size){
   return {pair:13, triple:99};
 }
 function maxLen(f){
-  if(TEXT.includes(f)) return textWarmup(f.pool.length).triple<99 ? 3 : 2;
+  if(TEXT.some(t=>t.id===f.id)) return textWarmup(f.pool.length).triple<99 ? 3 : 2;
   if(f.id==='domino' || f.id==='mahjong') return 1;
   return f.small ? 3 : 2;
 }
 function sessionLen(g){ return g<LEN_STEPS[0] ? 1 : (g<LEN_STEPS[1] ? 2 : 3); }
 function eligible(g, L){
-  const base = INTRUSO_FAMILIES.filter(f=>f.unlockLevel<=g && maxLen(f)>=L);
+  let base = INTRUSO_FAMILIES.filter(f=>f.unlockLevel<=g && maxLen(f)>=L);
+  const m = intrusoOrientCount(g); // a livelli con orientamenti: solo famiglie che si possono ruotare (a 8 orientamenti, solo quelle senza asse)
+  if(m>1){
+    let ok = m===8 ? base.filter(f=>ROT_180_OK.has(f.id)) : [];
+    if(ok.length<4) ok = base.filter(f=>ROT_OK.has(f.id)); // pochi senza asse con terne: si allarga alle ruotabili (a 4 orientamenti)
+    if(ok.length>=3) base = ok;
+  }
   if(L===1) return base;
   const settled = base.filter(f=>g>=f.unlockLevel+3);
   return settled.length>=4 ? settled : base;
@@ -117,7 +161,8 @@ export function bestGridCols(n, areaW, areaH){
 export const INTRUSO_GEN_OF_LEVEL = [1, 4, 8, 11, 15, 18, 22, 25, 29, 32];
 export function intrusoGenLevel(level){ return INTRUSO_GEN_OF_LEVEL[Math.max(1,Math.min(10,Math.round(level)))-1]; }
 // tempo massimo per schermata (ipotesi di partenza, da tarare sull'uso clinico)
-export const INTRUSO_LIMIT_MS = {1:44000,2:44000,3:42000,4:54000,5:50000,6:42000,7:50000,8:42000,9:38000,10:32000};
+// (22 nov 2026: ricalcolato con la nuova scala — coppie dal gen. 13, terne dal 24 — sempre con carico ≈ +23% a livello)
+export const INTRUSO_LIMIT_MS = {1:44000,2:44000,3:40000,4:34000,5:50000,6:42000,7:36000,8:44000,9:38000,10:32000};
 export const INTRUSO_ADAPT_BLOCK = 6;
 export function intrusoFamiliesAt(level){ const g = intrusoGenLevel(level); return INTRUSO_FAMILIES.filter(f=>f.unlockLevel<=g); }
 // Che cosa aspettarsi a un livello (per la scheda di configurazione): lunghezza, numero tipico, tempo.
@@ -144,6 +189,7 @@ export function intrusoPlanAt(level){
 // compatibilità con il registro e la scheda (n = numero tipico)
 export const INTRUSO_LEVELS = new Proxy({}, { get:(_,k)=>{ const lv = Number(k); if(!(lv>=1 && lv<=10)) return undefined; const p = intrusoPlanAt(lv); return {n:p.nMax, len:p.len, limitMs:p.limitMs}; } });
 
+const SEP = '\u0001';
 function pickFrom(arr, rng){ return arr[Math.floor(rng()*arr.length)]; }
 function shuffled(arr, rng){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function poolFor(f, g){ return (f.small && f.extra && g>=f.extraFrom) ? f.pool.concat(f.extra) : f.pool; }
@@ -172,7 +218,7 @@ export function genIntrusoTrial(level, rng, opts){
   const lv = Math.max(1,Math.min(10,level)), g = opts.gen!=null ? opts.gen : intrusoGenLevel(lv), L = planLen(g);
   const baseLimit = opts.gen!=null ? intrusoLimitMsOfGen(g) : INTRUSO_LIMIT_MS[lv];
   const el = eligible(g, L).slice().sort((a,b)=>famTerm(a)-famTerm(b));
-  const w = Math.min(el.length, Math.max(Math.min(9, el.length), Math.ceil(el.length*0.5)));
+  const w = L===1 ? el.length : Math.min(el.length, Math.max(Math.min(9, el.length), Math.ceil(el.length*0.5))); // singoli: tutte le famiglie sbloccate (le non familiari vanno introdotte)
   const start = Math.round(levelT(g)*(el.length-w));
   let win = el.slice(start, start+w);
   const fresh = win.filter(f=>!(opts.avoidFamilies||[]).includes(f.id));
@@ -180,24 +226,40 @@ export function genIntrusoTrial(level, rng, opts){
   const fam = pickFrom(win, rng);
   const len = Math.min(L, maxLen(fam));
   const n = niceCount(targetN(g, fam, len));
-  const pool = poolFor(fam, g);
+  const angles = intrusoAnglesFor(fam.id, g), rot = angles.length>1;
+  const pool = rot ? poolFor(fam, g).filter(ch=>!ROT_GLYPH_BAN.has(ch)) : poolFor(fam, g);
   const poolCap = len===1 ? pool.length : 99;
   const kMax = Math.min(9 + Math.max(0, Math.floor((n-18)/3)), poolCap);
   let k = kMax;
   while(k>=2 && (n-1) < 2*(k-1)) k--;
-  let types = (len>=2 && g>=3 && rng() < (g-2)/30) ? similarTypes(pool,len,k,rng) : distinctTypes(pool,len,k,rng);
+  const useSim = len>=2 && g>=3 && rng() < (g-2)/30;
+  let types;
+  if(rot){
+    // identità = simbolo + orientamento: pochi simboli, ciascuno a più orientamenti, così l'orientamento è davvero la variabile che cambia
+    const sCount = Math.min(pool.length, Math.max(2, Math.ceil(k/2) + (len>=2 ? 1 : 0)));
+    const strs = useSim ? similarTypes(pool,len,sCount,rng) : distinctTypes(pool,len,sCount,rng);
+    const ids = []; strs.forEach(t=>angles.forEach(a=>ids.push(t+SEP+a)));
+    types = shuffled(ids,rng).slice(0,k);
+  } else types = useSim ? similarTypes(pool,len,k,rng) : distinctTypes(pool,len,k,rng);
   if(types.length<2) return genIntrusoTrial(level, rng, opts);
   k = types.length;
   while(k>=2 && (n-1) < 2*(k-1)) k--;
   types = types.slice(0,k);
   const oddType = pickFrom(types,rng);
-  const others = types.filter(t=>t!==oddType);
+  let others = types.filter(t=>t!==oddType);
+  if(rot){ // l'intruso deve avere almeno un «gemello» con lo stesso simbolo ma altro orientamento (è quello che il compito mette alla prova)
+    const oStr = oddType.split(SEP)[0];
+    if(!others.some(t=>t.split(SEP)[0]===oStr)){
+      const alt = angles.map(a=>oStr+SEP+a).find(t=>t!==oddType && !others.includes(t));
+      if(alt && others.length) others = others.slice(0,-1).concat(alt);
+    }
+  }
   const rest = n-1, base = Math.floor(rest/others.length), rem = rest%others.length;
   const extra = new Set(shuffled(others.map((_,i)=>i),rng).slice(0,rem));
   const objs = [{v:oddType, odd:true}];
   others.forEach((t,i)=>{ const c = base + (extra.has(i)?1:0); for(let j=0;j<c;j++) objs.push({v:t, odd:false}); });
   const mixed = shuffled(objs,rng);
-  return { items:mixed.map(o=>o.v), oddIndex:mixed.findIndex(o=>o.odd), familyId:fam.id, familyLabel:fam.label, len, n, gen:g, limitMs:Math.round(baseLimit*(opts.timeF||1)) };
+  return { items:mixed.map(o=>o.v.split(SEP)[0]), angles:mixed.map(o=>rot ? Number(o.v.split(SEP)[1]) : 0), orient:angles.length, oddIndex:mixed.findIndex(o=>o.odd), familyId:fam.id, familyLabel:fam.label, len, n, gen:g, limitMs:Math.round(baseLimit*(opts.timeF||1)) };
 }
 // Esito di una prova: tocco su un indice (null = tempo scaduto).
 export function scoreIntrusoTrial(trial, tappedIndex, rtMs){

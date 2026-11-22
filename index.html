@@ -64,7 +64,7 @@ import { genTapatTrial as genTapatTrialOf, buildTAPAT as buildTAPATOf } from './
 import { buildDualTask as buildDualTaskOf, genDualTaskTrial as genDualTaskTrialOf } from './js/exercises/dualtask.js';
 import { INVERSIONE_SINGLE, INVERSIONE_SINGLE_KEYS, inversionePlanAt, genInversioneItem, scoreInversioneAnswer, maybeAdaptInversione as maybeAdaptInversioneOf } from './js/exercises/inversione.js';
 import { grigliaPlanAt, genGrigliaScreen, scoreGrigliaAnswer, scoreGrigliaSelection, maybeAdaptGriglie as maybeAdaptGrigliaOf, colorHexOf as grigliaColorHex, gridShapeSvgOf } from './js/exercises/griglie.js';
-import { INTRUSO_LEVELS, intrusoPlanAt, bestGridCols as intrusoGridCols, intrusoFramed, INTRUSO_CHAR_WIDTH, INTRUSO_GROUP_CHAR_WIDTH, genIntrusoTrial as genIntrusoTrialOf, scoreIntrusoTrial, maybeAdaptIntruso as maybeAdaptIntrusoOf } from './js/exercises/intrusopercettivo.js';
+import { intrusoRotBox, INTRUSO_LEVELS, intrusoPlanAt, bestGridCols as intrusoGridCols, intrusoFramed, INTRUSO_CHAR_WIDTH, INTRUSO_GROUP_CHAR_WIDTH, genIntrusoTrial as genIntrusoTrialOf, scoreIntrusoTrial, maybeAdaptIntruso as maybeAdaptIntrusoOf } from './js/exercises/intrusopercettivo.js';
 import { SERIE_LEVELS, serieIsi, SERIE_MAX_LEVEL, SERIE_BAND_POOLS, SERIE_BAND_OF_LEVEL, serieResetRules, serieRuleForLevel, SERIE_RESPONSE_LABELS, serieRuleFor, genSerieStimuli, serieExpected, scoreSerieTrial, maybeAdaptSerie as maybeAdaptSerieOf } from './js/exercises/serie.js';
 import { PASAT_LEVELS, pasatIsi, PASAT_MATERIALS, pasatAnswers, genPasatSeries, pasatExpected, scorePasatTrial, maybeAdaptPasat as maybeAdaptPasatOf } from './js/exercises/pasat.js';
 import { RUNNINGSPAN_LEVELS, RUNNINGSPAN_ADAPT_BLOCK, genRunningSpanTrial as genRunningSpanTrialOf, runningSpanItemsEqual, scoreRunningSpanTrial, maybeAdaptRunningSpan as maybeAdaptRunningSpanOf } from './js/exercises/runningspan.js';
@@ -5263,11 +5263,19 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const cellW = W/cols, cellH = H/rows;
     const cw = (trial.len>=2 && INTRUSO_GROUP_CHAR_WIDTH[trial.familyId]) || INTRUSO_CHAR_WIDTH[trial.familyId] || 1;
     const frac = trial.len>=3 ? 0.74 : trial.len===2 ? 0.62 : 0.85;
-    const px = Math.floor(Math.max(14, Math.min(cellW*frac/trial.len/cw, cellH*0.7, 170)));
+    let px = Math.floor(Math.max(14, Math.min(cellW*frac/trial.len/cw, cellH*0.7, 170)));
+    // con gli orientamenti: corpo ridotto perché l'elemento ruotato resti nella cella, cornice (se c'è) sempre dritta e di pari misura
+    const rotAngles = (trial.orient>1 && trial.angles) ? [...new Set(trial.angles)] : null;
+    const rbox = rotAngles ? intrusoRotBox(trial.len, cw, rotAngles, intrusoFramed(trial.familyId, trial.len)) : null;
+    if(rbox) px = Math.floor(Math.max(14, Math.min(px, (cellW-8)*0.92/rbox.W, (cellH-8)*0.92/rbox.H)));
     const grid = el('div',{style:'display:grid; grid-template-columns:repeat('+cols+',1fr); gap:6px; margin-top:8px;'});
     trial.items.forEach((v,i)=>{
       const framed = intrusoFramed(trial.familyId, [...String(v)].length);
-      const inner = framed ? el('span',{style:'display:inline-block; border:1.5px solid #8A948E; border-radius:.3em; padding:.04em .28em; line-height:1.25;'},[v]) : v;
+      const ang = (trial.angles && trial.angles[i]) || 0;
+      const inner = rbox
+        ? el('span',{style:'display:inline-block; position:relative; width:'+rbox.W+'em; height:'+rbox.H+'em; line-height:1;'+(framed?' border:1.5px solid #8A948E; border-radius:.3em; box-sizing:border-box;':'')},
+            [el('span',{style:'position:absolute; left:50%; top:50%; white-space:nowrap; transform:translate(-50%,-50%) rotate('+ang+'deg);'},[v])])
+        : framed ? el('span',{style:'display:inline-block; border:1.5px solid #8A948E; border-radius:.3em; padding:.04em .28em; line-height:1.25;'},[v]) : v;
       grid.appendChild(el('button',{style:'font-size:'+px+'px; min-height:'+Math.max(48,Math.floor(cellH-6))+'px; padding:0; font-family:inherit; line-height:1.1; background:#fff; border:1px solid #D9DFD9; border-radius:6px; touch-action:manipulation;', onclick:()=>{ if(!session.paused) resolveIntrusoTrial(i); }},[inner]));
     });
     content.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Tocca l\'unico elemento che compare UNA SOLA volta.']));

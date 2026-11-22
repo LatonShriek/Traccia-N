@@ -14,9 +14,10 @@ module.exports = async function run(t) {
       for (let i = 0; i < 60; i++) {
         const tr = IP.genIntrusoTrial(lvl);
         const counts = {};
-        tr.items.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+        const key = i2 => tr.items[i2] + '@' + tr.angles[i2]; // identico = stesso simbolo e stesso orientamento
+        tr.items.forEach((v, i2) => { counts[key(i2)] = (counts[key(i2)] || 0) + 1; });
         const singles = Object.keys(counts).filter(v => counts[v] === 1);
-        if (singles.length !== 1 || tr.items[tr.oddIndex] !== singles[0]) ok = false;
+        if (singles.length !== 1 || key(tr.oddIndex) !== singles[0]) ok = false;
         const pl = IP.intrusoPlanAt(lvl);
         if (tr.items.length !== tr.n || tr.n < pl.nMin || tr.n > pl.nMax || ![15,16,18,20,21,24,25,27,28,30].includes(tr.n) && tr.n < 15) sizeOk = false;
         if (tr.items.some(v => [...v].length !== tr.len)) sizeOk = false;

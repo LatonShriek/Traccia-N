@@ -188,7 +188,7 @@ export const INVERSIONE_SINGLE = {
                 run:(tk)=>tk.filter(t=>t.size==='small'), text:()=>'Scrivi SOLO quelli scritti in PICCOLO, nell\'ordine in cui compaiono.' },
   blu:        { label:'Solo blu', minLevel:5, kinds:['letters','digits','alnum','numbers'], attr:'color', target:'blue',
                 run:(tk)=>tk.filter(t=>t.color==='blue'), text:()=>'Scrivi SOLO quelli BLU, nell\'ordine in cui compaiono.' },
-  sottolineati:{ label:'Solo sottolineati', minLevel:5, kinds:['letters','digits','alnum','numbers'], attr:'under',
+  sottolineati:{ label:'Solo sottolineati', minLevel:3, kinds:['letters','digits','alnum','numbers'], attr:'under',
                 run:(tk)=>tk.filter(t=>t.under), text:()=>'Scrivi SOLO quelli SOTTOLINEATI, nell\'ordine in cui compaiono.' }
 };
 export const INVERSIONE_SINGLE_KEYS = Object.keys(INVERSIONE_SINGLE);
@@ -204,7 +204,7 @@ const DOUBLE_CRITERIA = [
   { C:'vowel',  minLevel:4, kinds:['letters'], values:['vowel','cons'] },
   { C:'case',   minLevel:5, kinds:['letters'], values:['upper','lower'] },
   { C:'type',   minLevel:5, kinds:['alnum'], values:['digit','letter'] },
-  { C:'under',  minLevel:6, kinds:['letters','digits','alnum','numbers'], values:['under','plain'] }
+  { C:'under',  minLevel:4, kinds:['letters','digits','alnum','numbers'], values:['under','plain'] }
 ];
 export const INVERSIONE_DOUBLE_P = [0,0,0.2,0.3,0.4,0.5,0.55,0.65,0.75,0.8];
 const DOUBLE_ORDERS_FILTER = ['asc','desc','rev'];
@@ -331,15 +331,28 @@ function poolFromArgs(ruleKey, opts){
   if(ruleKey && ruleKey!=='auto' && INVERSIONE_SINGLE[ruleKey]) return [ruleKey];
   return null;
 }
-function chooseRule(lv, kind, pool, takenKeys, lastRule, noAlpha){
+// Consegne di MANIPOLAZIONE (cambiano l'ordine di tutta la sequenza) e di SELEZIONE (tengono solo alcuni caratteri, senza riordinare).
+// Principio (Rodrigo, 22 nov 2026): una consegna di sola selezione non compare mai da sola, ma sempre accoppiata a una di manipolazione, in ordine casuale
+// (prima la manipolazione e poi la selezione, o il contrario). Le doppie (filtro + ordine) hanno già le due cose insieme.
+export const INVERSIONE_MANIP = new Set(['inverti','ordina','decrescente']);
+// need: 'M' = solo manipolazione, 'S' = solo selezione, 'D' = solo doppia, null = come prima
+function chooseRule(lv, kind, pool, takenKeys, lastRule, noAlpha, need){
   const manual = !!pool;
-  const singles = (manual ? pool.filter(k=>k!=='doppie') : INVERSIONE_SINGLE_KEYS.filter(k=>INVERSIONE_SINGLE[k].minLevel<=lv))
+  let singles = (manual ? pool.filter(k=>k!=='doppie') : INVERSIONE_SINGLE_KEYS.filter(k=>INVERSIONE_SINGLE[k].minLevel<=lv))
     .filter(k=>INVERSIONE_SINGLE[k].kinds.includes(kind) && !takenKeys.has(k))
     .filter(k=>!(noAlpha && (kind==='letters' || kind==='alnum') && (k==='ordina' || k==='decrescente'))); // opzione «senza ordine alfabetico»
-  const canDouble = manual ? pool.includes('doppie') : Math.random() < INVERSIONE_DOUBLE_P[lv-1];
-  if(canDouble && (!manual || !singles.length || Math.random()<0.4)){
+  if(need==='D'){
+    if(manual && !pool.includes('doppie')) return null;
     const d = makeDouble(manual ? 10 : lv, kind, noAlpha);
-    if(d && !takenKeys.has(d.key)) return d;
+    return (d && !takenKeys.has(d.key)) ? d : null;
+  }
+  if(need==='M' || need==='S') singles = singles.filter(k=> INVERSIONE_MANIP.has(k) === (need==='M'));
+  else {
+    const canDouble = manual ? pool.includes('doppie') : Math.random() < INVERSIONE_DOUBLE_P[lv-1];
+    if(canDouble && (!manual || !singles.length || Math.random()<0.4)){
+      const d = makeDouble(manual ? 10 : lv, kind, noAlpha);
+      if(d && !takenKeys.has(d.key)) return d;
+    }
   }
   if(!singles.length) return null;
   const free = singles.length>1 && lastRule ? singles.filter(k=>k!==lastRule) : singles;
@@ -363,11 +376,29 @@ export function genInversioneItem(level, ruleKey, used, opts){
     // 2) da 1 a 3 consegne DIVERSE sullo stesso stimolo
     const want = pickNCons(lv, opts.nCons);
     const rules = [], taken = new Set();
-    for(let i=0;i<want;i++){
-      const r = chooseRule(lv, spec.kind, pool, taken, i===0 && used ? used.lastRule : null, !!opts.noAlpha);
+    // composizione: la selezione è sempre accoppiata alla manipolazione. 1 richiesta = manipolazione oppure doppia; 2 = manipolazione + (selezione o doppia);
+    // 3 = due manipolazioni + (selezione o doppia). Ordine casuale. Se il pool scelto a mano non permette l'accoppiamento si ricade sul vecchio criterio.
+    const pD = pool ? (pool.includes('doppie') ? 0.4 : 0) : INVERSIONE_DOUBLE_P[lv-1];
+    const needs = want===1 ? [Math.random()<pD ? 'D' : 'M']
+                : want===2 ? ['M', Math.random()<pD ? 'D' : 'S']
+                : ['M', 'M', Math.random()<pD ? 'D' : 'S'];
+    for(let i=0;i<needs.length;i++){
+      const alt = needs[i]==='S' ? 'D' : needs[i]==='D' ? 'S' : null;
+      const lastR = i===0 && used ? used.lastRule : null;
+      let r = chooseRule(lv, spec.kind, pool, taken, lastR, !!opts.noAlpha, needs[i]);
+      if(!r && needs[i]==='D') r = chooseRule(lv, spec.kind, pool, taken, lastR, !!opts.noAlpha, 'M');   // niente doppia disponibile: una manipolazione
+      if(!r && alt) r = chooseRule(lv, spec.kind, pool, taken, lastR, !!opts.noAlpha, alt);
       if(!r) break;
       rules.push(r); taken.add(r.key);
     }
+    if(!rules.length){ // pool a mano senza manipolazioni: criterio libero
+      for(let i=0;i<want;i++){
+        const r = chooseRule(lv, spec.kind, pool, taken, i===0 && used ? used.lastRule : null, !!opts.noAlpha, null);
+        if(!r) break;
+        rules.push(r); taken.add(r.key);
+      }
+    }
+    for(let i=rules.length-1;i>0;i--){ const j = rnd(i+1); [rules[i], rules[j]] = [rules[j], rules[i]]; }   // ordine casuale
     if(!rules.length) continue;
     // 3) stimolo + attributi (colore/grandezza servono solo se una consegna li usa)
     const tokens = makeTokens(spec.kind, spec.len, gen, lv, pCase);

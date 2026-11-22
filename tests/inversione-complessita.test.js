@@ -5,7 +5,7 @@ const { importCore } = require('./lib/core');
 module.exports = async function run(t){
   const INV = await importCore('../exercises/inversione.js');
   const N = 400;
-  t.group('colori presenti per livello: 1 al 2, 2 al 3, 3 dal 5; sottolineati dal 5', () => {
+  t.group('colori presenti per livello: 1 al 2, 2 al 3, 3 dal 5; sottolineati dal 3', () => {
     t.eq(JSON.stringify(INV.inversioneColorsAt(1)), '[]', 'livello 1 senza colori');
     t.eq(INV.inversioneColorsAt(2).length, 1, 'livello 2: 1 colore');
     t.eq(INV.inversioneColorsAt(3).length, 2, 'livello 3: 2 colori');
@@ -17,7 +17,7 @@ module.exports = async function run(t){
       if (lv >= 8) allowed.add('red'); // distrattori dei livelli alti
       it.tokens.forEach(x => {
         if (x.color && !allowed.has(x.color)) bad++;
-        if (x.under && lv < 5) bad++;
+        if (x.under && lv < 3) bad++;
         if (x.color === 'blue' && lv >= 5) blue5++;
         if (x.under) under++;
       });
@@ -30,7 +30,8 @@ module.exports = async function run(t){
     t.ok(S.grandi.minLevel === 2 && S.rossi.minLevel === 2, 'grande/piccolo e rossi al 2');
     t.ok(S.pari.minLevel === 3 && S.verdi.minLevel === 3, 'pari/dispari e verdi al 3');
     t.ok(S.vocali.minLevel === 4 && S.maiuscole.minLevel === 4, 'vocali/consonanti e maiuscole al 4');
-    t.ok(S.blu.minLevel === 5 && S.sottolineati.minLevel === 5, 'blu e sottolineati al 5');
+    t.ok(S.sottolineati.minLevel === 3, 'sottolineati al 3, subito dopo grandi/piccoli (2)');
+    t.ok(S.blu.minLevel === 5, 'blu al 5');
   });
   t.group('richieste per stringa: la 2ª dal livello 2, la 3ª dal livello 4', () => {
     const P = INV.INVERSIONE_NCONS_P;
@@ -39,6 +40,21 @@ module.exports = async function run(t){
     let max2 = 0;
     for (let i = 0; i < N; i++) max2 = Math.max(max2, INV.genInversioneItem(2, 'auto', new Set()).consegne.length);
     t.eq(max2, 2, 'al livello 2 si arriva a 2 richieste');
+  });
+  t.group('la selezione non è mai da sola: sempre accoppiata a una manipolazione, in ordine casuale', () => {
+    const M = INV.INVERSIONE_MANIP;
+    let bad = 0, selFirst = 0, manFirst = 0, multi = 0;
+    for (let lv = 1; lv <= 10; lv++) for (let i = 0; i < N; i++) {
+      const it = INV.genInversioneItem(lv, 'auto', new Set());
+      const cs = it.consegne;
+      const isSel = c => !c.double && !M.has(c.rule);
+      const nSel = cs.filter(isSel).length, nMan = cs.filter(c => M.has(c.rule)).length;
+      if (nSel > nMan) bad++;                       // ogni selezione ha la sua manipolazione
+      if (cs.length === 1 && isSel(cs[0])) bad++;   // mai una selezione da sola
+      if (cs.length >= 2 && cs.some(isSel)) { multi++; if (isSel(cs[0])) selFirst++; else manFirst++; }
+    }
+    t.eq(bad, 0, 'nessuna selezione senza manipolazione');
+    t.ok(multi > 100 && selFirst > multi * 0.25 && manFirst > multi * 0.25, 'ordine casuale (' + selFirst + ' selezione prima, ' + manFirst + ' manipolazione prima)');
   });
   t.group('doppie con colore: usano due colori e il resto dei caratteri resta coerente', () => {
     let n = 0, bad = 0;

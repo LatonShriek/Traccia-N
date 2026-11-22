@@ -172,8 +172,8 @@ module.exports = async function run(t) {
       for (let i = 0; i < N; i++) {
         const it = INV.genInversioneItem(lvl, 'auto', used);
         if (it.expectedTokens.length < 1 || !it.instruction || it.instruction.length < 15) okIstr = false;
+        if (it.consegne.some(x => x.double)) nDouble++;
         if (it.double) {
-          nDouble++;
           if (lvl < 3) okLevel = false;
           const C = it.rule.split(':')[1], mode = it.rule.split(':')[0];
           if (!['color', 'size', 'case', 'type', 'vowel', 'parity', 'under'].includes(C) || !['dbl-filtro', 'dbl-gruppi'].includes(mode)) okLevel = false;

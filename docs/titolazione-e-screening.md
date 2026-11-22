@@ -174,6 +174,12 @@ modifiche a quelle parti, controllare a mano su tablet.
   riordina · 2 grandi/piccoli, rossi · 3 pari/dispari, verdi · 4 vocali/consonanti, maiuscole/minuscole · 5 posizioni pari/dispari, Z–A, blu, **sottolineati**;
   doppie dal 3 (pari/dispari, colore, grandezza), 4 vocali/consonanti, 5 maiuscole e cifra/lettera, 6 sottolineati; una doppia sul colore usa due colori e tutti i caratteri ne hanno uno.
   Richieste per stringa: la 2ª dal livello 2, la 3ª dal 4 (`INVERSIONE_NCONS_P`). Il sottolineato è un attributo del carattere (`under`).
+  **Sottolineati anticipati (22 nov 2026, sera)**: consegna singola «Solo sottolineati» dal livello 3 (subito dopo grandi/piccoli, che sono al 2), doppie con sottolineato dal 4
+  (sostituisce i livelli 5 e 6 scritti sopra).
+  **Principio «selezione sempre accoppiata a manipolazione» (22 nov 2026, Rodrigo)**: le consegne di sola SELEZIONE (rossi, grandi, vocali, pari, posizioni, sottolineati… = «scrivi solo quelli, come compaiono»)
+  non compaiono mai da sole, ma sempre insieme a una di MANIPOLAZIONE (inverti, riordina, Z–A: `INVERSIONE_MANIP`), in ordine casuale (prima l'una o prima l'altra). Con 1 richiesta: manipolazione oppure doppia
+  (la doppia = filtro + ordine, ha già le due cose); con 2: manipolazione + (selezione o doppia); con 3: due manipolazioni + (selezione o doppia). Con «Ordine alfabetico: Escluso» su lettere e alfanumerici resta
+  la sola manipolazione «inverti», quindi lì si arriva al massimo a 2 richieste. Un pool scelto a mano senza manipolazioni ricade sul criterio libero.
   **Attributi anticipati (22 nov 2026, richiesta di Rodrigo: «verde dal 4, maiuscole/minuscole e grande/piccolo dall'8» del generatore)**: le singole
   rossi/verdi sono dal livello Traccia-N 2 (gen. 4), maiuscole/minuscole/grandi/piccoli dal 3 (gen. 8); doppie con colore dal 3, con grandezza e
   maiuscole dal 4, cifra/lettera dal 5. Quota di stringhe a maiuscole miste: 0 fino al gen. 7, poi (gen−7)/19 fino al 100% al 26. Con una consegna su

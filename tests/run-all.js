@@ -33,6 +33,7 @@ const FILES = [
   'simon.test.js',
   'runningspan.test.js',
   'nuovi-esercizi.test.js',
+  'inversione-noalfa.test.js',
   'screening-level1.test.js',
   'screening-verbale.test.js',
   'bivalente-audio.test.js',

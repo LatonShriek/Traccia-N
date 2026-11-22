@@ -210,19 +210,20 @@ function valueText(C, v, kind){
   return noun+' '+VALUE_LABEL[C][v][fem ? 1 : 0];
 }
 // Costruisce una consegna doppia e restituisce {key, text, run, attr} oppure null.
-function makeDouble(level, kind){
+function makeDouble(level, kind, noAlpha){
   const crit = DOUBLE_CRITERIA.filter(d=>level>=d.minLevel && d.kinds.includes(kind));
   if(!crit.length) return null;
   const d = pick(crit);
   const v = pick(d.values), other = d.values.find(x=>x!==v);
   if(Math.random()<0.5){
-    const T = pick(DOUBLE_ORDERS_FILTER);
+    const alphaKind = noAlpha && (kind==='letters' || kind==='alnum');
+    const T = pick(alphaKind ? ['rev'] : DOUBLE_ORDERS_FILTER);
     const kT = d.C==='type' ? (v==='digit' ? 'digits' : 'letters') : kind;
     return { key:'dbl-filtro:'+d.C, attr:d.C, C:d.C, mode:'filtro',
       run:(tk)=>applyT(tk.filter(t=>valueOf[d.C](t)===v), T),
       text:'Scrivi SOLO '+valueText(d.C, v, kind)+', '+tText(T, kT)+'.' };
   }
-  const T = pick(DOUBLE_ORDERS_GROUP);
+  const T = pick(noAlpha && (kind==='letters' || kind==='alnum') ? ['asis'] : DOUBLE_ORDERS_GROUP);
   return { key:'dbl-gruppi:'+d.C, attr:d.C, C:d.C, mode:'gruppi',
     run:(tk)=>[...applyT(tk.filter(t=>valueOf[d.C](t)===v), T), ...applyT(tk.filter(t=>valueOf[d.C](t)===other), T)],
     text:'Scrivi PRIMA '+valueText(d.C, v, kind)+' e POI '+valueText(d.C, other, kind)+', ciascun gruppo '+(d.C==='type' && T==='asc' ? 'in ordine (cifre dalla più piccola alla più grande, lettere in ordine alfabetico)' : tText(T, kind))+'.' };
@@ -304,13 +305,14 @@ function poolFromArgs(ruleKey, opts){
   if(ruleKey && ruleKey!=='auto' && INVERSIONE_SINGLE[ruleKey]) return [ruleKey];
   return null;
 }
-function chooseRule(lv, kind, pool, takenKeys, lastRule){
+function chooseRule(lv, kind, pool, takenKeys, lastRule, noAlpha){
   const manual = !!pool;
   const singles = (manual ? pool.filter(k=>k!=='doppie') : INVERSIONE_SINGLE_KEYS.filter(k=>INVERSIONE_SINGLE[k].minLevel<=lv))
-    .filter(k=>INVERSIONE_SINGLE[k].kinds.includes(kind) && !takenKeys.has(k));
+    .filter(k=>INVERSIONE_SINGLE[k].kinds.includes(kind) && !takenKeys.has(k))
+    .filter(k=>!(noAlpha && (kind==='letters' || kind==='alnum') && (k==='ordina' || k==='decrescente'))); // opzione «senza ordine alfabetico»
   const canDouble = manual ? pool.includes('doppie') : Math.random() < INVERSIONE_DOUBLE_P[lv-1];
   if(canDouble && (!manual || !singles.length || Math.random()<0.4)){
-    const d = makeDouble(manual ? 10 : lv, kind);
+    const d = makeDouble(manual ? 10 : lv, kind, noAlpha);
     if(d && !takenKeys.has(d.key)) return d;
   }
   if(!singles.length) return null;
@@ -336,7 +338,7 @@ export function genInversioneItem(level, ruleKey, used, opts){
     const want = pickNCons(lv, opts.nCons);
     const rules = [], taken = new Set();
     for(let i=0;i<want;i++){
-      const r = chooseRule(lv, spec.kind, pool, taken, i===0 && used ? used.lastRule : null);
+      const r = chooseRule(lv, spec.kind, pool, taken, i===0 && used ? used.lastRule : null, !!opts.noAlpha);
       if(!r) break;
       rules.push(r); taken.add(r.key);
     }

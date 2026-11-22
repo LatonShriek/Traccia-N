@@ -166,6 +166,9 @@ modifiche a quelle parti, controllare a mano su tablet.
   per livello 1-10 = 0, 0, 20, 30, 40, 50, 55, 65, 75, 80 % (prima 0 fino al 5, poi 20-80). Dal livello 3 con criteri già noti dalle singole
   (vocali/consonanti sulle lettere, pari/dispari su cifre e numeri), con colore dal 3, con grandezza e maiuscole dal 4, cifra/lettera dal 5;
   nessun criterio compare in una doppia prima di essere comparso tra le singole.
+  **Opzione «Ordine alfabetico: Escluso (DSA)»** (`cfg.inversioneNoAlfa`, nel Setup, salvata nei preset): su lettere e alfanumerici niente «riordina», «Z–A»
+  né ordinamenti alfabetici nelle doppie; restano inverso, vocali/consonanti, posizioni, colore ecc. Sulle cifre e sui numeri l'ordine crescente resta.
+  Livello, tempi e progressione non cambiano (cambiano solo le consegne estratte).
   **Attributi anticipati (22 nov 2026, richiesta di Rodrigo: «verde dal 4, maiuscole/minuscole e grande/piccolo dall'8» del generatore)**: le singole
   rossi/verdi sono dal livello Traccia-N 2 (gen. 4), maiuscole/minuscole/grandi/piccoli dal 3 (gen. 8); doppie con colore dal 3, con grandezza e
   maiuscole dal 4, cifra/lettera dal 5. Quota di stringhe a maiuscole miste: 0 fino al gen. 7, poi (gen−7)/19 fino al 100% al 26. Con una consegna su

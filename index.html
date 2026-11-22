@@ -227,7 +227,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     cfg.adaptStartLevel = pc.adaptStartLevel || 1; cfg.tapatStartLevel = pc.tapatStartLevel || 1;
     cfg.dualStartLevel1 = pc.dualStartLevel1 || 1; cfg.dualStartLevel2 = pc.dualStartLevel2 || 1; cfg.dualFine1 = pc.dualFine1; cfg.dualFine2 = pc.dualFine2; cfg.categLivelloFine = pc.categLivelloFine;
     cfg.neglectStartLevel = pc.neglectStartLevel || 1;
-    cfg.grigliaRisposta = pc.grigliaRisposta||'tocco'; cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.grigliaNRichieste = Math.max(4, Math.min(30, pc.grigliaNRichieste|0 || 10)); cfg.grigliaEspSec = (pc.grigliaEspSec==null) ? 5 : Math.max(0, Math.min(15, pc.grigliaEspSec|0)); cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
+    cfg.grigliaRisposta = pc.grigliaRisposta||'tocco'; cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.grigliaNRichieste = Math.max(4, Math.min(30, pc.grigliaNRichieste|0 || 10)); cfg.grigliaEspSec = (pc.grigliaEspSec==null) ? 5 : Math.max(0, Math.min(15, pc.grigliaEspSec|0)); cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.inversioneNoAlfa = !!pc.inversioneNoAlfa; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
     cfg.targetRate = pc.targetRate; cfg.respMode = pc.respMode; cfg.voice = pc.voice;
     cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.stopsignalInterferenza = pc.stopsignalInterferenza || 'no'; cfg.adaptive = !!pc.adaptive;
     cfg.switchMaterial = pc.switchMaterial || 'numeri'; cfg.dualVisual = pc.dualVisual || 'lettere'; cfg.dualVisual2 = pc.dualVisual2 || 'numeri'; cfg.dualPairing = pc.dualPairing || 'vis-aud'; cfg.antMode = pc.antMode || 'classico';
@@ -1929,6 +1929,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         grid.appendChild(field('Consegne ammesse (tocca per includere/escludere)', chips));
         grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1;'},[poolSel.size ? 'Pool scelto a mano: '+poolSel.size+' consegne (vale a tutti i livelli).' : 'Nessuna selezione = automatico: le consegne si sbloccano col livello.']));
         if(poolSel.size) grid.appendChild(field('Azzera selezione', el('button',{class:'ghost', onclick:()=>{ cfg.inversionePool=[]; render(); }},['Torna all\'automatico'])));
+        grid.appendChild(field('Ordine alfabetico', segButtons(['si','no'], cfg.inversioneNoAlfa?'no':'si', v=>{ cfg.inversioneNoAlfa = v==='no'; render(); }, {si:'Incluso', no:'Escluso (DSA)'})));
+        if(cfg.inversioneNoAlfa) grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1;'},['Ordine alfabetico escluso: su lettere e alfanumerici niente «riordina», «Z–A» né ordinamenti alfabetici nelle doppie (restano inverso, vocali/consonanti, posizioni, colore…). Sulle cifre e sui numeri l\'ordine crescente resta. Livello e progressione non cambiano.']));
         grid.appendChild(field('Consegne per sequenza', segButtons(['auto','1','2','3'], String(cfg.inversioneNCons||'auto'), v=>{ cfg.inversioneNCons = v==='auto' ? 'auto' : parseInt(v,10); render(); }, {auto:'Crescono col livello (1-3)', '1':'Sempre 1', '2':'Sempre 2', '3':'Sempre 3'})));
         const lv = inversionePlanAt(cfg.adaptStartLevel);
         card.appendChild(el('p',{class:'hint'},['A questo livello: sequenze di '+lv.lens.join('-')+' caratteri'+(lv.numbers?' (anche numeri a più cifre)':'')+', '+(lv.lexical?'parole vere e cifre':lv.alnum?'non-parole ('+lv.pronounce+'% pronunciabili), cifre e misti lettere+cifre':'non-parole ('+lv.pronounce+'% pronunciabili) e cifre')+(lv.mixedCase?', maiuscole/minuscole miste':'')+'. Consegne a rotazione: '+lv.singles.map(k=>INVERSIONE_SINGLE[k].label.toLowerCase()).join(', ')+(lv.pDouble>0?'; consegne DOPPIE (due criteri insieme) nel '+Math.round(lv.pDouble*100)+'% delle sequenze':'')+'. La sequenza resta a schermo un tempo FISSO (circa '+(lv.msPerChar/1000).toFixed(2)+' s per carattere, decrescente col livello), poi sparisce da sola e il paziente la riscrive trasformata con la tastiera a schermo. «Prove» = numero di sequenze. Con l\'adattivo il livello cambia ogni 4 sequenze (70-85% di sequenze esatte).']));
@@ -5482,7 +5484,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     view='task'; render();
   }
   function nextInversioneItem(){
-    session.item = genInversioneItem(fineLv(), cfg.inversioneRegola||'auto', session.used, Object.assign({pool:cfg.inversionePool, nCons:cfg.inversioneNCons}, genOpts()));
+    session.item = genInversioneItem(fineLv(), cfg.inversioneRegola||'auto', session.used, Object.assign({pool:cfg.inversionePool, nCons:cfg.inversioneNCons, noAlpha:!!cfg.inversioneNoAlfa}, genOpts()));
     session.phase = 'gap'; session.typed = ''; session.consIdx = 0;
   }
   function resolveInversioneTrial(){

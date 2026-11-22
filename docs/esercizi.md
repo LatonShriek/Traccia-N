@@ -352,3 +352,7 @@ nel dato che si vuole raccogliere, per una popolazione che può avere
 difficoltà di eloquio o di reperimento della parola — per questo la
 valutazione resta manuale, sullo stesso principio già in uso con
 `respMode='operatore'` negli altri esercizi.
+
+## Novità del 22 novembre 2026
+- **Esercizi in costruzione:** in `js/exercises/registry.js`, la costante `IN_COSTRUZIONE` elenca gli esercizi che l'operatore non deve ancora proporre (ora: Strategie di memoria, Scenari ecologici). Compaiono con 🚧 nel selettore e con un avviso arancione sotto il selettore. Per segnalarne un altro basta aggiungere la chiave con la nota; per toglierlo, cancellare la riga.
+- **Griglie attentive, esposizione della consegna:** la consegna resta visibile 5 secondi (impostabile 0–15 nella scheda; 0 = sempre visibile), poi si nasconde. Un'icona 👁 la rimostra per altrettanti secondi, fino a 2 volte per consegna. Il numero di visioni è registrato in ogni prova (`instrViews`). Il tempo di risposta non cambia: parte comunque alla comparsa della prova.

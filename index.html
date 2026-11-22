@@ -51,7 +51,7 @@ import { neglectBoardSubLevel as neglectBoardSubLevelOf, neglectBottomUpWeakSide
 import { resolveSignal as resolveSignalOf, resolveChoice as resolveChoiceOf, resolveCategorization as resolveCategorizationOf, resolveDualTask as resolveDualTaskOf } from './js/exercises/resolve.js';
 import { GOALTASK_SCENARIOS, startGoalTask, completeGoalTaskItem, goalTaskVisibleItems, goalTaskTick, scoreGoalTask, goalTaskInstanceFor, goalTaskItemIcon } from './js/exercises/goaltask.js';
 import { memoriaEffectiveMateriale, memoriaNForme, memoriaFormeUsatePerPaziente as memoriaFormeUsatePerPazienteOf, memoriaMaterialFor, memoriaLearnItems, lociRouteFor, MEMORIA_MODO_LABELS } from './js/exercises/memoria.js';
-import { STIM_LABELS, isSpokenStim, isAudioOnlyStim, MISTA_LABELS_SHORT, CHUNKING_METODI_LABELS, EXERCISES, EXERCISE_GROUPS, RUOLO_LABEL, defaultCfg, presetCfgOf } from './js/exercises/registry.js';
+import { STIM_LABELS, isSpokenStim, isAudioOnlyStim, MISTA_LABELS_SHORT, CHUNKING_METODI_LABELS, EXERCISES, EXERCISE_GROUPS, IN_COSTRUZIONE, RUOLO_LABEL, defaultCfg, presetCfgOf } from './js/exercises/registry.js';
 import { DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoFeedbackText as demoFeedbackTextOf } from './js/exercises/demo.js';
 import { buildSessionRecord } from './js/exercises/record.js';
 import { renderSessionGroups } from './js/ui/history-view.js';
@@ -227,7 +227,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     cfg.adaptStartLevel = pc.adaptStartLevel || 1; cfg.tapatStartLevel = pc.tapatStartLevel || 1;
     cfg.dualStartLevel1 = pc.dualStartLevel1 || 1; cfg.dualStartLevel2 = pc.dualStartLevel2 || 1; cfg.dualFine1 = pc.dualFine1; cfg.dualFine2 = pc.dualFine2; cfg.categLivelloFine = pc.categLivelloFine;
     cfg.neglectStartLevel = pc.neglectStartLevel || 1;
-    cfg.grigliaRisposta = pc.grigliaRisposta||'tocco'; cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.grigliaNRichieste = Math.max(4, Math.min(30, pc.grigliaNRichieste|0 || 10)); cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
+    cfg.grigliaRisposta = pc.grigliaRisposta||'tocco'; cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.grigliaNRichieste = Math.max(4, Math.min(30, pc.grigliaNRichieste|0 || 10)); cfg.grigliaEspSec = (pc.grigliaEspSec==null) ? 5 : Math.max(0, Math.min(15, pc.grigliaEspSec|0)); cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
     cfg.targetRate = pc.targetRate; cfg.respMode = pc.respMode; cfg.voice = pc.voice;
     cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.stopsignalInterferenza = pc.stopsignalInterferenza || 'no'; cfg.adaptive = !!pc.adaptive;
     cfg.switchMaterial = pc.switchMaterial || 'numeri'; cfg.dualVisual = pc.dualVisual || 'lettere'; cfg.dualVisual2 = pc.dualVisual2 || 'numeri'; cfg.dualPairing = pc.dualPairing || 'vis-aud'; cfg.antMode = pc.antMode || 'classico';
@@ -1782,9 +1782,12 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     card.appendChild(sectionMarker('esercizio','Esercizio',{open:true, summary: ex.label}));
 
     // exercise selector (comes first: it determines which other fields apply)
-    gridEx.appendChild(field('Esercizio', groupedSegButtons(EXERCISE_GROUPS, cfg.taskMode, v=>pickExercise(v), Object.fromEntries(Object.entries(EXERCISES).map(([k,v])=>[k, v.label+(v.ruolo==='misura'?' ⏱ ('+v.dominio+')':'')])), v=> EXERCISES[v] && EXERCISES[v].ruolo==='misura' ? 'screening-only' : '')));
+    gridEx.appendChild(field('Esercizio', groupedSegButtons(EXERCISE_GROUPS, cfg.taskMode, v=>pickExercise(v), Object.fromEntries(Object.entries(EXERCISES).map(([k,v])=>[k, (IN_COSTRUZIONE[k]?'🚧 ':'')+v.label+(v.ruolo==='misura'?' ⏱ ('+v.dominio+')':'')])), v=> EXERCISES[v] && EXERCISES[v].ruolo==='misura' ? 'screening-only' : '')));
+    if(IN_COSTRUZIONE[cfg.taskMode]){
+      gridEx.appendChild(el('p',{style:'grid-column:1/-1; margin:2px 0 8px; padding:10px 12px; border:2px solid #B26A00; background:#FFF4E0; border-radius:8px; font-weight:600;'},['🚧 Esercizio in costruzione — '+IN_COSTRUZIONE[cfg.taskMode]]));
+    }
     gridEx.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:2px 0 8px;'},[
-      '⏱ tratteggiato = pensato per la rivalutazione periodica, non per l\'allenamento quotidiano (dettaglio sotto una volta selezionato).'
+      '🚧 = esercizio in costruzione, non ancora da proporre. ⏱ tratteggiato = pensato per la rivalutazione periodica, non per l\'allenamento quotidiano (dettaglio sotto una volta selezionato).'
     ]));
 
     // Domini + natura di screening insieme, non due indicazioni separate:
@@ -1933,6 +1936,8 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       if(cfg.taskMode==='griglie'){
         grid.appendChild(field('Come risponde il paziente', segButtons(['tocco','numero'], cfg.grigliaRisposta||'tocco', v=>{ cfg.grigliaRisposta=v; render(); }, {tocco:'Tocca gli elementi (con correzione)', numero:'Scrive il numero'})));
         grid.appendChild(field('Numero di consegne per griglia (4–30, di norma 10)', stepper(cfg.grigliaNRichieste||10,4,30,v=>{ cfg.grigliaNRichieste=v; render(); },1)));
+        grid.appendChild(field('Consegna visibile per (secondi; 0 = sempre visibile)', stepper(cfg.grigliaEspSec==null?5:cfg.grigliaEspSec,0,15,v=>{ cfg.grigliaEspSec=v; render(); },1)));
+        card.appendChild(el('p',{class:"hint"},['Dopo questo tempo la consegna si nasconde; il paziente può rivederla toccando l\'icona 👁, fino a 2 volte per consegna (per lo stesso numero di secondi). Le rivisioni sono registrate.']));
         const lv = grigliaPlanAt(cfg.adaptStartLevel);
         card.appendChild(el('p',{class:'hint'},['A questo livello (= livello '+lv.gen+' del generatore di schede, stesso materiale): simboli «'+lv.categoryLabel+'», griglia '+lv.rows+'×'+lv.cols+'. Ogni griglia ha '+(cfg.grigliaNRichieste||10)+' consegne di difficoltà crescente (colore, sfondo, bordo, posizione, adiacenza, negazione…); il paziente digita il numero (o due, o «quale e di quanti»: la schermata lo dice). Il numero di consegne della seduta è «Prove».']));
       }
@@ -5316,7 +5321,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       if(!session.reveal){ // 1° passaggio: l'OK generale chiude la selezione e mostra giusti / sbagliati / mancanti
         const rt = Math.round(performance.now()-session.trialShownAt);
         const sc = scoreGrigliaSelection(rule, [...session.sel], rt);
-        session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, gen:session.grid.gen, expected:rule.touch.target.length, given:session.sel.size, hit:sc.hit.length, wrong:sc.wrong.length, missed:sc.missed.length, mode:'tocco', tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
+        session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, gen:session.grid.gen, instrViews:session.instrViews||1, expected:rule.touch.target.length, given:session.sel.size, hit:sc.hit.length, wrong:sc.wrong.length, missed:sc.missed.length, mode:'tocco', tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
         session.grAdaptBlock.push(rtBucketOutcome('tocco:'+rule.kind, sc.score, sc.rt!=null ? sc.rt/Math.max(1, rule.touch.target.length) : null)); trialFeedback(!!sc.correct);
         session.reveal = sc; render();
         return;
@@ -5327,7 +5332,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const rt = Math.round(performance.now()-session.trialShownAt);
     const given = grigliaGiven(rule);
     const sc = scoreGrigliaAnswer(rule, given, rt);
-    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, gen:session.grid.gen, expected:rule.input.expected, given, tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
+    session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, gen:session.grid.gen, instrViews:session.instrViews||1, expected:rule.input.expected, given, tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
     session.grAdaptBlock.push(rtBucketOutcome('num:'+rule.kind, sc.score, sc.rt)); trialFeedback(!!sc.correct);
     grigliaAdvance();
   }
@@ -5373,6 +5378,29 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       el('div',{style:'font-size:12px; font-weight:600; opacity:.75;'},[label]), (value===''?'…':value)
     ]);
   }
+  // La consegna resta visibile cfg.grigliaEspSec secondi (di norma 5), poi si nasconde; si può rivedere (per altrettanti secondi) toccando
+  // l'icona 👁 fino a 2 volte per consegna. 0 secondi = sempre visibile. Dopo la correzione (reveal) il testo torna visibile.
+  function grigliaInstr(text, px, revealed){
+    const sec = cfg.grigliaEspSec==null ? 5 : cfg.grigliaEspSec;
+    const box = el('div',{style:'text-align:center; margin:6px 0 2px; min-height:'+Math.round(px*1.6)+'px;'});
+    if(session.instrFor !== session.trialIdx){ session.instrFor = session.trialIdx; session.instrUntil = performance.now()+sec*1000; session.instrLeft = 2; session.instrViews = 1; }
+    clearTimeout(session.instrTimer);
+    const remain = session.instrUntil - performance.now();
+    if(sec<=0 || revealed || remain>0){
+      box.appendChild(el('span',{style:'font-size:'+px+'px; font-weight:700;'},[text]));
+      if(sec>0 && !revealed && remain>0) session.instrTimer = setTimeout(()=>{ if(session && view==='task' && !session.paused) render(); }, remain+30);
+    } else {
+      box.appendChild(el('span',{style:'font-size:'+Math.round(px*0.8)+'px; opacity:.55; margin-right:10px;'},['Consegna nascosta']));
+      const left = session.instrLeft|0;
+      const b = el('button',{class:'ghost', title:'Rivedi la consegna', style:'min-height:48px; min-width:64px; font-size:24px;', onclick:()=>{
+        if((session.instrLeft|0)<=0) return;
+        session.instrLeft--; session.instrViews = (session.instrViews|0)+1; session.instrUntil = performance.now()+sec*1000; render();
+      }},['👁'+(left>0?' '+left:'')]);
+      if(left<=0) b.disabled = true;
+      box.appendChild(b);
+    }
+    return box;
+  }
   function updateGriglieScreen(){
     const {infoSpan, content} = taskDom;
     infoSpan.textContent = 'Consegna '+(session.trialIdx+1)+totTxt()+' · livello '+fineText();
@@ -5383,7 +5411,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const availW = window.innerWidth - 28, availH = Math.max(220, window.innerHeight - (grigliaTouch(rule) ? 260 : 380));
     const cellPx = Math.floor(Math.max(26, Math.min(availW/g.cols - 4, availH/g.rows - 4, 150)));
     if(grigliaTouch(rule)){ // risposta a tocco
-      content.appendChild(el('p',{style:'text-align:center; font-size:22px; font-weight:700; margin:6px 0 2px;'},[rule.touch.text]));
+      content.appendChild(grigliaInstr(rule.touch.text, 22, !!session.reveal));
       const rv = session.reveal;
       content.appendChild(el('p',{class:'hint', style:'text-align:center; margin:0 0 4px;'},[rv
         ? (rv.omitted ? 'Non hai toccato nulla. Gli elementi giusti erano quelli con il contorno arancione tratteggiato.' : rv.correct ? 'Giusto: tutti e soli gli elementi richiesti.' : 'Verde ✓ = giusti · Rosso ✗ = toccati per errore · Arancione tratteggiato = dimenticati.')
@@ -5404,7 +5432,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       content.appendChild(rowT);
       return;
     }
-    content.appendChild(el('p',{style:'text-align:center; font-size:20px; font-weight:700; margin:6px 0 2px;'},[rule.text]));
+    content.appendChild(grigliaInstr(rule.text, 20, false));
     // come rispondere: una riga chiara per i tipi di consegna con risposta diversa da un solo numero
     const how = inp.type==='double' ? 'Scrivi DUE numeri: il primo per «'+inp.labels[0]+'», il secondo per «'+inp.labels[1]+'».'
       : inp.type==='compare' ? 'Tocca quali sono più numerosi, poi scrivi DI QUANTI sono più numerosi dell\'altro gruppo (la differenza).'

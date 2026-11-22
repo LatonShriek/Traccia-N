@@ -374,6 +374,12 @@ import { serieRuleFor } from './serie.js';
   // Ruolo di ogni esercizio: 'misura' (solo screening/rivalutazione), 'allenamento'
   // (non misurato dallo screening) o 'entrambi'. Un test controlla che coincida con
   // SCREENING_PROBES: ruolo != 'allenamento' <=> esiste una sonda che lo propone.
+  // Esercizi in costruzione: l'operatore li vede segnalati (🚧 nel selettore e avviso nella scheda) e sa che non è ancora il momento di proporli.
+  // Per segnalarne un altro basta aggiungere la chiave qui con la nota da mostrare; per toglierla, cancellare la riga.
+  export const IN_COSTRUZIONE = {
+    memoria: 'Materiale ancora incompleto: non proporlo ai pazienti per ora.',
+    goaltask: 'Materiale ancora incompleto: non proporlo ai pazienti per ora.'
+  };
   export const RUOLO_LABEL = {
     misura: 'solo misura (screening e rivalutazione periodica)',
     entrambi: 'misura e allenamento',
@@ -421,6 +427,7 @@ import { serieRuleFor } from './serie.js';
     serieRegola:0, // solo per Serie alternate: 0 = la regola segue il livello, 1-32 = regola fissata a mano
     pasatMateriale:'somme', // solo per PASAT: 'somme'|'giorni'|'mesi'
     grigliaRisposta:'tocco', // Griglie: 'tocco' (indica gli elementi, con correzione dopo l'OK) | 'numero' (scrive il conteggio); le consegne «quante righe / quale riga» restano a numero
+    grigliaEspSec:5, // Griglie: la consegna resta visibile questi secondi, poi si nasconde (rivedibile 2 volte); 0 = sempre visibile
     grigliaNRichieste:10, // Griglie: numero di consegne per griglia (10 di norma, 4–30)
     intrusoLimitS:0, // Intruso: tempo massimo per schermata in secondi (0 = tabella del livello)
     inversionePool:[], // consegne ammesse scelte a mano (vuoto = automatico per livello; include 'doppie')
@@ -470,7 +477,7 @@ import { serieRuleFor } from './serie.js';
       goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx, pasatMateriale:c.pasatMateriale, serieRegola:c.serieRegola,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
-      grigliaRisposta:c.grigliaRisposta, intrusoLimitS:c.intrusoLimitS, grigliaNRichieste:c.grigliaNRichieste, inversionePool:c.inversionePool, inversioneNCons:c.inversioneNCons, durataMin:c.durataMin, feedbackProva:c.feedbackProva, categLivello:c.categLivello, categTipo:c.categTipo, serieRegola:c.serieRegola, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
+      grigliaRisposta:c.grigliaRisposta, intrusoLimitS:c.intrusoLimitS, grigliaNRichieste:c.grigliaNRichieste, grigliaEspSec:c.grigliaEspSec, inversionePool:c.inversionePool, inversioneNCons:c.inversioneNCons, durataMin:c.durataMin, feedbackProva:c.feedbackProva, categLivello:c.categLivello, categTipo:c.categTipo, serieRegola:c.serieRegola, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
       categRegime:c.categRegime, switchRegime:c.switchRegime,
       simonCongruenza:c.simonCongruenza, simonMateriale:c.simonMateriale,
       inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'

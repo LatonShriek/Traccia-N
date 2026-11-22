@@ -162,7 +162,8 @@ module.exports = async function run(t) {
       pari: tk => tk.filter(x => Number(x.ch) % 2 === 0), dispari: tk => tk.filter(x => Number(x.ch) % 2 !== 0),
       rossi: tk => tk.filter(x => x.color === 'red'), verdi: tk => tk.filter(x => x.color === 'green'),
       maiuscole: tk => tk.filter(x => lt(x) && x.ch === U(x.ch)), minuscole: tk => tk.filter(x => lt(x) && x.ch !== U(x.ch)),
-      grandi: tk => tk.filter(x => x.size === 'big'), piccoli: tk => tk.filter(x => x.size === 'small')
+      grandi: tk => tk.filter(x => x.size === 'big'), piccoli: tk => tk.filter(x => x.size === 'small'),
+      blu: tk => tk.filter(x => x.color === 'blue'), sottolineati: tk => tk.filter(x => x.under)
     };
     for (let lvl = 1; lvl <= 10; lvl++) {
       const pl = INV.inversionePlanAt(lvl);
@@ -175,7 +176,7 @@ module.exports = async function run(t) {
           nDouble++;
           if (lvl < 3) okLevel = false;
           const C = it.rule.split(':')[1], mode = it.rule.split(':')[0];
-          if (!['color', 'size', 'case', 'type', 'vowel', 'parity'].includes(C) || !['dbl-filtro', 'dbl-gruppi'].includes(mode)) okLevel = false;
+          if (!['color', 'size', 'case', 'type', 'vowel', 'parity', 'under'].includes(C) || !['dbl-filtro', 'dbl-gruppi'].includes(mode)) okLevel = false;
           if (['color', 'size'].includes(C) && !it.tokens.every(x => x[C])) okAttr = false;
         } else {
           const o = oracle[it.rule];
@@ -183,7 +184,7 @@ module.exports = async function run(t) {
           if (INV.INVERSIONE_SINGLE[it.rule].minLevel > lvl) okLevel = false;
           const exp = o(it.tokens).map(x => U(x.ch));
           if (JSON.stringify(exp) !== JSON.stringify(it.expectedTokens)) okExp = false;
-          if (['pari','dispari','vocali','consonanti','rossi','verdi','grandi','piccoli','maiuscole','minuscole'].includes(it.rule) && it.expectedTokens.length >= it.tokens.length) okAttr = false;
+          if (['pari','dispari','vocali','consonanti','rossi','verdi','blu','sottolineati','grandi','piccoli','maiuscole','minuscole'].includes(it.rule) && it.expectedTokens.length >= it.tokens.length) okAttr = false;
         }
         if (it.kind !== 'numbers' && new Set(it.tokens.map(x => U(x.ch))).size !== it.tokens.length) okDup = false;
         if (it.kind === 'numbers' && (lvl < 4 || it.tokens.some(x => x.ch.length < 2))) okLen = false;
@@ -213,14 +214,14 @@ module.exports = async function run(t) {
       const lv = 1 + (i % 10), u = new Set();
       const it = INV.genInversioneItem(lv, 'auto', u);
       const c = it.consegne;
-      if (!c || c.length < 1 || c.length > 3 || (lv <= 2 && c.length !== 1)) okCons = false;
+      if (!c || c.length < 1 || c.length > 3 || (lv <= 1 && c.length !== 1)) okCons = false;
       if (c && new Set(c.map(x => x.expected)).size !== c.length) okCons = false;
       if (c && c.some(x => !x.expectedTokens.length || !x.instruction)) okCons = false;
       if (c) seen.add(c.length);
       const it3 = INV.genInversioneItem(lv, 'auto', new Set(), { pool: ['inverti', 'ordina'], nCons: 2 });
       if (!it3.consegne.every(x => ['inverti', 'ordina'].includes(x.rule))) okPool = false;
     }
-    t.ok(okCons, 'Inversione: da 1 a 3 consegne diverse sullo stesso stimolo (1 sola ai livelli 1-2)');
+    t.ok(okCons, 'Inversione: da 1 a 3 consegne diverse sullo stesso stimolo (1 sola al livello 1)');
     t.ok(seen.has(1) && seen.has(2) && seen.has(3), 'Inversione: si vedono sequenze con 1, 2 e 3 consegne');
     t.ok(okPool, 'Inversione: con un pool scelto a mano compaiono solo quelle consegne');
     t.eq(INV.genInversioneItem(10, 'auto', new Set(), { nCons: 3 }).consegne.length <= 3, true, 'Inversione: massimo 3 consegne');

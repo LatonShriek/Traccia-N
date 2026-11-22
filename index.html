@@ -5477,7 +5477,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // decrescente col livello) → 'type' (sequenza nascosta, tastiera a schermo, «Conferma»). Il tempo di risposta
   // parte dalla comparsa della tastiera.
   const INV_KEYROWS = ['1234567890','QWERTYUIOP','ASDFGHJKL','ZXCVBNM'];
-  const INV_COLORS = { red:'#C62828', green:'#2E7D32' };
+  const INV_COLORS = { red:'#C62828', green:'#2E7D32', blue:'#1565C0' };
   function startInversioneSession(){
     session = { trialIdx:0, item:null, consIdx:0, phase:'gap', typed:'', typeStartAt:0, used:new Set(), choiceLog:[], invAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
     nextInversioneItem();
@@ -5522,7 +5522,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       const box = el('div',{style:'text-align:center; margin:34px 0; font-weight:800; letter-spacing:.06em; font-family:ui-monospace,Menlo,Consolas,monospace; min-height:'+Math.round(base*1.3)+'px; display:flex; justify-content:center; align-items:baseline; gap:'+(it.multi?Math.round(base*0.35):0)+'px;'});
       it.tokens.forEach(t=>{
         const f = t.size==='big' ? 1.0 : t.size==='small' ? 0.45 : 0.8;
-        box.appendChild(el('span',{style:'font-size:'+Math.round(base*f)+'px;'+(t.color?' color:'+INV_COLORS[t.color]+';':'')},[t.ch]));
+        box.appendChild(el('span',{style:'font-size:'+Math.round(base*f)+'px;'+(t.color?' color:'+INV_COLORS[t.color]+';':'')+(t.under?' text-decoration:underline; text-decoration-thickness:.07em; text-underline-offset:.12em;':'')},[t.ch]));
       });
       content.appendChild(box);
       content.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Memorizza: tra poco sparisce. La consegna comparirà dopo.']));

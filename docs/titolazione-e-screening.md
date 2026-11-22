@@ -169,6 +169,11 @@ modifiche a quelle parti, controllare a mano su tablet.
   **Opzione «Ordine alfabetico: Escluso (DSA)»** (`cfg.inversioneNoAlfa`, nel Setup, salvata nei preset): su lettere e alfanumerici niente «riordina», «Z–A»
   né ordinamenti alfabetici nelle doppie; restano inverso, vocali/consonanti, posizioni, colore ecc. Sulle cifre e sui numeri l'ordine crescente resta.
   Livello, tempi e progressione non cambiano (cambiano solo le consegne estratte).
+  **Scala di complessità definitiva (22 nov 2026, approvata da Rodrigo)** — sostituisce i livelli di comparsa indicati sotto per colore/grandezza/tipologia:
+  colori presenti negli stimoli 1 (rosso) al livello 2, 2 (+verde) al 3, 3 (+blu) dal 5 (colori uguali e diversi nella stessa stringa); singole: 1 inverti,
+  riordina · 2 grandi/piccoli, rossi · 3 pari/dispari, verdi · 4 vocali/consonanti, maiuscole/minuscole · 5 posizioni pari/dispari, Z–A, blu, **sottolineati**;
+  doppie dal 3 (pari/dispari, colore, grandezza), 4 vocali/consonanti, 5 maiuscole e cifra/lettera, 6 sottolineati; una doppia sul colore usa due colori e tutti i caratteri ne hanno uno.
+  Richieste per stringa: la 2ª dal livello 2, la 3ª dal 4 (`INVERSIONE_NCONS_P`). Il sottolineato è un attributo del carattere (`under`).
   **Attributi anticipati (22 nov 2026, richiesta di Rodrigo: «verde dal 4, maiuscole/minuscole e grande/piccolo dall'8» del generatore)**: le singole
   rossi/verdi sono dal livello Traccia-N 2 (gen. 4), maiuscole/minuscole/grandi/piccoli dal 3 (gen. 8); doppie con colore dal 3, con grandezza e
   maiuscole dal 4, cifra/lettera dal 5. Quota di stringhe a maiuscole miste: 0 fino al gen. 7, poi (gen−7)/19 fino al 100% al 26. Con una consegna su

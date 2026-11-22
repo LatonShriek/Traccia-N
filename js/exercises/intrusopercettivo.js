@@ -133,11 +133,17 @@ function eligibleRaw(g, L){
   const settled = base.filter(f=>g>=f.unlockLevel+3);
   return settled.length>=4 ? settled : base;
 }
-// Nei livelli con orientamenti compaiono SOLO le famiglie ruotabili (semi e note): tutte le schermate della sessione ruotano.
+// Nei livelli con orientamenti la rotazione è solo una VARIANTE in più (richiesta di Rodrigo, 22 nov 2026, non deve diventare il focus):
+// le prove normali usano tutte le altre famiglie senza rotazione (eligible), e solo una minoranza di prove (ROT_SHARE) usa semi o note ruotati (eligibleRot),
+// con numerosità e lunghezza decise dalla complessità del livello come negli altri livelli.
+export const ROT_SHARE = 1/6;
 function eligible(g, L){
   const raw = eligibleRaw(g, L);
-  if(intrusoOrientCount(g)>1){ const ok = raw.filter(f=>ROT_OK.has(f.id)); if(ok.length) return ok; }
+  if(intrusoOrientCount(g)>1){ const ok = raw.filter(f=>!ROT_OK.has(f.id)); if(ok.length) return ok; }
   return raw;
+}
+function eligibleRot(g, L){
+  return intrusoOrientCount(g)>1 ? eligibleRaw(g, L).filter(f=>ROT_OK.has(f.id)) : [];
 }
 // la lunghezza della sessione dipende dalle famiglie sbloccate, non da quelle ruotabili
 function planLen(g){ let L = sessionLen(g); while(L>1 && eligibleRaw(g,L).length<4) L--; return L; }
@@ -164,13 +170,13 @@ export const INTRUSO_GEN_OF_LEVEL = [1, 4, 8, 11, 15, 18, 22, 25, 29, 32];
 export function intrusoGenLevel(level){ return INTRUSO_GEN_OF_LEVEL[Math.max(1,Math.min(10,Math.round(level)))-1]; }
 // tempo massimo per schermata (ipotesi di partenza, da tarare sull'uso clinico)
 // (22 nov 2026: ricalcolato con la nuova scala — coppie dal gen. 13, terne dal 24, rotazione solo su semi e note — sempre con carico ≈ +23% a livello)
-export const INTRUSO_LIMIT_MS = {1:44000,2:44000,3:44000,4:40000,5:50000,6:46000,7:44000,8:44000,9:40000,10:32000};
+export const INTRUSO_LIMIT_MS = {1:44000,2:44000,3:40000,4:38000,5:50000,6:44000,7:42000,8:44000,9:40000,10:32000};
 export const INTRUSO_ADAPT_BLOCK = 6;
 export function intrusoFamiliesAt(level){ const g = intrusoGenLevel(level); return INTRUSO_FAMILIES.filter(f=>f.unlockLevel<=g); }
 // Che cosa aspettarsi a un livello (per la scheda di configurazione): lunghezza, numero tipico, tempo.
 export function intrusoPlanOfGen(g){
   const len = planLen(g);
-  const ns = eligible(g,len).map(f=>niceCount(targetN(g,f,Math.min(len,maxLen(f)))));
+  const ns = eligibleRaw(g,len).map(f=>niceCount(targetN(g,f,Math.min(len,maxLen(f)))));
   return { gen:g, len, nMin:Math.min(...ns), nMax:Math.max(...ns), nMean: ns.reduce((a,b)=>a+b,0)/ns.length };
 }
 // Tempo per schermata a un livello INTERO del generatore (asse fine, 15 nov): simboli da esaminare ÷ carico atteso,
@@ -219,7 +225,9 @@ export function genIntrusoTrial(level, rng, opts){
   rng = rng || Math.random; opts = opts || {};
   const lv = Math.max(1,Math.min(10,level)), g = opts.gen!=null ? opts.gen : intrusoGenLevel(lv), L = planLen(g);
   const baseLimit = opts.gen!=null ? intrusoLimitMsOfGen(g) : INTRUSO_LIMIT_MS[lv];
-  const el = eligible(g, L).slice().sort((a,b)=>famTerm(a)-famTerm(b));
+  const rotFams = eligibleRot(g, L);
+  const wantRot = rotFams.length>0 && (opts.forceRot===true || (opts.forceRot!==false && rng() < ROT_SHARE));
+  const el = (wantRot ? rotFams : eligible(g, L)).slice().sort((a,b)=>famTerm(a)-famTerm(b));
   const w = L===1 ? el.length : Math.min(el.length, Math.max(Math.min(9, el.length), Math.ceil(el.length*0.5))); // singoli: tutte le famiglie sbloccate (le non familiari vanno introdotte)
   const start = Math.round(levelT(g)*(el.length-w));
   let win = el.slice(start, start+w);

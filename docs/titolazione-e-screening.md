@@ -295,6 +295,6 @@ Identico = stesso simbolo E stesso orientamento: due simboli uguali con orientam
 | 9 | terna | 4 | solo semi e note |
 | 10 | terna | 8 | solo semi e note |
 
-- A questi livelli tutte le schermate della sessione ruotano; con due sole famiglie le schermate si ripetono tra loro (cambiano i simboli estratti e gli orientamenti). La numerosità sale (24–30 elementi) perché semi e note sono famiglie facili e il punteggio di difficoltà va comunque raggiunto.
+- **Rotazione = variante minoritaria (22 nov, sera)**: a questi livelli solo circa 1 prova su 6 (`ROT_SHARE`) usa semi o note ruotati; tutte le altre usano le altre famiglie senza rotazione. Numerosità e lunghezza seguono il livello come sempre. Tempi per schermata ricalcolati sul materiale misto (`INTRUSO_LIMIT_MS`).
 - La cornice (coppie e terne di simboli) resta sempre dritta; ruotano solo i simboli dentro. Il corpo si riduce perché l'elemento ruotato resti nella cella.
 - Coppie dal livello del generatore 13 (prima 9), terne dal 24 (prima 21); tempi per schermata ricalcolati a parità di carico (+23% a livello).

@@ -34,6 +34,7 @@ const FILES = [
   'runningspan.test.js',
   'nuovi-esercizi.test.js',
   'inversione-noalfa.test.js',
+  'intruso-rotazione.test.js',
   'inversione-complessita.test.js',
   'screening-level1.test.js',
   'screening-verbale.test.js',

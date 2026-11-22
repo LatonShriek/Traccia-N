@@ -56,6 +56,7 @@ import { DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoFeedbackText as demoFeedb
 import { buildSessionRecord } from './js/exercises/record.js';
 import { renderSessionGroups } from './js/ui/history-view.js';
 import { sectionMarker, sectionEnd, groupSections, collapseLongHints, joinSummary } from './js/ui/setup-sections.js';
+import { PASSAGGIO_TASKS, PASSAGGIO_LABEL, passaggioBuild, passaggioParse, applyPassaggioToCfg, genOfSavedCfg } from './js/core/passaggio.js';
 import { buildBackup, validateBackup, restoreBackup } from './js/services/backup.js';
 import { buildCSV, buildRCIReportHtml } from './js/exercises/export.js';
 import { genNbackTrial as genNbackTrialOf } from './js/exercises/nback.js';
@@ -559,6 +560,63 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
         ]));
       });
     }
+    return wrap;
+  }
+  // Passaggio dei livelli con PdM generator (in presenza) tramite un breve codice da copiare/incollare: solo livelli, nessun dato clinico.
+  // Vale per il paziente scelto in questo momento (il gruppo di PdM lo sceglie chi usa PdM: nessuna corrispondenza obbligata).
+  function passaggioTarget(){
+    if(buildingProgramFor && editingPatient) return {kind:buildingProgramFor.kind, id:buildingProgramFor.id, like:editingPatient};
+    if(patientProfile) return {kind:'remote', id:patientProfile.id, like:patientProfile};
+    if(activeLocalPatientId){ const lp = getLocalPatient(activeLocalPatientId); return lp ? {kind:'local', id:activeLocalPatientId, like:lp} : null; }
+    if(activeRemotePatientId){ const rp = (cachedRemotePatients||[]).find(q=>q.id===activeRemotePatientId); return rp ? {kind:'remote', id:activeRemotePatientId, like:rp} : null; }
+    return null;
+  }
+  async function passaggioImport(target, levels){
+    const backup = Object.assign({}, cfg);
+    try{
+      for(const mode of Object.keys(levels)){
+        cfg.taskMode = mode;
+        applyLevelBaselineOrSuggestion(mode);          // parte dalla configurazione già salvata del paziente per quell'esercizio
+        applyPassaggioToCfg(cfg, levels[mode]);
+        await saveExerciseLevel(target.kind, target.id, mode, presetCfgOf(cfg));
+      }
+    } finally {
+      Object.keys(cfg).forEach(k=>{ delete cfg[k]; });
+      Object.assign(cfg, backup);
+    }
+  }
+  function passaggioSection(){
+    const wrap = el('div',{class:'field'});
+    const target = passaggioTarget();
+    if(!target){
+      wrap.appendChild(el('p',{class:'hint'},['Scegli prima il paziente: i livelli di Intruso percettivo, Griglie e Inversione e riordino viaggiano con un breve codice, da usare in PdM generator o per ricevere quello di PdM.']));
+      return wrap;
+    }
+    const mine = {};
+    Object.keys(PASSAGGIO_TASKS).forEach(m=>{ const g = genOfSavedCfg(configForExercise(target.like, m)); if(g!=null) mine[m] = g; });
+    const code = passaggioBuild('TRN', mine);
+    wrap.appendChild(el('p',{class:'hint'},['Codice con i livelli raggiunti da questo paziente, da incollare in PdM generator (pannello «Passaggio livelli con Traccia-N»). Contiene solo livelli: nessun nome, nessun dato clinico.']));
+    const codeBox = el('input',{id:'passCode', readonly:'readonly', style:'flex:1; font-family:monospace;', value: code||''});
+    const msg = el('p',{class:'hint', id:'passMsg'},['']);
+    wrap.appendChild(el('div',{style:'display:flex; gap:6px; align-items:center;'},[
+      codeBox,
+      el('button',{class:'ghost', onclick:()=>{ if(!codeBox.value) return; try{ navigator.clipboard.writeText(codeBox.value); msg.textContent='Copiato.'; }catch(e){ codeBox.select(); msg.textContent='Selezionato: copia con Ctrl+C.'; } }},['Copia'])
+    ]));
+    if(!code) wrap.appendChild(el('p',{class:'hint'},['Questo paziente non ha ancora livelli salvati per questi tre esercizi.']));
+    wrap.appendChild(el('p',{class:'hint', style:'margin-top:10px;'},['Dopo la seduta in presenza: incolla qui il codice generato da PdM generator. Il paziente parte dal livello più basso del tratto corrispondente (prudente).']));
+    const inBox = el('input',{id:'passIn', placeholder:'PDM-I12-G8-V15-47', style:'flex:1; font-family:monospace;'});
+    wrap.appendChild(el('div',{style:'display:flex; gap:6px;'},[
+      inBox,
+      el('button',{onclick: async ()=>{
+        const r = passaggioParse(inBox.value);
+        if(!r.ok){ msg.textContent = r.error; return; }
+        await passaggioImport(target, r.levels);
+        const done = Object.keys(r.levels).map(m=>PASSAGGIO_LABEL[m]+': livello del generatore '+r.levels[m]).join(' · ');
+        render();
+        const m2 = document.getElementById('passMsg'); if(m2) m2.textContent = 'Impostati per questo paziente — '+done+'.';
+      }},['Applica'])
+    ]));
+    wrap.appendChild(msg);
     return wrap;
   }
   function presetSection(){
@@ -1774,6 +1832,12 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     } else {
       const ncs = namedConfigSection();
       if(ncs){ card.appendChild(sectionMarker('preset','Configurazioni salvate per questo paziente')); card.appendChild(ncs); }
+    }
+
+    {
+      const pt = passaggioTarget();
+      card.appendChild(sectionMarker('passaggio','Passaggio livelli con PdM',{summary: pt ? 'codice da/verso PdM generator' : 'scegli prima il paziente'}));
+      card.appendChild(passaggioSection());
     }
 
     const grid = el('div',{class:'grid'});

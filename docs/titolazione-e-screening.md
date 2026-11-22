@@ -298,3 +298,11 @@ Identico = stesso simbolo E stesso orientamento: due simboli uguali con orientam
 - **Rotazione = variante minoritaria (22 nov, sera)**: a questi livelli solo circa 1 prova su 6 (`ROT_SHARE`) usa semi o note ruotati; tutte le altre usano le altre famiglie senza rotazione. Numerosità e lunghezza seguono il livello come sempre. Tempi per schermata ricalcolati sul materiale misto (`INTRUSO_LIMIT_MS`).
 - La cornice (coppie e terne di simboli) resta sempre dritta; ruotano solo i simboli dentro. Il corpo si riduce perché l'elemento ruotato resti nella cella.
 - Coppie dal livello del generatore 13 (prima 9), terne dal 24 (prima 21); tempi per schermata ricalcolati a parità di carico (+23% a livello).
+
+## Passaggio dei livelli con PdM generator (22 nov 2026)
+
+Per tenere il passo tra le sedute in presenza (PdM generator) e il lavoro da remoto (Traccia-N) i livelli viaggiano con un **codice breve** da copiare e incollare, es. `PDM-I12-G8-V15-87` (I = Intruso percettivo, G = Griglie, V = Inversione e riordino; livelli sempre sulla scala 1-32 del generatore; le ultime due cifre sono un controllo contro gli errori di battitura). Contiene solo livelli: nessun nome, nessun dato clinico. Il paziente di Traccia-N e il gruppo di PdM si scelgono ciascuno nella propria app: non serve alcuna corrispondenza.
+
+- **Da PdM a Traccia-N**: Setup → «Passaggio livelli con PdM» (con il paziente scelto) → incolla il codice → «Applica». Per ciascun esercizio presente nel codice il livello di partenza del paziente diventa il livello fine corrispondente, **arrotondato per difetto a mezzo livello** (si parte sempre un po' sotto, mai sopra); il resto della configurazione salvata per quell'esercizio resta com'è.
+- **Da Traccia-N a PdM**: la stessa sezione mostra il codice `TRN-…` con i livelli raggiunti dal paziente (gli esercizi mai fatti sono omessi), da incollare nel pannello di PdM.
+- Codice e conversioni: `js/core/passaggio.js` (stessa costruzione e controllo di PdM `js/passaggio.js`); prove in `tests/passaggio.test.js` e `tests/e2e/passaggio.test.js`.

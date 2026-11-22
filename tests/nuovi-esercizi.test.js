@@ -173,9 +173,9 @@ module.exports = async function run(t) {
         if (it.expectedTokens.length < 1 || !it.instruction || it.instruction.length < 15) okIstr = false;
         if (it.double) {
           nDouble++;
-          if (lvl < 6) okLevel = false;
+          if (lvl < 3) okLevel = false;
           const C = it.rule.split(':')[1], mode = it.rule.split(':')[0];
-          if (!['color', 'size', 'case', 'type'].includes(C) || !['dbl-filtro', 'dbl-gruppi'].includes(mode)) okLevel = false;
+          if (!['color', 'size', 'case', 'type', 'vowel', 'parity'].includes(C) || !['dbl-filtro', 'dbl-gruppi'].includes(mode)) okLevel = false;
           if (['color', 'size'].includes(C) && !it.tokens.every(x => x[C])) okAttr = false;
         } else {
           const o = oracle[it.rule];
@@ -193,7 +193,8 @@ module.exports = async function run(t) {
       }
       t.ok(okExp, 'livello ' + lvl + ': risposta singola = ricalcolo indipendente');
       t.ok(okAttr && okDup && okLen && okLevel && okTime && okIstr, 'livello ' + lvl + ': attributi presenti, niente ripetizioni, lunghezze, consegne ai livelli giusti, tempo fisso, istruzione scritta');
-      if (lvl < 6) t.eq(nDouble, 0, 'livello ' + lvl + ': niente consegne doppie');
+      if (lvl < 3) t.eq(nDouble, 0, 'livello ' + lvl + ': niente consegne doppie');
+      if (lvl >= 3 && lvl <= 4) t.ok(nDouble > 0 && nDouble < N * 0.6, 'livello ' + lvl + ': le doppie compaiono (' + nDouble + '/' + N + ')');
       if (lvl === 10) t.ok(nDouble > N * 0.5, 'livello 10: consegne doppie prevalenti');
     }
     for (let lvl = 2; lvl <= 10; lvl++) t.ok(INV.inversioneExposureMs(lvl, 5) <= INV.inversioneExposureMs(lvl - 1, 5), 'tempo di visione decrescente col livello ' + lvl);

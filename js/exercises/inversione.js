@@ -132,6 +132,8 @@ const VALUE_LABEL = {
 const valueOf = {
   color: t => t.color, size: t => t.size,
   case: t => isLetterTok(t) ? (t.ch === t.ch.toUpperCase() ? 'upper' : 'lower') : null,
+  vowel: t => isLetterTok(t) ? (isVowelTok(t) ? 'vowel' : 'cons') : null,
+  parity: t => isDigitTok(t) ? (Number(t.ch)%2===0 ? 'even' : 'odd') : null,
   type: t => isDigitTok(t) ? 'digit' : 'letter'
 };
 // Ordinamenti (T): come si scrivono i token di un gruppo.
@@ -185,17 +187,24 @@ export const INVERSIONE_SINGLE = {
 export const INVERSIONE_SINGLE_KEYS = Object.keys(INVERSIONE_SINGLE);
 // Consegne DOPPIE (due criteri insieme): da un criterio di riconoscimento (colore, grandezza, maiuscolo/minuscolo,
 // cifra/lettera) più un ordine. Dal livello 6, con probabilità crescente.
+// Le doppie compaiono PRIMA dei livelli in cui si introducono colore e grandezza (richiesta di Rodrigo: troppo facile per troppo tempo con sole
+// consegne singole): dal livello 3 con criteri già noti dalle singole (vocali/consonanti sulle lettere, pari/dispari sulle cifre e sui numeri), poi
+// con colore dal 5 (le singole sul colore sono dal 4), con grandezza e maiuscole dal 6 (singole dal 5), cifra/lettera dal 7.
 const DOUBLE_CRITERIA = [
-  { C:'color', minLevel:6, kinds:['letters','digits','alnum','numbers'], values:['red','green'] },
+  { C:'vowel',  minLevel:3, kinds:['letters'], values:['vowel','cons'] },
+  { C:'parity', minLevel:3, kinds:['digits','numbers'], values:['even','odd'] },
+  { C:'color', minLevel:5, kinds:['letters','digits','alnum','numbers'], values:['red','green'] },
   { C:'size',  minLevel:6, kinds:['letters','digits','alnum','numbers'], values:['big','small'] },
-  { C:'case',  minLevel:7, kinds:['letters'], values:['upper','lower'] },
+  { C:'case',  minLevel:6, kinds:['letters'], values:['upper','lower'] },
   { C:'type',  minLevel:7, kinds:['alnum'], values:['digit','letter'] }
 ];
-export const INVERSIONE_DOUBLE_P = [0,0,0,0,0,0.2,0.35,0.5,0.65,0.8];
+export const INVERSIONE_DOUBLE_P = [0,0,0.2,0.3,0.4,0.5,0.55,0.65,0.75,0.8];
 const DOUBLE_ORDERS_FILTER = ['asc','desc','rev'];
 const DOUBLE_ORDERS_GROUP = ['asis','asc'];
 function valueText(C, v, kind){
   if(C==='type') return VALUE_LABEL.type[v];
+  if(C==='vowel') return v==='vowel' ? 'le VOCALI' : 'le CONSONANTI';
+  if(C==='parity') return NOUN[kind]+' '+(v==='even' ? 'PARI' : 'DISPARI');
   const noun = NOUN[C==='case' ? 'letters' : kind], fem = (C==='case' || FEM[kind]);
   if(C==='size') return noun+' scritt'+(fem?'e':'i')+' in '+(v==='big'?'GRANDE':'PICCOLO');
   return noun+' '+VALUE_LABEL[C][v][fem ? 1 : 0];
@@ -301,7 +310,7 @@ function chooseRule(lv, kind, pool, takenKeys, lastRule){
     .filter(k=>INVERSIONE_SINGLE[k].kinds.includes(kind) && !takenKeys.has(k));
   const canDouble = manual ? pool.includes('doppie') : Math.random() < INVERSIONE_DOUBLE_P[lv-1];
   if(canDouble && (!manual || !singles.length || Math.random()<0.4)){
-    const d = makeDouble(manual ? 10 : Math.max(lv, 6), kind);
+    const d = makeDouble(manual ? 10 : lv, kind);
     if(d && !takenKeys.has(d.key)) return d;
   }
   if(!singles.length) return null;

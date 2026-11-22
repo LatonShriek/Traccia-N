@@ -162,6 +162,10 @@ modifiche a quelle parti, controllare a mano su tablet.
   PASAT, Categorizzazione/Serie. Non attivo nelle sonde di screening.
 - **Inversione e riordino**: predefinito 24 sequenze; la consegna compare DOPO la scomparsa dello stimolo; 1-3 consegne diverse
   sulla stessa sequenza (`INVERSIONE_NCONS_P`, **ipotesi da validare**: 1 sola ai livelli 1-2, spesso 3 ai livelli 9-10);
+  **Consegne doppie anticipate (22 nov 2026, richiesta di Rodrigo: con sole consegne singole era troppo facile per troppo tempo)**: probabilità
+  per livello 1-10 = 0, 0, 20, 30, 40, 50, 55, 65, 75, 80 % (prima 0 fino al 5, poi 20-80). Dal livello 3 con criteri già noti dalle singole
+  (vocali/consonanti sulle lettere, pari/dispari su cifre e numeri), con colore dal 5, con grandezza e maiuscole dal 6, cifra/lettera dal 7;
+  nessun criterio compare in una doppia prima di essere comparso tra le singole (colore 4, grandezza e maiuscole 5).
   pool delle consegne spuntabile a mano (`cfg.inversionePool`, vale a tutti i livelli; vuoto = automatico per livello).
 - **Intruso percettivo**: predefinito 10 schermate; tempo massimo per schermata modificabile (`cfg.intrusoLimitS`, 0 = tabella
   `INTRUSO_LIMIT_MS`, 44→32 s dal 15 nov, **proposta non validata**). **Griglie attentive**: predefinito 1 griglia = 10 consegne.

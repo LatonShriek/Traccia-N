@@ -9,15 +9,15 @@ module.exports = async function run(t) {
 
   t.group('demo: parametri', () => {
     t.eq(D.DEMO_TRIALS, 6, '6 prove');
-    t.eq(D.DEMO_ELIGIBLE.length, 10, '10 esercizi con demo');
+    t.eq(D.DEMO_ELIGIBLE.length, 17, '17 esercizi con demo (10 a prove sequenziali + 7 a schermate proprie)');
     D.DEMO_ELIGIBLE.forEach(k => {
       t.ok(typeof D.DEMO_PATCHES[k] === 'function', k + ': patch presente');
       const p = D.DEMO_PATCHES[k]();
       t.eq(p.taskMode, k, k + ': taskMode coerente');
-      t.eq(p.trials, 6, k + ': 6 prove');
+      t.ok(p.trials >= 1 && p.trials <= 6, k + ': poche prove (' + p.trials + ')');
       t.ok(R.EXERCISES[k], k + ': esiste nel registro');
     });
-    t.eq(Object.keys(D.DEMO_PATCHES).length, 10, 'nessuna patch di troppo');
+    t.eq(Object.keys(D.DEMO_PATCHES).length, 17, 'nessuna patch di troppo');
   });
 
   t.group('demo: feedback testuale per ogni esercizio, giusto e sbagliato', () => {

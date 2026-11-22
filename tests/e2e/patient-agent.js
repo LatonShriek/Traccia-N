@@ -323,6 +323,10 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
       await page.click('button:has-text("Adattivo")');
       await page.waitForTimeout(250);
     }
+    if (opts && opts.demo) {
+      // prova dimostrativa: il pulsante porta direttamente alle istruzioni, con parametri fissi
+      await page.click('button:has-text("Prova dimostrativa")');
+    } else {
     if (family === 'neglect') {
       await decreaseStepperByLabel(page, 'Numero di tavole');
       await decreaseStepperByLabel(page, 'Elementi per tavola');
@@ -330,6 +334,7 @@ async function runFakePatientSession(repoRoot, exerciseKey, opts) {
       await decreaseStepperByLabel(page, 'Numero di prove');
     }
     await page.click('text=Avvia sessione');
+    }
     await page.waitForTimeout(300);
     await page.click('text=Ho capito, inizia');
     await page.waitForTimeout(3200); // conto alla rovescia 3-2-1, ~800ms a cifra

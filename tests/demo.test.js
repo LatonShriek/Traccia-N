@@ -32,15 +32,15 @@ module.exports = async function run(t) {
 
   t.group('Demo — idoneità e parametri fissi', () => {
     t.eq(DEMO_TRIALS, 6, 'la demo dura 6 prove');
-    const eligible = ['nback', 'sequenza', 'gonogo', 'switching', 'stopsignal', 'categorizzazione', 'dualtask', 'tapat', 'ant', 'simon'];
+    const eligible = ['nback', 'sequenza', 'gonogo', 'switching', 'stopsignal', 'categorizzazione', 'dualtask', 'tapat', 'ant', 'simon', 'intrusopercettivo', 'griglie', 'inversione', 'serie', 'pasat', 'runningspan', 'neglect'];
     eligible.forEach(k => {
       t.ok(DEMO_ELIGIBLE.includes(k), 'esercizio idoneo alla demo: ' + k);
       t.ok(typeof DEMO_PATCHES[k] === 'function', 'DEMO_PATCHES ha una patch per: ' + k);
       const patch = DEMO_PATCHES[k]();
-      t.eq(patch.trials, 6, 'patch "' + k + '": 6 prove');
+      if(!['inversione','pasat','runningspan','neglect'].includes(k)) t.eq(patch.trials, 6, 'patch "' + k + '": 6 prove'); else t.ok(patch.trials >= 1 && patch.trials <= 6, 'patch "' + k + '": poche prove (' + patch.trials + ')');
     });
     t.eq(DEMO_ELIGIBLE.length, eligible.length, 'nessun esercizio idoneo in più o in meno rispetto a quelli attesi');
-    t.ok(!DEMO_ELIGIBLE.includes('neglect'), 'Cancellazione fuori da questa lista (motore diverso, non a prove sequenziali)');
+    t.ok(DEMO_ELIGIBLE.includes('neglect'), 'Cancellazione ha ora la sua prova dimostrativa (22 nov: sessione vera a livello 1, 1 tavola, non salvata)');
     t.ok(!DEMO_ELIGIBLE.includes('memoria'), 'Strategie di memoria NON sono idonee (per scelta esplicita)');
     t.ok(!DEMO_ELIGIBLE.includes('goaltask'), 'Compiti a obiettivi/pianificazione NON sono idonei (per scelta esplicita)');
 
@@ -72,7 +72,7 @@ module.exports = async function run(t) {
     cfg.taskMode = 'tapat';
     t.eq(demoKeyForCurrentCfg(), 'tapat', 'TAPAT (esercizio separato) è riconosciuto come "tapat"');
     cfg.taskMode = 'neglect';
-    t.eq(demoKeyForCurrentCfg(), null, 'Cancellazione non è idonea (motore diverso)');
+    t.eq(demoKeyForCurrentCfg(), 'neglect', 'Cancellazione è idonea (dal 22 nov)');
     cfg.taskMode = 'memoria';
     t.eq(demoKeyForCurrentCfg(), null, 'Strategie di memoria non idonee');
   });

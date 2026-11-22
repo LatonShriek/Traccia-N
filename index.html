@@ -2502,7 +2502,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       }},['Avvia sessione']));
       const demoKey = demoKeyForCurrentCfg();
       if(demoKey){
-        extras.appendChild(el('button',{class:'ghost', onclick:()=>startDemo(demoKey)},['▶ Prova dimostrativa — '+demoLabelFor(demoKey)+' (6 prove, non salvate)']));
+        extras.appendChild(el('button',{class:'ghost', onclick:()=>startDemo(demoKey)},['▶ Prova dimostrativa — '+demoLabelFor(demoKey)+' (prova breve, non salvata)']));
       }
     }
 
@@ -2853,15 +2853,15 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     sessionTimeSetup();
     regenerateNumeriPool();
     regenerateParolePool();
-    if(cfg.taskMode==='neglect'){ startNeglectSession(); return; }
+    if(cfg.taskMode==='neglect'){ startNeglectSession(); if(session) session.isDemo = !!demoState; return; }
     if(cfg.taskMode==='goaltask'){ startGoalTaskSession(); return; }
     if(cfg.taskMode==='memoria'){ startMemoriaSession(); return; }
-    if(cfg.taskMode==='runningspan'){ startRunningSpanSession(); return; }
-    if(cfg.taskMode==='intrusopercettivo'){ startIntrusoSession(); return; }
-    if(cfg.taskMode==='griglie'){ startGriglieSession(); return; }
-    if(cfg.taskMode==='inversione'){ startInversioneSession(); return; }
-    if(cfg.taskMode==='pasat'){ startPasatSession(); return; }
-    if(cfg.taskMode==='serie'){ startSerieSession(); return; }
+    if(cfg.taskMode==='runningspan'){ startRunningSpanSession(); if(session) session.isDemo = !!demoState; return; }
+    if(cfg.taskMode==='intrusopercettivo'){ startIntrusoSession(); if(session) session.isDemo = !!demoState; return; }
+    if(cfg.taskMode==='griglie'){ startGriglieSession(); if(session) session.isDemo = !!demoState; return; }
+    if(cfg.taskMode==='inversione'){ startInversioneSession(); if(session) session.isDemo = !!demoState; return; }
+    if(cfg.taskMode==='pasat'){ startPasatSession(); if(session) session.isDemo = !!demoState; return; }
+    if(cfg.taskMode==='serie'){ startSerieSession(); if(session) session.isDemo = !!demoState; return; }
     const isTapat = cfg.taskMode==='tapat';
     const isIncremental = cfg.taskMode==='nback' || isTapat || cfg.taskMode==='gonogo' || cfg.taskMode==='dualtask' || cfg.taskMode==='categorizzazione';
     session = {
@@ -5090,10 +5090,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // genRunningSpanTrial / maybeAdaptRunningSpan: logica in js/exercises/runningspan.js (passo 5b).
   function genRunningSpanTrial(){ fineLv(); return genRunningSpanTrialOf(cfg); }
   function startRunningSpanSession(){
+    // la sessione va creata PRIMA di generare la prova: genRunningSpanTrial legge session (fineLv). Con session ancora null (primo
+    // esercizio dopo l'apertura dell'app) il Running Span restava bloccato su «preparazione» (errore trovato il 22 nov con la prova dimostrativa).
     session = {
-      trialIdx:0, showIdx:0, phase:'showing', currentTrial: genRunningSpanTrial(),
+      trialIdx:0, showIdx:0, phase:'showing', currentTrial: null,
       rsAnswer:[], results:[], rsAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false
     };
+    session.currentTrial = genRunningSpanTrial();
     view='task'; render();
     scheduleRunningSpanShow();
   }
@@ -5657,6 +5660,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     }
   }
   async function completeAndSaveInner(durationMs){
+    if(session && session.isDemo){ view='demoDone'; render(); return; } // prova dimostrativa: nulla viene salvato
     sessionTimeFinish();
     fineFinish();
     const rec = buildSessionRecord(cfg, session, durationMs, {patientProfile, activeLocalPatientId, activeRemotePatientId, dateLabel: todayStr()});

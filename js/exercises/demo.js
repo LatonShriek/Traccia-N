@@ -15,7 +15,7 @@
   // compito) i valori sono una scelta di comodo per un ritmo non
   // frettoloso — ipotesi di costruzione, non un dato di letteratura.
   export const DEMO_TRIALS = 6;
-  export const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','ant','simon'];
+  export const DEMO_ELIGIBLE = ['nback','sequenza','gonogo','switching','stopsignal','categorizzazione','dualtask','tapat','ant','simon','intrusopercettivo','griglie','inversione','serie','pasat','runningspan','neglect'];
   export const DEMO_PATCHES = {
     nback: ()=>({taskMode:'nback', nLevel:1, isi:2200, stimDuration:700, trials:DEMO_TRIALS}),
     sequenza: ()=>({taskMode:'sequenza', adaptStartLevel:1, isi:2200, stimDuration:700, trials:DEMO_TRIALS}),
@@ -26,6 +26,15 @@
     dualtask: ()=>({taskMode:'dualtask', dualStartLevel1:1, dualStartLevel2:1, isi:2200, stimDuration:800, trials:DEMO_TRIALS}),
     tapat: ()=>({taskMode:'tapat', tapatStartLevel:1, trials:DEMO_TRIALS}),
     ant: ()=>({taskMode:'ant', adaptStartLevel:1, isi:3200, stimDuration:700, trials:DEMO_TRIALS}),
+    // 22 nov 2026 — esempi per gli esercizi a schermate proprie: la sessione vera, ma al livello 1 fisso, poche prove, con riscontro a quadratini e
+    // senza salvare nulla. Nessuna spiegazione aggiuntiva per prova: il riscontro (verde/rosso, correzione nelle Griglie) è quello dell'esercizio.
+    intrusopercettivo: ()=>({taskMode:'intrusopercettivo', adaptStartLevel:1, titrationMode:'manuale', trials:DEMO_TRIALS, feedbackProva:true}),
+    griglie: ()=>({taskMode:'griglie', adaptStartLevel:1, titrationMode:'manuale', trials:DEMO_TRIALS, feedbackProva:true}),
+    inversione: ()=>({taskMode:'inversione', adaptStartLevel:1, titrationMode:'manuale', trials:4, feedbackProva:true}),
+    serie: ()=>({taskMode:'serie', adaptStartLevel:1, titrationMode:'manuale', trials:DEMO_TRIALS, feedbackProva:true}),
+    pasat: ()=>({taskMode:'pasat', adaptStartLevel:1, titrationMode:'manuale', trials:2, feedbackProva:true}),
+    runningspan: ()=>({taskMode:'runningspan', adaptStartLevel:1, titrationMode:'manuale', trials:3, feedbackProva:true}),
+    neglect: ()=>({taskMode:'neglect', neglectMode:'classico', neglectStartLevel:1, titrationMode:'manuale', trials:1, neglectBoardSize:15}),
     simon: ()=>({taskMode:'simon', adaptStartLevel:1, simonCongruenza:'bilanciato', isi:3200, stimDuration:700, trials:DEMO_TRIALS})
   };
   // Testo di feedback dopo ogni prova della demo — usa la classificazione

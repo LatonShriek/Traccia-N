@@ -20,7 +20,9 @@ module.exports = async function run(t) {
   // elementi, ciascuno con il proprio ISI) seguita dal richiamo a
   // tastierino — anche un solo ciclo al minimo può avvicinarsi al
   // limite standard.
-  const MAX_MS_OVERRIDE = { mantenimento: 70000, runningspan: 70000, pasat: 70000, serie: 70000 };
+  // 26 nov 2026: Inversione (10 prove, dal 22 nov con selezione + manipolazione) e Running span richiedono realisticamente più di 30 s e di 70 s:
+  // misurati 72 s e 85 s con 10/10 prove e 20 tocchi, senza errori JavaScript. Prima il test li interrompeva a metà (falso errore).
+  const MAX_MS_OVERRIDE = { mantenimento: 70000, runningspan: 150000, pasat: 70000, serie: 70000, inversione: 120000 };
   for (const exerciseKey of Object.keys(EXERCISE_BUTTON_TEXT)) {
     const entry = EXERCISE_BUTTON_TEXT[exerciseKey];
     const label = typeof entry === 'string' ? entry : entry.exercise + (entry.subMode ? ' → ' + entry.subMode : '');

@@ -77,10 +77,10 @@ const EXERCISE_BUTTON_TEXT = {
   griglie: { exercise: 'Griglie attentive', family: 'griglie' },
   inversione: { exercise: 'Inversione e riordino', family: 'inversione' },
   neglect: { exercise: 'Cancellazione (neglect)', family: 'neglect' },
-  goaltask: { exercise: 'Scenari ecologici', family: 'goaltask' },
-  neglect_intruso: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: "Trova l'intruso" },
-  neglect_regola: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: 'Conteggio a regola' },
-  neglect_progressiva: { exercise: 'Cancellazione (neglect)', family: 'neglect', subMode: 'Progressiva' }
+  goaltask: { exercise: 'Scenari ecologici', family: 'goaltask' }
+  // Le modalità «Trova l'intruso», «Conteggio a regola» e «Progressiva» di Cancellazione non hanno più il loro pulsante dal 14 nov 2026
+  // (accorpamento: sono diventate gli esercizi Intruso percettivo e Griglie attentive, già coperti qui sopra da `intrusopercettivo` e `griglie`;
+  // compaiono solo se la configurazione caricata le usa già). Le voci restavano e il test non trovava più il pulsante (26 nov 2026).
 };
 
 // Riduce al minimo il campo che controlla la lunghezza della sessione —
@@ -242,8 +242,11 @@ async function simulateTimedChoiceResponses(page, { maxMs = 60000, tapEveryMs = 
   while (Date.now() - start < maxMs) {
     const stillRunning = await page.locator('button:has-text("Interrompi")').count();
     if (!stillRunning) break;
-    const btns = page.locator('div[style*="max-width"] button');
-    const n = await btns.count();
+    let btns = page.locator('div[style*="max-width"] button');
+    let n = await btns.count();
+    // Regole di Serie (Categorizzazione condizionale): i pulsanti di risposta stanno fuori dal contenitore con larghezza inline
+    // (26 nov 2026: l'agente faceva 0 tocchi pur essendo i pulsanti Sinistra/Destra/Sì/No ben visibili e la sessione regolare)
+    if (n === 0) { btns = page.locator('button:text-is("Sinistra"), button:text-is("Destra"), button:text-is("Sì"), button:text-is("No")'); n = await btns.count(); }
     if (n > 0) { await btns.nth(Math.floor(Math.random() * n)).click({ timeout: 800 }).catch(() => {}); taps++; }
     await page.waitForTimeout(tapEveryMs);
   }

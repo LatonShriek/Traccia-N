@@ -276,6 +276,66 @@ export function scoreIntrusoTrial(trial, tappedIndex, rtMs){
   if(tappedIndex==null) return {correct:false, omitted:true, rt:null};
   return {correct: tappedIndex===trial.oddIndex, omitted:false, rt: rtMs};
 }
+// ---- Errori concessi e aiuto sulla riga (27 nov 2026) ----
+// Logica ripresa dal lettore a tocco del generatore PdM, senza togliere il tempo: il paziente può sbagliare; l'elemento
+// toccato per errore si attenua e non si può più toccare, la schermata resta e il tempo massimo CONTINUA a scorrere
+// (non riparte a ogni errore). Dopo `hintAfter` errori restano attive solo le celle della riga che contiene l'intruso
+// (la ricerca passa da tutta la griglia a una riga, senza svelare la risposta). `hintAfter` = 0: nessuna seconda
+// possibilità, il primo tocco decide (comportamento di prima).
+// Il credito per l'adattamento è graduato: ipotesi di lavoro, NON valori validati (stessa scala di Griglie).
+export const INTRUSO_HINT_AFTER_DEFAULT = 2, INTRUSO_HINT_AFTER_MAX = 5;
+export const INTRUSO_CREDIT = { first: 1, afterErr: 0.7, hinted: 0.3 };
+
+// Errori concessi dalla configurazione: intero 0–5; se manca (preset vecchi) vale il predefinito.
+export function intrusoHintAfterOf(cfg){
+  const v = cfg ? cfg.intrusoHintAfter : undefined;
+  if(v == null || v === '' || !isFinite(+v)) return INTRUSO_HINT_AFTER_DEFAULT;
+  return Math.max(0, Math.min(INTRUSO_HINT_AFTER_MAX, Math.round(+v)));
+}
+// Stato dei tocchi di UNA schermata.
+export function intrusoTapNew(){ return { wrong: [], hinted: false, correct: false, rtFirst: null, rtEnd: null, decidedByFirst: false }; }
+// Indici delle celle della riga che contiene l'intruso (la griglia ha `cols` colonne).
+export function intrusoRowCells(trial, cols){
+  const row = Math.floor(trial.oddIndex / cols), out = [];
+  for(let k = row*cols; k < Math.min(trial.n, (row+1)*cols); k++) out.push(k);
+  return out;
+}
+// La cella k si può toccare? No se già sbagliata; con l'aiuto attivo solo se è nella riga dell'intruso.
+export function intrusoCellActive(trial, cols, tap, k){
+  if(tap.wrong.indexOf(k) >= 0) return false;
+  if(tap.hinted) return intrusoRowCells(trial, cols).indexOf(k) >= 0;
+  return true;
+}
+// Un tocco. Cambia `tap` e dice se la schermata è finita (tocco giusto, oppure errore con hintAfter = 0).
+export function intrusoTap(tap, trial, k, rtMs, hintAfter){
+  const first = tap.rtFirst == null;
+  if(first) tap.rtFirst = rtMs;
+  if(k === trial.oddIndex){
+    tap.rtEnd = rtMs; tap.decidedByFirst = first; tap.correct = true;
+    return { done: true, correct: true };
+  }
+  tap.wrong.push(k);
+  if(hintAfter <= 0){ tap.rtEnd = rtMs; tap.decidedByFirst = true; return { done: true, correct: false }; }
+  if(tap.wrong.length >= hintAfter) tap.hinted = true;
+  return { done: false, correct: false };
+}
+// Esito finale della schermata. `timedOut`: il tempo è scaduto senza tocco giusto.
+// - nessun tocco allo scadere = omissione; tempo scaduto DOPO errori = errore (non omissione: il paziente ha cercato,
+//   non era lento, quindi non deve far concedere più tempo);
+// - `rt` vale solo se il primo tocco ha deciso (giusto o sbagliato, come prima): le risposte corrette dopo errori non
+//   entrano nei tempi di riferimento né nella mediana del tempo, che misurano la ricerca senza aiuto.
+export function intrusoTrialOutcome(tap, timedOut){
+  const errs = tap.wrong.length;
+  if(timedOut){
+    if(errs === 0) return { correct: false, omitted: true, score: 0, rt: null, rtFirst: null, rtEnd: null, errs: 0, hinted: false };
+    return { correct: false, omitted: false, score: 0, rt: null, rtFirst: tap.rtFirst, rtEnd: null, errs, hinted: !!tap.hinted };
+  }
+  const correct = !!tap.correct;
+  const rt = tap.decidedByFirst ? tap.rtEnd : null;
+  const score = !correct ? 0 : tap.hinted ? INTRUSO_CREDIT.hinted : errs > 0 ? INTRUSO_CREDIT.afterErr : INTRUSO_CREDIT.first;
+  return { correct, omitted: false, score, rt, rtFirst: tap.rtFirst, rtEnd: tap.rtEnd, errs, hinted: !!tap.hinted };
+}
+
 // Adattamento: ogni INTRUSO_ADAPT_BLOCK prove, stessa soglia 70/85% degli altri esercizi, ma la manopola (contenuto
 // o tempo) la sceglie decideStep (core/assi.js) dal tipo di errore e dal margine di tempo.
 export function maybeAdaptIntruso(cfg, session){

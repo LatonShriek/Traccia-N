@@ -13,6 +13,7 @@ import { genOfFine } from '../core/assi.js';
 import { hasTitrationMode } from '../core/titration.js';
 import { scoreGoalTask } from './goaltask.js';
 import { memoriaEffectiveMateriale, memoriaLearnItems } from './memoria.js';
+import { intrusoHintAfterOf } from './intrusopercettivo.js';
 import { EXERCISES } from './registry.js';
 
   export function scoreFromCounts(c){
@@ -157,6 +158,14 @@ import { EXERCISES } from './registry.js';
         rec.choice.lisas = computeLISAS(correctRTsMs, log.map(x=>x.correct));
       }
       rec.fatigueNote = computeFatigueNote(log.map(x=> x.correct && !x.omitted));
+      if(cfg.taskMode==='intrusopercettivo'){
+        // Errori concessi e aiuto sulla riga: come finisce ogni schermata (le righe vecchie senza `errs` contano come primo tocco)
+        rec.choice.primoTocco = log.filter(x=>x.correct && !(x.errs>0)).length;
+        rec.choice.dopoErrori = log.filter(x=>x.correct && x.errs>0 && !x.hinted).length;
+        rec.choice.conAiuto = log.filter(x=>x.correct && x.hinted).length;
+        rec.choice.erroriTotali = log.reduce((a,x)=> a + (x.errs>0 ? x.errs : (x.correct||x.omitted ? 0 : 1)), 0);
+        rec.choice.erroriConcessi = intrusoHintAfterOf(cfg);
+      }
       if(cfg.taskMode==='ant'){
         const rtBy = (key,val)=> rtMeanOf(log.filter(x=>x[key]===val && x.correct).map(x=>x.rt));
         const noneRT=rtBy('cueType','none'), centerRT=rtBy('cueType','center'), spatialRT=rtBy('cueType','spatial');

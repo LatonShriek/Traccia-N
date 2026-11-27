@@ -50,7 +50,8 @@ const FILES = [
   'cloud.test.js',
   'nback.test.js',
   'gonogo-dual.test.js',
-  'setup-sections.test.js'
+  'setup-sections.test.js',
+  'intruso-errori.test.js'
 ];
 
 // Suite end-to-end (browser vero via Playwright — più lenta, richiede

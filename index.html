@@ -56,6 +56,7 @@ import { DEMO_TRIALS, DEMO_ELIGIBLE, DEMO_PATCHES, demoFeedbackText as demoFeedb
 import { buildSessionRecord } from './js/exercises/record.js';
 import { renderSessionGroups } from './js/ui/history-view.js';
 import { sectionMarker, sectionEnd, groupSections, collapseLongHints, joinSummary } from './js/ui/setup-sections.js';
+import { intrusoHintAfterOf, intrusoTapNew, intrusoTap, intrusoTrialOutcome, intrusoCellActive, INTRUSO_CREDIT } from './js/exercises/intrusopercettivo.js';
 import { PASSAGGIO_TASKS, PASSAGGIO_LABEL, passaggioBuild, passaggioParse, applyPassaggioToCfg, genOfSavedCfg } from './js/core/passaggio.js';
 import { buildBackup, validateBackup, restoreBackup } from './js/services/backup.js';
 import { buildCSV, buildRCIReportHtml } from './js/exercises/export.js';
@@ -228,7 +229,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     cfg.adaptStartLevel = pc.adaptStartLevel || 1; cfg.tapatStartLevel = pc.tapatStartLevel || 1;
     cfg.dualStartLevel1 = pc.dualStartLevel1 || 1; cfg.dualStartLevel2 = pc.dualStartLevel2 || 1; cfg.dualFine1 = pc.dualFine1; cfg.dualFine2 = pc.dualFine2; cfg.categLivelloFine = pc.categLivelloFine;
     cfg.neglectStartLevel = pc.neglectStartLevel || 1;
-    cfg.grigliaRisposta = pc.grigliaRisposta||'tocco'; cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.grigliaNRichieste = Math.max(4, Math.min(30, pc.grigliaNRichieste|0 || 10)); cfg.grigliaEspSec = (pc.grigliaEspSec==null) ? 5 : Math.max(0, Math.min(15, pc.grigliaEspSec|0)); cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.inversioneNoAlfa = !!pc.inversioneNoAlfa; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
+    cfg.grigliaRisposta = pc.grigliaRisposta||'tocco'; cfg.intrusoLimitS = pc.intrusoLimitS|0; cfg.intrusoHintAfter = intrusoHintAfterOf(pc); cfg.grigliaNRichieste = Math.max(4, Math.min(30, pc.grigliaNRichieste|0 || 10)); cfg.grigliaEspSec = (pc.grigliaEspSec==null) ? 5 : Math.max(0, Math.min(15, pc.grigliaEspSec|0)); cfg.inversionePool = pc.inversionePool||[]; cfg.inversioneNCons = pc.inversioneNCons||'auto'; cfg.inversioneNoAlfa = !!pc.inversioneNoAlfa; cfg.durataMin = pc.durataMin|0; cfg.feedbackProva = pc.feedbackProva!==false; cfg.trials = pc.trials; cfg.isi = pc.isi; cfg.stimDuration = pc.stimDuration;
     cfg.targetRate = pc.targetRate; cfg.respMode = pc.respMode; cfg.voice = pc.voice;
     cfg.ssd = pc.ssd || 250; cfg.ssdStep = pc.ssdStep || 50; cfg.stopsignalInterferenza = pc.stopsignalInterferenza || 'no'; cfg.adaptive = !!pc.adaptive;
     cfg.switchMaterial = pc.switchMaterial || 'numeri'; cfg.dualVisual = pc.dualVisual || 'lettere'; cfg.dualVisual2 = pc.dualVisual2 || 'numeri'; cfg.dualPairing = pc.dualPairing || 'vis-aud'; cfg.antMode = pc.antMode || 'classico';
@@ -2010,6 +2011,11 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       if(cfg.taskMode==='intrusopercettivo'){
         const lvT = intrusoPlanAt(cfg.adaptStartLevel);
         grid.appendChild(field('Tempo massimo per schermata (0 = secondo il livello: '+Math.round(lvT.limitMs/1000)+' s)', stepper(cfg.intrusoLimitS|0,0,120,v=>{ cfg.intrusoLimitS=v; render(); },5)));
+        const hintN = intrusoHintAfterOf(cfg);
+        grid.appendChild(field('Errori concessi prima dell\'aiuto (0 = il primo tocco decide)', stepper(hintN,0,5,v=>{ cfg.intrusoHintAfter=v; render(); })));
+        grid.appendChild(el('p',{class:'hint', style:'grid-column:1/-1; margin:2px 0 8px;'},[hintN===0
+          ? 'Il primo tocco chiude la schermata, giusto o sbagliato. Nessuna seconda possibilità e nessun aiuto.'
+          : 'Un elemento toccato per errore si attenua e la schermata resta; il tempo massimo continua a scorrere. Dopo '+hintN+(hintN===1?' errore':' errori')+' restano attivi solo gli elementi della riga che contiene l\'intruso (la ricerca passa da tutta la griglia a una riga, senza svelare la risposta). Il livello sale solo se la ricerca riesce senza aiuto: una risposta giusta dopo errori vale '+INTRUSO_CREDIT.afterErr+', con l\'aiuto '+INTRUSO_CREDIT.hinted+' (valori di lavoro, da rivedere).']));
         const lv = intrusoPlanAt(cfg.adaptStartLevel);
         card.appendChild(el('p',{class:'hint'},['A questo livello (= livello '+lv.gen+' del generatore di schede, stesse famiglie di simboli): '+(lv.nMin===lv.nMax?lv.nMax:lv.nMin+'-'+lv.nMax)+' elementi per schermata, simboli di '+lv.len+(lv.len===1?' carattere':' caratteri')+', '+Math.round(lv.limitMs/1000)+' s per schermata. Con l\'adattivo il livello cambia da solo ogni 6 schermate (70-85%).']));
       }
@@ -5302,24 +5308,32 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function beginIntrusoTrial(){
     if(session.paused) return;
-    if(!session.currentTrial) session.currentTrial = genIntrusoTrialOf(fineLv(), null, Object.assign({avoidFamilies:session.recentFams}, genOpts()));
+    if(!session.currentTrial){ session.currentTrial = genIntrusoTrialOf(fineLv(), null, Object.assign({avoidFamilies:session.recentFams}, genOpts())); session.ipTap = intrusoTapNew(); }
     session.trialShownAt = performance.now();
     render();
-    session.timer = setTimeout(()=>resolveIntrusoTrial(null), cfg.intrusoLimitS>0 ? cfg.intrusoLimitS*1000 : session.currentTrial.limitMs);
+    session.timer = setTimeout(()=>finishIntrusoTrial(true), cfg.intrusoLimitS>0 ? cfg.intrusoLimitS*1000 : session.currentTrial.limitMs);
   }
-  function resolveIntrusoTrial(tapped){
+  // Un tocco su una cella. Sbagliato: la cella si attenua (si ridisegna la schermata) e il tempo continua; giusto: la
+  // schermata si chiude. Con 0 errori concessi il primo tocco decide, come prima.
+  function tapIntruso(k){
+    if(session.paused || !session.currentTrial || !session.ipTap) return;
+    if(session.ipTap.wrong.indexOf(k) >= 0) return;
+    const rt = Math.round(performance.now()-session.trialShownAt);
+    const r = intrusoTap(session.ipTap, session.currentTrial, k, rt, intrusoHintAfterOf(cfg));
+    if(r.done) finishIntrusoTrial(false); else render();
+  }
+  function finishIntrusoTrial(timedOut){
     timedClearTimer();
     const trial = session.currentTrial;
-    const rt = Math.round(performance.now()-session.trialShownAt);
-    const sc = scoreIntrusoTrial(trial, tapped, rt);
-    const ipCounted = Math.round(rtBucketOutcome('intruso', sc.correct, sc.rt)*100)/100;
-    session.choiceLog.push({correct:sc.correct, credit:ipCounted, omitted:sc.omitted, rt:sc.rt, level:cfg.adaptStartLevel, gen:trial.gen, limitMs:(cfg.intrusoLimitS>0 ? cfg.intrusoLimitS*1000 : trial.limitMs), timeF:session.timeF||null, family:trial.familyId, n:trial.n});
-    session.ipAdaptBlock.push(ipCounted); trialFeedback(!!sc.correct);
+    const out = intrusoTrialOutcome(session.ipTap, timedOut);
+    const ipCounted = Math.round(rtBucketOutcome('intruso', out.score, out.rt)*100)/100;
+    session.choiceLog.push({correct:out.correct, credit:ipCounted, omitted:out.omitted, rt:out.rt, rtFirst:out.rtFirst, rtEnd:out.rtEnd, errs:out.errs, hinted:out.hinted, level:cfg.adaptStartLevel, gen:trial.gen, limitMs:(cfg.intrusoLimitS>0 ? cfg.intrusoLimitS*1000 : trial.limitMs), timeF:session.timeF||null, family:trial.familyId, n:trial.n});
+    session.ipAdaptBlock.push(ipCounted); trialFeedback(!!out.correct);
     maybeAdaptIntrusoOf(cfg, session);
     session.trialIdx++;
     if(session.trialIdx >= cfg.trials){ completeAndSave(Date.now()-session.startedAtWall); return; }
     session.recentFams = [trial.familyId].concat(session.recentFams).slice(0,2);
-    session.currentTrial = genIntrusoTrialOf(fineLv(), null, Object.assign({avoidFamilies:session.recentFams}, genOpts())); // livello letto ORA, dopo l'eventuale adattamento
+    session.currentTrial = null; // la nuova schermata si genera in beginIntrusoTrial, con il livello letto ORA (dopo l'eventuale adattamento)
     beginIntrusoTrial();
   }
   function updateIntrusoScreen(){
@@ -5343,16 +5357,20 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const rbox = rotAngles ? intrusoRotBox(trial.len, cw, rotAngles, intrusoFramed(trial.familyId, trial.len)) : null;
     if(rbox) px = Math.floor(Math.max(14, Math.min(px, (cellW-8)*0.92/rbox.W, (cellH-8)*0.92/rbox.H)));
     const grid = el('div',{style:'display:grid; grid-template-columns:repeat('+cols+',1fr); gap:6px; margin-top:8px;'});
+    const tap = session.ipTap || intrusoTapNew();
     trial.items.forEach((v,i)=>{
+      // cella già sbagliata: attenuata con bordo di errore; fuori dalla riga dell'aiuto: molto sbiadita; entrambe non si toccano più
+      const active = intrusoCellActive(trial, cols, tap, i);
+      const cellExtra = tap.wrong.indexOf(i) >= 0 ? ' opacity:.3; border-color:var(--alert);' : !active ? ' opacity:.12;' : '';
       const framed = intrusoFramed(trial.familyId, [...String(v)].length);
       const ang = (trial.angles && trial.angles[i]) || 0;
       const inner = rbox
         ? el('span',{style:'display:inline-block; position:relative; width:'+rbox.W+'em; height:'+rbox.H+'em; line-height:1;'+(framed?' border:1.5px solid #8A948E; border-radius:.3em; box-sizing:border-box;':'')},
             [el('span',{style:'position:absolute; left:50%; top:50%; white-space:nowrap; transform:translate(-50%,-50%) rotate('+ang+'deg);'},[v])])
         : framed ? el('span',{style:'display:inline-block; border:1.5px solid #8A948E; border-radius:.3em; padding:.04em .28em; line-height:1.25;'},[v]) : v;
-      grid.appendChild(el('button',{style:'font-size:'+px+'px; min-height:'+Math.max(48,Math.floor(cellH-6))+'px; padding:0; font-family:inherit; line-height:1.1; background:#fff; border:1px solid #D9DFD9; border-radius:6px; touch-action:manipulation;', onclick:()=>{ if(!session.paused) resolveIntrusoTrial(i); }},[inner]));
+      grid.appendChild(el('button',{style:'font-size:'+px+'px; min-height:'+Math.max(48,Math.floor(cellH-6))+'px; padding:0; font-family:inherit; line-height:1.1; background:#fff; border:1px solid #D9DFD9; border-radius:6px; touch-action:manipulation;'+cellExtra, disabled: !active ? true : null, onclick:()=>tapIntruso(i)},[inner]));
     });
-    content.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Tocca l\'unico elemento che compare UNA SOLA volta.']));
+    content.appendChild(el('p',{class:'hint', style:'text-align:center;'},[tap.hinted ? 'Cerca nella riga rimasta attiva: l\'elemento che compare UNA SOLA volta è qui.' : 'Tocca l\'unico elemento che compare UNA SOLA volta.']));
     content.appendChild(grid);
   }
   // --- Griglie attentive ---

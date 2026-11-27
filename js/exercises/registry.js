@@ -430,6 +430,7 @@ import { serieRuleFor } from './serie.js';
     grigliaEspSec:5, // Griglie: la consegna resta visibile questi secondi, poi si nasconde (rivedibile 2 volte); 0 = sempre visibile
     grigliaNRichieste:10, // Griglie: numero di consegne per griglia (10 di norma, 4–30)
     intrusoLimitS:0, // Intruso: tempo massimo per schermata in secondi (0 = tabella del livello)
+    intrusoHintAfter:2, // Intruso: errori concessi prima di isolare la riga dell'intruso (0 = il primo tocco decide; 1–5); il tempo continua a scorrere
     inversionePool:[], // consegne ammesse scelte a mano (vuoto = automatico per livello; include 'doppie')
     inversioneNoAlfa:false, // Inversione: esclude le consegne a ORDINE ALFABETICO su lettere e alfanumerici (per chi ha difficoltà di lettura, DSA); livello e progressione restano gli stessi
     inversioneNCons:'auto', // consegne per sequenza: 'auto' (1-3 secondo il livello) oppure 1/2/3
@@ -478,7 +479,7 @@ import { serieRuleFor } from './serie.js';
       goaltaskScenario:c.goaltaskScenario, goaltaskLivello:c.goaltaskLivello, memoriaModo:c.memoriaModo, memoriaLivello:c.memoriaLivello, memoriaMateriale:c.memoriaMateriale, memoriaFormaIdx:c.memoriaFormaIdx, pasatMateriale:c.pasatMateriale, serieRegola:c.serieRegola,
       memoriaLociTipo:c.memoriaLociTipo, memoriaLociCustom:c.memoriaLociCustom,
       chunkingMetodi:c.chunkingMetodi, chunkingNota:c.chunkingNota,
-      grigliaRisposta:c.grigliaRisposta, intrusoLimitS:c.intrusoLimitS, grigliaNRichieste:c.grigliaNRichieste, grigliaEspSec:c.grigliaEspSec, inversionePool:c.inversionePool, inversioneNCons:c.inversioneNCons, inversioneNoAlfa:!!c.inversioneNoAlfa, durataMin:c.durataMin, feedbackProva:c.feedbackProva, categLivello:c.categLivello, categTipo:c.categTipo, serieRegola:c.serieRegola, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
+      grigliaRisposta:c.grigliaRisposta, intrusoLimitS:c.intrusoLimitS, intrusoHintAfter:c.intrusoHintAfter, grigliaNRichieste:c.grigliaNRichieste, grigliaEspSec:c.grigliaEspSec, inversionePool:c.inversionePool, inversioneNCons:c.inversioneNCons, inversioneNoAlfa:!!c.inversioneNoAlfa, durataMin:c.durataMin, feedbackProva:c.feedbackProva, categLivello:c.categLivello, categTipo:c.categTipo, serieRegola:c.serieRegola, categMateriale:c.categMateriale, categStructManual:c.categStructManual, zoneGrandi: !!c.zoneGrandi,
       categRegime:c.categRegime, switchRegime:c.switchRegime,
       simonCongruenza:c.simonCongruenza, simonMateriale:c.simonMateriale,
       inputDevice: c.inputDevice||'touch', keyLayout: c.keyLayout||'standard'

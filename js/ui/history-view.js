@@ -49,6 +49,11 @@ export function detailRowsOf(r, forPatient){
   } else if(family==='choice' && r.choice){
     add('Accuratezza', pct(r.choice.accuracy));
     add('Omissioni', r.choice.omitted);
+    if(r.choice.primoTocco!=null){ // Intruso percettivo: come sono finite le schermate
+      add('Giuste al primo tocco', r.choice.primoTocco+' / '+r.choice.total);
+      if(r.choice.erroriConcessi>0){ add('Giuste dopo errori', r.choice.dopoErrori); add('Giuste con l\u2019aiuto (riga)', r.choice.conAiuto); }
+      add('Errori in tutto', r.choice.erroriTotali);
+    }
     add('Tempo di risposta medio', r.choice.meanRT!=null ? Math.round(r.choice.meanRT)+' ms' : null);
   } else if(family==='dual'){
     add('Canale visivo', pct(r.metrics.acc));

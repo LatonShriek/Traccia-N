@@ -51,7 +51,9 @@ const FILES = [
   'nback.test.js',
   'gonogo-dual.test.js',
   'setup-sections.test.js',
-  'intruso-errori.test.js'
+  'intruso-errori.test.js',
+  'griglie-nrichieste.test.js',
+  'griglie-consegne.test.js'
 ];
 
 // Suite end-to-end (browser vero via Playwright — più lenta, richiede
@@ -60,7 +62,7 @@ const FILES = [
 // è un avviso, non un errore — non tutti gli ambienti di lavoro avranno
 // installato Playwright, e la suite veloce deve restare sempre lanciabile
 // da sola senza dipendenze.
-const E2E_FILES = ['e2e/session-flow.test.js', 'e2e/back-button.test.js', 'e2e/passaggio.test.js'];
+const E2E_FILES = ['e2e/session-flow.test.js', 'e2e/back-button.test.js', 'e2e/passaggio.test.js', 'e2e/griglie-modi.test.js'];
 
 async function runFile(file) {
   const t = makeRunner();

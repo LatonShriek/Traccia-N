@@ -62,7 +62,7 @@ const FILES = [
 // è un avviso, non un errore — non tutti gli ambienti di lavoro avranno
 // installato Playwright, e la suite veloce deve restare sempre lanciabile
 // da sola senza dipendenze.
-const E2E_FILES = ['e2e/session-flow.test.js', 'e2e/back-button.test.js', 'e2e/passaggio.test.js', 'e2e/griglie-modi.test.js'];
+const E2E_FILES = ['e2e/session-flow.test.js', 'e2e/back-button.test.js', 'e2e/passaggio.test.js', 'e2e/griglie-modi.test.js', 'e2e/griglie-aiuto.test.js'];
 
 async function runFile(file) {
   const t = makeRunner();

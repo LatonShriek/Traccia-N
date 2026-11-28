@@ -23,6 +23,8 @@ module.exports = async function run(t){
       await page.waitForTimeout(250);
       const minus = page.locator('label:has-text("Numero di prove")').locator('xpath=following-sibling::*[1]').locator('button:has-text("–")');
       for(let i=0;i<20;i++) await minus.click().catch(()=>{});
+      // riscontro spento: un solo tentativo col numero (secondo tentativo e aiuto a tocco sono provati in griglie-aiuto.test.js)
+      await page.locator('label:has-text("Riscontro dopo ogni prova")').locator('xpath=following-sibling::*[1]').locator('button:text-is("No")').click();
       await page.click('text=Avvia sessione');
       await page.waitForTimeout(300);
       await page.click('text=Ho capito, inizia');

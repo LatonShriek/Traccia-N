@@ -57,6 +57,11 @@ export function detailRowsOf(r, forPatient){
     if(r.choice.aTocco!=null){ // Griglie: modo di risposta (si può cambiare durante la seduta)
       add('Consegne a tocco / col numero', r.choice.aTocco+' / '+r.choice.aNumero);
       if(r.choice.cambiModo>0) add('Consegne con cambio di modo prima della risposta', r.choice.cambiModo);
+      if(r.choice.secondoConteggio>0) add('Corrette al secondo conteggio', r.choice.secondoConteggio);
+      if(r.choice.aiutoTocco>0){
+        add('Aiuto a tocco scelto dopo 1 / 2 errori', r.choice.aiutoDopo1+' / '+r.choice.aiutoDopo2);
+        add('Aiuto a tocco: 1\u00b0 \u00b7 2\u00b0 tentativo \u00b7 non risolte', r.choice.aiutoRisolte1+' \u00b7 '+r.choice.aiutoRisolte2+' \u00b7 '+r.choice.aiutoNonRisolte);
+      }
     }
     add('Tempo di risposta medio', r.choice.meanRT!=null ? Math.round(r.choice.meanRT)+' ms' : null);
   } else if(family==='dual'){

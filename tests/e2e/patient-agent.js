@@ -258,6 +258,9 @@ async function simulateGriglieResponses(page, { maxMs = 90000, tapEveryMs = 120 
   let taps = 0;
   while (Date.now() - start < maxMs) {
     if (!(await page.locator('button:has-text("Interrompi")').count())) break;
+    // conteggio sbagliato: si sceglie la soluzione (o si riprova), senza usare l'aiuto
+    const scelta = page.locator('button:text-is("Mostra la soluzione"), button:text-is("Riprova a contare")');
+    if (await scelta.count()) { await scelta.first().click({ timeout: 800 }).catch(() => {}); taps++; await page.waitForTimeout(Math.max(500, tapEveryMs)); continue; }
     // risposta a tocco (predefinita): tocca qualche cella, OK, poi Avanti
     if (await page.locator('button:text-is("OK")').count() || await page.locator('button:text-is("Avanti")').count()) {
       if (await page.locator('button:text-is("Avanti")').count()) { await page.locator('button:text-is("Avanti")').first().click({ timeout: 800 }).catch(() => {}); taps++; await page.waitForTimeout(tapEveryMs); continue; }

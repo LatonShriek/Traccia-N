@@ -171,6 +171,15 @@ import { EXERCISES } from './registry.js';
         rec.choice.aTocco = log.filter(x=>x.mode==='tocco').length;
         rec.choice.aNumero = log.filter(x=>x.mode==='numero').length;
         rec.choice.cambiModo = log.filter(x=>x.cambioModo).length;
+        // dopo un conteggio sbagliato: esito, punteggio e tempo restano del primo conteggio; il recupero è a parte
+        rec.choice.secondoConteggio = log.filter(x=>x.secondoConteggio).length;
+        const aiuti = log.filter(x=>x.aiuto);
+        rec.choice.aiutoTocco = aiuti.length;
+        rec.choice.aiutoDopo1 = aiuti.filter(x=>x.aiuto.dopo===1).length;
+        rec.choice.aiutoDopo2 = aiuti.filter(x=>x.aiuto.dopo===2).length;
+        rec.choice.aiutoRisolte1 = aiuti.filter(x=>x.aiuto.esito===1).length;
+        rec.choice.aiutoRisolte2 = aiuti.filter(x=>x.aiuto.esito===2).length;
+        rec.choice.aiutoNonRisolte = aiuti.filter(x=>x.aiuto.esito===0).length;
       }
       if(cfg.taskMode==='ant'){
         const rtBy = (key,val)=> rtMeanOf(log.filter(x=>x[key]===val && x.correct).map(x=>x.rt));

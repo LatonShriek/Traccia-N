@@ -5379,7 +5379,7 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // una alla volta; la griglia resta visibile e il paziente digita il numero (uno, due, o «quale + di quanti»
   // a seconda della consegna). A fine griglia ne nasce una nuova (con il livello eventualmente adattato).
   // Registra session.choiceLog come gli altri esercizi a scelta.
-  function grigliaResetAnswer(){ session.sel = new Set(); session.reveal = null; session.digits = ['','']; session.slot = 0; session.which = null; }
+  function grigliaResetAnswer(){ session.sel = new Set(); session.reveal = null; session.digits = ['','']; session.slot = 0; session.which = null; session.num = null; session.help = null; }
   function startGriglieSession(){
     session = { trialIdx:0, grid:null, ruleIdx:0, trialShownAt:0, choiceLog:[], grAdaptBlock:[], startedAtWall:Date.now(), timer:null, paused:false };
     newGriglieGrid();
@@ -5393,19 +5393,91 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   // Modalità di risposta della seduta: parte da quella scelta in Setup e si può cambiare mentre si lavora (il tocco è più
   // semplice). Il cambio vale per la consegna non ancora confermata e per le successive; non modifica la scelta salvata.
   function grigliaModo(){ return (session && session.risposta) || (cfg.grigliaRisposta==='numero' ? 'numero' : 'tocco'); }
-  function grigliaTouch(rule){ return grigliaModo()!=='numero' && !!rule.touch; }
+  function grigliaTouch(rule){ return !!session.help || (grigliaModo()!=='numero' && !!rule.touch); }
   function grigliaCambiaModo(){
-    if(session.reveal) return; // consegna già corretta: si cambia dalla prossima
+    if(session.reveal || session.num) return; // consegna già corretta o già tentata: si cambia dalla prossima
     session.risposta = grigliaModo()==='numero' ? 'tocco' : 'numero';
     session.cambioSu = session.trialIdx;
     grigliaResetAnswer();
-    // il testo della consegna cambia («Conta» / «Tocca»): si rimostra per il solito tempo (contata fra le visioni)
+    grigliaRimostra(); // il testo della consegna cambia («Conta» / «Tocca»)
+    render();
+  }
+  // la consegna si rimostra per il solito tempo (contata fra le visioni)
+  function grigliaRimostra(){
     const sec = cfg.grigliaEspSec==null ? 5 : cfg.grigliaEspSec;
     if(sec>0 && session.instrFor===session.trialIdx){ session.instrUntil = performance.now()+sec*1000; session.instrViews = (session.instrViews|0)+1; }
+  }
+  // --- Dopo un conteggio sbagliato: secondo tentativo, aiuto a tocco, soluzione ---
+  // Come nel lettore di PdM CDCD. Esito, punteggio, tempo e adattamento restano quelli del PRIMO conteggio, già
+  // registrati; quello che succede dopo si annota a parte sulla stessa riga. session.num: fase 'scrivi' | 'scelta' |
+  // 'soluzione'. Col riscontro per prova disattivato (o in screening) il conteggio resta a tentativo singolo e muto.
+  // L'aiuto a tocco c'è solo se toccando si risponde alla stessa domanda: non per «quante righe», «quale riga» e per il
+  // confronto (che chiede anche «di quanti»).
+  function grigliaAiutoPossibile(rule){ return !!rule.touch && rule.input.type!=='compare'; }
+  function grigliaNumOk(rule, i){ // casella già giusta (serve nel doppio conteggio)
+    return rule.input.type==='double' && session.digits[i]!=='' && Number(session.digits[i])===rule.input.expected[i];
+  }
+  function grigliaNumeroSbagliato(rule){
+    const n = session.num;
+    const parte = (rule.input.type==='double' && (grigliaNumOk(rule,0) || grigliaNumOk(rule,1))) ? 'Uno dei due numeri è giusto, l\'altro no' : 'Non è corretto';
+    if(grigliaAiutoPossibile(rule)){ n.fase = 'scelta'; n.msg = parte+'. Cosa vuoi fare?'; }
+    else if(n.tent===1) grigliaRiprova(rule, parte+', ricontrolla.');
+    else grigliaMostraSoluzione();
+    render();
+  }
+  function grigliaRiprova(rule, msg){
+    const n = session.num;
+    n.tent = 2; n.fase = 'scrivi'; n.msg = msg;
+    session.digits = session.digits.map((d,i)=>grigliaNumOk(rule,i) ? d : '');
+    session.slot = grigliaNumOk(rule,0) ? 1 : 0;
+    session.which = null;
+    grigliaRimostra();
+  }
+  function grigliaMostraSoluzione(){ session.num.fase = 'soluzione'; session.num.msg = ''; }
+  function grigliaSoluzioneTesto(rule){
+    const inp = rule.input;
+    if(inp.type==='double') return 'I numeri giusti sono '+inp.expected[0]+' ('+inp.labels[0]+') e '+inp.expected[1]+' ('+inp.labels[1]+').';
+    if(inp.type==='compare') return 'La risposta giusta è: '+inp.labels[inp.expected.which]+', '+inp.expected.diff+' in più.';
+    return 'La risposta giusta è '+inp.expected+'.';
+  }
+  // celle da evidenziare nella soluzione del conteggio (per «quale riga» e confronto basta la risposta scritta)
+  function grigliaSoluzioneCelle(g, rule){
+    if(rule.input.type==='compare') return null;
+    if(rule.touch) return rule.touch.target;
+    return rule.vk==='rows' && rule.matches ? g.cells.map((c,i)=>rule.matches(c)?i:-1).filter(i=>i>=0) : null;
+  }
+  function grigliaScegli(n){
+    const num = session.num;
+    if(!num || num.fase!=='scelta' || Date.now()<session.lockUntil) return;
+    session.lockUntil = Date.now()+450;
+    const rule = session.grid.rules[session.ruleIdx];
+    if(num.tent===1 && n===1) grigliaRiprova(rule, 'Ricontrolla e premi Conferma.');
+    else if(num.tent===2 && n===2) grigliaMostraSoluzione();
+    else {
+      session.help = { dopo:num.tent, tent:1, flagged:new Set(), msg:'Ora tocca le celle.' };
+      session.sel = new Set();
+      num.entry.aiuto = { dopo:num.tent, esito:null };
+      grigliaRimostra();
+    }
+    render();
+  }
+  // Conferma durante l'aiuto a tocco: due tentativi; al primo errore le celle sbagliate escono dalla selezione e non si ritoccano
+  function resolveGrigliaAiuto(rule){
+    const h = session.help, entry = session.num.entry;
+    const sc = scoreGrigliaSelection(rule, [...session.sel], 0);
+    if(h.tent===1){ entry.aiuto.omessi = sc.missed.length; entry.aiuto.falsi = sc.wrong.length; }
+    if(!sc.correct && h.tent===1){
+      h.tent = 2; sc.wrong.forEach(i=>{ h.flagged.add(i); session.sel.delete(i); });
+      h.msg = [sc.wrong.length ? 'Quelle con ✕ non vanno bene.' : '', sc.missed.length ? 'Ne manca qualcuna.' : '', 'Riprova e premi OK.'].filter(Boolean).join(' ');
+    } else {
+      entry.aiuto.esito = sc.correct ? h.tent : 0;
+      const wrong = [...new Set([...sc.wrong, ...h.flagged])];
+      session.reveal = Object.assign({}, sc, { wrong });
+    }
     render();
   }
   function grigliaBtnModo(rule){
-    if(!rule.touch) return null; // «quante righe / quale riga»: si risponde solo con un numero
+    if(!rule.touch || session.num) return null; // «quante righe / quale riga»: solo numero; dopo un tentativo non si cambia
     return el('button',{class:'ghost', style:'flex:0 0 auto; opacity:.85; margin-right:20px;', onclick:()=>grigliaCambiaModo()},[grigliaTouch(rule) ? 'Passa al numero' : 'Passa al tocco']);
   }
   function grigliaGiven(rule){
@@ -5422,6 +5494,22 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
   }
   function resolveGriglieTrial(){
     const rule = session.grid.rules[session.ruleIdx];
+    // breve pausa dopo ogni conferma: un doppio tocco non deve scegliere o saltare avanti da solo
+    if(Date.now() < (session.lockUntil||0)) return;
+    if(session.help){
+      session.lockUntil = Date.now()+450;
+      if(!session.reveal) resolveGrigliaAiuto(rule); else grigliaAdvance();
+      return;
+    }
+    if(session.num){
+      session.lockUntil = Date.now()+450;
+      if(session.num.fase==='soluzione'){ grigliaAdvance(); return; }
+      if(session.num.fase!=='scrivi') return;
+      // secondo tentativo di conteggio
+      if(scoreGrigliaAnswer(rule, grigliaGiven(rule), 0).correct){ session.num.entry.secondoConteggio = true; grigliaAdvance(); return; }
+      grigliaNumeroSbagliato(rule);
+      return;
+    }
     if(grigliaTouch(rule)){
       if(!session.reveal){ // 1° passaggio: l'OK generale chiude la selezione e mostra giusti / sbagliati / mancanti
         const rt = Math.round(performance.now()-session.trialShownAt);
@@ -5442,6 +5530,12 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     session.choiceLog.push({correct:sc.correct, omitted:sc.omitted, rt:sc.rt, score:Math.round(sc.score*100)/100, level:cfg.adaptStartLevel, gen:session.grid.gen, instrViews:session.instrViews||1, expected:rule.input.expected, given, mode:'numero', tier:rule.tier, kind:rule.kind, vk:rule.vk, category:session.grid.category});
     if(session.cambioSu===session.trialIdx) session.choiceLog[session.choiceLog.length-1].cambioModo = true;
     session.grAdaptBlock.push(rtBucketOutcome('num:'+rule.kind, sc.score, session.cambioSu!==session.trialIdx ? sc.rt : null)); trialFeedback(!!sc.correct);
+    if(!sc.correct && !sc.omitted && feedbackAttivo()){
+      session.lockUntil = Date.now()+450;
+      session.num = { tent:1, fase:'scrivi', msg:'', entry:session.choiceLog[session.choiceLog.length-1] };
+      grigliaNumeroSbagliato(rule);
+      return;
+    }
     grigliaAdvance();
   }
   function grigliaAdvance(){
@@ -5479,8 +5573,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
           else if(rv.wrong.includes(ci)){ d.style.outline = '6px solid #D64545'; d.style.outlineOffset = '2px'; d.appendChild(el('span',{style:'position:absolute; top:-6px; right:-6px; background:#D64545; color:#fff; border-radius:50%; width:22px; height:22px; font-size:15px; line-height:22px; text-align:center;'},['✗'])); }
           else if(rv.missed.includes(ci)){ d.style.outline = '6px dashed #E08A1E'; d.style.outlineOffset = '2px'; }
         } else {
-          if(opts.selected.has(ci)){ d.style.outline = '6px solid #1F5FBF'; d.style.outlineOffset = '2px'; }
-          d.onclick = ()=>opts.onTap(ci);
+          if(opts.flagged && opts.flagged.has(ci)){ // aiuto a tocco: già segnalata come sbagliata, non si ritocca
+            d.className = 'gr-esclusa'; d.style.cursor = 'default'; d.style.outline = '5px dashed #7D8782'; d.style.outlineOffset = '2px';
+            d.appendChild(el('span',{style:'position:absolute; top:-6px; right:-6px; background:#6B746F; color:#fff; border-radius:50%; width:22px; height:22px; font-size:15px; line-height:22px; text-align:center;'},['✕']));
+          } else {
+            if(opts.selected.has(ci)){ d.style.outline = '6px solid #1F5FBF'; d.style.outlineOffset = '2px'; }
+            d.onclick = ()=>opts.onTap(ci);
+          }
         }
       }
       wrap.appendChild(d);
@@ -5526,14 +5625,15 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     const cellPx = Math.floor(Math.max(26, Math.min(availW/g.cols - 4, availH/g.rows - 4, 150)));
     if(grigliaTouch(rule)){ // risposta a tocco
       content.appendChild(grigliaInstr(rule.touch.text, 22, !!session.reveal));
-      const rv = session.reveal;
+      const rv = session.reveal, h = session.help;
       content.appendChild(el('p',{class:'hint', style:'text-align:center; margin:0 0 4px;'},[rv
         ? (rv.omitted ? 'Non hai toccato nulla. Gli elementi giusti erano quelli con il contorno arancione tratteggiato.' : rv.correct ? 'Giusto: tutti e soli gli elementi richiesti.' : 'Verde ✓ = giusti · Rosso ✗ = toccati per errore · Arancione tratteggiato = dimenticati.')
-        : 'Tocca gli elementi che rispettano la consegna; ritocca per togliere la selezione. Alla fine premi OK.']));
-      content.appendChild(renderGriglieGrid(g, cellPx, { onTap:ci=>{ if(session.sel.has(ci)) session.sel.delete(ci); else session.sel.add(ci); render(); }, selected:session.sel, reveal:rv }));
+        : h ? h.msg : 'Tocca gli elementi che rispettano la consegna; ritocca per togliere la selezione. Alla fine premi OK.']));
+      if(h && rv) content.appendChild(el('p',{class:'gr-totale', style:'text-align:center; margin:0 0 4px; font-weight:700;'},[grigliaSoluzioneTesto(rule)]));
+      content.appendChild(renderGriglieGrid(g, cellPx, { onTap:ci=>{ if(session.sel.has(ci)) session.sel.delete(ci); else session.sel.add(ci); render(); }, selected:session.sel, flagged:h && h.flagged, reveal:rv }));
       const rowT = el('div',{class:'rowbtns', style:'justify-content:center; margin-top:8px; gap:12px; flex-wrap:wrap;'});
       if(!rv){
-        rowT.appendChild(grigliaBtnModo(rule));
+        const bm = grigliaBtnModo(rule); if(bm) rowT.appendChild(bm); // nell'aiuto a tocco non c'è
         rowT.appendChild(el('span',{style:'align-self:center; font-weight:700;'},['Selezionati: '+session.sel.size]));
         const clr = el('button',{class:'ghost', style:'min-height:56px; min-width:120px; font-size:18px;', onclick:()=>{ session.sel = new Set(); render(); }},['Azzera']);
         if(!session.sel.size) clr.disabled = true;
@@ -5554,11 +5654,32 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
       : inp.unit==='righe' || inp.unit==='colonne' ? 'Scrivi un numero: quante '+inp.unit+'.'
       : inp.unit ? 'Scrivi il NUMERO della '+inp.unit+' (si contano '+(inp.unit==='riga'?'dall\'alto: la prima è 1':'da sinistra: la prima è 1')+').'
       : null;
-    if(how) content.appendChild(el('p',{class:'hint', style:'text-align:center; margin:0 0 4px;'},[how]));
+    const num = session.num;
+    if(num && num.fase==='soluzione'){ // totale giusto, celle evidenziate e «Avanti»
+      content.appendChild(el('p',{class:'gr-totale', style:'text-align:center; margin:0 0 4px; font-weight:700; font-size:20px;'},[grigliaSoluzioneTesto(rule)]));
+      const celle = grigliaSoluzioneCelle(g, rule);
+      content.appendChild(renderGriglieGrid(g, cellPx, celle ? { onTap:()=>{}, selected:new Set(), reveal:{ hit:celle, wrong:[], missed:[] } } : undefined));
+      const rowS = el('div',{class:'rowbtns', style:'justify-content:center; margin-top:8px;'});
+      rowS.appendChild(el('button',{class:'primary', style:'min-height:56px; min-width:180px; width:auto; font-size:20px;', onclick:()=>resolveGriglieTrial()},['Avanti']));
+      content.appendChild(rowS);
+      return;
+    }
+    if(num && num.msg) content.appendChild(el('p',{class:'gr-msg', 'aria-live':'polite', style:'text-align:center; margin:0 0 4px; font-weight:700;'},[num.msg]));
+    else if(how) content.appendChild(el('p',{class:'hint', style:'text-align:center; margin:0 0 4px;'},[how]));
     content.appendChild(renderGriglieGrid(g, cellPx));
+    if(num && num.fase==='scelta'){ // totale e celle restano coperti: decide il paziente
+      const scritti = inp.type==='double' ? session.digits.slice(0,2).join(' e ') : session.digits[0];
+      content.appendChild(el('p',{class:'hint', style:'text-align:center;'},['Hai scritto: '+scritti]));
+      const rowC = el('div',{class:'rowbtns', style:'justify-content:center; margin-top:8px; gap:16px; flex-wrap:wrap;'});
+      (num.tent===1 ? ['Riprova a contare','Prova toccando le celle'] : ['Prova toccando le celle','Mostra la soluzione']).forEach((t,i)=>{
+        rowC.appendChild(el('button',{class:'ghost', style:'min-height:60px; min-width:220px; width:auto; flex:0 1 300px; font-size:19px; font-weight:700;', onclick:()=>grigliaScegli(i+1)},[t]));
+      });
+      content.appendChild(rowC);
+      return;
+    }
     const slots = el('div',{style:'display:flex; justify-content:center; gap:12px; margin:6px 0; flex-wrap:wrap;'});
     if(inp.type==='double'){
-      [0,1].forEach(i=>slots.appendChild(grigliaSlot(i===0?'primo':'secondo', session.digits[i], session.slot===i, ()=>{ session.slot=i; render(); })));
+      [0,1].forEach(i=>{ const giusto = !!num && grigliaNumOk(rule,i); slots.appendChild(grigliaSlot((i===0?'primo':'secondo')+(giusto?' ✓':''), session.digits[i], !giusto && session.slot===i, ()=>{ if(!giusto){ session.slot=i; render(); } })); });
     } else if(inp.type==='compare'){
       [0,1].forEach(i=>slots.appendChild(el('button',{style:'padding:8px 14px; font-size:15px; font-weight:700; max-width:300px; border:3px solid '+(session.which===i?'var(--accent,#1F6F63)':'#C9D1CB')+'; background:'+(session.which===i?'#E3F1EC':'#fff')+'; border-radius:8px;', onclick:()=>{ session.which=i; render(); }},[inp.labels[i]])));
       slots.appendChild(grigliaSlot('di quanti', session.digits[0], true, ()=>{}));
@@ -5572,12 +5693,13 @@ import { TITRATION_EXERCISES, TITRATION_MODE_EXTRA, hasTitrationMode, DEFAULT_TA
     for(let d=0; d<=9; d++){
       pad.appendChild(el('button',{style:'min-height:60px; font-size:28px; font-weight:700;', onclick:()=>{
         const cur = session.digits[slotIdx];
+        if(session.num && grigliaNumOk(rule, slotIdx)) return; // il numero già giusto non si riscrive
         if(cur.length<2){ session.digits[slotIdx] = (cur==='0'?'':cur)+d; if(inp.type==='double' && session.digits[slotIdx].length===2 && slotIdx===0) session.slot = 1; render(); }
       }},[String(d)]));
     }
     content.appendChild(pad);
     const row = el('div',{class:'rowbtns', style:'justify-content:center; margin-top:8px;'});
-    row.appendChild(el('button',{class:'ghost', onclick:()=>{ session.digits[slotIdx] = session.digits[slotIdx].slice(0,-1); render(); }},['Cancella']));
+    row.appendChild(el('button',{class:'ghost', onclick:()=>{ if(session.num && grigliaNumOk(rule, slotIdx)) return; session.digits[slotIdx] = session.digits[slotIdx].slice(0,-1); render(); }},['Cancella']));
     const ok = el('button',{class:'primary', onclick:()=>resolveGriglieTrial()},['Conferma']);
     if(!grigliaComplete(rule)) ok.disabled = true;
     row.appendChild(ok);

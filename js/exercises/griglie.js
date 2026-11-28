@@ -297,41 +297,49 @@ const GRID_POS_W2_FROM = 10;
 // Testi e filtri di posizione si ricalcolano sulle dimensioni EFFETTIVE della griglia di questa
 // sessione (righe/colonne crescono col livello, vedi gridRowsForLevel/gridColsForLevel): prima
 // erano scritti per una 5×7 fissa (es. "colonne 1, 4 e 7"), ora restano corretti a ogni dimensione.
+// Le consegne di posizione dicono sempre i NUMERI di riga e colonna (28 nov 2026: «metà sinistra» con 7 colonne non
+// si capiva). I numeri si adattano alla grandezza della griglia; le celle giuste sono le stesse di prima.
+// kind: "riga" | "colonna". posSpan = tratto continuo (da a a b), posPair = due linee separate.
+function posLines(kind){ return kind==="riga" ? ["riga","righe"] : ["colonna","colonne"]; }
+function posSpan(kind, a, b){ const [one, many] = posLines(kind); return a>=b ? `nella ${one} ${a}` : `nelle ${many} ${a}–${b}`; }
+function posPair(kind, a, b){ const [one, many] = posLines(kind); return a===b ? `nella ${one} ${a}` : `nelle ${many} ${Math.min(a,b)} e ${Math.max(a,b)}`; }
+function posRange(a, b){ return a>=b ? String(a) : `${a}–${b}`; }
+function posParity(n, first){ const out=[]; for(let i=first;i<=n;i+=2) out.push(i); return out.join(", "); }
 function buildPosOptions(rows, cols){
   const isFrame = c => c.row===0 || c.row===rows-1 || c.col===0 || c.col===cols-1;
   const rMid = Math.floor((rows-3)/2), cMid = Math.floor((cols-3)/2);       // per le fasce "centrali"
   const colMid = Math.ceil((cols+1)/2);                                    // colonna centrale per "colonne 1, mid e ultima"
   return [
-    { w:1, text:"nelle righe pari", f:c=>(c.row+1)%2===0 },
-    { w:1, text:"nelle righe dispari", f:c=>(c.row+1)%2===1 },
-    { w:1, text:"nelle colonne pari", f:c=>(c.col+1)%2===0 },
-    { w:1, text:"nelle colonne dispari", f:c=>(c.col+1)%2===1 },
-    { w:1, text:"nelle prime 3 righe", f:c=>c.row<3 },
-    { w:1, text:"nelle ultime 3 righe", f:c=>c.row>=rows-3 },
-    { w:1, text:"nelle prime 2 righe", f:c=>c.row<2 },
-    { w:1, text:"nelle ultime 2 righe", f:c=>c.row>=rows-2 },
-    { w:1, text:"nelle prime 4 colonne", f:c=>c.col<4 },
-    { w:1, text:"nelle ultime 4 colonne", f:c=>c.col>=cols-4 },
-    { w:1, text:"nelle prime 3 colonne", f:c=>c.col<3 },
-    { w:1, text:"nelle ultime 3 colonne", f:c=>c.col>=cols-3 },
+    { w:1, text:`nelle righe pari (${posParity(rows,2)})`, f:c=>(c.row+1)%2===0 },
+    { w:1, text:`nelle righe dispari (${posParity(rows,1)})`, f:c=>(c.row+1)%2===1 },
+    { w:1, text:`nelle colonne pari (${posParity(cols,2)})`, f:c=>(c.col+1)%2===0 },
+    { w:1, text:`nelle colonne dispari (${posParity(cols,1)})`, f:c=>(c.col+1)%2===1 },
+    { w:1, text:posSpan("riga", 1, Math.min(3,rows)), f:c=>c.row<3 },
+    { w:1, text:posSpan("riga", Math.max(1,rows-2), rows), f:c=>c.row>=rows-3 },
+    { w:1, text:posSpan("riga", 1, Math.min(2,rows)), f:c=>c.row<2 },
+    { w:1, text:posSpan("riga", Math.max(1,rows-1), rows), f:c=>c.row>=rows-2 },
+    { w:1, text:posSpan("colonna", 1, Math.min(4,cols)), f:c=>c.col<4 },
+    { w:1, text:posSpan("colonna", Math.max(1,cols-3), cols), f:c=>c.col>=cols-4 },
+    { w:1, text:posSpan("colonna", 1, Math.min(3,cols)), f:c=>c.col<3 },
+    { w:1, text:posSpan("colonna", Math.max(1,cols-2), cols), f:c=>c.col>=cols-3 },
     { w:1, text:`nelle righe centrali (${rMid+1}–${rMid+3})`, f:c=>c.row>=rMid && c.row<=rMid+2 },
     { w:1, text:`nelle colonne centrali (${cMid+1}–${cMid+3})`, f:c=>c.col>=cMid && c.col<=cMid+2 },
-    { w:1, text:"sulla cornice della griglia (righe e colonne esterne)", f:c=>isFrame(c) },
-    { w:1, text:"nelle celle interne (non sulla cornice)", f:c=>!isFrame(c) },
+    { w:1, text:`sulla cornice della griglia (righe 1 e ${rows}, colonne 1 e ${cols})`, f:c=>isFrame(c) },
+    { w:1, text:`nelle celle interne, non sulla cornice (righe ${posRange(2,rows-1)}, colonne ${posRange(2,cols-1)})`, f:c=>!isFrame(c) },
     { w:2, text:"nelle celle in riga dispari e colonna dispari", f:c=>(c.row+1)%2===1 && (c.col+1)%2===1 },
     { w:2, text:"nelle celle in riga dispari e colonna pari", f:c=>(c.row+1)%2===1 && (c.col+1)%2===0 },
     { w:2, text:"nelle celle in riga pari e colonna dispari", f:c=>(c.row+1)%2===0 && (c.col+1)%2===1 },
     { w:2, text:"nelle celle in riga pari e colonna pari", f:c=>(c.row+1)%2===0 && (c.col+1)%2===0 },
-    { w:2, text:`nella prima e nell'ultima riga (righe 1 e ${rows})`, f:c=>c.row===0 || c.row===rows-1 },
+    { w:2, text:posPair("riga", 1, rows), f:c=>c.row===0 || c.row===rows-1 },
     { w:2, text:`nelle colonne 1, ${colMid} e ${cols}`, f:c=>c.col===0 || c.col===colMid-1 || c.col===cols-1 },
-    { w:1, text:"nella metà sinistra della griglia", f:c=>c.col < Math.floor(cols/2) },
-    { w:1, text:"nella metà destra della griglia", f:c=>c.col >= Math.ceil(cols/2) },
-    { w:1, text:"nella metà superiore della griglia", f:c=>c.row < Math.floor(rows/2) },
-    { w:1, text:"nella metà inferiore della griglia", f:c=>c.row >= Math.ceil(rows/2) },
-    { w:2, text:"nella prima e nell'ultima colonna", f:c=>c.col===0 || c.col===cols-1 },
-    { w:2, text:"nella seconda e nella penultima riga", f:c=>c.row===1 || c.row===rows-2 },
-    { w:2, text:"né sulla prima riga né sulla prima colonna", f:c=>c.row>0 && c.col>0 },
-    { w:2, text:"nelle prime 2 righe oppure nelle ultime 2 colonne", f:c=>c.row<2 || c.col>=cols-2 }
+    { w:1, text:posSpan("colonna", 1, Math.floor(cols/2)), f:c=>c.col < Math.floor(cols/2) },
+    { w:1, text:posSpan("colonna", Math.ceil(cols/2)+1, cols), f:c=>c.col >= Math.ceil(cols/2) },
+    { w:1, text:posSpan("riga", 1, Math.floor(rows/2)), f:c=>c.row < Math.floor(rows/2) },
+    { w:1, text:posSpan("riga", Math.ceil(rows/2)+1, rows), f:c=>c.row >= Math.ceil(rows/2) },
+    { w:2, text:posPair("colonna", 1, cols), f:c=>c.col===0 || c.col===cols-1 },
+    { w:2, text:posPair("riga", 2, rows-1), f:c=>c.row===1 || c.row===rows-2 },
+    { w:2, text:"né sulla riga 1 né sulla colonna 1", f:c=>c.row>0 && c.col>0 },
+    { w:2, text:`${posSpan("riga", 1, 2)} oppure ${posSpan("colonna", cols-1, cols)}`, f:c=>c.row<2 || c.col>=cols-2 }
   ];
 }
 

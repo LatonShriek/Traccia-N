@@ -54,6 +54,10 @@ export function detailRowsOf(r, forPatient){
       if(r.choice.erroriConcessi>0){ add('Giuste dopo errori', r.choice.dopoErrori); add('Giuste con l\u2019aiuto (riga)', r.choice.conAiuto); }
       add('Errori in tutto', r.choice.erroriTotali);
     }
+    if(r.choice.aTocco!=null){ // Griglie: modo di risposta (si può cambiare durante la seduta)
+      add('Consegne a tocco / col numero', r.choice.aTocco+' / '+r.choice.aNumero);
+      if(r.choice.cambiModo>0) add('Consegne con cambio di modo prima della risposta', r.choice.cambiModo);
+    }
     add('Tempo di risposta medio', r.choice.meanRT!=null ? Math.round(r.choice.meanRT)+' ms' : null);
   } else if(family==='dual'){
     add('Canale visivo', pct(r.metrics.acc));

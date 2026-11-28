@@ -166,6 +166,12 @@ import { EXERCISES } from './registry.js';
         rec.choice.erroriTotali = log.reduce((a,x)=> a + (x.errs>0 ? x.errs : (x.correct||x.omitted ? 0 : 1)), 0);
         rec.choice.erroriConcessi = intrusoHintAfterOf(cfg);
       }
+      if(cfg.taskMode==='griglie'){
+        // la modalità di risposta si può cambiare durante la seduta: resta quante consegne per ciascun modo
+        rec.choice.aTocco = log.filter(x=>x.mode==='tocco').length;
+        rec.choice.aNumero = log.filter(x=>x.mode==='numero').length;
+        rec.choice.cambiModo = log.filter(x=>x.cambioModo).length;
+      }
       if(cfg.taskMode==='ant'){
         const rtBy = (key,val)=> rtMeanOf(log.filter(x=>x[key]===val && x.correct).map(x=>x.rt));
         const noneRT=rtBy('cueType','none'), centerRT=rtBy('cueType','center'), spatialRT=rtBy('cueType','spatial');
